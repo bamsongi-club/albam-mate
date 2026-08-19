@@ -42,6 +42,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.data.redis.connection.RedisConnection;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -61,11 +62,12 @@ import ch.qos.logback.core.FileAppender;
 import ch.qos.logback.core.read.ListAppender;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.room.service.RoomOptimisticLockRetrier;
-import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.registry.otlp.OtlpMeterRegistry;
 import io.opentelemetry.proto.collector.metrics.v1.ExportMetricsServiceRequest;
 import jakarta.persistence.OptimisticLockException;
 
 @Testcontainers
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @ActiveProfiles("production")
 @ExtendWith(OutputCaptureExtension.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
@@ -79,6 +81,7 @@ import jakarta.persistence.OptimisticLockException;
 	"ALBAM_MATE_ROLE=app1",
 	"ALBAM_MATE_INSTANCE_ID=postgres-test",
 	"ALBAM_MATE_RELEASE=test-release",
+	"management.otlp.metrics.export.enabled=true",
 	"logging.file.name=build/test-results/monitoring/production-structured.json"
 })
 class MonitoringProductionPostgresTest {
@@ -121,7 +124,7 @@ class MonitoringProductionPostgresTest {
 	static final GenericContainer<?> PROBE_REDIS = redisContainer();
 
 	@Autowired
-	private MeterRegistry meterRegistry;
+	private OtlpMeterRegistry meterRegistry;
 
 	@Autowired
 	private DataSource dataSource;
@@ -148,7 +151,10 @@ class MonitoringProductionPostgresTest {
 	}
 
 	@AfterAll
-	static void stopTimedOutOtlpReceiver() throws InterruptedException {
+	static void stopOtlpExporterBeforeTimedOutReceiver(@Autowired
+	OtlpMeterRegistry otlpMeterRegistry)
+		throws InterruptedException {
+		otlpMeterRegistry.close();
 		TIMED_OUT_OTLP_RECEIVER.stop(0);
 		OTLP_RECEIVER_EXECUTOR.shutdownNow();
 		assertTrue(OTLP_RECEIVER_EXECUTOR.awaitTermination(2, java.util.concurrent.TimeUnit.SECONDS));

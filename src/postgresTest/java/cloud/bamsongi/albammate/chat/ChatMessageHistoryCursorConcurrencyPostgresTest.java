@@ -22,14 +22,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import cloud.bamsongi.albammate.chat.dto.ChatMessagePageResponse;
 import cloud.bamsongi.albammate.chat.dto.ChatMessageResponse;
@@ -44,24 +41,19 @@ import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
 import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
+import cloud.bamsongi.albammate.testsupport.SharedPostgresIntegrationSupport;
 
 /** ADR-0031 커서 이력 조회가 동시 저장 중에도 이어 읽기에서 중복·누락이 없는지 실제 PostgreSQL로 검증한다. */
 @Testcontainers
 @SpringBootTest
 @Import(ChatMessageHistoryCursorConcurrencyPostgresTest.FixedClockConfiguration.class)
-class ChatMessageHistoryCursorConcurrencyPostgresTest {
+class ChatMessageHistoryCursorConcurrencyPostgresTest extends SharedPostgresIntegrationSupport {
 
-	private static final String POSTGRES_IMAGE = "postgres:18.4";
 	private static final Instant NOW = Instant.parse("2026-08-04T00:00:00Z");
 	private static final long WAIT_SECONDS = 10;
 	private static final int PAGE_SIZE = 20;
 	private static final int INITIAL_MESSAGE_COUNT = 60;
 	private static final int CONCURRENT_MESSAGE_COUNT = 20;
-
-	@Container
-	@ServiceConnection
-	static final PostgreSQLContainer postgres = new PostgreSQLContainer(POSTGRES_IMAGE)
-		.withDatabaseName("albam_mate_chat_history_cursor_concurrency_test");
 
 	@Autowired
 	private ChatMessageHistoryQueryService chatMessageHistoryQueryService;

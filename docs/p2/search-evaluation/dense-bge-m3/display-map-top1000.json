@@ -1,0 +1,5007 @@
+{
+  "schemaVersion": 1,
+  "kind": "search-04-dense-display-map",
+  "gameCount": 1000,
+  "games": [
+    {
+      "gameId": 1,
+      "name": " 디 마허",
+      "englishName": " Die Macher"
+    },
+    {
+      "gameId": 3,
+      "name": " 사무라이",
+      "englishName": " Samurai"
+    },
+    {
+      "gameId": 5,
+      "name": " 어콰이어",
+      "englishName": " Acquire"
+    },
+    {
+      "gameId": 11,
+      "name": " 보난자",
+      "englishName": " Bohnanza"
+    },
+    {
+      "gameId": 12,
+      "name": " 라",
+      "englishName": " Ra"
+    },
+    {
+      "gameId": 13,
+      "name": " 카탄",
+      "englishName": " Catan"
+    },
+    {
+      "gameId": 26,
+      "name": " 카르카손",
+      "englishName": " Age of Renaissance"
+    },
+    {
+      "gameId": 42,
+      "name": " 티그리스 & 에우프라테스",
+      "englishName": " Tigris & Euphrates"
+    },
+    {
+      "gameId": 45,
+      "name": " 프어우도",
+      "englishName": " Perudo"
+    },
+    {
+      "gameId": 46,
+      "name": " 메디시",
+      "englishName": " Medici"
+    },
+    {
+      "gameId": 47,
+      "name": " 치인아타운",
+      "englishName": " Chinatown"
+    },
+    {
+      "gameId": 50,
+      "name": " 로스트 시티즈",
+      "englishName": " Lost Cities"
+    },
+    {
+      "gameId": 51,
+      "name": " 리코치에트 로보트스",
+      "englishName": " Ricochet Robots"
+    },
+    {
+      "gameId": 54,
+      "name": " 티크알",
+      "englishName": " Tikal"
+    },
+    {
+      "gameId": 70,
+      "name": " 빅시티",
+      "englishName": " Big City"
+    },
+    {
+      "gameId": 73,
+      "name": " 쇼 매니저",
+      "englishName": " Show Manager"
+    },
+    {
+      "gameId": 88,
+      "name": " 트오레스",
+      "englishName": " Torres"
+    },
+    {
+      "gameId": 91,
+      "name": " 파스스 오프 그르오이",
+      "englishName": " Paths of Glory"
+    },
+    {
+      "gameId": 93,
+      "name": " 엘 그르앤데",
+      "englishName": " El Grande"
+    },
+    {
+      "gameId": 112,
+      "name": " 크온도트티어에",
+      "englishName": " Condottiere"
+    },
+    {
+      "gameId": 115,
+      "name": " 아임 스에 보스!",
+      "englishName": " I'm the Boss!"
+    },
+    {
+      "gameId": 118,
+      "name": " 모드어느 아트",
+      "englishName": " Modern Art"
+    },
+    {
+      "gameId": 140,
+      "name": " 핏",
+      "englishName": " Pit"
+    },
+    {
+      "gameId": 150,
+      "name": " 피트치크아",
+      "englishName": " PitchCar"
+    },
+    {
+      "gameId": 171,
+      "name": " 치에스스",
+      "englishName": " Chess"
+    },
+    {
+      "gameId": 172,
+      "name": " 프오 스알에",
+      "englishName": " For Sale"
+    },
+    {
+      "gameId": 188,
+      "name": " 고",
+      "englishName": " Go"
+    },
+    {
+      "gameId": 199,
+      "name": " 엠앤하트트앤",
+      "englishName": " Manhattan"
+    },
+    {
+      "gameId": 201,
+      "name": " 스에 로세 킹",
+      "englishName": " The Rose King"
+    },
+    {
+      "gameId": 215,
+      "name": " 티치우",
+      "englishName": " Tichu"
+    },
+    {
+      "gameId": 220,
+      "name": " 히그흐 소시에트이",
+      "englishName": " High Society"
+    },
+    {
+      "gameId": 224,
+      "name": " 히스트오이 오프 스에 월드",
+      "englishName": " History of the World"
+    },
+    {
+      "gameId": 234,
+      "name": " 흐앤니브알: 르옴에 브스. 크아스아게",
+      "englishName": " Hannibal: Rome vs. Carthage"
+    },
+    {
+      "gameId": 354,
+      "name": " 스티크 엠",
+      "englishName": " Stick 'Em"
+    },
+    {
+      "gameId": 372,
+      "name": " 스치오트트엔 토트트엔",
+      "englishName": " Schotten Totten"
+    },
+    {
+      "gameId": 394,
+      "name": " 카흐언아",
+      "englishName": " Kahuna"
+    },
+    {
+      "gameId": 398,
+      "name": " 보트스우앤아",
+      "englishName": " Botswana"
+    },
+    {
+      "gameId": 421,
+      "name": " 1830: 르에르와이스 & 로브브어 브아온스",
+      "englishName": " 1830: Railways & Robber Barons"
+    },
+    {
+      "gameId": 432,
+      "name": " 타케 5",
+      "englishName": " Take 5"
+    },
+    {
+      "gameId": 433,
+      "name": " 샤크",
+      "englishName": " Shark"
+    },
+    {
+      "gameId": 463,
+      "name": " 매직: 스에 가스어인그",
+      "englishName": " Magic: The Gathering"
+    },
+    {
+      "gameId": 466,
+      "name": " 인코그니토",
+      "englishName": " Inkognito"
+    },
+    {
+      "gameId": 478,
+      "name": " 시타드엘스",
+      "englishName": " Citadels"
+    },
+    {
+      "gameId": 481,
+      "name": " 크아올우스 마그누스",
+      "englishName": " Carolus Magnus"
+    },
+    {
+      "gameId": 483,
+      "name": " 디프르옴아크이",
+      "englishName": " Diplomacy"
+    },
+    {
+      "gameId": 520,
+      "name": " 액시스 & 얼라이즈: 유럽",
+      "englishName": " Axis & Allies: Europe"
+    },
+    {
+      "gameId": 521,
+      "name": " 크로크인올에",
+      "englishName": " Crokinole"
+    },
+    {
+      "gameId": 527,
+      "name": " 기프프",
+      "englishName": " GIPF"
+    },
+    {
+      "gameId": 528,
+      "name": " 즈어트즈",
+      "englishName": " ZÈRTZ"
+    },
+    {
+      "gameId": 555,
+      "name": " 스에 프르인세스 오프 프르오엔세",
+      "englishName": " The Princes of Florence"
+    },
+    {
+      "gameId": 619,
+      "name": " 스에 보트트레 임프",
+      "englishName": " The Bottle Imp"
+    },
+    {
+      "gameId": 632,
+      "name": " 클라우드 나인",
+      "englishName": " Cloud 9"
+    },
+    {
+      "gameId": 686,
+      "name": " 지킬 박사와 하이드",
+      "englishName": " Dr. Jekyll & Mr. Hyde"
+    },
+    {
+      "gameId": 760,
+      "name": " 배틀 르인에",
+      "englishName": " Battle Line"
+    },
+    {
+      "gameId": 811,
+      "name": " 르엄미쿠브",
+      "englishName": " Rummikub"
+    },
+    {
+      "gameId": 822,
+      "name": " 카르카손",
+      "englishName": " Carcassonne"
+    },
+    {
+      "gameId": 878,
+      "name": " 더블유야트트 이르프",
+      "englishName": " Wyatt Earp"
+    },
+    {
+      "gameId": 902,
+      "name": " 메우트어어",
+      "englishName": " Meuterer"
+    },
+    {
+      "gameId": 904,
+      "name": " 나이트메어 프로덕션스",
+      "englishName": " Nightmare Productions"
+    },
+    {
+      "gameId": 929,
+      "name": " 스에 그레이트 드알무티",
+      "englishName": " The Great Dalmuti"
+    },
+    {
+      "gameId": 986,
+      "name": " 바벨",
+      "englishName": " Babel"
+    },
+    {
+      "gameId": 1041,
+      "name": " 스앤 엠아코",
+      "englishName": " San Marco"
+    },
+    {
+      "gameId": 1125,
+      "name": " 빅 샷",
+      "englishName": " Big Shot"
+    },
+    {
+      "gameId": 1198,
+      "name": " 세트",
+      "englishName": " SET"
+    },
+    {
+      "gameId": 1382,
+      "name": " 우인느어스 크어크레",
+      "englishName": " Winner's Circle"
+    },
+    {
+      "gameId": 1403,
+      "name": " 트어느 스에 티데",
+      "englishName": " Turn the Tide"
+    },
+    {
+      "gameId": 1465,
+      "name": " 위저드",
+      "englishName": " Wizard"
+    },
+    {
+      "gameId": 2093,
+      "name": " 마흐즈온그",
+      "englishName": " Mahjong"
+    },
+    {
+      "gameId": 2243,
+      "name": " 야흐트즈이",
+      "englishName": " Yahtzee"
+    },
+    {
+      "gameId": 2338,
+      "name": " 스트아쉬이프 카탄",
+      "englishName": " Starship Catan"
+    },
+    {
+      "gameId": 2346,
+      "name": " 드브온엔",
+      "englishName": " DVONN"
+    },
+    {
+      "gameId": 2393,
+      "name": " 장기",
+      "englishName": " Xiangqi"
+    },
+    {
+      "gameId": 2453,
+      "name": " 브로쿠스",
+      "englishName": " Blokus"
+    },
+    {
+      "gameId": 2511,
+      "name": " 쉬어로크 흐올메스 크온스얼트인그 데테크티베: 스에 스암에스 름어드어스 & 오스어 카세스",
+      "englishName": " Sherlock Holmes Consulting Detective: The Thames Murders & Other Cases"
+    },
+    {
+      "gameId": 2536,
+      "name": " 바방크",
+      "englishName": " Vabanque"
+    },
+    {
+      "gameId": 2569,
+      "name": " 픽 피크닉",
+      "englishName": " Pick Picknic"
+    },
+    {
+      "gameId": 2651,
+      "name": " 파워 그리드",
+      "englishName": " Power Grid"
+    },
+    {
+      "gameId": 2653,
+      "name": " 스어비베: 이스케이프 프르옴 아트르앤티스!",
+      "englishName": " Survive: Escape from Atlantis!"
+    },
+    {
+      "gameId": 2655,
+      "name": " 히베",
+      "englishName": " Hive"
+    },
+    {
+      "gameId": 2955,
+      "name": " 메크스이카",
+      "englishName": " Mexica"
+    },
+    {
+      "gameId": 3076,
+      "name": " 푸에르토 리코",
+      "englishName": " Puerto Rico"
+    },
+    {
+      "gameId": 3085,
+      "name": " 갱 오브 포",
+      "englishName": " Gang of Four"
+    },
+    {
+      "gameId": 3201,
+      "name": " 로드 오프 스에 르인그스: 스에 크온프르온타션",
+      "englishName": " Lord of the Rings: The Confrontation"
+    },
+    {
+      "gameId": 3284,
+      "name": " 스타 워즈: 에픽 두엘스",
+      "englishName": " Star Wars: Epic Duels"
+    },
+    {
+      "gameId": 3341,
+      "name": " 브어엔 라테",
+      "englishName": " Burn Rate"
+    },
+    {
+      "gameId": 3383,
+      "name": " 마헤",
+      "englishName": " Mahé"
+    },
+    {
+      "gameId": 3955,
+      "name": " 브앤그!",
+      "englishName": " BANG!"
+    },
+    {
+      "gameId": 4098,
+      "name": " 아게 오프 스트이름",
+      "englishName": " Age of Steam"
+    },
+    {
+      "gameId": 4099,
+      "name": " 케이스에드르알",
+      "englishName": " Keythedral"
+    },
+    {
+      "gameId": 4390,
+      "name": " 카르카손: 헌터스 앤드 가스어어스",
+      "englishName": " Carcassonne: Hunters and Gatherers"
+    },
+    {
+      "gameId": 5404,
+      "name": " 앰언-레",
+      "englishName": " Amun-Re"
+    },
+    {
+      "gameId": 5737,
+      "name": " 드옴에네",
+      "englishName": " Domaine"
+    },
+    {
+      "gameId": 5781,
+      "name": " 보석과 부",
+      "englishName": " Edel, Stein & Reich"
+    },
+    {
+      "gameId": 5782,
+      "name": " 크올오에트토",
+      "englishName": " Coloretto"
+    },
+    {
+      "gameId": 6249,
+      "name": " 알흐앰브라",
+      "englishName": " Alhambra"
+    },
+    {
+      "gameId": 6352,
+      "name": " 로드 오프 스에 르인그스",
+      "englishName": " Lord of the Rings"
+    },
+    {
+      "gameId": 7854,
+      "name": " 이인쉬",
+      "englishName": " YINSH"
+    },
+    {
+      "gameId": 8051,
+      "name": " 아트티카",
+      "englishName": " Attika"
+    },
+    {
+      "gameId": 8129,
+      "name": " 슬러프 오프!",
+      "englishName": " Sluff Off!"
+    },
+    {
+      "gameId": 8217,
+      "name": " 스앤 주앤",
+      "englishName": " San Juan"
+    },
+    {
+      "gameId": 8989,
+      "name": " 흐앤사",
+      "englishName": " Hansa"
+    },
+    {
+      "gameId": 9209,
+      "name": " 티켓 토 라이드",
+      "englishName": " Ticket to Ride"
+    },
+    {
+      "gameId": 9216,
+      "name": " 그오",
+      "englishName": " Goa"
+    },
+    {
+      "gameId": 9217,
+      "name": " 스에느트 페트어스부르크",
+      "englishName": " Saint Petersburg"
+    },
+    {
+      "gameId": 9220,
+      "name": " 사보테어",
+      "englishName": " Saboteur"
+    },
+    {
+      "gameId": 9609,
+      "name": " 워 오프 스에 르인그",
+      "englishName": " War of the Ring"
+    },
+    {
+      "gameId": 9625,
+      "name": " 스트루그그레 오프 엠파이어스",
+      "englishName": " Struggle of Empires"
+    },
+    {
+      "gameId": 9674,
+      "name": " 인그엔이아우스",
+      "englishName": " Ingenious"
+    },
+    {
+      "gameId": 10547,
+      "name": " 베트라이알 아트 흐아우세 온 스에 흐일르",
+      "englishName": " Betrayal at House on the Hill"
+    },
+    {
+      "gameId": 10630,
+      "name": " 름엠오어 '44",
+      "englishName": " Memoir '44"
+    },
+    {
+      "gameId": 12002,
+      "name": " 즈앰보",
+      "englishName": " Jambo"
+    },
+    {
+      "gameId": 12157,
+      "name": " 너도? 나도!",
+      "englishName": " Unanimo"
+    },
+    {
+      "gameId": 12333,
+      "name": " 트와일라잇 스트러글",
+      "englishName": " Twilight Struggle"
+    },
+    {
+      "gameId": 12942,
+      "name": " 노 스앤크스!",
+      "englishName": " No Thanks!"
+    },
+    {
+      "gameId": 13004,
+      "name": " 스에 드오느프알르 오프 프옴페이이",
+      "englishName": " The Downfall of Pompeii"
+    },
+    {
+      "gameId": 13642,
+      "name": " 르아우이스 크스이브",
+      "englishName": " Louis XIV"
+    },
+    {
+      "gameId": 13884,
+      "name": " 자반도르의 왕홀",
+      "englishName": " The Scepter of Zavandor"
+    },
+    {
+      "gameId": 14105,
+      "name": " 크옴엠앤드스 & 크올오스: 앤시엔트스",
+      "englishName": " Commands & Colors: Ancients"
+    },
+    {
+      "gameId": 14996,
+      "name": " 티켓 토 라이드: 에어오페",
+      "englishName": " Ticket to Ride: Europe"
+    },
+    {
+      "gameId": 15062,
+      "name": " 섀도우 오브어 크앰엘오트",
+      "englishName": " Shadows over Camelot"
+    },
+    {
+      "gameId": 15512,
+      "name": " 디앰앤트",
+      "englishName": " Diamant"
+    },
+    {
+      "gameId": 15817,
+      "name": " 름앤일아",
+      "englishName": " Manila"
+    },
+    {
+      "gameId": 15987,
+      "name": " 아컴 호러",
+      "englishName": " Arkham Horror"
+    },
+    {
+      "gameId": 16747,
+      "name": " 트엄브르인 다이스",
+      "englishName": " Tumblin' Dice"
+    },
+    {
+      "gameId": 17223,
+      "name": " 월드 오프 우아크라프트: 스에 브오르드그암에",
+      "englishName": " World of Warcraft: The Boardgame"
+    },
+    {
+      "gameId": 17396,
+      "name": " 름앤오에우브레",
+      "englishName": " Manoeuvre"
+    },
+    {
+      "gameId": 17405,
+      "name": " 1846: 스에 라세 프오 스에 미드웨스트",
+      "englishName": " 1846: The Race for the Midwest"
+    },
+    {
+      "gameId": 17530,
+      "name": " 고 스토프",
+      "englishName": " Go Stop"
+    },
+    {
+      "gameId": 18602,
+      "name": " 카이루스",
+      "englishName": " Caylus"
+    },
+    {
+      "gameId": 18833,
+      "name": " 스에 로드 오프 스에 르인그스: 스에 크온프르온타션",
+      "englishName": " The Lord of the Rings: The Confrontation"
+    },
+    {
+      "gameId": 19184,
+      "name": " 렉시오",
+      "englishName": " LEXIO"
+    },
+    {
+      "gameId": 19777,
+      "name": " 인드온에시아",
+      "englishName": " Indonesia"
+    },
+    {
+      "gameId": 19857,
+      "name": " 그르오이 토 르옴에",
+      "englishName": " Glory to Rome"
+    },
+    {
+      "gameId": 20030,
+      "name": " 6 엔임엠트! 프루스",
+      "englishName": " 6 nimmt! Plus"
+    },
+    {
+      "gameId": 20551,
+      "name": " 쉬오그언",
+      "englishName": " Shogun"
+    },
+    {
+      "gameId": 21050,
+      "name": " 크옴바트 커맨더: 에어오페",
+      "englishName": " Combat Commander: Europe"
+    },
+    {
+      "gameId": 21790,
+      "name": " 스어느 앤드 타크스이스",
+      "englishName": " Thurn and Taxis"
+    },
+    {
+      "gameId": 22237,
+      "name": " 국경에서",
+      "englishName": " Hart an der Grenze"
+    },
+    {
+      "gameId": 22345,
+      "name": " 이스파흐앤",
+      "englishName": " Yspahan"
+    },
+    {
+      "gameId": 22545,
+      "name": " 아게 오프 엠파이어스 이이이: 스에 아게 오프 디스코브어이",
+      "englishName": " Age of Empires III: The Age of Discovery"
+    },
+    {
+      "gameId": 22825,
+      "name": " 티데 오프 아이언",
+      "englishName": " Tide of Iron"
+    },
+    {
+      "gameId": 22827,
+      "name": " 스트아크라프트: 스에 보드 게임",
+      "englishName": " StarCraft: The Board Game"
+    },
+    {
+      "gameId": 23540,
+      "name": " 쉬이코쿠 1889",
+      "englishName": " Shikoku 1889"
+    },
+    {
+      "gameId": 24068,
+      "name": " 섀도우 헌터스",
+      "englishName": " Shadow Hunters"
+    },
+    {
+      "gameId": 24181,
+      "name": " 임프어이알",
+      "englishName": " Imperial"
+    },
+    {
+      "gameId": 24417,
+      "name": " 파크트오이 프언",
+      "englishName": " Factory Fun"
+    },
+    {
+      "gameId": 24480,
+      "name": " 스에 프일르아스 오프 스에 이르스",
+      "englishName": " The Pillars of the Earth"
+    },
+    {
+      "gameId": 24509,
+      "name": " 갬빗 로얄",
+      "englishName": " Gambit Royale"
+    },
+    {
+      "gameId": 25021,
+      "name": " 세키가흐아아: 스에 언이피카션 오프 자프앤",
+      "englishName": " Sekigahara: The Unification of Japan"
+    },
+    {
+      "gameId": 25196,
+      "name": " 르엄미쿠브 시크스 프라이어",
+      "englishName": " Rummikub Six Player"
+    },
+    {
+      "gameId": 25554,
+      "name": " 노트레 드앰에",
+      "englishName": " Notre Dame"
+    },
+    {
+      "gameId": 26566,
+      "name": " 흐옴에스트이드어스",
+      "englishName": " Homesteaders"
+    },
+    {
+      "gameId": 27162,
+      "name": " 크인그스부르크",
+      "englishName": " Kingsburg"
+    },
+    {
+      "gameId": 27173,
+      "name": " 비크인그스",
+      "englishName": " Vikings"
+    },
+    {
+      "gameId": 27364,
+      "name": " 카이루스 마그나 크아타",
+      "englishName": " Caylus Magna Carta"
+    },
+    {
+      "gameId": 27588,
+      "name": " 즈우르오에트토",
+      "englishName": " Zooloretto"
+    },
+    {
+      "gameId": 27627,
+      "name": " 탈리스만 (4판)",
+      "englishName": " Talisman: Revised 4th Edition"
+    },
+    {
+      "gameId": 27746,
+      "name": " 크올오스세엄",
+      "englishName": " Colosseum"
+    },
+    {
+      "gameId": 27833,
+      "name": " 스트이엠",
+      "englishName": " Steam"
+    },
+    {
+      "gameId": 28023,
+      "name": " 즈앰에카",
+      "englishName": " Jamaica"
+    },
+    {
+      "gameId": 28143,
+      "name": " 라세 프오 스에 갤럭시",
+      "englishName": " Race for the Galaxy"
+    },
+    {
+      "gameId": 28720,
+      "name": " 브라스: 랭커셔",
+      "englishName": " Brass: Lancashire"
+    },
+    {
+      "gameId": 29223,
+      "name": " 엠아라케치",
+      "englishName": " Marrakech"
+    },
+    {
+      "gameId": 30380,
+      "name": " 쿠바",
+      "englishName": " Cuba"
+    },
+    {
+      "gameId": 30549,
+      "name": " 팬데믹",
+      "englishName": " Pandemic"
+    },
+    {
+      "gameId": 30869,
+      "name": " 스에베스",
+      "englishName": " Thebes"
+    },
+    {
+      "gameId": 30957,
+      "name": " 트리브언에: 프르임우스 인트어 프아에스",
+      "englishName": " Tribune: Primus Inter Pares"
+    },
+    {
+      "gameId": 31105,
+      "name": " 아키올로지: 카드게임",
+      "englishName": " Archaeology: The Card Game"
+    },
+    {
+      "gameId": 31260,
+      "name": " 아그리콜라",
+      "englishName": " Agricola"
+    },
+    {
+      "gameId": 31481,
+      "name": " 갤럭시 트루크어",
+      "englishName": " Galaxy Trucker"
+    },
+    {
+      "gameId": 31594,
+      "name": " 인 스에 이이르 오프 스에 드래곤",
+      "englishName": " In the Year of the Dragon"
+    },
+    {
+      "gameId": 31627,
+      "name": " 티켓 토 라이드: 느오디크 크아우느트리에스",
+      "englishName": " Ticket to Ride: Nordic Countries"
+    },
+    {
+      "gameId": 31999,
+      "name": " 트자아",
+      "englishName": " TZAAR"
+    },
+    {
+      "gameId": 32125,
+      "name": " 펠리시티: 자루 속 고양이",
+      "englishName": " Felicity: The Cat in the Sack"
+    },
+    {
+      "gameId": 33160,
+      "name": " 엔드이브오",
+      "englishName": " Endeavor"
+    },
+    {
+      "gameId": 34084,
+      "name": " 위트치스 브레우",
+      "englishName": " Witch's Brew"
+    },
+    {
+      "gameId": 34119,
+      "name": " 테일즈 오프 스에 아라비안 나이트스",
+      "englishName": " Tales of the Arabian Nights"
+    },
+    {
+      "gameId": 34219,
+      "name": " 비브리오스",
+      "englishName": " Biblios"
+    },
+    {
+      "gameId": 34373,
+      "name": " 티키 토플",
+      "englishName": " Tiki Topple"
+    },
+    {
+      "gameId": 34635,
+      "name": " 스톤 아게",
+      "englishName": " Stone Age"
+    },
+    {
+      "gameId": 35497,
+      "name": " 파언아",
+      "englishName": " Fauna"
+    },
+    {
+      "gameId": 35570,
+      "name": " 트인느어스 트레일",
+      "englishName": " Tinners' Trail"
+    },
+    {
+      "gameId": 35677,
+      "name": " 레 하브레",
+      "englishName": " Le Havre"
+    },
+    {
+      "gameId": 36218,
+      "name": " 도미니언",
+      "englishName": " Dominion"
+    },
+    {
+      "gameId": 36235,
+      "name": " 스에 두케",
+      "englishName": " The Duke"
+    },
+    {
+      "gameId": 36811,
+      "name": " 마추 픽추의 제후들",
+      "englishName": " The Princes of Machu Picchu"
+    },
+    {
+      "gameId": 37046,
+      "name": " 그호스트 스토리즈",
+      "englishName": " Ghost Stories"
+    },
+    {
+      "gameId": 37111,
+      "name": " 바트트레스트아 그알아크티카: 스에 보드 게임",
+      "englishName": " Battlestar Galactica: The Board Game"
+    },
+    {
+      "gameId": 37380,
+      "name": " 르올르 스르아우그흐 스에 아게스: 스에 브르온제 아게",
+      "englishName": " Roll Through the Ages: The Bronze Age"
+    },
+    {
+      "gameId": 37628,
+      "name": " 하그기스",
+      "englishName": " Haggis"
+    },
+    {
+      "gameId": 37904,
+      "name": " 프오름얼아 드",
+      "englishName": " Formula D"
+    },
+    {
+      "gameId": 38453,
+      "name": " 스페이스 알어트",
+      "englishName": " Space Alert"
+    },
+    {
+      "gameId": 38765,
+      "name": " 그라운드 플로어",
+      "englishName": " Ground Floor"
+    },
+    {
+      "gameId": 38863,
+      "name": " 스에 리치 앤드 스에 그우드",
+      "englishName": " The Rich and the Good"
+    },
+    {
+      "gameId": 39242,
+      "name": " 블랙 프라이데이",
+      "englishName": " Black Friday"
+    },
+    {
+      "gameId": 39351,
+      "name": " 아우트옴오브일에",
+      "englishName": " Automobile"
+    },
+    {
+      "gameId": 39534,
+      "name": " 페이퍼 사파리",
+      "englishName": " Paper Safari"
+    },
+    {
+      "gameId": 39683,
+      "name": " 아트 스에 게이트스 오프 로이앤그",
+      "englishName": " At the Gates of Loyang"
+    },
+    {
+      "gameId": 39856,
+      "name": " 디크스이트",
+      "englishName": " Dixit"
+    },
+    {
+      "gameId": 40237,
+      "name": " 롱 샷",
+      "englishName": " Long Shot"
+    },
+    {
+      "gameId": 40354,
+      "name": " 름아이아",
+      "englishName": " Maria"
+    },
+    {
+      "gameId": 40628,
+      "name": " 프인카",
+      "englishName": " Finca"
+    },
+    {
+      "gameId": 40692,
+      "name": " 스엠알엘 월드",
+      "englishName": " Small World"
+    },
+    {
+      "gameId": 40760,
+      "name": " 주사위는 던져졌다",
+      "englishName": " Alea Iacta Est"
+    },
+    {
+      "gameId": 40832,
+      "name": " 켈티스: 카드게임",
+      "englishName": " Keltis: Das Kartenspiel"
+    },
+    {
+      "gameId": 40834,
+      "name": " 도미니언: 인트리구에",
+      "englishName": " Dominion: Intrigue"
+    },
+    {
+      "gameId": 41002,
+      "name": " 바스코 다 그앰아",
+      "englishName": " Vasco da Gama"
+    },
+    {
+      "gameId": 41114,
+      "name": " 스에 레지스탕스",
+      "englishName": " The Resistance"
+    },
+    {
+      "gameId": 41863,
+      "name": " 액시스 & 얼라이즈: 1942",
+      "englishName": " Axis & Allies: 1942"
+    },
+    {
+      "gameId": 42052,
+      "name": " 브인호스",
+      "englishName": " Vinhos"
+    },
+    {
+      "gameId": 42215,
+      "name": " 토바고",
+      "englishName": " Tobago"
+    },
+    {
+      "gameId": 42487,
+      "name": " 로스트 시티즈: 스에 보드 게임",
+      "englishName": " Lost Cities: The Board Game"
+    },
+    {
+      "gameId": 43015,
+      "name": " 흐앤사 테우트온이카",
+      "englishName": " Hansa Teutonica"
+    },
+    {
+      "gameId": 43570,
+      "name": " 프리다이",
+      "englishName": " Friday"
+    },
+    {
+      "gameId": 46213,
+      "name": " 트엘에스트라션스",
+      "englishName": " Telestrations"
+    },
+    {
+      "gameId": 46396,
+      "name": " 우브온고 3D",
+      "englishName": " Ubongo 3D"
+    },
+    {
+      "gameId": 48726,
+      "name": " 에일리언 프르온티어스",
+      "englishName": " Alien Frontiers"
+    },
+    {
+      "gameId": 54043,
+      "name": " 즈에프어",
+      "englishName": " Jaipur"
+    },
+    {
+      "gameId": 54138,
+      "name": " 임프어이알 2030",
+      "englishName": " Imperial 2030"
+    },
+    {
+      "gameId": 55670,
+      "name": " 마카오",
+      "englishName": " Macao"
+    },
+    {
+      "gameId": 55690,
+      "name": " 킹덤 드이스: 몬스터",
+      "englishName": " Kingdom Death: Monster"
+    },
+    {
+      "gameId": 56692,
+      "name": " 프아아데",
+      "englishName": " Parade"
+    },
+    {
+      "gameId": 56786,
+      "name": " 쿠한델 마스터",
+      "englishName": " Kuhhandel Master"
+    },
+    {
+      "gameId": 56933,
+      "name": " 펭귄 파티",
+      "englishName": " Penguin Party"
+    },
+    {
+      "gameId": 59946,
+      "name": " 던전 & 드래곤: 캐슬 라브엔로프트 보드 게임",
+      "englishName": " Dungeons & Dragons: Castle Ravenloft Board Game"
+    },
+    {
+      "gameId": 59959,
+      "name": " 레트트어스 프르옴 우히테치아프엘",
+      "englishName": " Letters from Whitechapel"
+    },
+    {
+      "gameId": 62219,
+      "name": " 드옴인앤트 스페시에스",
+      "englishName": " Dominant Species"
+    },
+    {
+      "gameId": 62222,
+      "name": " 크옴름앤드스 & 크올오스: 나프올에온이크스",
+      "englishName": " Commands & Colors: Napoleonics"
+    },
+    {
+      "gameId": 62227,
+      "name": " 라브이르인스: 스에 워 온 트어르오, 2001 – ?",
+      "englishName": " Labyrinth: The War on Terror, 2001 – ?"
+    },
+    {
+      "gameId": 63888,
+      "name": " 인노바션",
+      "englishName": " Innovation"
+    },
+    {
+      "gameId": 65781,
+      "name": " 엘온드온",
+      "englishName": " London"
+    },
+    {
+      "gameId": 65901,
+      "name": " 아게 오프 인두스트르이",
+      "englishName": " Age of Industry"
+    },
+    {
+      "gameId": 66188,
+      "name": " 프레스코",
+      "englishName": " Fresco"
+    },
+    {
+      "gameId": 66362,
+      "name": " 그르엔 름오에",
+      "englishName": " Glen More"
+    },
+    {
+      "gameId": 66505,
+      "name": " 스에 스페이치어스타드트",
+      "englishName": " The Speicherstadt"
+    },
+    {
+      "gameId": 66589,
+      "name": " 나베가드오",
+      "englishName": " Navegador"
+    },
+    {
+      "gameId": 66837,
+      "name": " 1862: 라이르웨이 름앤이아 인 스에 이스트어느 크아우느티에스",
+      "englishName": " 1862: Railway Mania in the Eastern Counties"
+    },
+    {
+      "gameId": 67492,
+      "name": " 배틀스 오프 웨스트어오스",
+      "englishName": " Battles of Westeros"
+    },
+    {
+      "gameId": 68448,
+      "name": " 7 원더스",
+      "englishName": " 7 Wonders"
+    },
+    {
+      "gameId": 69789,
+      "name": " 아스크엔션: 데크부일드인그 게임",
+      "englishName": " Ascension: Deckbuilding Game"
+    },
+    {
+      "gameId": 70149,
+      "name": " 오아 에트 라브오아",
+      "englishName": " Ora et Labora"
+    },
+    {
+      "gameId": 70919,
+      "name": " 타크엔오코",
+      "englishName": " Takenoko"
+    },
+    {
+      "gameId": 72125,
+      "name": " 에크리프세: 네우 다우느 프오 스에 갤럭시",
+      "englishName": " Eclipse: New Dawn for the Galaxy"
+    },
+    {
+      "gameId": 72287,
+      "name": " 름르. 자크 포크에트",
+      "englishName": " Mr. Jack Pocket"
+    },
+    {
+      "gameId": 72991,
+      "name": " 아스아아",
+      "englishName": " Asara"
+    },
+    {
+      "gameId": 73439,
+      "name": " 트로예스",
+      "englishName": " Troyes"
+    },
+    {
+      "gameId": 75789,
+      "name": " 마이스타",
+      "englishName": " Mai-Star"
+    },
+    {
+      "gameId": 77130,
+      "name": " 시드 메이어스 시브일이자션: 스에 보드 게임",
+      "englishName": " Sid Meier's Civilization: The Board Game"
+    },
+    {
+      "gameId": 77423,
+      "name": " 스에 로드 오프 스에 르인그스: 스에 카드 게임",
+      "englishName": " The Lord of the Rings: The Card Game"
+    },
+    {
+      "gameId": 83330,
+      "name": " 름앤션스 오프 마드니스",
+      "englishName": " Mansions of Madness"
+    },
+    {
+      "gameId": 84732,
+      "name": " 크아이바",
+      "englishName": " Kariba"
+    },
+    {
+      "gameId": 84876,
+      "name": " 스에 캐슬 오프 부르크언드이",
+      "englishName": " The Castles of Burgundy"
+    },
+    {
+      "gameId": 85005,
+      "name": " 보스",
+      "englishName": " The Boss"
+    },
+    {
+      "gameId": 90419,
+      "name": " 에르르인에스 에어오페",
+      "englishName": " Airlines Europe"
+    },
+    {
+      "gameId": 91514,
+      "name": " 르흐인오 히어로",
+      "englishName": " Rhino Hero"
+    },
+    {
+      "gameId": 91872,
+      "name": " 던전 & 드래곤: 스에 레전드 오프 드리즈즈트 보드 게임",
+      "englishName": " Dungeons & Dragons: The Legend of Drizzt Board Game"
+    },
+    {
+      "gameId": 91873,
+      "name": " 스트라스브아우르그",
+      "englishName": " Strasbourg"
+    },
+    {
+      "gameId": 91984,
+      "name": " 퀘벡",
+      "englishName": " Québec"
+    },
+    {
+      "gameId": 92415,
+      "name": " 스크얼엘",
+      "englishName": " Skull"
+    },
+    {
+      "gameId": 92828,
+      "name": " 디크스이트: 오드이스세이",
+      "englishName": " Dixit: Odyssey"
+    },
+    {
+      "gameId": 94362,
+      "name": " 르언에 아게",
+      "englishName": " Rune Age"
+    },
+    {
+      "gameId": 94365,
+      "name": " 스얼트앤스 오프 크아아야",
+      "englishName": " Sultans of Karaya"
+    },
+    {
+      "gameId": 96848,
+      "name": " 마게 나이트 보드 게임",
+      "englishName": " Mage Knight Board Game"
+    },
+    {
+      "gameId": 96913,
+      "name": " 르앤카스트어",
+      "englishName": " Lancaster"
+    },
+    {
+      "gameId": 97207,
+      "name": " 던전 페트즈",
+      "englishName": " Dungeon Petz"
+    },
+    {
+      "gameId": 97842,
+      "name": " 라스트 더블유일엘",
+      "englishName": " Last Will"
+    },
+    {
+      "gameId": 98229,
+      "name": " 피크트옴앤이아",
+      "englishName": " Pictomania"
+    },
+    {
+      "gameId": 98778,
+      "name": " 흐앤아비",
+      "englishName": " Hanabi"
+    },
+    {
+      "gameId": 100423,
+      "name": " 엘드어 시그느",
+      "englishName": " Elder Sign"
+    },
+    {
+      "gameId": 100901,
+      "name": " 프라쉬 포인트: 파이어 레스쿠에",
+      "englishName": " Flash Point: Fire Rescue"
+    },
+    {
+      "gameId": 101721,
+      "name": " 마게 워즈 아엔아",
+      "englishName": " Mage Wars Arena"
+    },
+    {
+      "gameId": 102181,
+      "name": " 덤불 속",
+      "englishName": " In a Grove"
+    },
+    {
+      "gameId": 102548,
+      "name": " 던전 피그흐트어",
+      "englishName": " Dungeon Fighter"
+    },
+    {
+      "gameId": 102652,
+      "name": " 스엔트인엘스 오프 스에 름얼티브어세",
+      "englishName": " Sentinels of the Multiverse"
+    },
+    {
+      "gameId": 102680,
+      "name": " 트라즈앤",
+      "englishName": " Trajan"
+    },
+    {
+      "gameId": 102794,
+      "name": " 카브어나: 스에 카베 프아름어스",
+      "englishName": " Caverna: The Cave Farmers"
+    },
+    {
+      "gameId": 103343,
+      "name": " 아 게임 오프 스르온에스: 스에 보드 게임 (2판)",
+      "englishName": " A Game of Thrones: The Board Game (Second Edition)"
+    },
+    {
+      "gameId": 103814,
+      "name": " 스트르이름스",
+      "englishName": " Streams"
+    },
+    {
+      "gameId": 103885,
+      "name": " 스타 워즈: 엑스-더블유인그 미니처 게임",
+      "englishName": " Star Wars: X-Wing Miniatures Game"
+    },
+    {
+      "gameId": 104006,
+      "name": " 빌리지",
+      "englishName": " Village"
+    },
+    {
+      "gameId": 104162,
+      "name": " 데스크엔트: 즈아우르네이스 인 스에 다크 (2판)",
+      "englishName": " Descent: Journeys in the Dark (Second Edition)"
+    },
+    {
+      "gameId": 104955,
+      "name": " 안티크 듀얼럼",
+      "englishName": " Antike Duellum"
+    },
+    {
+      "gameId": 105593,
+      "name": " 장난꾸러기 나방",
+      "englishName": " Cheating Moth"
+    },
+    {
+      "gameId": 107529,
+      "name": " 킹덤 빌더",
+      "englishName": " Kingdom Builder"
+    },
+    {
+      "gameId": 108745,
+      "name": " 스이스온스",
+      "englishName": " Seasons"
+    },
+    {
+      "gameId": 109276,
+      "name": " 칸반: 드리브어스 판",
+      "englishName": " Kanban: Driver's Edition"
+    },
+    {
+      "gameId": 109296,
+      "name": " 크루에: 월드 오프 흐아르이 포트트어",
+      "englishName": " Clue: World of Harry Potter"
+    },
+    {
+      "gameId": 110327,
+      "name": " 로드 오프 와트어드이프",
+      "englishName": " Lords of Waterdeep"
+    },
+    {
+      "gameId": 111341,
+      "name": " 스에 그레이트 즈임바브웨",
+      "englishName": " The Great Zimbabwe"
+    },
+    {
+      "gameId": 111417,
+      "name": " 더 그레이트 하트랜드 홀링 컴퍼니",
+      "englishName": " The Great Heartland Hauling Co."
+    },
+    {
+      "gameId": 113924,
+      "name": " 즈옴비시데",
+      "englishName": " Zombicide"
+    },
+    {
+      "gameId": 115746,
+      "name": " 워 오프 스에 르인그: 2판 판",
+      "englishName": " War of the Ring: Second Edition"
+    },
+    {
+      "gameId": 117959,
+      "name": " 라스 베가스",
+      "englishName": " Las Vegas"
+    },
+    {
+      "gameId": 118048,
+      "name": " 트아기",
+      "englishName": " Targi"
+    },
+    {
+      "gameId": 119890,
+      "name": " 아그리콜라: 알르 크르이쳐스 비그 앤드 스름알르",
+      "englishName": " Agricola: All Creatures Big and Small"
+    },
+    {
+      "gameId": 120677,
+      "name": " 트어라 름이스티카",
+      "englishName": " Terra Mystica"
+    },
+    {
+      "gameId": 121921,
+      "name": " 로빈슨 크루소: 아드브엔쳐스 온 스에 커스드 아일랜드",
+      "englishName": " Robinson Crusoe: Adventures on the Cursed Island"
+    },
+    {
+      "gameId": 122515,
+      "name": " 케이프르오어",
+      "englishName": " Keyflower"
+    },
+    {
+      "gameId": 123185,
+      "name": " 액시스 & 얼라이즈: 1941",
+      "englishName": " Axis & Allies: 1941"
+    },
+    {
+      "gameId": 123260,
+      "name": " 수브어비아",
+      "englishName": " Suburbia"
+    },
+    {
+      "gameId": 124361,
+      "name": " 콘코디아",
+      "englishName": " Concordia"
+    },
+    {
+      "gameId": 124708,
+      "name": " 미세 앤드 름이스티크스",
+      "englishName": " Mice and Mystics"
+    },
+    {
+      "gameId": 124742,
+      "name": " 앤드로이드: 네트르언느어",
+      "englishName": " Android: Netrunner"
+    },
+    {
+      "gameId": 125153,
+      "name": " 스에 갤러리스트",
+      "englishName": " The Gallerist"
+    },
+    {
+      "gameId": 126042,
+      "name": " 나션스",
+      "englishName": " Nations"
+    },
+    {
+      "gameId": 126163,
+      "name": " 촐킨: 스에 마이앤 크알엔드아",
+      "englishName": " Tzolk'in: The Mayan Calendar"
+    },
+    {
+      "gameId": 127060,
+      "name": " 브오아 브오아",
+      "englishName": " Bora Bora"
+    },
+    {
+      "gameId": 127398,
+      "name": " 레전드 오프 앤드오",
+      "englishName": " Legends of Andor"
+    },
+    {
+      "gameId": 128271,
+      "name": " 그인크고프올이스",
+      "englishName": " Ginkgopolis"
+    },
+    {
+      "gameId": 128621,
+      "name": " 비티크얼쳐",
+      "englishName": " Viticulture"
+    },
+    {
+      "gameId": 128882,
+      "name": " 스에 레지스탕스: 아브알온",
+      "englishName": " The Resistance: Avalon"
+    },
+    {
+      "gameId": 128996,
+      "name": " 1775: 리벨리온",
+      "englishName": " 1775: Rebellion"
+    },
+    {
+      "gameId": 129051,
+      "name": " 레 하브레: 스에 인랜드 포트",
+      "englishName": " Le Havre: The Inland Port"
+    },
+    {
+      "gameId": 129437,
+      "name": " 레그엔드아이: 아 름아브엘 데크 부일드인그 게임",
+      "englishName": " Legendary: A Marvel Deck Building Game"
+    },
+    {
+      "gameId": 129622,
+      "name": " 로베 레트트어",
+      "englishName": " Love Letter"
+    },
+    {
+      "gameId": 129736,
+      "name": " 코크르오치 포크어 로얄",
+      "englishName": " Cockroach Poker Royal"
+    },
+    {
+      "gameId": 129945,
+      "name": " 흐옴에스트레트치",
+      "englishName": " HomeStretch"
+    },
+    {
+      "gameId": 129948,
+      "name": " 스에 프알아세스 오프 크아르아아",
+      "englishName": " The Palaces of Carrara"
+    },
+    {
+      "gameId": 130877,
+      "name": " 블러드 바운드",
+      "englishName": " Blood Bound"
+    },
+    {
+      "gameId": 130960,
+      "name": " 트리엄프 & 트라게드이: 에어오프이느 브알앤세 오프 파워 1936-1945",
+      "englishName": " Triumph & Tragedy: European Balance of Power 1936-1945"
+    },
+    {
+      "gameId": 131014,
+      "name": " 카르카손: 우인트어 판",
+      "englishName": " Carcassonne: Winter Edition"
+    },
+    {
+      "gameId": 131287,
+      "name": " 프앤앰아크스",
+      "englishName": " Panamax"
+    },
+    {
+      "gameId": 131357,
+      "name": " 크아우프",
+      "englishName": " Coup"
+    },
+    {
+      "gameId": 131904,
+      "name": " 하트 오브 크라운",
+      "englishName": " Heart of Crown"
+    },
+    {
+      "gameId": 132372,
+      "name": " 구일드흐알엘",
+      "englishName": " Guildhall"
+    },
+    {
+      "gameId": 132531,
+      "name": " 르올르 프오 스에 갤럭시",
+      "englishName": " Roll for the Galaxy"
+    },
+    {
+      "gameId": 133038,
+      "name": " 파스프인드어 아드브엔쳐 카드 게임: 리세 오프 스에 르언엘오드스 – 바세 세트",
+      "englishName": " Pathfinder Adventure Card Game: Rise of the Runelords – Base Set"
+    },
+    {
+      "gameId": 134352,
+      "name": " 트워 르우름스 앤드 아 브우름",
+      "englishName": " Two Rooms and a Boom"
+    },
+    {
+      "gameId": 135281,
+      "name": " 세레니시마 (2판)",
+      "englishName": " Serenissima (Second Edition)"
+    },
+    {
+      "gameId": 135779,
+      "name": " 아 파케 아티스트 고에스 토 네우 이오크",
+      "englishName": " A Fake Artist Goes to New York"
+    },
+    {
+      "gameId": 136056,
+      "name": " 아산테",
+      "englishName": " Asante"
+    },
+    {
+      "gameId": 136063,
+      "name": " 프오비드드엔 데스어트",
+      "englishName": " Forbidden Desert"
+    },
+    {
+      "gameId": 136280,
+      "name": " 라 보카",
+      "englishName": " La Boca"
+    },
+    {
+      "gameId": 136888,
+      "name": " 브루게스",
+      "englishName": " Bruges"
+    },
+    {
+      "gameId": 137269,
+      "name": " 스프이리엄",
+      "englishName": " Spyrium"
+    },
+    {
+      "gameId": 137988,
+      "name": " 즈옴비시데 스이스온 2: 프리스온 아우트브르이크",
+      "englishName": " Zombicide Season 2: Prison Outbreak"
+    },
+    {
+      "gameId": 139976,
+      "name": " 크스얼후 워즈",
+      "englishName": " Cthulhu Wars"
+    },
+    {
+      "gameId": 140535,
+      "name": " 고려",
+      "englishName": " Koryŏ"
+    },
+    {
+      "gameId": 140620,
+      "name": " 레위스 & 크르아크: 스에 에크스페디션",
+      "englishName": " Lewis & Clark: The Expedition"
+    },
+    {
+      "gameId": 140934,
+      "name": " 아브오에트엄",
+      "englishName": " Arboretum"
+    },
+    {
+      "gameId": 142325,
+      "name": " 코바야카와",
+      "englishName": " Kobayakawa"
+    },
+    {
+      "gameId": 142379,
+      "name": " 이스케이프 프엘앤",
+      "englishName": " Escape Plan"
+    },
+    {
+      "gameId": 143147,
+      "name": " 사보테어 그올드",
+      "englishName": " Saboteur Gold"
+    },
+    {
+      "gameId": 143515,
+      "name": " 크오엘 브아온",
+      "englishName": " Coal Baron"
+    },
+    {
+      "gameId": 143693,
+      "name": " 그라스스 르오드",
+      "englishName": " Glass Road"
+    },
+    {
+      "gameId": 143741,
+      "name": " 브앤그! 스에 다이스 게임",
+      "englishName": " BANG! The Dice Game"
+    },
+    {
+      "gameId": 143884,
+      "name": " 마치이 크오오",
+      "englishName": " Machi Koro"
+    },
+    {
+      "gameId": 144041,
+      "name": " 패치스토리",
+      "englishName": " Patchistory"
+    },
+    {
+      "gameId": 144344,
+      "name": " 로코코",
+      "englishName": " Rococo"
+    },
+    {
+      "gameId": 144592,
+      "name": " 브루엑스엘레스 1893",
+      "englishName": " Bruxelles 1893"
+    },
+    {
+      "gameId": 144733,
+      "name": " 루스시앤 르에엘르오드스",
+      "englishName": " Russian Railroads"
+    },
+    {
+      "gameId": 145371,
+      "name": " 스르이 킹덤즈 레두크스",
+      "englishName": " Three Kingdoms Redux"
+    },
+    {
+      "gameId": 145639,
+      "name": " 코크온우트스",
+      "englishName": " Coconuts"
+    },
+    {
+      "gameId": 146021,
+      "name": " 엘드리치 호러",
+      "englishName": " Eldritch Horror"
+    },
+    {
+      "gameId": 146439,
+      "name": " 바트트르엘오에: 2판 판",
+      "englishName": " BattleLore: Second Edition"
+    },
+    {
+      "gameId": 146508,
+      "name": " 트.이.름.에 스토리즈",
+      "englishName": " T.I.M.E Stories"
+    },
+    {
+      "gameId": 146652,
+      "name": " 레그엔드아이 인카운터스: 앤 에일리언 데크 부일드인그 게임",
+      "englishName": " Legendary Encounters: An Alien Deck Building Game"
+    },
+    {
+      "gameId": 146886,
+      "name": " 라 그르앤자",
+      "englishName": " La Granja"
+    },
+    {
+      "gameId": 147020,
+      "name": " 스타 르이르름스",
+      "englishName": " Star Realms"
+    },
+    {
+      "gameId": 147303,
+      "name": " 카르카손: 스아우스 스이스",
+      "englishName": " Carcassonne: South Seas"
+    },
+    {
+      "gameId": 147614,
+      "name": " 크레이지 타임",
+      "englishName": " Crazy Time"
+    },
+    {
+      "gameId": 147949,
+      "name": " 온에 나이트 얼티밋 우어에우올프",
+      "englishName": " One Night Ultimate Werewolf"
+    },
+    {
+      "gameId": 148228,
+      "name": " 스플렌더",
+      "englishName": " Splendor"
+    },
+    {
+      "gameId": 148319,
+      "name": " 트라게드이 르우프어",
+      "englishName": " Tragedy Looper"
+    },
+    {
+      "gameId": 148949,
+      "name": " 이스트앤브얼",
+      "englishName": " Istanbul"
+    },
+    {
+      "gameId": 149155,
+      "name": " 드이드 름앤스 드라우",
+      "englishName": " Dead Man's Draw"
+    },
+    {
+      "gameId": 150145,
+      "name": " 스크얼엘 킹",
+      "englishName": " Skull King"
+    },
+    {
+      "gameId": 150376,
+      "name": " 드이드 오프 우인트어: 아 크로스스르오드스 게임",
+      "englishName": " Dead of Winter: A Crossroads Game"
+    },
+    {
+      "gameId": 150658,
+      "name": " 팬데믹: 스에 크어에",
+      "englishName": " Pandemic: The Cure"
+    },
+    {
+      "gameId": 151022,
+      "name": " 바세브알르 히그흐리그흐트스: 2045",
+      "englishName": " Baseball Highlights: 2045"
+    },
+    {
+      "gameId": 151347,
+      "name": " 엠일엘엔니엄 브라데스",
+      "englishName": " Millennium Blades"
+    },
+    {
+      "gameId": 153016,
+      "name": " 트엘에스트라션스: 12 프라이어 프아트이 팩",
+      "englishName": " Telestrations: 12 Player Party Pack"
+    },
+    {
+      "gameId": 153065,
+      "name": " 엘인코",
+      "englishName": " Linko"
+    },
+    {
+      "gameId": 153938,
+      "name": " 크앰엘 우프",
+      "englishName": " Camel Up"
+    },
+    {
+      "gameId": 154203,
+      "name": " 임프어이알 개척자들",
+      "englishName": " Imperial Settlers"
+    },
+    {
+      "gameId": 154809,
+      "name": " 니프프온",
+      "englishName": " Nippon"
+    },
+    {
+      "gameId": 154906,
+      "name": " 기차섬",
+      "englishName": " Isle of Trains"
+    },
+    {
+      "gameId": 155068,
+      "name": " 아카디아 퀘스트",
+      "englishName": " Arcadia Quest"
+    },
+    {
+      "gameId": 155426,
+      "name": " 캐슬 오프 마드 킹 루드위그",
+      "englishName": " Castles of Mad King Ludwig"
+    },
+    {
+      "gameId": 155624,
+      "name": " 스페크트어 오프스",
+      "englishName": " Specter Ops"
+    },
+    {
+      "gameId": 155703,
+      "name": " 에볼루션",
+      "englishName": " Evolution"
+    },
+    {
+      "gameId": 155873,
+      "name": " 파워 그리드 디럭스: Europe/North 암어이카",
+      "englishName": " Power Grid Deluxe: Europe/North America"
+    },
+    {
+      "gameId": 155987,
+      "name": " 아브이스스",
+      "englishName": " Abyss"
+    },
+    {
+      "gameId": 156009,
+      "name": " 포트 로얄",
+      "englishName": " Port Royal"
+    },
+    {
+      "gameId": 156129,
+      "name": " 데세프션: 름어드어 인 흐온그 크온그",
+      "englishName": " Deception: Murder in Hong Kong"
+    },
+    {
+      "gameId": 156372,
+      "name": " 하트 오브 크라운: 페어리 가든",
+      "englishName": " Heart of Crown: Fairy Garden"
+    },
+    {
+      "gameId": 156566,
+      "name": " 로드 오프 크스이디트",
+      "englishName": " Lords of Xidit"
+    },
+    {
+      "gameId": 156943,
+      "name": " 스에느트 페트어스부르크 (2판)",
+      "englishName": " Saint Petersburg (Second Edition)"
+    },
+    {
+      "gameId": 157354,
+      "name": " 피베 트리베스: 스에 드즈인느스 오프 나알아",
+      "englishName": " Five Tribes: The Djinns of Naqala"
+    },
+    {
+      "gameId": 157809,
+      "name": " 나션스: 스에 다이스 게임",
+      "englishName": " Nations: The Dice Game"
+    },
+    {
+      "gameId": 157969,
+      "name": " 쉬어이프프 오프 노트트인그흐암",
+      "englishName": " Sheriff of Nottingham"
+    },
+    {
+      "gameId": 158356,
+      "name": " 다크 흐오세",
+      "englishName": " Dark Horse"
+    },
+    {
+      "gameId": 158600,
+      "name": " 흐앤앰이코지",
+      "englishName": " Hanamikoji"
+    },
+    {
+      "gameId": 158899,
+      "name": " 크올트 에크스프레스스",
+      "englishName": " Colt Express"
+    },
+    {
+      "gameId": 158991,
+      "name": " 범인은 춤춘다",
+      "englishName": " Hannin Wa Odoru"
+    },
+    {
+      "gameId": 159473,
+      "name": " 우아트어마스트어 그엔어알",
+      "englishName": " Quartermaster General"
+    },
+    {
+      "gameId": 159508,
+      "name": " 아우아스프어에",
+      "englishName": " AquaSphere"
+    },
+    {
+      "gameId": 159581,
+      "name": " 마스크맨",
+      "englishName": " Maskmen"
+    },
+    {
+      "gameId": 159675,
+      "name": " 필드스 오프 아레",
+      "englishName": " Fields of Arle"
+    },
+    {
+      "gameId": 160495,
+      "name": " 즈흐앤구오",
+      "englishName": " ZhanGuo"
+    },
+    {
+      "gameId": 161417,
+      "name": " Red7",
+      "englishName": " Red7"
+    },
+    {
+      "gameId": 161533,
+      "name": " 리스브오",
+      "englishName": " Lisboa"
+    },
+    {
+      "gameId": 161614,
+      "name": " 스토크프일에",
+      "englishName": " Stockpile"
+    },
+    {
+      "gameId": 161936,
+      "name": " 팬데믹 레거시: 스이스온 1",
+      "englishName": " Pandemic Legacy: Season 1"
+    },
+    {
+      "gameId": 161970,
+      "name": " 알치엠이스트스",
+      "englishName": " Alchemists"
+    },
+    {
+      "gameId": 162286,
+      "name": " 슈퍼 모스어엘오드",
+      "englishName": " Super Motherload"
+    },
+    {
+      "gameId": 162886,
+      "name": " 스피릿 아일랜드",
+      "englishName": " Spirit Island"
+    },
+    {
+      "gameId": 163068,
+      "name": " 트리크어이온: 레전드 오프 일루션",
+      "englishName": " Trickerion: Legends of Illusion"
+    },
+    {
+      "gameId": 163166,
+      "name": " 온에 나이트 얼티밋 우어에우올프: 다이브르이크",
+      "englishName": " One Night Ultimate Werewolf: Daybreak"
+    },
+    {
+      "gameId": 163370,
+      "name": " 카르카손: 골드 러쉬",
+      "englishName": " Carcassonne: Gold Rush"
+    },
+    {
+      "gameId": 163412,
+      "name": " 파트치더블유오크",
+      "englishName": " Patchwork"
+    },
+    {
+      "gameId": 163839,
+      "name": " 페우드엄",
+      "englishName": " Feudum"
+    },
+    {
+      "gameId": 163930,
+      "name": " 아브라카다...왓?",
+      "englishName": " Abracada...What?"
+    },
+    {
+      "gameId": 163968,
+      "name": " 엘이시엄",
+      "englishName": " Elysium"
+    },
+    {
+      "gameId": 164153,
+      "name": " 스타 워즈: 임프어이알 아스사얼트",
+      "englishName": " Star Wars: Imperial Assault"
+    },
+    {
+      "gameId": 164205,
+      "name": " 킹스 프아우치",
+      "englishName": " King's Pouch"
+    },
+    {
+      "gameId": 164928,
+      "name": " 오를레앙",
+      "englishName": " Orléans"
+    },
+    {
+      "gameId": 165722,
+      "name": " 크라스크",
+      "englishName": " KLASK"
+    },
+    {
+      "gameId": 165948,
+      "name": " 맹그로비아",
+      "englishName": " Mangrovia"
+    },
+    {
+      "gameId": 165950,
+      "name": " 브이스트이 브아",
+      "englishName": " Beasty Bar"
+    },
+    {
+      "gameId": 166226,
+      "name": " 스에 스타우프어 드이나스트이",
+      "englishName": " The Staufer Dynasty"
+    },
+    {
+      "gameId": 166286,
+      "name": " 9회말",
+      "englishName": " Bottom of the 9th"
+    },
+    {
+      "gameId": 166669,
+      "name": " 스앤 주앤 (2판)",
+      "englishName": " San Juan (Second Edition)"
+    },
+    {
+      "gameId": 167355,
+      "name": " 네메시스",
+      "englishName": " Nemesis"
+    },
+    {
+      "gameId": 167791,
+      "name": " 테라포밍 마스",
+      "englishName": " Terraforming Mars"
+    },
+    {
+      "gameId": 168435,
+      "name": " 베트더블유이엔 트워 시티즈",
+      "englishName": " Between Two Cities"
+    },
+    {
+      "gameId": 169255,
+      "name": " 아 게임 오프 스르온에스: 스에 카드 게임 (2판)",
+      "englishName": " A Game of Thrones: The Card Game (Second Edition)"
+    },
+    {
+      "gameId": 169426,
+      "name": " 르올르 프라이어",
+      "englishName": " Roll Player"
+    },
+    {
+      "gameId": 169654,
+      "name": " 드이프 시 아드브엔쳐",
+      "englishName": " Deep Sea Adventure"
+    },
+    {
+      "gameId": 169786,
+      "name": " 사이더",
+      "englishName": " Scythe"
+    },
+    {
+      "gameId": 169794,
+      "name": " 하스프엘크네치트: 스에 스토리 오프 이르르이 크오르 름인인그",
+      "englishName": " Haspelknecht: The Story of Early Coal Mining"
+    },
+    {
+      "gameId": 170042,
+      "name": " 레이더스 오프 스에 느오스 시",
+      "englishName": " Raiders of the North Sea"
+    },
+    {
+      "gameId": 170216,
+      "name": " 블러드 라게",
+      "englishName": " Blood Rage"
+    },
+    {
+      "gameId": 170561,
+      "name": " 베일리아: 카드 킹덤즈",
+      "englishName": " Valeria: Card Kingdoms"
+    },
+    {
+      "gameId": 170587,
+      "name": " 크툴루를 건드리지마라",
+      "englishName": " Don't Mess with Cthulhu"
+    },
+    {
+      "gameId": 170624,
+      "name": " 크루사드어스: 스이 우일르 베 드온에",
+      "englishName": " Crusaders: Thy Will Be Done"
+    },
+    {
+      "gameId": 171131,
+      "name": " 캡틴 스온아",
+      "englishName": " Captain Sonar"
+    },
+    {
+      "gameId": 171273,
+      "name": " 푸세",
+      "englishName": " FUSE"
+    },
+    {
+      "gameId": 171499,
+      "name": " 카카오",
+      "englishName": " Cacao"
+    },
+    {
+      "gameId": 171623,
+      "name": " 스에 보야게스 오프 름아코 프올오",
+      "englishName": " The Voyages of Marco Polo"
+    },
+    {
+      "gameId": 171668,
+      "name": " 스에 그리즈즈레드",
+      "englishName": " The Grizzled"
+    },
+    {
+      "gameId": 171669,
+      "name": " 디스코브어이에스: 스에 즈아우르느알스 오프 레위스 & 크르아크",
+      "englishName": " Discoveries: The Journals of Lewis & Clark"
+    },
+    {
+      "gameId": 171879,
+      "name": " 크라프트와그엔",
+      "englishName": " Kraftwagen"
+    },
+    {
+      "gameId": 172287,
+      "name": " 치앰피온스 오프 미드그아드",
+      "englishName": " Champions of Midgard"
+    },
+    {
+      "gameId": 172308,
+      "name": " 브르우엠 스어비세",
+      "englishName": " Broom Service"
+    },
+    {
+      "gameId": 172386,
+      "name": " 엠옴바사",
+      "englishName": " Mombasa"
+    },
+    {
+      "gameId": 172998,
+      "name": " 미그흐트이",
+      "englishName": " Mighty"
+    },
+    {
+      "gameId": 173064,
+      "name": " 엘이브인그 이르스",
+      "englishName": " Leaving Earth"
+    },
+    {
+      "gameId": 173090,
+      "name": " 스에 게임",
+      "englishName": " The Game"
+    },
+    {
+      "gameId": 173346,
+      "name": " 7 원더스 듀얼",
+      "englishName": " 7 Wonders Duel"
+    },
+    {
+      "gameId": 173442,
+      "name": " 엠파이어스: 아게 오프 디스코브어이",
+      "englishName": " Empires: Age of Discovery"
+    },
+    {
+      "gameId": 174430,
+      "name": " 글룸헤이븐",
+      "englishName": " Gloomhaven"
+    },
+    {
+      "gameId": 175117,
+      "name": " 크엘에스티아",
+      "englishName": " Celestia"
+    },
+    {
+      "gameId": 175155,
+      "name": " 프오비드드엔 스타즈",
+      "englishName": " Forbidden Stars"
+    },
+    {
+      "gameId": 175482,
+      "name": " 히어로 데테크테드!",
+      "englishName": " Hero Detected!"
+    },
+    {
+      "gameId": 175640,
+      "name": " 브인호스: 디럭스 판",
+      "englishName": " Vinhos: Deluxe Edition"
+    },
+    {
+      "gameId": 175914,
+      "name": " 프우드 치에엔 마그나테",
+      "englishName": " Food Chain Magnate"
+    },
+    {
+      "gameId": 176189,
+      "name": " 즈옴비시데: 블랙 프라구에",
+      "englishName": " Zombicide: Black Plague"
+    },
+    {
+      "gameId": 176396,
+      "name": " 우아드로프올이스",
+      "englishName": " Quadropolis"
+    },
+    {
+      "gameId": 176494,
+      "name": " 이스레 오프 스크예: 프르옴 치이에프트에느 토 킹",
+      "englishName": " Isle of Skye: From Chieftain to King"
+    },
+    {
+      "gameId": 177478,
+      "name": " 이키",
+      "englishName": " IKI"
+    },
+    {
+      "gameId": 177639,
+      "name": " 라프트오",
+      "englishName": " Raptor"
+    },
+    {
+      "gameId": 177678,
+      "name": " 시그느오이에",
+      "englishName": " Signorie"
+    },
+    {
+      "gameId": 177736,
+      "name": " 아 프이스트 프오 오드인",
+      "englishName": " A Feast for Odin"
+    },
+    {
+      "gameId": 178900,
+      "name": " 코드엔앰에스",
+      "englishName": " Codenames"
+    },
+    {
+      "gameId": 179071,
+      "name": " 더 그레이트 다이노소어 러시",
+      "englishName": " The Great Dinosaur Rush"
+    },
+    {
+      "gameId": 179172,
+      "name": " 언프에르",
+      "englishName": " Unfair"
+    },
+    {
+      "gameId": 179275,
+      "name": " 온에 데크 던전",
+      "englishName": " One Deck Dungeon"
+    },
+    {
+      "gameId": 180263,
+      "name": " 스에 7th 크온트인엔트",
+      "englishName": " The 7th Continent"
+    },
+    {
+      "gameId": 180511,
+      "name": " 쉬아케스프이레",
+      "englishName": " Shakespeare"
+    },
+    {
+      "gameId": 180593,
+      "name": " 스에 브르우드이 인느",
+      "englishName": " The Bloody Inn"
+    },
+    {
+      "gameId": 180899,
+      "name": " 프온지 스치엠에",
+      "englishName": " Ponzi Scheme"
+    },
+    {
+      "gameId": 180901,
+      "name": " 즈오아쿠",
+      "englishName": " Joraku"
+    },
+    {
+      "gameId": 180974,
+      "name": " 포션 에크스프로션",
+      "englishName": " Potion Explosion"
+    },
+    {
+      "gameId": 181687,
+      "name": " 스에 프어수이트 오프 하프피니스",
+      "englishName": " The Pursuit of Happiness"
+    },
+    {
+      "gameId": 181960,
+      "name": " 몰타의 관문",
+      "englishName": " Portal of Heroes"
+    },
+    {
+      "gameId": 182028,
+      "name": " 스르아우그흐 스에 아게스: 아 네우 스토리 오프 시브일이자션",
+      "englishName": " Through the Ages: A New Story of Civilization"
+    },
+    {
+      "gameId": 182134,
+      "name": " 에볼루션: 크르임아테",
+      "englishName": " Evolution: Climate"
+    },
+    {
+      "gameId": 182631,
+      "name": " 스타 르이르름스: 크올온이 워즈",
+      "englishName": " Star Realms: Colony Wars"
+    },
+    {
+      "gameId": 182694,
+      "name": " 와트스온 & 흐올메스",
+      "englishName": " Watson & Holmes"
+    },
+    {
+      "gameId": 182874,
+      "name": " 그랜드 아우스트리아 호트엘",
+      "englishName": " Grand Austria Hotel"
+    },
+    {
+      "gameId": 183006,
+      "name": " 우인토",
+      "englishName": " Qwinto"
+    },
+    {
+      "gameId": 183251,
+      "name": " 크아우바",
+      "englishName": " Karuba"
+    },
+    {
+      "gameId": 183394,
+      "name": " 비티크얼쳐 에스스엔티알 판",
+      "englishName": " Viticulture Essential Edition"
+    },
+    {
+      "gameId": 183840,
+      "name": " 오흐 름이 그우드스!",
+      "englishName": " Oh My Goods!"
+    },
+    {
+      "gameId": 184267,
+      "name": " 온 마스",
+      "englishName": " On Mars"
+    },
+    {
+      "gameId": 185343,
+      "name": " 앤아치르온이",
+      "englishName": " Anachrony"
+    },
+    {
+      "gameId": 187645,
+      "name": " 스타 워즈: 리벨리온",
+      "englishName": " Star Wars: Rebellion"
+    },
+    {
+      "gameId": 188834,
+      "name": " 시크릿 히트엘어",
+      "englishName": " Secret Hitler"
+    },
+    {
+      "gameId": 188866,
+      "name": " 아우크우아드 구에스트스: 스에 우알트온 카세",
+      "englishName": " Awkward Guests: The Walton Case"
+    },
+    {
+      "gameId": 188920,
+      "name": " 스이스 워 오프 름인에: 스에 보드 게임",
+      "englishName": " This War of Mine: The Board Game"
+    },
+    {
+      "gameId": 189932,
+      "name": " 트이르앤트스 오프 스에 언드어드아크",
+      "englishName": " Tyrants of the Underdark"
+    },
+    {
+      "gameId": 190082,
+      "name": " 더블유히테흐알엘 미스터리",
+      "englishName": " Whitehall Mystery"
+    },
+    {
+      "gameId": 191073,
+      "name": " 뱀파이어 퀸",
+      "englishName": " Vampire Queen"
+    },
+    {
+      "gameId": 191189,
+      "name": " 아에온스 엔드",
+      "englishName": " Aeon's End"
+    },
+    {
+      "gameId": 191231,
+      "name": " 비아 네브얼아",
+      "englishName": " Via Nebula"
+    },
+    {
+      "gameId": 191300,
+      "name": " 아치아에올오그이: 스에 네우 에크스페디션",
+      "englishName": " Archaeology: The New Expedition"
+    },
+    {
+      "gameId": 191862,
+      "name": " 임호테프",
+      "englishName": " Imhotep"
+    },
+    {
+      "gameId": 191876,
+      "name": " 얼엠",
+      "englishName": " Ulm"
+    },
+    {
+      "gameId": 191977,
+      "name": " 스에 캐슬 오프 부르크언드이: 스에 카드 게임",
+      "englishName": " The Castles of Burgundy: The Card Game"
+    },
+    {
+      "gameId": 192135,
+      "name": " 트우 름앤이 브온에스",
+      "englishName": " Too Many Bones"
+    },
+    {
+      "gameId": 192153,
+      "name": " 레이그느 오프 크스얼후",
+      "englishName": " Reign of Cthulhu"
+    },
+    {
+      "gameId": 192291,
+      "name": " 수쉬이 고 프아트이!",
+      "englishName": " Sushi Go Party!"
+    },
+    {
+      "gameId": 193214,
+      "name": " 엠이프레 크어쿠스",
+      "englishName": " Meeple Circus"
+    },
+    {
+      "gameId": 193738,
+      "name": " 그레이트 웨스턴 트레일",
+      "englishName": " Great Western Trail"
+    },
+    {
+      "gameId": 194594,
+      "name": " 다이스 프오게",
+      "englishName": " Dice Forge"
+    },
+    {
+      "gameId": 194607,
+      "name": " 름이스티크 베일",
+      "englishName": " Mystic Vale"
+    },
+    {
+      "gameId": 194655,
+      "name": " 스앤트오인이",
+      "englishName": " Santorini"
+    },
+    {
+      "gameId": 195421,
+      "name": " 느이르 앤드 프아",
+      "englishName": " Near and Far"
+    },
+    {
+      "gameId": 196340,
+      "name": " 요코흐앰아",
+      "englishName": " Yokohama"
+    },
+    {
+      "gameId": 196526,
+      "name": " 코프프이 르오스트어",
+      "englishName": " Coffee Roaster"
+    },
+    {
+      "gameId": 198740,
+      "name": " 로베크라프트 레트트어",
+      "englishName": " Lovecraft Letter"
+    },
+    {
+      "gameId": 198773,
+      "name": " 코드엔앰에스: 피크쳐스",
+      "englishName": " Codenames: Pictures"
+    },
+    {
+      "gameId": 198928,
+      "name": " 이브어이아",
+      "englishName": " Iberia"
+    },
+    {
+      "gameId": 198994,
+      "name": " 히어로 르이르름스",
+      "englishName": " Hero Realms"
+    },
+    {
+      "gameId": 199561,
+      "name": " 사그라다",
+      "englishName": " Sagrada"
+    },
+    {
+      "gameId": 199792,
+      "name": " 에버델",
+      "englishName": " Everdell"
+    },
+    {
+      "gameId": 200853,
+      "name": " 하비타트스",
+      "englishName": " Habitats"
+    },
+    {
+      "gameId": 201808,
+      "name": " 클랭크!: 아 데크-부일드인그 아드브엔쳐",
+      "englishName": " Clank!: A Deck-Building Adventure"
+    },
+    {
+      "gameId": 203416,
+      "name": " 에크스이트: 스에 게임 – 스에 프아아오흐스 툼",
+      "englishName": " EXIT: The Game – The Pharaoh's Tomb"
+    },
+    {
+      "gameId": 203417,
+      "name": " 에크스이트: 스에 게임 – 스에 시크릿 라브",
+      "englishName": " EXIT: The Game – The Secret Lab"
+    },
+    {
+      "gameId": 203420,
+      "name": " 에크스이트: 스에 게임 – 스에 아브앤드온에드 카브인",
+      "englishName": " EXIT: The Game – The Abandoned Cabin"
+    },
+    {
+      "gameId": 203430,
+      "name": " 후지 플러시",
+      "englishName": " Fuji Flush"
+    },
+    {
+      "gameId": 203780,
+      "name": " 파워 그리드: 카드 게임",
+      "englishName": " Power Grid: The Card Game"
+    },
+    {
+      "gameId": 203993,
+      "name": " 엘오엔조 일 마그니피코",
+      "englishName": " Lorenzo il Magnifico"
+    },
+    {
+      "gameId": 204574,
+      "name": " 역사의 흐름",
+      "englishName": " The Flow of History"
+    },
+    {
+      "gameId": 204583,
+      "name": " 크인그드옴인오",
+      "englishName": " Kingdomino"
+    },
+    {
+      "gameId": 204836,
+      "name": " 이스케이프 르우름: 스에 게임",
+      "englishName": " Escape Room: The Game"
+    },
+    {
+      "gameId": 205059,
+      "name": " 름앤션스 오프 마드니스: 2판 판",
+      "englishName": " Mansions of Madness: Second Edition"
+    },
+    {
+      "gameId": 205398,
+      "name": " 시타드엘스",
+      "englishName": " Citadels"
+    },
+    {
+      "gameId": 205418,
+      "name": " 아그리콜라: 프앰일이 판",
+      "englishName": " Agricola: Family Edition"
+    },
+    {
+      "gameId": 205637,
+      "name": " 아컴 호러: 스에 카드 게임",
+      "englishName": " Arkham Horror: The Card Game"
+    },
+    {
+      "gameId": 205885,
+      "name": " 크스 느임름트!",
+      "englishName": " X nimmt!"
+    },
+    {
+      "gameId": 206480,
+      "name": " 임프어이알 스트루그그레",
+      "englishName": " Imperial Struggle"
+    },
+    {
+      "gameId": 206718,
+      "name": " 에스노스",
+      "englishName": " Ethnos"
+    },
+    {
+      "gameId": 206931,
+      "name": " 엔크오에!",
+      "englishName": " Encore!"
+    },
+    {
+      "gameId": 206940,
+      "name": " 카르카손: 아마조나스",
+      "englishName": " Carcassonne: Amazonas"
+    },
+    {
+      "gameId": 206941,
+      "name": " 프어스트 크라스스: 알르 아브오르드 스에 오이엔트 에크스프레스스!",
+      "englishName": " First Class: All Aboard the Orient Express!"
+    },
+    {
+      "gameId": 208775,
+      "name": " 큐윅스 디럭스",
+      "englishName": " Qwixx Deluxe"
+    },
+    {
+      "gameId": 209010,
+      "name": " 메치스 브스. 름인이온스",
+      "englishName": " Mechs vs. Minions"
+    },
+    {
+      "gameId": 209418,
+      "name": " 도미니언: 2판 판",
+      "englishName": " Dominion: Second Edition"
+    },
+    {
+      "gameId": 209685,
+      "name": " 크엔트어이: 스피세 르오드",
+      "englishName": " Century: Spice Road"
+    },
+    {
+      "gameId": 213460,
+      "name": " 언로크!: 이스케이프 아드브엔쳐스",
+      "englishName": " Unlock!: Escape Adventures"
+    },
+    {
+      "gameId": 214000,
+      "name": " 인 스에 이이르 오프 스에 드래곤: 10th 앤니브어스아이",
+      "englishName": " In the Year of the Dragon: 10th Anniversary"
+    },
+    {
+      "gameId": 214880,
+      "name": " 치이카고 1875: 시티 오프 스에 비그 쉬아우르드어스",
+      "englishName": " Chicago 1875: City of the Big Shoulders"
+    },
+    {
+      "gameId": 215471,
+      "name": " 프오토그라프",
+      "englishName": " Photograph"
+    },
+    {
+      "gameId": 215841,
+      "name": " 에크스이트: 스에 게임 – 스에 프오고트트엔 아일랜드",
+      "englishName": " EXIT: The Game – The Forgotten Island"
+    },
+    {
+      "gameId": 216132,
+      "name": " 크르앤스 오프 크알에드온이아",
+      "englishName": " Clans of Caledonia"
+    },
+    {
+      "gameId": 216632,
+      "name": " 토너먼트 앳 카멜롯",
+      "englishName": " Tournament at Camelot"
+    },
+    {
+      "gameId": 216734,
+      "name": " 다이스 스르온에: 스이스온 온에",
+      "englishName": " Dice Throne: Season One"
+    },
+    {
+      "gameId": 217020,
+      "name": " 광란의 푸드트럭: 이것은 요식업이 아닌 전쟁",
+      "englishName": " Truck Off: The Food Truck Frenzy"
+    },
+    {
+      "gameId": 217372,
+      "name": " 스에 퀘스트 프오 엘 드오아도",
+      "englishName": " The Quest for El Dorado"
+    },
+    {
+      "gameId": 218074,
+      "name": " 데테크티베: 시티 오프 앤그엘스",
+      "englishName": " Detective: City of Angels"
+    },
+    {
+      "gameId": 218417,
+      "name": " 아에온스 엔드: 워 에트어느알",
+      "englishName": " Aeon's End: War Eternal"
+    },
+    {
+      "gameId": 219215,
+      "name": " 우어에우오드스",
+      "englishName": " Werewords"
+    },
+    {
+      "gameId": 219513,
+      "name": " 브아엔프아크",
+      "englishName": " Bärenpark"
+    },
+    {
+      "gameId": 220308,
+      "name": " 그에아 프로제크트",
+      "englishName": " Gaia Project"
+    },
+    {
+      "gameId": 220367,
+      "name": " 엠피리얼: 스펠스 & 스팀",
+      "englishName": " Empyreal: Spells & Steam"
+    },
+    {
+      "gameId": 220520,
+      "name": " 카브어나: 카베 브스 카베",
+      "englishName": " Caverna: Cave vs Cave"
+    },
+    {
+      "gameId": 220877,
+      "name": " 라자스 오프 스에 그앤게스",
+      "englishName": " Rajas of the Ganges"
+    },
+    {
+      "gameId": 221107,
+      "name": " 팬데믹 레거시: 스이스온 2",
+      "englishName": " Pandemic Legacy: Season 2"
+    },
+    {
+      "gameId": 221194,
+      "name": " 드인오사어 아일랜드",
+      "englishName": " Dinosaur Island"
+    },
+    {
+      "gameId": 223040,
+      "name": " 프앤타스이 르이르름스",
+      "englishName": " Fantasy Realms"
+    },
+    {
+      "gameId": 223321,
+      "name": " 데테크티베: 아 모드어느 크르임에 보드 게임",
+      "englishName": " Detective: A Modern Crime Board Game"
+    },
+    {
+      "gameId": 223770,
+      "name": " 스트아투프스",
+      "englishName": " Startups"
+    },
+    {
+      "gameId": 223953,
+      "name": " 키트치엔 러시",
+      "englishName": " Kitchen Rush"
+    },
+    {
+      "gameId": 224037,
+      "name": " 코드엔앰에스: 두에트",
+      "englishName": " Codenames: Duet"
+    },
+    {
+      "gameId": 224517,
+      "name": " 브라스: 버밍엄",
+      "englishName": " Brass: Birmingham"
+    },
+    {
+      "gameId": 224710,
+      "name": " 즈옴비시데: 그린 흐오데",
+      "englishName": " Zombicide: Green Horde"
+    },
+    {
+      "gameId": 225694,
+      "name": " 데크르이프토",
+      "englishName": " Decrypto"
+    },
+    {
+      "gameId": 226518,
+      "name": " 에크스이트: 스에 게임 – 스에 스언크엔 트르이스어에",
+      "englishName": " EXIT: The Game – The Sunken Treasure"
+    },
+    {
+      "gameId": 226522,
+      "name": " 에크스이트: 스에 게임 – 드이드 름앤 온 스에 오이엔트 에크스프레스스",
+      "englishName": " EXIT: The Game – Dead Man on the Orient Express"
+    },
+    {
+      "gameId": 227224,
+      "name": " 스에 레드 캐시드럴",
+      "englishName": " The Red Cathedral"
+    },
+    {
+      "gameId": 227789,
+      "name": " 흐이브엔 & 알에",
+      "englishName": " Heaven & Ale"
+    },
+    {
+      "gameId": 227935,
+      "name": " 우온드어랜드스 워",
+      "englishName": " Wonderland's War"
+    },
+    {
+      "gameId": 228341,
+      "name": " 프얼스아 2849",
+      "englishName": " Pulsar 2849"
+    },
+    {
+      "gameId": 229220,
+      "name": " 스앤타 름아이아",
+      "englishName": " Santa Maria"
+    },
+    {
+      "gameId": 229853,
+      "name": " 테오티후아크앤: 시티 오프 고드스",
+      "englishName": " Teotihuacan: City of Gods"
+    },
+    {
+      "gameId": 230383,
+      "name": " 메모아르!",
+      "englishName": " Memoarrr!"
+    },
+    {
+      "gameId": 230802,
+      "name": " 아줄",
+      "englishName": " Azul"
+    },
+    {
+      "gameId": 231733,
+      "name": " 오브세스션",
+      "englishName": " Obsession"
+    },
+    {
+      "gameId": 232832,
+      "name": " 크엔트어이: 그올엠 판",
+      "englishName": " Century: Golem Edition"
+    },
+    {
+      "gameId": 232988,
+      "name": " 스에 캐슬 오프 부르크언드이: 스에 다이스 게임",
+      "englishName": " The Castles of Burgundy: The Dice Game"
+    },
+    {
+      "gameId": 233078,
+      "name": " 트와일라잇 임페리움: 4판 판",
+      "englishName": " Twilight Imperium: Fourth Edition"
+    },
+    {
+      "gameId": 233371,
+      "name": " 클랭크! 인! 스페이스!: 아 데크-부일드인그 아드브엔쳐",
+      "englishName": " Clank! In! Space!: A Deck-Building Adventure"
+    },
+    {
+      "gameId": 233398,
+      "name": " 엔드이브오: 아게 오프 스에르",
+      "englishName": " Endeavor: Age of Sail"
+    },
+    {
+      "gameId": 233867,
+      "name": " 우엘크옴에 토...",
+      "englishName": " Welcome To..."
+    },
+    {
+      "gameId": 234248,
+      "name": " 부두 프린스",
+      "englishName": " Voodoo Prince"
+    },
+    {
+      "gameId": 234277,
+      "name": " 누스프즈오드",
+      "englishName": " Nusfjord"
+    },
+    {
+      "gameId": 235488,
+      "name": " 이스트앤브얼: 스에 다이스 게임",
+      "englishName": " Istanbul: The Dice Game"
+    },
+    {
+      "gameId": 235591,
+      "name": " 세계의 역사",
+      "englishName": " History of the World"
+    },
+    {
+      "gameId": 235802,
+      "name": " 트우 름앤이 브온에스: 언드어트오",
+      "englishName": " Too Many Bones: Undertow"
+    },
+    {
+      "gameId": 236191,
+      "name": " 엘온드온 (2판)",
+      "englishName": " London (Second Edition)"
+    },
+    {
+      "gameId": 236457,
+      "name": " 아치이테크트스 오프 스에 웨스트 킹덤",
+      "englishName": " Architects of the West Kingdom"
+    },
+    {
+      "gameId": 237179,
+      "name": " 우이스어 마치인에",
+      "englishName": " Weather Machine"
+    },
+    {
+      "gameId": 237182,
+      "name": " 루트",
+      "englishName": " Root"
+    },
+    {
+      "gameId": 237792,
+      "name": " 루미큐브 트위스트",
+      "englishName": " Rummikub Twist"
+    },
+    {
+      "gameId": 238638,
+      "name": " 카스트엘엘",
+      "englishName": " Castell"
+    },
+    {
+      "gameId": 238799,
+      "name": " 메스스인아 1347",
+      "englishName": " Messina 1347"
+    },
+    {
+      "gameId": 239188,
+      "name": " 크로니클스 오프 크르임에",
+      "englishName": " Chronicles of Crime"
+    },
+    {
+      "gameId": 240980,
+      "name": " 블러드 온 스에 크로크트오어",
+      "englishName": " Blood on the Clocktower"
+    },
+    {
+      "gameId": 241266,
+      "name": " 리트트레 타운",
+      "englishName": " Little Town"
+    },
+    {
+      "gameId": 241451,
+      "name": " 아에온스 엔드: 레거시",
+      "englishName": " Aeon's End: Legacy"
+    },
+    {
+      "gameId": 241724,
+      "name": " 브일라그어스",
+      "englishName": " Villagers"
+    },
+    {
+      "gameId": 241831,
+      "name": " 레이크홀트",
+      "englishName": " Reykholt"
+    },
+    {
+      "gameId": 242302,
+      "name": " 스페이스 바세",
+      "englishName": " Space Base"
+    },
+    {
+      "gameId": 242574,
+      "name": " 크엔트어이: 이스트어느 원더스",
+      "englishName": " Century: Eastern Wonders"
+    },
+    {
+      "gameId": 243430,
+      "name": " 딜트!",
+      "englishName": " Dealt!"
+    },
+    {
+      "gameId": 244114,
+      "name": " 옐로우 & 이앤그트제",
+      "englishName": " Yellow & Yangtze"
+    },
+    {
+      "gameId": 244521,
+      "name": " 우아크스",
+      "englishName": " Quacks"
+    },
+    {
+      "gameId": 244522,
+      "name": " 스아트스 프레트트이 크레브어!",
+      "englishName": " That's Pretty Clever!"
+    },
+    {
+      "gameId": 244711,
+      "name": " 네더블유트온",
+      "englishName": " Newton"
+    },
+    {
+      "gameId": 244992,
+      "name": " 스에 름인드",
+      "englishName": " The Mind"
+    },
+    {
+      "gameId": 245487,
+      "name": " 오치아드: 9 카드 스올이트에레 게임",
+      "englishName": " Orchard: 9 card solitaire game"
+    },
+    {
+      "gameId": 245638,
+      "name": " 코임브라",
+      "englishName": " Coimbra"
+    },
+    {
+      "gameId": 245655,
+      "name": " 스에 킹스 드일엠마",
+      "englishName": " The King's Dilemma"
+    },
+    {
+      "gameId": 245934,
+      "name": " 크아페 디엠",
+      "englishName": " Carpe Diem"
+    },
+    {
+      "gameId": 245961,
+      "name": " 프르이트: 스에 다이스 게임",
+      "englishName": " Fleet: The Dice Game"
+    },
+    {
+      "gameId": 246192,
+      "name": " 기즈모스",
+      "englishName": " Gizmos"
+    },
+    {
+      "gameId": 246784,
+      "name": " 크르이프티드",
+      "englishName": " Cryptid"
+    },
+    {
+      "gameId": 246900,
+      "name": " 에크리프세: 2판 다우느 프오 스에 갤럭시",
+      "englishName": " Eclipse: Second Dawn for the Galaxy"
+    },
+    {
+      "gameId": 247763,
+      "name": " 언더워터 시티즈",
+      "englishName": " Underwater Cities"
+    },
+    {
+      "gameId": 249259,
+      "name": " 워 치에스트",
+      "englishName": " War Chest"
+    },
+    {
+      "gameId": 249411,
+      "name": " 쿠스코",
+      "englishName": " Cuzco"
+    },
+    {
+      "gameId": 250458,
+      "name": " 구그온그",
+      "englishName": " Gùgōng"
+    },
+    {
+      "gameId": 251247,
+      "name": " 브아라게",
+      "englishName": " Barrage"
+    },
+    {
+      "gameId": 251658,
+      "name": " 스프라우로프올이스",
+      "englishName": " Sprawlopolis"
+    },
+    {
+      "gameId": 251661,
+      "name": " 오스스우오느: 인토 스에 드이프우드",
+      "englishName": " Oathsworn: Into the Deepwood"
+    },
+    {
+      "gameId": 252526,
+      "name": " 피크트옴앤이아 (2판)",
+      "englishName": " Pictomania (Second Edition)"
+    },
+    {
+      "gameId": 253344,
+      "name": " 크스얼후: 드이스 마이 디",
+      "englishName": " Cthulhu: Death May Die"
+    },
+    {
+      "gameId": 254226,
+      "name": " 언로크!: 에크스오티크 아드브엔쳐스",
+      "englishName": " Unlock!: Exotic Adventures"
+    },
+    {
+      "gameId": 254640,
+      "name": " 주스트 온에",
+      "englishName": " Just One"
+    },
+    {
+      "gameId": 254708,
+      "name": " 르올르 프라이어 아드브엔쳐스",
+      "englishName": " Roll Player Adventures"
+    },
+    {
+      "gameId": 255984,
+      "name": " 스엘이프인그 고드스",
+      "englishName": " Sleeping Gods"
+    },
+    {
+      "gameId": 256226,
+      "name": " 아줄: 스트에네드 그라스스 오프 스인트라",
+      "englishName": " Azul: Stained Glass of Sintra"
+    },
+    {
+      "gameId": 256960,
+      "name": " 파엑스 프앰어: 2판 판",
+      "englishName": " Pax Pamir: Second Edition"
+    },
+    {
+      "gameId": 257499,
+      "name": " 아컴 호러 (3판)",
+      "englishName": " Arkham Horror (Third Edition)"
+    },
+    {
+      "gameId": 257527,
+      "name": " 트라프더블유오드스",
+      "englishName": " Trapwords"
+    },
+    {
+      "gameId": 257743,
+      "name": " 사이 Whaaat?!",
+      "englishName": " Say Whaaat?!"
+    },
+    {
+      "gameId": 258242,
+      "name": " 부동산 거물: 첫 번째 도시",
+      "englishName": " Magnate: The First City"
+    },
+    {
+      "gameId": 258779,
+      "name": " 프르앤에트 언크느오느",
+      "englishName": " Planet Unknown"
+    },
+    {
+      "gameId": 260180,
+      "name": " 프로제크트 엘",
+      "englishName": " Project L"
+    },
+    {
+      "gameId": 260605,
+      "name": " 크앰엘 우프 (2판)",
+      "englishName": " Camel Up (Second Edition)"
+    },
+    {
+      "gameId": 261594,
+      "name": " 워해머 언더월드: 나이트볼트",
+      "englishName": " Warhammer Underworlds: Nightvault"
+    },
+    {
+      "gameId": 261614,
+      "name": " 너도? 나도! 파티",
+      "englishName": " Unanimo Party"
+    },
+    {
+      "gameId": 262211,
+      "name": " 크르아우드스프어에",
+      "englishName": " Cloudspire"
+    },
+    {
+      "gameId": 262215,
+      "name": " 브라크아우트: 흐온그 크온그",
+      "englishName": " Blackout: Hong Kong"
+    },
+    {
+      "gameId": 262543,
+      "name": " 와브엘엔그스",
+      "englishName": " Wavelength"
+    },
+    {
+      "gameId": 262712,
+      "name": " 레스 아크앤아",
+      "englishName": " Res Arcana"
+    },
+    {
+      "gameId": 263918,
+      "name": " 크아토그라프어스",
+      "englishName": " Cartographers"
+    },
+    {
+      "gameId": 264220,
+      "name": " 트에느테드 그라이르: 스에 프알르 오프 아브알온",
+      "englishName": " Tainted Grail: The Fall of Avalon"
+    },
+    {
+      "gameId": 264647,
+      "name": " 아게 오프 시브일이자션",
+      "englishName": " Age of Civilization"
+    },
+    {
+      "gameId": 265188,
+      "name": " 그르엔 름오에 이이: 크로니클스",
+      "englishName": " Glen More II: Chronicles"
+    },
+    {
+      "gameId": 265537,
+      "name": " 바이마르: 민주주의를 위한 투쟁",
+      "englishName": " Weimar: The Fight for Democracy"
+    },
+    {
+      "gameId": 265736,
+      "name": " 트인이 타운스",
+      "englishName": " Tiny Towns"
+    },
+    {
+      "gameId": 266083,
+      "name": " 르.르.아.름.아.",
+      "englishName": " L.L.A.M.A."
+    },
+    {
+      "gameId": 266121,
+      "name": " 언로크!: 흐어오이크 아드브엔쳐스",
+      "englishName": " Unlock!: Heroic Adventures"
+    },
+    {
+      "gameId": 266192,
+      "name": " 윙스팬",
+      "englishName": " Wingspan"
+    },
+    {
+      "gameId": 266507,
+      "name": " 클랭크! 레거시: 아크우이시션스 인크오프오아테드",
+      "englishName": " Clank! Legacy: Acquisitions Incorporated"
+    },
+    {
+      "gameId": 266524,
+      "name": " 프아크스",
+      "englishName": " Parks"
+    },
+    {
+      "gameId": 266722,
+      "name": " 르엄브레 나션",
+      "englishName": " Rumble Nation"
+    },
+    {
+      "gameId": 266810,
+      "name": " 프알아드인스 오프 스에 웨스트 킹덤",
+      "englishName": " Paladins of the West Kingdom"
+    },
+    {
+      "gameId": 266830,
+      "name": " 에",
+      "englishName": " QE"
+    },
+    {
+      "gameId": 267367,
+      "name": " 수브어비아: 크올레크트오스 판",
+      "englishName": " Suburbia: Collector's Edition"
+    },
+    {
+      "gameId": 267998,
+      "name": " 부스앤",
+      "englishName": " Busan"
+    },
+    {
+      "gameId": 268586,
+      "name": " 6 엔임엠트! 25 자흐레",
+      "englishName": " 6 nimmt! 25 Jahre"
+    },
+    {
+      "gameId": 268665,
+      "name": " 수즈엄에-즈온그",
+      "englishName": " Suzume-Jong"
+    },
+    {
+      "gameId": 268864,
+      "name": " 언다언테드: 느오름앤드이",
+      "englishName": " Undaunted: Normandy"
+    },
+    {
+      "gameId": 269144,
+      "name": " 하드아아",
+      "englishName": " Hadara"
+    },
+    {
+      "gameId": 269207,
+      "name": " 스에 타브어느스 오프 티에프엔스알",
+      "englishName": " The Taverns of Tiefenthal"
+    },
+    {
+      "gameId": 269210,
+      "name": " 트위세 아스 크레브어!",
+      "englishName": " Twice as Clever!"
+    },
+    {
+      "gameId": 269385,
+      "name": " 스에 로드 오프 스에 르인그스: 즈아우르네이스 인 미드드레-이르스",
+      "englishName": " The Lord of the Rings: Journeys in Middle-Earth"
+    },
+    {
+      "gameId": 269971,
+      "name": " 우브온고!: 3-드 프앰일이",
+      "englishName": " Ubongo!: 3-D Family"
+    },
+    {
+      "gameId": 270970,
+      "name": " 크엔트어이: 아 네우 월드",
+      "englishName": " Century: A New World"
+    },
+    {
+      "gameId": 271055,
+      "name": " 드우엘르인그스 오프 엘드어베일",
+      "englishName": " Dwellings of Eldervale"
+    },
+    {
+      "gameId": 271319,
+      "name": " 라스 베가스 로이알에",
+      "englishName": " Las Vegas Royale"
+    },
+    {
+      "gameId": 271321,
+      "name": " 카보 (2판)",
+      "englishName": " CABO (Second Edition)"
+    },
+    {
+      "gameId": 271324,
+      "name": " 이트스 아 우온드어프얼 월드",
+      "englishName": " It's a Wonderful World"
+    },
+    {
+      "gameId": 271601,
+      "name": " 프이드 스에 크라크엔",
+      "englishName": " Feed the Kraken"
+    },
+    {
+      "gameId": 272739,
+      "name": " 크르인이크: 디럭스 판",
+      "englishName": " Clinic: Deluxe Edition"
+    },
+    {
+      "gameId": 273330,
+      "name": " 브르우드브오네: 스에 보드 게임",
+      "englishName": " Bloodborne: The Board Game"
+    },
+    {
+      "gameId": 274093,
+      "name": " 쿼키 서킷",
+      "englishName": " Quirky Circuits"
+    },
+    {
+      "gameId": 274364,
+      "name": " 와트어게이트",
+      "englishName": " Watergate"
+    },
+    {
+      "gameId": 274637,
+      "name": " 언마트치에드: 배틀 오프 레전드, 브올엄에 온에",
+      "englishName": " Unmatched: Battle of Legends, Volume One"
+    },
+    {
+      "gameId": 276025,
+      "name": " 름아아크에보",
+      "englishName": " Maracaibo"
+    },
+    {
+      "gameId": 276182,
+      "name": " 드이드 레크온인그",
+      "englishName": " Dead Reckoning"
+    },
+    {
+      "gameId": 277085,
+      "name": " 로베 레트트어",
+      "englishName": " Love Letter"
+    },
+    {
+      "gameId": 279537,
+      "name": " 스에 스이르치 프오 프르앤에트 크스",
+      "englishName": " The Search for Planet X"
+    },
+    {
+      "gameId": 279613,
+      "name": " 언로크!: 트임엘에스스 아드브엔쳐스",
+      "englishName": " Unlock!: Timeless Adventures"
+    },
+    {
+      "gameId": 280453,
+      "name": " 마스터즈 오프 르엔에스스앤세: 르오엔조 일 마그니피코 – 스에 카드 게임",
+      "englishName": " Masters of Renaissance: Lorenzo il Magnifico – The Card Game"
+    },
+    {
+      "gameId": 280480,
+      "name": " 크르이스트알 프알아세",
+      "englishName": " Crystal Palace"
+    },
+    {
+      "gameId": 280811,
+      "name": " 나츠메모",
+      "englishName": " なつめも (Natsumemo)"
+    },
+    {
+      "gameId": 281144,
+      "name": " 인 스이스 와이 이 베크옴에 아 디크타트오",
+      "englishName": " In this way I become a DICTATOR"
+    },
+    {
+      "gameId": 281442,
+      "name": " 트리스메기스투스: 스에 얼티밋 프오름얼아",
+      "englishName": " Trismegistus: The Ultimate Formula"
+    },
+    {
+      "gameId": 281655,
+      "name": " 히그흐 프르온티어 4 알르",
+      "englishName": " High Frontier 4 All"
+    },
+    {
+      "gameId": 282524,
+      "name": " 흐오리피에드",
+      "englishName": " Horrified"
+    },
+    {
+      "gameId": 283155,
+      "name": " 크알이코",
+      "englishName": " Calico"
+    },
+    {
+      "gameId": 283948,
+      "name": " 름아코 프올오 이이: 인 스에 스어비세 오프 스에 크흐앤",
+      "englishName": " Marco Polo II: In the Service of the Khan"
+    },
+    {
+      "gameId": 284083,
+      "name": " 스에 크레우: 스에 퀘스트 프오 프르앤에트 느인에",
+      "englishName": " The Crew: The Quest for Planet Nine"
+    },
+    {
+      "gameId": 284108,
+      "name": " 피크쳐스",
+      "englishName": " Pictures"
+    },
+    {
+      "gameId": 284189,
+      "name": " 프아우느다션스 오프 르옴에",
+      "englishName": " Foundations of Rome"
+    },
+    {
+      "gameId": 284378,
+      "name": " 크앤브앤 에브",
+      "englishName": " Kanban EV"
+    },
+    {
+      "gameId": 284435,
+      "name": " 노바 르언아",
+      "englishName": " Nova Luna"
+    },
+    {
+      "gameId": 284653,
+      "name": " 름인드 름그름트: 스에 프스이치이크 에스피온아게 “Game.”",
+      "englishName": " Mind MGMT: The Psychic Espionage “Game.”"
+    },
+    {
+      "gameId": 284818,
+      "name": " 카이루스 1303",
+      "englishName": " Caylus 1303"
+    },
+    {
+      "gameId": 285774,
+      "name": " 름아브엘 치암피온스: 스에 카드 게임",
+      "englishName": " Marvel Champions: The Card Game"
+    },
+    {
+      "gameId": 285967,
+      "name": " 앤크흐: 고드스 오프 에그이프트",
+      "englishName": " Ankh: Gods of Egypt"
+    },
+    {
+      "gameId": 286096,
+      "name": " 타페스트르이",
+      "englishName": " Tapestry"
+    },
+    {
+      "gameId": 286751,
+      "name": " 즈옴비시데: 2nd 판",
+      "englishName": " Zombicide: 2nd Edition"
+    },
+    {
+      "gameId": 287607,
+      "name": " 더 마인드 익스트림",
+      "englishName": " The Mind Extreme"
+    },
+    {
+      "gameId": 287941,
+      "name": " 대만 차 연대기",
+      "englishName": " Formosa Tea"
+    },
+    {
+      "gameId": 287954,
+      "name": " 아줄: 스엄름어 파브일이온",
+      "englishName": " Azul: Summer Pavilion"
+    },
+    {
+      "gameId": 288098,
+      "name": " 섀도우 레이더스",
+      "englishName": " Shadow Raiders"
+    },
+    {
+      "gameId": 290236,
+      "name": " 크앤바스",
+      "englishName": " Canvas"
+    },
+    {
+      "gameId": 290357,
+      "name": " 흐앤아비 디럭스: 우하트 아 쉬오!",
+      "englishName": " Hanabi Deluxe: What a Show!"
+    },
+    {
+      "gameId": 290359,
+      "name": " 언다언테드: 느오스 아프리카",
+      "englishName": " Undaunted: North Africa"
+    },
+    {
+      "gameId": 291105,
+      "name": " 이스케이프 르우름: 스에 게임 2",
+      "englishName": " Escape Room: The Game 2"
+    },
+    {
+      "gameId": 291453,
+      "name": " 스크아우트",
+      "englishName": " SCOUT"
+    },
+    {
+      "gameId": 291457,
+      "name": " 글룸헤이븐: 자우스 오프 스에 리온",
+      "englishName": " Gloomhaven: Jaws of the Lion"
+    },
+    {
+      "gameId": 291845,
+      "name": " 스르이 시스트어스",
+      "englishName": " Three Sisters"
+    },
+    {
+      "gameId": 293014,
+      "name": " 니다브엘엘어",
+      "englishName": " Nidavellir"
+    },
+    {
+      "gameId": 293296,
+      "name": " 스플렌더: 엠아브엘",
+      "englishName": " Splendor: Marvel"
+    },
+    {
+      "gameId": 294612,
+      "name": " 언로크!: 에픽 아드브엔쳐스",
+      "englishName": " Unlock!: Epic Adventures"
+    },
+    {
+      "gameId": 294702,
+      "name": " 트엔프엔느이 프아크스",
+      "englishName": " Tenpenny Parks"
+    },
+    {
+      "gameId": 295374,
+      "name": " 르온그 쉬오트: 스에 다이스 게임",
+      "englishName": " Long Shot: The Dice Game"
+    },
+    {
+      "gameId": 295486,
+      "name": " 름이 시티",
+      "englishName": " My City"
+    },
+    {
+      "gameId": 295770,
+      "name": " 프로스스아브엔",
+      "englishName": " Frosthaven"
+    },
+    {
+      "gameId": 295895,
+      "name": " 디스트일레드",
+      "englishName": " Distilled"
+    },
+    {
+      "gameId": 295947,
+      "name": " 캐스캐디아",
+      "englishName": " Cascadia"
+    },
+    {
+      "gameId": 296108,
+      "name": " 테라포밍 마스: 스에 다이스 게임",
+      "englishName": " Terraforming Mars: The Dice Game"
+    },
+    {
+      "gameId": 296151,
+      "name": " 비스크아우느트스 오프 스에 웨스트 킹덤",
+      "englishName": " Viscounts of the West Kingdom"
+    },
+    {
+      "gameId": 297030,
+      "name": " 테크흐엔우: 오브엘이스크 오프 스에 스언",
+      "englishName": " Tekhenu: Obelisk of the Sun"
+    },
+    {
+      "gameId": 297129,
+      "name": " 제크이르르 브스. 흐이데",
+      "englishName": " Jekyll vs. Hyde"
+    },
+    {
+      "gameId": 297562,
+      "name": " 크엠에트: 블러드 앤드 스앤드",
+      "englishName": " Kemet: Blood and Sand"
+    },
+    {
+      "gameId": 298047,
+      "name": " 름아브엘 언이테드",
+      "englishName": " Marvel United"
+    },
+    {
+      "gameId": 298069,
+      "name": " 쿠비토스",
+      "englishName": " Cubitos"
+    },
+    {
+      "gameId": 298383,
+      "name": " 그올엠",
+      "englishName": " Golem"
+    },
+    {
+      "gameId": 299169,
+      "name": " 스피크이",
+      "englishName": " Spicy"
+    },
+    {
+      "gameId": 299960,
+      "name": " 알마 마트어",
+      "englishName": " Alma Mater"
+    },
+    {
+      "gameId": 300322,
+      "name": " 흐알르어타우",
+      "englishName": " Hallertau"
+    },
+    {
+      "gameId": 300531,
+      "name": " 프알에오",
+      "englishName": " Paleo"
+    },
+    {
+      "gameId": 300905,
+      "name": " 토프 트엔",
+      "englishName": " Top Ten"
+    },
+    {
+      "gameId": 301880,
+      "name": " 레이더스 오프 스크이스이아",
+      "englishName": " Raiders of Scythia"
+    },
+    {
+      "gameId": 302425,
+      "name": " 언로크!: 름이스이크 아드브엔쳐스",
+      "englishName": " Unlock!: Mythic Adventures"
+    },
+    {
+      "gameId": 302723,
+      "name": " 프오고트트엔 와트어스",
+      "englishName": " Forgotten Waters"
+    },
+    {
+      "gameId": 303057,
+      "name": " 프앤 앰",
+      "englishName": " Pan Am"
+    },
+    {
+      "gameId": 303731,
+      "name": " 프르임알: 스에 아와크엔인그",
+      "englishName": " Primal: The Awakening"
+    },
+    {
+      "gameId": 304042,
+      "name": " 新幕 桜降る代に決闘を 基本セット (아 듀얼 프오 프알르인그 치어르이 브로스스옴스: 네우 아크트 – 바시크 세트)",
+      "englishName": " 新幕 桜降る代に決闘を 基本セット (A Duel for Falling Cherry Blossoms: New Act – Basic Set)"
+    },
+    {
+      "gameId": 304051,
+      "name": " 크르이쳐 크옴프오트스",
+      "englishName": " Creature Comforts"
+    },
+    {
+      "gameId": 304420,
+      "name": " 브온프어에",
+      "englishName": " Bonfire"
+    },
+    {
+      "gameId": 304783,
+      "name": " 하드리앤스 우알르",
+      "englishName": " Hadrian's Wall"
+    },
+    {
+      "gameId": 306040,
+      "name": " 름어브: 스에 흐이르트 오프 스에 스일크 르오드",
+      "englishName": " Merv: The Heart of the Silk Road"
+    },
+    {
+      "gameId": 306735,
+      "name": " 언드어 프알르인그 스키에스",
+      "englishName": " Under Falling Skies"
+    },
+    {
+      "gameId": 307002,
+      "name": " 레기시데",
+      "englishName": " Regicide"
+    },
+    {
+      "gameId": 307305,
+      "name": " Bullet♥︎",
+      "englishName": " Bullet♥︎"
+    },
+    {
+      "gameId": 308765,
+      "name": " 프라가 카푸트 레그니",
+      "englishName": " Praga Caput Regni"
+    },
+    {
+      "gameId": 309630,
+      "name": " 스름알르 월드 오프 우아크라프트",
+      "englishName": " Small World of Warcraft"
+    },
+    {
+      "gameId": 310100,
+      "name": " 네메시스: 로크드오엔",
+      "englishName": " Nemesis: Lockdown"
+    },
+    {
+      "gameId": 310873,
+      "name": " 크아네기에",
+      "englishName": " Carnegie"
+    },
+    {
+      "gameId": 311031,
+      "name": " 파이브 쓰리 파이브",
+      "englishName": " Five Three Five"
+    },
+    {
+      "gameId": 311193,
+      "name": " 앤노 1800: 스에 보드 게임",
+      "englishName": " Anno 1800: The Board Game"
+    },
+    {
+      "gameId": 311988,
+      "name": " 프로스트프언크: 스에 보드 게임",
+      "englishName": " Frostpunk: The Board Game"
+    },
+    {
+      "gameId": 312484,
+      "name": " 로스트 루인스 오프 아나크",
+      "englishName": " Lost Ruins of Arnak"
+    },
+    {
+      "gameId": 314040,
+      "name": " 팬데믹 레거시: 스이스온 0",
+      "englishName": " Pandemic Legacy: Season 0"
+    },
+    {
+      "gameId": 314503,
+      "name": " 코데크스 나트어알이스",
+      "englishName": " Codex Naturalis"
+    },
+    {
+      "gameId": 315610,
+      "name": " 마스시베 드아크니스 2: 흐엘엘스카페",
+      "englishName": " Massive Darkness 2: Hellscape"
+    },
+    {
+      "gameId": 316287,
+      "name": " 퀘스트",
+      "englishName": " Quest"
+    },
+    {
+      "gameId": 316377,
+      "name": " 7 원더스 (2판)",
+      "englishName": " 7 Wonders (Second Edition)"
+    },
+    {
+      "gameId": 316412,
+      "name": " 스에 르우프",
+      "englishName": " The LOOP"
+    },
+    {
+      "gameId": 316554,
+      "name": " 듄: 임페리움",
+      "englishName": " Dune: Imperium"
+    },
+    {
+      "gameId": 317985,
+      "name": " 베이온드 스에 스언",
+      "englishName": " Beyond the Sun"
+    },
+    {
+      "gameId": 318009,
+      "name": " 드인오사어 아일랜드: 라우르 느 우리테",
+      "englishName": " Dinosaur Island: Rawr 'n Write"
+    },
+    {
+      "gameId": 318184,
+      "name": " 임페리움: 크라스시크스",
+      "englishName": " Imperium: Classics"
+    },
+    {
+      "gameId": 318243,
+      "name": " 히트스트어",
+      "englishName": " Hitster"
+    },
+    {
+      "gameId": 318560,
+      "name": " 위트치스톤",
+      "englishName": " Witchstone"
+    },
+    {
+      "gameId": 318977,
+      "name": " 미크르옴아크로: 크르임에 시티",
+      "englishName": " MicroMacro: Crime City"
+    },
+    {
+      "gameId": 319807,
+      "name": " 쉬오그언 노 카트앤아",
+      "englishName": " Shogun no Katana"
+    },
+    {
+      "gameId": 321608,
+      "name": " 헤그엠온이: 르이드 이아우르 크라스스 토 비크트오이",
+      "englishName": " Hegemony: Lead Your Class to Victory"
+    },
+    {
+      "gameId": 322204,
+      "name": " 더블유오드 카프쳐",
+      "englishName": " Word Capture"
+    },
+    {
+      "gameId": 322289,
+      "name": " 드아우인스 즈아우르네이",
+      "englishName": " Darwin's Journey"
+    },
+    {
+      "gameId": 322421,
+      "name": " 아쿠아 가든",
+      "englishName": " Aqua Garden"
+    },
+    {
+      "gameId": 324090,
+      "name": " 스크아파세 1920",
+      "englishName": " Scarface 1920"
+    },
+    {
+      "gameId": 324856,
+      "name": " 스에 크레우: 미스션 드이프 시",
+      "englishName": " The Crew: Mission Deep Sea"
+    },
+    {
+      "gameId": 325015,
+      "name": " 크아우느트 우프",
+      "englishName": " Count Up"
+    },
+    {
+      "gameId": 325022,
+      "name": " 코프프이 트라드어스",
+      "englishName": " Coffee Traders"
+    },
+    {
+      "gameId": 325810,
+      "name": " 어센션: 10주년 기념판",
+      "englishName": " Ascension: 10 Year Anniversary Edition"
+    },
+    {
+      "gameId": 326054,
+      "name": " 冷たい彼女が目覚める前に (엠브알엠인그 그어엘)",
+      "englishName": " 冷たい彼女が目覚める前に (Embalming Girl)"
+    },
+    {
+      "gameId": 327778,
+      "name": " 이토",
+      "englishName": " ito"
+    },
+    {
+      "gameId": 328124,
+      "name": " 보트 파크트오이",
+      "englishName": " Bot Factory"
+    },
+    {
+      "gameId": 328479,
+      "name": " 리브인그 포레스트",
+      "englishName": " Living Forest"
+    },
+    {
+      "gameId": 328871,
+      "name": " 테라포밍 마스: 아에스 에크스페디션",
+      "englishName": " Terraforming Mars: Ares Expedition"
+    },
+    {
+      "gameId": 329500,
+      "name": " 언크온스시아우스 엠인드",
+      "englishName": " Unconscious Mind"
+    },
+    {
+      "gameId": 329839,
+      "name": " 소 크로브어!",
+      "englishName": " So Clover!"
+    },
+    {
+      "gameId": 330038,
+      "name": " 르르앰아랜드",
+      "englishName": " Llamaland"
+    },
+    {
+      "gameId": 330592,
+      "name": " 프앤트옴 인크",
+      "englishName": " Phantom Ink"
+    },
+    {
+      "gameId": 331106,
+      "name": " 스에 위트치어: 올드 월드",
+      "englishName": " The Witcher: Old World"
+    },
+    {
+      "gameId": 331787,
+      "name": " 트인이 에픽 던전",
+      "englishName": " Tiny Epic Dungeons"
+    },
+    {
+      "gameId": 332772,
+      "name": " 레비베",
+      "englishName": " Revive"
+    },
+    {
+      "gameId": 332800,
+      "name": " 스엄엠온어 워즈 (2판)",
+      "englishName": " Summoner Wars (Second Edition)"
+    },
+    {
+      "gameId": 333255,
+      "name": " 크이프 스에 히어로즈 아우트!",
+      "englishName": " Keep the Heroes Out!"
+    },
+    {
+      "gameId": 334065,
+      "name": " 브어드앤트",
+      "englishName": " Verdant"
+    },
+    {
+      "gameId": 334590,
+      "name": " 프오 느오스우드! 아 스올오 트리크-타크인그 게임",
+      "englishName": " For Northwood! A Solo Trick-Taking Game"
+    },
+    {
+      "gameId": 334986,
+      "name": " 다이브르이크",
+      "englishName": " Daybreak"
+    },
+    {
+      "gameId": 335275,
+      "name": " 휠링 위치크래프트",
+      "englishName": " Whirling Witchcraft"
+    },
+    {
+      "gameId": 336495,
+      "name": " 스에 름어드어 아트 크스얼후 름앤오",
+      "englishName": " The Murder at Cthulhu Manor"
+    },
+    {
+      "gameId": 337627,
+      "name": " 보이드프알르",
+      "englishName": " Voidfall"
+    },
+    {
+      "gameId": 338697,
+      "name": " 카탄: 3D 판",
+      "englishName": " Catan: 3D Edition"
+    },
+    {
+      "gameId": 338760,
+      "name": " 임프어이알 스트이름",
+      "englishName": " Imperial Steam"
+    },
+    {
+      "gameId": 338957,
+      "name": " 카에스아!: 세이제 르옴에 인 20 름인우테스!",
+      "englishName": " Caesar!: Seize Rome in 20 Minutes!"
+    },
+    {
+      "gameId": 338960,
+      "name": " 스라이 스에 스프어에: 스에 보드 게임",
+      "englishName": " Slay the Spire: The Board Game"
+    },
+    {
+      "gameId": 339214,
+      "name": " 프루이트 피그흐트",
+      "englishName": " Fruit Fight"
+    },
+    {
+      "gameId": 339789,
+      "name": " 우엘크옴에 토 스에 름우느",
+      "englishName": " Welcome to the Moon"
+    },
+    {
+      "gameId": 340216,
+      "name": " 헤레디티: 스완의 책",
+      "englishName": " Heredity: The Book of Swan"
+    },
+    {
+      "gameId": 340364,
+      "name": " 마치이 크오오 2",
+      "englishName": " Machi Koro 2"
+    },
+    {
+      "gameId": 341169,
+      "name": " 그레이트 웨스턴 트레일: 2판 판",
+      "englishName": " Great Western Trail: Second Edition"
+    },
+    {
+      "gameId": 341945,
+      "name": " 라 그르앤자: 디럭스 마스터 세트",
+      "englishName": " La Granja: Deluxe Master Set"
+    },
+    {
+      "gameId": 342070,
+      "name": " 스언드어 르오드: 브엔데트타",
+      "englishName": " Thunder Road: Vendetta"
+    },
+    {
+      "gameId": 342444,
+      "name": " 블랙 로세 워즈: 레브어스",
+      "englishName": " Black Rose Wars: Rebirth"
+    },
+    {
+      "gameId": 342810,
+      "name": " 엠아라케쉬",
+      "englishName": " Marrakesh"
+    },
+    {
+      "gameId": 342848,
+      "name": " 월드 오프 우아크라프트: 우라스 오프 스에 리치 킹",
+      "englishName": " World of Warcraft: Wrath of the Lich King"
+    },
+    {
+      "gameId": 342942,
+      "name": " 아크 노바",
+      "englishName": " Ark Nova"
+    },
+    {
+      "gameId": 343905,
+      "name": " 브우엔라케",
+      "englishName": " Boonlake"
+    },
+    {
+      "gameId": 345972,
+      "name": " 카트 인 스에 박스: 디럭스 판",
+      "englishName": " Cat in the Box: Deluxe Edition"
+    },
+    {
+      "gameId": 346248,
+      "name": " 18Korea",
+      "englishName": " 18Korea"
+    },
+    {
+      "gameId": 346623,
+      "name": " 수스페크트 게임",
+      "englishName": " Suspect Game"
+    },
+    {
+      "gameId": 346703,
+      "name": " 7 원더스: 아치이테크트스",
+      "englishName": " 7 Wonders: Architects"
+    },
+    {
+      "gameId": 347305,
+      "name": " 인브엔션스: 에볼루션 오프 이드이스",
+      "englishName": " Inventions: Evolution of Ideas"
+    },
+    {
+      "gameId": 347703,
+      "name": " 프어스트 라트",
+      "englishName": " First Rat"
+    },
+    {
+      "gameId": 347767,
+      "name": " 오스티아",
+      "englishName": " Ostia"
+    },
+    {
+      "gameId": 347889,
+      "name": " 캐치 스케치",
+      "englishName": " Catch Sketch"
+    },
+    {
+      "gameId": 348450,
+      "name": " 라크르임오사",
+      "englishName": " Lacrimosa"
+    },
+    {
+      "gameId": 349067,
+      "name": " 스에 로드 오프 스에 르인그스: 스에 카드 게임 – 레비세드 크오에 세트",
+      "englishName": " The Lord of the Rings: The Card Game – Revised Core Set"
+    },
+    {
+      "gameId": 350184,
+      "name": " 이르스",
+      "englishName": " Earth"
+    },
+    {
+      "gameId": 350198,
+      "name": " 터미너스",
+      "englishName": " Terminus"
+    },
+    {
+      "gameId": 351040,
+      "name": " 르이드이 세트 베트",
+      "englishName": " Ready Set Bet"
+    },
+    {
+      "gameId": 351605,
+      "name": " 보흐느앤자: 25th 앤니브어스아이 판",
+      "englishName": " Bohnanza: 25th Anniversary Edition"
+    },
+    {
+      "gameId": 351913,
+      "name": " 트일에트엄",
+      "englishName": " Tiletum"
+    },
+    {
+      "gameId": 352228,
+      "name": " 하크크라드",
+      "englishName": " HacKClaD"
+    },
+    {
+      "gameId": 352418,
+      "name": " 프리프타운",
+      "englishName": " Fliptown"
+    },
+    {
+      "gameId": 352515,
+      "name": " 트리오",
+      "englishName": " Trio"
+    },
+    {
+      "gameId": 353288,
+      "name": " 트레크크인그 스르아우그흐 히스트오이",
+      "englishName": " Trekking Through History"
+    },
+    {
+      "gameId": 353545,
+      "name": " 네엑스트 스타션: 엘온드온",
+      "englishName": " Next Station: London"
+    },
+    {
+      "gameId": 353945,
+      "name": " 인필트레이터",
+      "englishName": " Infiltraitors"
+    },
+    {
+      "gameId": 354132,
+      "name": " 동인도 회사",
+      "englishName": " East India Companies"
+    },
+    {
+      "gameId": 354934,
+      "name": " 레거시 오프 유",
+      "englishName": " Legacy of Yu"
+    },
+    {
+      "gameId": 355093,
+      "name": " 우드크라프트",
+      "englishName": " Woodcraft"
+    },
+    {
+      "gameId": 356123,
+      "name": " 트어인그 마치인에",
+      "englishName": " Turing Machine"
+    },
+    {
+      "gameId": 357563,
+      "name": " 아크로프올이스",
+      "englishName": " Akropolis"
+    },
+    {
+      "gameId": 358124,
+      "name": " 미스트스 오브어 카르카손",
+      "englishName": " Mists over Carcassonne"
+    },
+    {
+      "gameId": 358246,
+      "name": " 데드 바이 데이라이트: 보드게임",
+      "englishName": " Dead by Daylight: The Board Game"
+    },
+    {
+      "gameId": 358557,
+      "name": " 스에 스이르치 프오 로스트 스페시에스",
+      "englishName": " The Search for Lost Species"
+    },
+    {
+      "gameId": 358661,
+      "name": " 앤드르옴에다스 에드게",
+      "englishName": " Andromeda's Edge"
+    },
+    {
+      "gameId": 358669,
+      "name": " 12칩 트릭",
+      "englishName": " 12 Chip Trick"
+    },
+    {
+      "gameId": 358737,
+      "name": " 레비아스앤 우일드스",
+      "englishName": " Leviathan Wilds"
+    },
+    {
+      "gameId": 359438,
+      "name": " 스크이름인에스",
+      "englishName": " Skymines"
+    },
+    {
+      "gameId": 359609,
+      "name": " 아컴 호러: 스에 카드 게임 (레비세드 크오에 세트)",
+      "englishName": " Arkham Horror: The Card Game (Revised Core Set)"
+    },
+    {
+      "gameId": 359871,
+      "name": " 아크스",
+      "englishName": " Arcs"
+    },
+    {
+      "gameId": 359970,
+      "name": " 치알엘엔그어스!",
+      "englishName": " Challengers!"
+    },
+    {
+      "gameId": 359999,
+      "name": " 아그리콜라 15",
+      "englishName": " Agricola 15"
+    },
+    {
+      "gameId": 361545,
+      "name": " 트와일라잇 인스크리프션",
+      "englishName": " Twilight Inscription"
+    },
+    {
+      "gameId": 363247,
+      "name": " 아줄: 마스터 치오크올아티어",
+      "englishName": " Azul: Master Chocolatier"
+    },
+    {
+      "gameId": 363307,
+      "name": " 에브어그르이느",
+      "englishName": " Evergreen"
+    },
+    {
+      "gameId": 364011,
+      "name": " 그레이트 웨스턴 트레일: 아그엔트인아",
+      "englishName": " Great Western Trail: Argentina"
+    },
+    {
+      "gameId": 364073,
+      "name": " 스플렌더 듀얼",
+      "englishName": " Splendor Duel"
+    },
+    {
+      "gameId": 364655,
+      "name": " 크인프어에 크로니클스: 나이트스 프알르",
+      "englishName": " Kinfire Chronicles: Night's Fall"
+    },
+    {
+      "gameId": 364904,
+      "name": " 미스터리 프아트이 인 스에 박스: 엘 쿠엔토 데 로스 로보스 크레푸스크얼아에스",
+      "englishName": " Mystery Party in the Box: El cuento de los lobos Crepusculares"
+    },
+    {
+      "gameId": 365258,
+      "name": " 월드 원더스",
+      "englishName": " World Wonders"
+    },
+    {
+      "gameId": 365357,
+      "name": " 잊혀진 대륙의 철도들",
+      "englishName": " Railways of the Lost Atlas"
+    },
+    {
+      "gameId": 365717,
+      "name": " 클랭크!: 카타크옴브스",
+      "englishName": " Clank!: Catacombs"
+    },
+    {
+      "gameId": 366013,
+      "name": " 흐이트: 페드알 토 스에 메트알",
+      "englishName": " Heat: Pedal to the Metal"
+    },
+    {
+      "gameId": 366161,
+      "name": " 윙스팬 아시아",
+      "englishName": " Wingspan Asia"
+    },
+    {
+      "gameId": 366683,
+      "name": " 르에스인그 로보트스",
+      "englishName": " Raising Robots"
+    },
+    {
+      "gameId": 367041,
+      "name": " 스치올아스 오프 스에 스아우스 티그리스",
+      "englishName": " Scholars of the South Tigris"
+    },
+    {
+      "gameId": 367150,
+      "name": " 듄: 워 프오 아라키스",
+      "englishName": " Dune: War for Arrakis"
+    },
+    {
+      "gameId": 367220,
+      "name": " 시 스알트 & 파프어",
+      "englishName": " Sea Salt & Paper"
+    },
+    {
+      "gameId": 367517,
+      "name": " 라 프암이그리아: 스에 그레이트 마피아 워",
+      "englishName": " La Famiglia: The Great Mafia War"
+    },
+    {
+      "gameId": 367966,
+      "name": " 엔드이브오: 드이프 시",
+      "englishName": " Endeavor: Deep Sea"
+    },
+    {
+      "gameId": 368058,
+      "name": " 스에 우올베스",
+      "englishName": " The Wolves"
+    },
+    {
+      "gameId": 368173,
+      "name": " 레트스 고! 토 자프앤",
+      "englishName": " Let's Go! To Japan"
+    },
+    {
+      "gameId": 368305,
+      "name": " 리페 오프 스에 암아즈온이아",
+      "englishName": " Life of the Amazonia"
+    },
+    {
+      "gameId": 370591,
+      "name": " 드오프르옴앤티크: 스에 보드 게임",
+      "englishName": " Dorfromantik: The Board Game"
+    },
+    {
+      "gameId": 370749,
+      "name": " 우엔드이, 그르오 우프",
+      "englishName": " Wendy, Grow Up"
+    },
+    {
+      "gameId": 371330,
+      "name": " 루스이어",
+      "englishName": " Luthier"
+    },
+    {
+      "gameId": 371433,
+      "name": " 트어르오스카페",
+      "englishName": " Terrorscape"
+    },
+    {
+      "gameId": 371932,
+      "name": " 에크스프르오어스 오프 나브오이아",
+      "englishName": " Explorers of Navoria"
+    },
+    {
+      "gameId": 371942,
+      "name": " 스에 화이트 캐슬",
+      "englishName": " The White Castle"
+    },
+    {
+      "gameId": 372559,
+      "name": " 스포트스",
+      "englishName": " Spots"
+    },
+    {
+      "gameId": 373106,
+      "name": " 스크이 트이름",
+      "englishName": " Sky Team"
+    },
+    {
+      "gameId": 374173,
+      "name": " 스타 워즈: 스에 데크부일드인그 게임",
+      "englishName": " Star Wars: The Deckbuilding Game"
+    },
+    {
+      "gameId": 374201,
+      "name": " 라타",
+      "englishName": " Lata"
+    },
+    {
+      "gameId": 375459,
+      "name": " 스프이크이스이",
+      "englishName": " Speakeasy"
+    },
+    {
+      "gameId": 375651,
+      "name": " 스아트스 노트 아 하트",
+      "englishName": " That's Not a Hat"
+    },
+    {
+      "gameId": 377793,
+      "name": " 제크이르르 & 흐이데 브스 스코트랜드 이아드",
+      "englishName": " Jekyll & Hyde vs Scotland Yard"
+    },
+    {
+      "gameId": 379629,
+      "name": " 크엔아르",
+      "englishName": " Knarr"
+    },
+    {
+      "gameId": 379873,
+      "name": " 紫乃淵リライト (쉬인오부치이 레우리테)",
+      "englishName": " 紫乃淵リライト (Shinobuchi Rewrite)"
+    },
+    {
+      "gameId": 380607,
+      "name": " 그레이트 웨스턴 트레일: 네우 즈이랜드",
+      "englishName": " Great Western Trail: New Zealand"
+    },
+    {
+      "gameId": 381248,
+      "name": " 네메시스: 레트알이아션",
+      "englishName": " Nemesis: Retaliation"
+    },
+    {
+      "gameId": 381249,
+      "name": " 레브엘 프린세스",
+      "englishName": " Rebel Princess"
+    },
+    {
+      "gameId": 381278,
+      "name": " 드라크얼아 브스 브앤 흐엘스인그",
+      "englishName": " Dracula vs Van Helsing"
+    },
+    {
+      "gameId": 381308,
+      "name": " 디크스이트: 디스네이 판",
+      "englishName": " Dixit: Disney Edition"
+    },
+    {
+      "gameId": 381819,
+      "name": " 즈흐앤구오: 스에 프어스트 엠파이어",
+      "englishName": " Zhanguo: The First Empire"
+    },
+    {
+      "gameId": 382518,
+      "name": " 스앤크오에: 스에 프리데 오프 름앤사 무사",
+      "englishName": " Sankoré: The Pride of Mansa Musa"
+    },
+    {
+      "gameId": 382843,
+      "name": " 에바쿠아션",
+      "englishName": " Evacuation"
+    },
+    {
+      "gameId": 383179,
+      "name": " 아게 오프 인노바션",
+      "englishName": " Age of Innovation"
+    },
+    {
+      "gameId": 383607,
+      "name": " 브아크엘온아",
+      "englishName": " Barcelona"
+    },
+    {
+      "gameId": 384213,
+      "name": " 프르옴아게",
+      "englishName": " Fromage"
+    },
+    {
+      "gameId": 385529,
+      "name": " 스에 베일 오프 에트어니트이",
+      "englishName": " The Vale of Eternity"
+    },
+    {
+      "gameId": 385761,
+      "name": " 프아아웨이",
+      "englishName": " Faraway"
+    },
+    {
+      "gameId": 386368,
+      "name": " 에즈라 앤드 네흐엠이아흐",
+      "englishName": " Ezra and Nehemiah"
+    },
+    {
+      "gameId": 387378,
+      "name": " 름르엠: 스페이스 아그엔크이",
+      "englishName": " MLEM: Space Agency"
+    },
+    {
+      "gameId": 387388,
+      "name": " 가지각새",
+      "englishName": " Nanatoridori"
+    },
+    {
+      "gameId": 387560,
+      "name": " 퍼치",
+      "englishName": " Perch"
+    },
+    {
+      "gameId": 387780,
+      "name": " 라트스 오프 위스트아",
+      "englishName": " Rats of Wistar"
+    },
+    {
+      "gameId": 388838,
+      "name": " 블랙 프라이데이",
+      "englishName": " Black Friday"
+    },
+    {
+      "gameId": 390092,
+      "name": " 티켓 토 라이드 레거시: 레전드 오프 스에 웨스트",
+      "englishName": " Ticket to Ride Legacy: Legends of the West"
+    },
+    {
+      "gameId": 390607,
+      "name": " 그레이트 킹덤",
+      "englishName": " Great Kingdom"
+    },
+    {
+      "gameId": 391137,
+      "name": " 그알아크티크 크루이세",
+      "englishName": " Galactic Cruise"
+    },
+    {
+      "gameId": 391163,
+      "name": " 포레스트 쉬우프프레",
+      "englishName": " Forest Shuffle"
+    },
+    {
+      "gameId": 391795,
+      "name": " 크인프어에 드엘베: 브에느그르오이스 그로트토",
+      "englishName": " Kinfire Delve: Vainglory's Grotto"
+    },
+    {
+      "gameId": 392492,
+      "name": " 스투포르 문디",
+      "englishName": " Stupor Mundi"
+    },
+    {
+      "gameId": 393325,
+      "name": " 캡틴 프리프",
+      "englishName": " Captain Flip"
+    },
+    {
+      "gameId": 393333,
+      "name": " 그알일에오 그알일에이",
+      "englishName": " Galileo Galilei"
+    },
+    {
+      "gameId": 393429,
+      "name": " 크리트트어 키트치엔",
+      "englishName": " Critter Kitchen"
+    },
+    {
+      "gameId": 394887,
+      "name": " 서퍼사우루스 맥스",
+      "englishName": " Surfosaurus MAX"
+    },
+    {
+      "gameId": 395375,
+      "name": " 아트 소시에트이",
+      "englishName": " Art Society"
+    },
+    {
+      "gameId": 395623,
+      "name": " 흐아베스트",
+      "englishName": " Harvest"
+    },
+    {
+      "gameId": 395846,
+      "name": " 모조",
+      "englishName": " Mojo"
+    },
+    {
+      "gameId": 396790,
+      "name": " 누크레엄",
+      "englishName": " Nucleum"
+    },
+    {
+      "gameId": 396895,
+      "name": " 콥스 오브 디스커버리: 명백한 운명의 세계",
+      "englishName": " Corps of Discovery: A Game Set in the World of Manifest Destiny"
+    },
+    {
+      "gameId": 397226,
+      "name": " 푸브그: 바트트레그르아우느드스 스에 보드 게임",
+      "englishName": " PUBG: BATTLEGROUNDS The Board Game"
+    },
+    {
+      "gameId": 397385,
+      "name": " 파이럿츠 오프 름아아크에보",
+      "englishName": " Pirates of Maracaibo"
+    },
+    {
+      "gameId": 397598,
+      "name": " 듄: 임페리움 – 우프리스인그",
+      "englishName": " Dune: Imperium – Uprising"
+    },
+    {
+      "gameId": 400366,
+      "name": " 우온드르아우스 크르이쳐스",
+      "englishName": " Wondrous Creatures"
+    },
+    {
+      "gameId": 400602,
+      "name": " 시브올우션",
+      "englishName": " Civolution"
+    },
+    {
+      "gameId": 400995,
+      "name": " 퍼스펙티브스",
+      "englishName": " Perspectives"
+    },
+    {
+      "gameId": 401168,
+      "name": " 느앤아: 치리스트마스 판",
+      "englishName": " nana: Christmas Edition"
+    },
+    {
+      "gameId": 402111,
+      "name": " 크르온올오기크: 프아이스 1920",
+      "englishName": " Kronologic: Paris 1920"
+    },
+    {
+      "gameId": 402283,
+      "name": " 크아우르티스앤스",
+      "englishName": " Courtisans"
+    },
+    {
+      "gameId": 402663,
+      "name": " 스알트온 시",
+      "englishName": " Salton Sea"
+    },
+    {
+      "gameId": 403116,
+      "name": " 네크스트 스타션: 프아이스",
+      "englishName": " Next Station: Paris"
+    },
+    {
+      "gameId": 403754,
+      "name": " 미드드레 아게스",
+      "englishName": " Middle Ages"
+    },
+    {
+      "gameId": 404431,
+      "name": " 엠엔-네프어",
+      "englishName": " Men-Nefer"
+    },
+    {
+      "gameId": 406291,
+      "name": " 스플렌더: 포크엠온 (스플렌더: 포크엠온)",
+      "englishName": " 스플렌더: Pokémon (Splendor: Pokémon)"
+    },
+    {
+      "gameId": 406660,
+      "name": " 블루, 샌드, 씨사이드",
+      "englishName": " Seaside"
+    },
+    {
+      "gameId": 406854,
+      "name": " 오드인",
+      "englishName": " Odin"
+    },
+    {
+      "gameId": 408180,
+      "name": " 쉬아크레트온 바세: 아 즈아우르네이 토 스에 름우느",
+      "englishName": " Shackleton Base: A Journey to the Moon"
+    },
+    {
+      "gameId": 410201,
+      "name": " 우이르름스프앤",
+      "englishName": " Wyrmspan"
+    },
+    {
+      "gameId": 410338,
+      "name": " 六華 (리크카)",
+      "englishName": " 六華 (Rikka)"
+    },
+    {
+      "gameId": 410991,
+      "name": " 르우오트",
+      "englishName": " Looot"
+    },
+    {
+      "gameId": 411567,
+      "name": " 스에 그앤그",
+      "englishName": " The Gang"
+    },
+    {
+      "gameId": 412268,
+      "name": " 에이언즈 엔드: 디센트",
+      "englishName": " Aeon's End: The Descent"
+    },
+    {
+      "gameId": 413246,
+      "name": " 브옴브 부스트어스",
+      "englishName": " Bomb Busters"
+    },
+    {
+      "gameId": 413469,
+      "name": " 아다스 드르이름",
+      "englishName": " Ada's Dream"
+    },
+    {
+      "gameId": 414317,
+      "name": " 흐아름온이에스",
+      "englishName": " Harmonies"
+    },
+    {
+      "gameId": 416851,
+      "name": " 캐슬 크옴보",
+      "englishName": " Castle Combo"
+    },
+    {
+      "gameId": 418059,
+      "name": " 세티: 스이르치 프오 에크스트라트어레스트리알 인트엘리그엔세",
+      "englishName": " SETI: Search for Extraterrestrial Intelligence"
+    },
+    {
+      "gameId": 419704,
+      "name": " 프오엔이크스 네우 흐오이즈온",
+      "englishName": " Phoenix New Horizon"
+    },
+    {
+      "gameId": 420087,
+      "name": " 프리프 7",
+      "englishName": " Flip 7"
+    },
+    {
+      "gameId": 420498,
+      "name": " 언스토프파브레",
+      "englishName": " Unstoppable"
+    },
+    {
+      "gameId": 420805,
+      "name": " 블랙 포레스트",
+      "englishName": " Black Forest"
+    },
+    {
+      "gameId": 421006,
+      "name": " 스에 로드 오프 스에 르인그스: 듀얼 프오 미드드레-이르스",
+      "englishName": " The Lord of the Rings: Duel for Middle-earth"
+    },
+    {
+      "gameId": 421762,
+      "name": " 에메랄드 스컬",
+      "englishName": " Emerald Skulls"
+    },
+    {
+      "gameId": 422042,
+      "name": " 트이 그아드엔",
+      "englishName": " Tea Garden"
+    },
+    {
+      "gameId": 422732,
+      "name": " 에이전트 아브엔우에",
+      "englishName": " Agent Avenue"
+    },
+    {
+      "gameId": 422780,
+      "name": " 미스트브오느: 스에 데크부일드인그 게임",
+      "englishName": " Mistborn: The Deckbuilding Game"
+    },
+    {
+      "gameId": 424152,
+      "name": " 오아파 름인에",
+      "englishName": " Orapa Mine"
+    },
+    {
+      "gameId": 424219,
+      "name": " 즈엔이스",
+      "englishName": " Zenith"
+    },
+    {
+      "gameId": 424816,
+      "name": " 정고",
+      "englishName": " Jungo"
+    },
+    {
+      "gameId": 425445,
+      "name": " 스더블유이트 랜즈",
+      "englishName": " Sweet Lands"
+    },
+    {
+      "gameId": 428322,
+      "name": " 로커스",
+      "englishName": " Locus"
+    },
+    {
+      "gameId": 428440,
+      "name": " 쉬알엘오 시",
+      "englishName": " Shallow Sea"
+    },
+    {
+      "gameId": 428787,
+      "name": " 오멘즈",
+      "englishName": " Omens"
+    },
+    {
+      "gameId": 429293,
+      "name": " 스에 로드 오프 스에 르인그스: 스에 프엘르오쉬이프 오프 스에 르인그 – 트리크-타크인그 게임",
+      "englishName": " The Lord of the Rings: The Fellowship of the Ring – Trick-Taking Game"
+    },
+    {
+      "gameId": 429405,
+      "name": " 오로즈: 스에 프라구에 아스트르온옴이크알 크로크",
+      "englishName": " Orloj: The Prague Astronomical Clock"
+    },
+    {
+      "gameId": 429491,
+      "name": " 크엘에스티아: 비그 박스",
+      "englishName": " Celestia: Big Box"
+    },
+    {
+      "gameId": 429861,
+      "name": " 에이스 오브 스페이드",
+      "englishName": " Ace of Spades"
+    },
+    {
+      "gameId": 431248,
+      "name": " 가문의 왕관",
+      "englishName": " For a Crown"
+    },
+    {
+      "gameId": 432527,
+      "name": " 에스노스 (2판)",
+      "englishName": " Ethnos: 2nd Edition"
+    },
+    {
+      "gameId": 434343,
+      "name": " 언치아테드 파스사게",
+      "englishName": " Uncharted Passage"
+    },
+    {
+      "gameId": 434367,
+      "name": " 니프프온: 즈에바트수",
+      "englishName": " Nippon: Zaibatsu"
+    },
+    {
+      "gameId": 434654,
+      "name": " 토이 배틀",
+      "englishName": " Toy Battle"
+    },
+    {
+      "gameId": 434906,
+      "name": " 타그 트이엠",
+      "englishName": " Tag Team"
+    },
+    {
+      "gameId": 436217,
+      "name": " 스에 로드 오프 스에 르인그스: 페이트 오프 스에 프엘르오쉬이프",
+      "englishName": " The Lord of the Rings: Fate of the Fellowship"
+    },
+    {
+      "gameId": 437290,
+      "name": " 애쉬즈 어센던시",
+      "englishName": " Ashes Ascendancy"
+    },
+    {
+      "gameId": 437306,
+      "name": " 프아크스 (2판)",
+      "englishName": " Parks (Second Edition)"
+    },
+    {
+      "gameId": 437781,
+      "name": " 디지트 코드",
+      "englishName": " Digit Code"
+    },
+    {
+      "gameId": 438442,
+      "name": " 페야스 스우암프",
+      "englishName": " Feya's Swamp"
+    },
+    {
+      "gameId": 438936,
+      "name": " 백로성: 대결",
+      "englishName": " The White Castle Duel"
+    },
+    {
+      "gameId": 440540,
+      "name": " 타케 타임",
+      "englishName": " Take Time"
+    },
+    {
+      "gameId": 440942,
+      "name": " 트리스메기스투스",
+      "englishName": " Trismegistus"
+    },
+    {
+      "gameId": 441696,
+      "name": " 스앤크투아이",
+      "englishName": " Sanctuary"
+    },
+    {
+      "gameId": 446497,
+      "name": " 호트 스트르이크",
+      "englishName": " Hot Streak"
+    },
+    {
+      "gameId": 447243,
+      "name": " 듀얼 프오 크아디아",
+      "englishName": " Duel for Cardia"
+    },
+    {
+      "gameId": 449185,
+      "name": " 프리프트우엔스",
+      "englishName": " FlipToons"
+    },
+    {
+      "gameId": 451594,
+      "name": " 육식동물 짓이야!",
+      "englishName": " A Carnivore Did It!"
+    },
+    {
+      "gameId": 454103,
+      "name": " 마기크알 아스레테",
+      "englishName": " Magical Athlete"
+    },
+    {
+      "gameId": 456619,
+      "name": " 브리트즈",
+      "englishName": " BLITZ"
+    },
+    {
+      "gameId": 457386,
+      "name": " 카르누타",
+      "englishName": " Carnuta"
+    },
+    {
+      "gameId": 458532,
+      "name": " 프레시드엔트 메이커",
+      "englishName": " President Maker"
+    },
+    {
+      "gameId": 464695,
+      "name": " 테크스아스 브인고",
+      "englishName": " Texas Bingo"
+    }
+  ]
+}

@@ -1,7 +1,6 @@
 package cloud.bamsongi.albammate.chat.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -173,14 +172,7 @@ class ChatRoomPreviewQueryServiceIntegrationTest {
 	}
 
 	@Test
-	void T8_CHAT_06_미구현으로_message_type_컬럼이_없고_현재_스키마의_모든_메시지는_본인_발신_제외_규칙만_적용된다() {
-		List<String> columns = jdbcTemplate.queryForList(
-			"select column_name from information_schema.columns where table_name = 'chat_messages'",
-			String.class);
-		assertFalse(
-			columns.stream().anyMatch(column -> column.equalsIgnoreCase("message_type")),
-			"CHAT-06이 아직 병합되지 않아 message_type 컬럼이 없어야 합니다.");
-
+	void T8_모든_메시지가_USER인_스키마에서도_본인_발신_제외_규칙만_적용된다() {
 		long hostUserId = insertUser("host");
 		long participantUserId = insertUser("participant");
 		Room room = createChatRoom(hostUserId);

@@ -530,30 +530,35 @@ P1 채팅방을 저장하는 구현된 테이블이다. `V6__create_p1_chat_room
 
 P1 CHAT-02의 V9 전진 Flyway가 생성하는 메시지 저장의 최종 정본이다([ADR-0033](adr/chat/0033-postgresql-source-after-commit-delivery.md)). `id`는 승인된 [ADR-0031](adr/chat/0031-chat-history-cursor-pagination.md)의 커서와 실시간 catch-up 기준으로 사용하며, 클라이언트 시각으로 순서를 정하지 않는다.
 
-아래 표는 전진 migration 전의 현재 스키마다. P2 `CHAT-06`이 입장·퇴장 안내를 위해 더할 컬럼·제약과 NOT NULL 완화는 [CHAT-06 저장 계약](#chat-06-입장퇴장-시스템-메시지-저장-계약)이 소유한다.
+아래 표는 P2 `CHAT-06`(#869)이 적용한 현재 스키마다. 컬럼·제약 변경 근거는 [CHAT-06 저장 계약](#chat-06-입장퇴장-시스템-메시지-저장-계약)이 소유하고, 조회 시점 문장 조립·API 응답은 #870이 소유한다.
 
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|
 | id | BIGINT | PK, NN, AI | 서버가 부여하는 메시지 식별자·정렬 기준 |
 | chat_room_id | BIGINT | FK → CHAT_ROOMS.id, NN | 대상 채팅방 |
-| sender_user_id | BIGINT | FK → USERS.id, NN | 메시지 작성자 |
-| client_message_id | VARCHAR(100) | NN | 재시도 멱등성 키 |
-| content | TEXT | NN | 앞뒤 공백 제거 후 1~500자의 일반 텍스트 |
+| sender_user_id | BIGINT | FK → USERS.id, NULL | `USER`의 작성자. `SYSTEM`은 NULL |
+| client_message_id | VARCHAR(100) | NULL | `USER`의 재시도 멱등성 키. `SYSTEM`은 NULL |
+| content | TEXT | NULL | `USER`의 본문(앞뒤 공백 제거 후 1~500자). `SYSTEM`은 NULL이며 문장은 저장하지 않는다 |
+| message_type | VARCHAR(20) | NN DEFAULT `'USER'` | `USER` 또는 `SYSTEM`. default는 [혼합 버전 순서](#chat-06-혼합-버전-배포활성화rollback-순서)의 마지막 단계까지 유지한다 |
+| system_event_key | VARCHAR(40) | NULL | `PARTICIPANT_ENTERED` 또는 `PARTICIPANT_LEFT` |
+| subject_user_id | BIGINT | FK → USERS.id, NULL, `ON DELETE NO ACTION` | 안내 대상 사용자. 참가·참가 취소의 행위자는 항상 이 사용자 자신이므로 행위자 컬럼을 따로 두지 않는다 |
 | created_at | TIMESTAMPTZ | NN | 서버 저장 시각 |
 
 ### CHAT-06 입장·퇴장 시스템 메시지 저장 계약
 
-> **도입 단계: P2** · **기능: CHAT-06** · **저장 계약 상태: 계약 준비 완료** · **적용 상태: 전진 migration 필요**
+> **도입 단계: P2** · **기능: CHAT-06** · **저장 계약 상태: 적용됨(#869)** · **적용 상태: expand migration·SYSTEM writer·전역 gate 적용됨. 조회 시점 조립·API 응답(#870)은 미구현**
 >
-> 이 절은 승인된 목표 저장 계약이며 현재 배포된 스키마가 아니다. 위 [CHAT_MESSAGES](#chat_messages) 표는 전진 migration 전의 현재 스키마를 설명한다. 현재 상태는 [P2 기능 상태의 `CHAT-06`](p2/README.md#기능별-현재-상태)에서만 판정한다.
+> 저장 스키마·writer·gate는 이 절과 위 [CHAT_MESSAGES](#chat_messages) 표가 실제 배포 대상이다. 이력·실시간 조회가 SYSTEM 행을 문장으로 조립해 API로 반환하는 범위는 #870이 별도로 완료해야 한다. 현재 상태는 [P2 기능 상태의 `CHAT-06`](p2/README.md#기능별-현재-상태)에서만 판정한다.
 
 `CHAT-06`은 별도 시스템 메시지 테이블을 만들지 않고 `CHAT_MESSAGES`를 확장한다. 사용자 메시지와 시스템 메시지가 하나의 `id` 순서·커서·보존 경계를 공유하기 위한 선택이며 이유·대안·재검토 조건은 [ADR-0078](adr/chat/0078-chat-system-message-storage-and-read-time-composition.md)이 소유한다. 완성된 안내 문장과 표시용 닉네임 사본은 저장하지 않고, 조회 시점에 서버가 조립한다.
 
+V33 expand migration이 적용한 변경은 다음과 같다.
+
 | 컬럼 | 변경 | 제약 | 설명 |
 |---|---|---|---|
-| message_type | 추가 | VARCHAR(20) NN DEFAULT `'USER'` | `USER` 또는 `SYSTEM`. 기존 행과 이 컬럼을 모르는 구버전 INSERT는 default로 `USER`가 된다. default는 [혼합 버전 순서](#chat-06-혼합-버전-배포활성화rollback-순서)의 마지막 단계까지 유지한다 |
+| message_type | 추가 | VARCHAR(20) NN DEFAULT `'USER'` | `USER` 또는 `SYSTEM`. 기존 행과 이 컬럼을 모르는 구버전 INSERT는 default로 `USER`가 된다 |
 | system_event_key | 추가 | VARCHAR(40) NULL | `PARTICIPANT_ENTERED` 또는 `PARTICIPANT_LEFT` |
-| subject_user_id | 추가 | BIGINT FK → USERS.id, NULL | 안내 대상 사용자. `ON DELETE NO ACTION`. 참가·참가 취소의 행위자는 항상 이 사용자 자신이므로 행위자 컬럼을 따로 두지 않는다 |
+| subject_user_id | 추가 | BIGINT FK → USERS.id, NULL | 안내 대상 사용자. `ON DELETE NO ACTION` |
 | sender_user_id | NOT NULL 완화 | BIGINT FK → USERS.id, NULL | `USER`의 작성자. `SYSTEM`은 NULL |
 | client_message_id | NOT NULL 완화 | VARCHAR(100) NULL | `USER`의 재시도 멱등성 키. `SYSTEM`은 NULL |
 | content | NOT NULL 완화 | TEXT NULL | `USER`의 본문. `SYSTEM`은 NULL이며 문장은 저장하지 않는다 |
@@ -569,7 +574,7 @@ P1 CHAT-02의 V9 전진 Flyway가 생성하는 메시지 저장의 최종 정본
 - `SYSTEM` 행에는 별도 멱등성 키를 두지 않는다. 안내는 원인 참가·참가 취소 업무 트랜잭션 안에서만 저장하며, 그 트랜잭션이 참가 관계를 실제로 전이시킬 때 정확히 한 번 커밋된다. 재참가·재취소는 새로운 전이이므로 각각 새 행을 만든다.
 - `SYSTEM` 행도 `CHAT_ROOMS` 행을 잠근 뒤 ID를 할당해 방별 ID 순서와 커밋 가시성 순서를 사용자 메시지와 함께 유지한다.
 - 보존·만료 물리 삭제는 `CHAT_ROOMS.purge_after`와 [ADR-0049](adr/chat/0049-chat-message-retention-lock-section-boundary.md)의 30일 계약을 그대로 따르며 종류별로 다른 기간을 두지 않는다.
-- 전진 migration이 반드시 해야 하는 일은 컬럼 추가, `sender_user_id`·`client_message_id`·`content`의 NOT NULL 완화, `ck_chat_messages_kind` 추가다. 부분 유일 인덱스 전환은 위 표대로 선택 사항이다. 어떤 경우에도 기존 채팅방에 `SYSTEM` 행을 소급 생성하지 않는다.
+- V33 expand migration이 적용한 변경은 컬럼 추가, `sender_user_id`·`client_message_id`·`content`의 NOT NULL 완화, `ck_chat_messages_kind` 추가다. 부분 유일 인덱스 전환은 위 표대로 선택 사항이며 적용하지 않았다. 기존 채팅방에 `SYSTEM` 행을 소급 생성하지 않는다.
 - 이 확장은 P1 ROOM 채팅에만 적용한다. `MATCH_CHAT_MESSAGES`와 행·제약·`system_event_key` 값을 공유하지 않는다.
 
 #### CHAT-06 혼합 버전 배포·활성화·rollback 순서
@@ -594,7 +599,7 @@ P1 CHAT-02의 V9 전진 Flyway가 생성하는 메시지 저장의 최종 정본
 - `enabled_at`을 다시 비우면 그 뒤 사건의 안내 저장만 멈추고 참가·참가 취소는 기존 계약대로 성공한다. 이미 저장된 안내 행은 지우지 않는다.
 - rollback 순서는 `SYSTEM` 쓰기 중지 → 신버전 writer drain → `SYSTEM` 행을 읽을 수 있는 버전 유지다. 이미 저장된 `SYSTEM` 행이 있는 상태에서 구버전으로 되돌리면 그 방의 실시간 전달이 깨지므로, 구버전까지 되돌려야 한다면 해당 행의 격리·정리 범위를 함께 정한 뒤에만 진행한다.
 - `sender_user_id`·`client_message_id`·`content`의 NOT NULL 복구는 `SYSTEM` 행이 하나라도 있으면 불가능하다. schema를 되돌리는 rollback은 3단계 이후 지원하지 않는다.
-- 혼합 버전 저장·조회와 이 rollback 순서는 후속 구현 이슈의 PostgreSQL 검증에 포함한다.
+- 혼합 버전 저장(1·2단계, gate 비활성 상태의 기존 계약 유지)과 gate on/off 시각 경계 수렴은 #869의 PostgreSQL 검증(T5·T6)에서 확인했다. 3단계 활성화 이후의 이력·실시간 조회 회귀는 #870이 검증한다.
 
 ##### CHAT_SYSTEM_MESSAGE_ACTIVATION
 

@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "kind": "search-04-lexical-sparse-baseline-evidence",
+  "upstreamPullRequest": 861,
+  "evaluationManifest": {
+    "path": "../manifest.json",
+    "sha256": "e604e12740730aa9cb713e4b3db34f5ce311bcfff0db651da463a81f997329d4"
+  },
+  "inputDescriptor": {
+    "path": "../lexical-sparse-baseline-input.json",
+    "sha256": "4c4c22657d735bda8a109b5df12dd39eb7e9b80c786fdbb4efff670337eddf5b"
+  },
+  "pocManifest": {
+    "path": "fixtures/poc-search-text-manifest.json",
+    "sha256": "b9793fa757c953c3bbc7724f665160874274111b65fbec7bba9d06f63c854f40"
+  },
+  "searchTextArtifact": {
+    "path": "fixtures/search-text-top1000.json",
+    "sha256": "ec364be3a34268d1bb6d27e3c41e2cdd31852565eec79fa31faaacda17af4ece",
+    "gamesSha256": "03aa685a5828208f53912a0507d45f1b4db191eeb4e63d76d9e2cde9b890049f",
+    "rows": 1000,
+    "immutableSource": "https://github.com/bamsongi-club/albam-mate/blob/7cbd3e16d744a1b3291819b096ca0f072534d373/docs/p2/search-evaluation/dense-bge-m3/search-text-top1000.json"
+  },
+  "outputs": {
+    "lexical": {
+      "path": "outputs/lexical-results.json",
+      "sha256": "b20965faf427ad56584323831b6a8588e2ce3576621abc739bbae06360c4ea07",
+      "queryCount": 15
+    },
+    "sparse": {
+      "path": "outputs/sparse-results.json",
+      "sha256": "5bbf261860cf9141065111b5713bc1365691d4518c9169d75f7a8dc249c92d67",
+      "queryCount": 15
+    }
+  }
+}

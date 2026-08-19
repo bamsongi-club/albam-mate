@@ -18,15 +18,12 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
@@ -40,19 +37,13 @@ import cloud.bamsongi.albammate.game.repository.UserPlayedGameRepository;
 import cloud.bamsongi.albammate.game.service.GameQueryService;
 import cloud.bamsongi.albammate.game.service.UserPlayedGameService;
 import cloud.bamsongi.albammate.room.service.query.RoomUpcomingRoomCountQuery;
+import cloud.bamsongi.albammate.testsupport.SharedPostgresIntegrationSupport;
 import cloud.bamsongi.albammate.user.entity.User;
 import cloud.bamsongi.albammate.user.repository.UserRepository;
 
 @Testcontainers
 @SpringBootTest
-class UserPlayedGamePostgresTest {
-
-	private static final String POSTGRES_IMAGE = "postgres:18.4";
-
-	@Container
-	@ServiceConnection
-	static final PostgreSQLContainer postgres = new PostgreSQLContainer(POSTGRES_IMAGE)
-		.withDatabaseName("user_played_game_test");
+class UserPlayedGamePostgresTest extends SharedPostgresIntegrationSupport {
 
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
@@ -184,7 +175,7 @@ class UserPlayedGamePostgresTest {
 
 		var page = gameQueryService.findPage(request(PlayedFilter.PLAYED_ONLY), user.getId());
 
-		assertEquals(1, page.getTotalElements());
+		assertEquals(false, page.hasNext());
 		assertEquals(game.getId(), page.getContent().getFirst().id());
 		assertEquals(true, page.getContent().getFirst().playedByMe());
 		assertTrue(userPlayedGameRepository.findByUserIdAndGameId(user.getId(), game.getId()).isEmpty());
@@ -198,7 +189,7 @@ class UserPlayedGamePostgresTest {
 
 		var page = gameQueryService.findPage(request(PlayedFilter.EXCLUDE_PLAYED), user.getId());
 
-		assertEquals(1, page.getTotalElements());
+		assertEquals(false, page.hasNext());
 		assertEquals(game.getId(), page.getContent().getFirst().id());
 		assertEquals(false, page.getContent().getFirst().playedByMe());
 		assertEquals(1, userPlayedGameRepository.findByUserIdAndGameId(user.getId(), game.getId()).size());

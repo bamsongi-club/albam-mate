@@ -7,7 +7,7 @@ import { useSheetDragClose } from '../shared/sheetDrag';
 
 export function GamePickerDialog({ isOpen, selectedGameId, allowClear, onSelect, onClear, onClose }) {
   const [query, setQuery] = useState('');
-  const [pageData, setPageData] = useState({ content: [], page: 0, size: GAME_SEARCH_PAGE_SIZE, totalElements: 0, totalPages: 0, hasNext: false });
+  const [pageData, setPageData] = useState({ content: [], page: 0, size: GAME_SEARCH_PAGE_SIZE, hasNext: false });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const searchInputRef = useRef(null);
@@ -35,7 +35,7 @@ export function GamePickerDialog({ isOpen, selectedGameId, allowClear, onSelect,
 
   const handleQueryChange = (event) => {
     invalidateSearch();
-    setPageData({ content: [], page: 0, size: GAME_SEARCH_PAGE_SIZE, totalElements: 0, totalPages: 0, hasNext: false });
+    setPageData({ content: [], page: 0, size: GAME_SEARCH_PAGE_SIZE, hasNext: false });
     setError('');
     setLoading(false);
     setQuery(event.target.value);
@@ -53,7 +53,7 @@ export function GamePickerDialog({ isOpen, selectedGameId, allowClear, onSelect,
   useEffect(() => {
     if (!isOpen) return;
     setQuery('');
-    setPageData({ content: [], page: 0, size: GAME_SEARCH_PAGE_SIZE, totalElements: 0, totalPages: 0, hasNext: false });
+    setPageData({ content: [], page: 0, size: GAME_SEARCH_PAGE_SIZE, hasNext: false });
     setError('');
     setLoading(false);
   }, [isOpen]);
@@ -63,7 +63,7 @@ export function GamePickerDialog({ isOpen, selectedGameId, allowClear, onSelect,
     if (!isOpen) return undefined;
     const keyword = query.trim();
     if (!keyword) {
-      setPageData({ content: [], page: 0, size: GAME_SEARCH_PAGE_SIZE, totalElements: 0, totalPages: 0, hasNext: false });
+      setPageData({ content: [], page: 0, size: GAME_SEARCH_PAGE_SIZE, hasNext: false });
       setError('');
       setLoading(false);
       return undefined;
@@ -154,7 +154,7 @@ export function GamePickerDialog({ isOpen, selectedGameId, allowClear, onSelect,
         )}
         <div className="picker-list nos">
           {!hasQuery && <p className="picker-state">게임 이름을 입력하면 검색 결과를 불러와요.</p>}
-          {hasQuery && !error && <p className="section-label">{loading && !pageData.content.length ? '검색 중…' : '검색 결과 ' + pageData.totalElements + '개'}</p>}
+          {hasQuery && !error && <p className="section-label">{loading && !pageData.content.length ? '검색 중…' : '검색 결과'}</p>}
           {error && <p className="picker-state error" role="alert">{error}</p>}
           {!loading && hasQuery && !error && !pageData.content.length && <p className="picker-state">일치하는 게임이 없어요. 다른 이름으로 검색해보세요.</p>}
           {pageData.content.map((game) => {

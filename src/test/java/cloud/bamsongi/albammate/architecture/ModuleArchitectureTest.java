@@ -65,6 +65,7 @@ class ModuleArchitectureTest {
 		ROOT_PACKAGE + ".chat.match.repository",
 		ROOT_PACKAGE + ".chat.match.service",
 		ROOT_PACKAGE + ".chat.retention",
+		ROOT_PACKAGE + ".chat.system",
 		ROOT_PACKAGE + ".chat.websocket");
 	private static final Set<String> ALLOWED_MATCHING_PACKAGES = Set.of(
 		ROOT_PACKAGE + ".matching",

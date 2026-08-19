@@ -21,11 +21,8 @@ import javax.sql.DataSource;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import cloud.bamsongi.albammate.AlbamMateApplication;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
@@ -34,18 +31,14 @@ import cloud.bamsongi.albammate.notification.dto.NotificationBulkReadResponse;
 import cloud.bamsongi.albammate.notification.dto.NotificationListItem;
 import cloud.bamsongi.albammate.notification.enums.NotificationType;
 import cloud.bamsongi.albammate.notification.service.command.NotificationReadCommandService;
+import cloud.bamsongi.albammate.testsupport.SharedPostgresIntegrationSupport;
 
 /** PostgreSQL clock_timestamp와 읽음 SQL 문장 스냅샷의 회귀 경계다. */
 @Testcontainers
 @SpringBootTest(classes = AlbamMateApplication.class)
-class NotificationReadPostgresTest {
+class NotificationReadPostgresTest extends SharedPostgresIntegrationSupport {
 
 	private static final int NOTIFICATION_READ_TEST_ADVISORY_LOCK_CLASS = 315;
-
-	@Container
-	@ServiceConnection
-	static final PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:18.4")
-		.withDatabaseName("albam_mate_notification_read_test");
 
 	@Autowired
 	private JdbcTemplate jdbcTemplate;

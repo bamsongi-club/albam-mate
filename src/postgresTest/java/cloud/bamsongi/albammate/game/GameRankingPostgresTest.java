@@ -15,18 +15,16 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
+import cloud.bamsongi.albammate.testsupport.SharedPostgresIntegrationSupport;
 
 /**
  * H2에서 검증한 인기 게임 랭킹 집계·정렬·상한이 PostgreSQL에서도 재현되는지 확인하고, 대표 분포 쿼리의 실행 계획을 확인한다.
@@ -35,16 +33,10 @@ import cloud.bamsongi.albammate.room.repository.RoomRepository;
  */
 @Testcontainers
 @SpringBootTest
-class GameRankingPostgresTest {
+class GameRankingPostgresTest extends SharedPostgresIntegrationSupport {
 
-	private static final String POSTGRES_IMAGE = "postgres:18.4";
 	private static final Instant BASE_TIME = Instant.parse("2099-01-01T00:00:00Z");
 	private static final OffsetDateTime BASE_TIME_UTC = BASE_TIME.atOffset(ZoneOffset.UTC);
-
-	@Container
-	@ServiceConnection
-	static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(POSTGRES_IMAGE)
-		.withDatabaseName("game_ranking_test");
 
 	@Autowired
 	private RoomRepository roomRepository;

@@ -26,28 +26,21 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import cloud.bamsongi.albammate.AlbamMateApplication;
 import cloud.bamsongi.albammate.notification.repository.NotificationOutboxRecipientRepository;
+import cloud.bamsongi.albammate.testsupport.SharedPostgresIntegrationSupport;
 
 /** 실제 PostgreSQL의 operationTime, FOR UPDATE 및 수신자 삭제 원자성을 검증한다. */
 @Testcontainers
 @SpringBootTest(classes = AlbamMateApplication.class, properties = "app.notification.relay.enabled=false")
-class NotificationOutboxRecoveryPostgresTest {
-
-	@Container
-	@ServiceConnection
-	static final PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:18.4")
-		.withDatabaseName("albam_mate_notification_recovery_test");
+class NotificationOutboxRecoveryPostgresTest extends SharedPostgresIntegrationSupport {
 
 	@Autowired
 	private NotificationOutboxRecoveryService recoveryService;

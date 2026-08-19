@@ -344,16 +344,19 @@ class UserPlayedGameHttpIntegrationTest {
 				.param("playedFilter", "PLAYED_ONLY")
 				.with(authenticationFor(userB.getId())))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.totalElements").value(0));
+			.andExpect(jsonPath("$.data.content").isEmpty())
+			.andExpect(jsonPath("$.data.hasNext").value(false));
 		mockMvc.perform(get("/api/games/{gameId}", alpha.getId()))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.playedByMe").value((Object)null));
 		mockMvc.perform(get("/api/games").param("keyword", "PlayedGameHttp").with(authenticationFor(userA.getId())))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.totalElements").value(2))
 			.andExpect(jsonPath("$.data.page").value(0))
 			.andExpect(jsonPath("$.data.size").value(10))
-			.andExpect(jsonPath("$.data.totalPages").value(1))
+			.andExpect(jsonPath("$.data.totalElements").doesNotExist())
+			.andExpect(jsonPath("$.data.totalPages").doesNotExist())
+			.andExpect(jsonPath("$.data.hasNext").value(false))
+			.andExpect(jsonPath("$.data.content.length()").value(2))
 			.andExpect(jsonPath("$.data.content[0].id").value(alpha.getId()))
 			.andExpect(jsonPath("$.data.content[0].playedByMe").value(true))
 			.andExpect(jsonPath("$.data.content[1].id").value(beta.getId()))
@@ -368,7 +371,7 @@ class UserPlayedGameHttpIntegrationTest {
 				.param("playedFilter", "PLAYED_ONLY")
 				.with(authenticationFor(userA.getId())))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.totalElements").value(1))
+			.andExpect(jsonPath("$.data.content.length()").value(1))
 			.andExpect(jsonPath("$.data.content[0].id").value(alpha.getId()));
 		mockMvc.perform(
 			get("/api/games")
@@ -376,7 +379,7 @@ class UserPlayedGameHttpIntegrationTest {
 				.param("playedFilter", "EXCLUDE_PLAYED")
 				.with(authenticationFor(userA.getId())))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.totalElements").value(1))
+			.andExpect(jsonPath("$.data.content.length()").value(1))
 			.andExpect(jsonPath("$.data.content[0].id").value(beta.getId()))
 			.andExpect(jsonPath("$.data.content[0].playedByMe").value(false));
 
@@ -419,7 +422,7 @@ class UserPlayedGameHttpIntegrationTest {
 		}
 		mockMvc.perform(get("/api/games").param("keyword", "PlayedGameHttp-Filter"))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.totalElements").value(1))
+			.andExpect(jsonPath("$.data.content.length()").value(1))
 			.andExpect(jsonPath("$.data.content[0].id").value(game.getId()))
 			.andExpect(jsonPath("$.data.content[0].playedByMe").value((Object)null));
 		mockMvc.perform(get("/api/users/me/played-games").with(authenticationFor(user("no-get").getId())))

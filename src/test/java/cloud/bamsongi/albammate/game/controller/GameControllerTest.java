@@ -103,8 +103,8 @@ class GameControllerTest {
 			.andExpect(jsonPath("$.data.content[0].upcomingRoomCount").value(0))
 			.andExpect(jsonPath("$.data.page").value(0))
 			.andExpect(jsonPath("$.data.size").value(10))
-			.andExpect(jsonPath("$.data.totalElements").value(1))
-			.andExpect(jsonPath("$.data.totalPages").value(1))
+			.andExpect(jsonPath("$.data.totalElements").doesNotExist())
+			.andExpect(jsonPath("$.data.totalPages").doesNotExist())
 			.andExpect(jsonPath("$.data.hasNext").value(false));
 	}
 
@@ -119,8 +119,8 @@ class GameControllerTest {
 			.andExpect(jsonPath("$.data.content").isEmpty())
 			.andExpect(jsonPath("$.data.page").value(1))
 			.andExpect(jsonPath("$.data.size").value(1))
-			.andExpect(jsonPath("$.data.totalElements").value(3))
-			.andExpect(jsonPath("$.data.totalPages").value(3))
+			.andExpect(jsonPath("$.data.totalElements").doesNotExist())
+			.andExpect(jsonPath("$.data.totalPages").doesNotExist())
 			.andExpect(jsonPath("$.data.hasNext").value(true));
 
 		GameListRequest request = capturedListRequest();
@@ -128,6 +128,38 @@ class GameControllerTest {
 		org.junit.jupiter.api.Assertions.assertFalse(request.isUpcomingOnly());
 		org.junit.jupiter.api.Assertions.assertEquals(1, request.getPage());
 		org.junit.jupiter.api.Assertions.assertEquals(1, request.getSize());
+	}
+
+	@Test
+	void 게임_목록_UI가_소비할_Slice_응답은_전체결과수와_마지막페이지정보를_노출하지_않는다() throws Exception {
+		when(gameQueryService.findPage(any(GameListRequest.class), any()))
+			.thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 10), 0));
+
+		mockMvc.perform(get("/api/games"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.content").isEmpty())
+			.andExpect(jsonPath("$.data.page").value(0))
+			.andExpect(jsonPath("$.data.size").value(10))
+			.andExpect(jsonPath("$.data.hasNext").value(false))
+			.andExpect(jsonPath("$.data.totalElements").doesNotExist())
+			.andExpect(jsonPath("$.data.totalPages").doesNotExist());
+	}
+
+	@Test
+	void 게임_목록_Slice_전환은_상세_API와_오류_envelope를_바꾸지_않는다() throws Exception {
+		when(gameQueryService.findPage(any(GameListRequest.class), any()))
+			.thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 10), 0));
+		when(gameDetailQueryService.findById(999L, null))
+			.thenThrow(new BusinessException(ErrorCode.GAME_NOT_FOUND));
+
+		mockMvc.perform(get("/api/games"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.totalElements").doesNotExist());
+		mockMvc.perform(get("/api/games/999"))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.status").value(404))
+			.andExpect(jsonPath("$.code").value(ErrorCode.GAME_NOT_FOUND.getCode()))
+			.andExpect(jsonPath("$.data").value((Object)null));
 	}
 
 	@Test

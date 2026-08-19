@@ -28,7 +28,13 @@ vi.mock('./api', () => ({
 
 const { GamesView } = await import('./game/index.js');
 
-const EMPTY_PAGE = { content: [], page: 0, size: 24, totalElements: 0, totalPages: 0 };
+const EMPTY_PAGE = { content: [], page: 0, size: 24, hasNext: false };
+const FIRST_SLICE_PAGE = {
+  content: [{ id: 1, name: '첫 번째 게임', englishName: 'First game', supportedPlayerCount: '2~4명', estimatedPlayTime: '30분', complexity: 2, upcomingRoomCount: 0 }],
+  page: 0,
+  size: 24,
+  hasNext: true
+};
 // 계약이 정한 대표 8개 이름·순서와, 대표 밖 고급 목록을 확인할 나머지 항목이다.
 const FEATURED_MECHANISM_NAMES = [
   '핸드 관리',
@@ -102,6 +108,23 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+});
+
+describe('#770 게임 목록 Slice 이동', () => {
+  it('exact 결과 수와 마지막 페이지 점프 없이 이전/다음으로 이동한다', async () => {
+    getGames.mockResolvedValue(FIRST_SLICE_PAGE);
+    await renderGamesView();
+    await act(async () => {});
+
+    expect(screen.getByText('게임 목록')).toBeTruthy();
+    expect(screen.queryByText(/게임 [0-9]+개/u)).toBeNull();
+    expect(screen.getByRole('button', { name: '이전 페이지' }).disabled).toBe(true);
+
+    fireEvent.click(screen.getByRole('button', { name: '다음 페이지' }));
+
+    expect(lastQuery()).toMatchObject({ page: 1, size: 24 });
+    expect(screen.queryByRole('button', { name: '5' })).toBeNull();
+  });
 });
 
 describe('T2·T3 게임 조건 필터 조회 시점', () => {

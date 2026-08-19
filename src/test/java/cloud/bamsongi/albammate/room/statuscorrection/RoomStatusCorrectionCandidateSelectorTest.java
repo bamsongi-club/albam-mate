@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.room.statuscorrection;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
@@ -21,6 +22,16 @@ import cloud.bamsongi.albammate.room.repository.RoomRepository;
 class RoomStatusCorrectionCandidateSelectorTest {
 
 	private static final Instant CUTOFF = Instant.parse("2026-08-06T00:00:00Z");
+
+	@Test
+	void 후보_제한은_1부터_허용한다() {
+		RoomRepository roomRepository = mock(RoomRepository.class);
+		stubNoCandidates(roomRepository);
+		RoomStatusCorrectionCandidateSelector selector = new RoomStatusCorrectionCandidateSelector(roomRepository);
+
+		assertEquals(List.of(), selector.select(snapshot(null, null), 1));
+		assertThrows(IllegalArgumentException.class, () -> selector.select(snapshot(null, null), 0));
+	}
 
 	@Test
 	void turn_cutoff_이하의_세_경계를_논리_dueAt과_roomId_오름차순으로_제한_선별한다() {

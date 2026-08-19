@@ -31,16 +31,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
@@ -51,22 +48,17 @@ import cloud.bamsongi.albammate.room.service.command.RoomParticipationCancelServ
 import cloud.bamsongi.albammate.room.service.command.RoomStatusChangeService;
 import cloud.bamsongi.albammate.room.service.command.RoomWaitlistCommandService;
 import cloud.bamsongi.albammate.room.statuscorrection.RoomStatusCorrectionCoordinator;
+import cloud.bamsongi.albammate.testsupport.SharedPostgresIntegrationSupport;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 
 @Testcontainers
 @SpringBootTest
 @Import(RoomWaitlistConcurrencyPostgresTest.WaitlistQueueConflictConfiguration.class)
-class RoomWaitlistConcurrencyPostgresTest {
+class RoomWaitlistConcurrencyPostgresTest extends SharedPostgresIntegrationSupport {
 
-	private static final String POSTGRES_IMAGE = "postgres:18.4";
 	private static final Instant REQUEST_TIME = Instant.parse("2026-08-04T00:00:00Z");
 	private static final long WAIT_SECONDS = 10;
-
-	@Container
-	@ServiceConnection
-	static final PostgreSQLContainer postgres = new PostgreSQLContainer(POSTGRES_IMAGE)
-		.withDatabaseName("albam_mate_waitlist_concurrency_test");
 
 	@Autowired
 	private RoomRepository roomRepository;

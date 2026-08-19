@@ -1,57 +1,31 @@
 package cloud.bamsongi.albammate.notification.relay;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.timeout;
-import static org.mockito.Mockito.verify;
 
 import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.env.YamlPropertySourceLoader;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.Primary;
-import org.springframework.core.env.ConfigurableEnvironment;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.PropertySource;
 import org.springframework.core.io.FileSystemResource;
 
-import cloud.bamsongi.albammate.AlbamMateApplication;
-
-@SpringBootTest(classes = AlbamMateApplication.class, properties = {
-	"app.notification.relay.enabled=true",
-	"app.notification.relay.poll-interval=10ms",
-	"app.notification.relay.max-events-per-run=3"
-})
-@Import(NotificationRelayPropertiesBindingTest.SchedulingConfiguration.class)
 class NotificationRelayPropertiesBindingTest {
 
-	@Autowired
-	private NotificationRelayProperties properties;
-
-	@Autowired
-	private NotificationRelayCoordinator coordinator;
-
-	@Autowired
-	private ConfigurableEnvironment environment;
-
 	@Test
-	void application_yml의_relay_블록은_YAML로_파싱되어_운영_기본값을_제공한다() throws IOException {
+	void application_yml의_relay_블록은_운영_기본값을_제공한다() throws IOException {
 		List<PropertySource<?>> propertySources = new YamlPropertySourceLoader().load(
 			"notificationRelayApplicationYaml", new FileSystemResource("src/main/resources/application.yml"));
 
 		assertEquals(1, propertySources.size());
 		PropertySource<?> propertySource = propertySources.getFirst();
-		assertEquals(true, propertySource.getProperty("app.notification.relay.enabled"));
+		assertTrue((Boolean)propertySource.getProperty("app.notification.relay.enabled"));
 		assertEquals("5s", propertySource.getProperty("app.notification.relay.poll-interval"));
 		assertEquals(50, propertySource.getProperty("app.notification.relay.max-events-per-run"));
 		assertNull(propertySource.getProperty("app.notification.relay.max-automatic-attempts"));
@@ -59,34 +33,32 @@ class NotificationRelayPropertiesBindingTest {
 	}
 
 	@Test
-	void 실제_Environment의_relay_키에_전용_값을_주입하면_Binder가_반영한다() {
-		assertTrue(environment.getPropertySources().stream()
-			.anyMatch(source -> source.getName().contains("application.yml")),
-			() -> environment.getPropertySources().stream().map(source -> source.getName()).toList().toString());
-		assertTrue(environment.containsProperty("app.notification.relay.enabled"));
-		assertTrue(environment.containsProperty("app.notification.relay.poll-interval"));
-		assertTrue(environment.containsProperty("app.notification.relay.max-events-per-run"));
+	void 기본_속성은_운영_relay_기본값을_가진다() {
+		NotificationRelayProperties properties = new NotificationRelayProperties();
+
 		assertTrue(properties.isEnabled());
-		assertEquals(Duration.ofMillis(10), properties.getPollInterval());
-		assertEquals(3, properties.getMaxEventsPerRun());
-		assertFalse(environment.containsProperty("app.notification.relay.max-automatic-attempts"));
-		assertFalse(environment.containsProperty("app.notification.relay.first-retry-delay"));
+		assertEquals(Duration.ofSeconds(5), properties.getPollInterval());
+		assertEquals(50, properties.getMaxEventsPerRun());
 	}
 
 	@Test
-	void 활성화된_Spring_scheduling은_짧은_relay_주기로_coordinator를_자동_호출한다() {
-		reset(coordinator);
-
-		verify(coordinator, timeout(2_000).atLeastOnce()).processBatch();
+	void 전용_relay_속성은_최소_Binder_context에_바인딩된다() {
+		new ApplicationContextRunner()
+			.withUserConfiguration(NotificationRelayPropertiesConfiguration.class)
+			.withPropertyValues(
+				"app.notification.relay.enabled=true",
+				"app.notification.relay.poll-interval=10ms",
+				"app.notification.relay.max-events-per-run=3")
+			.run(context -> {
+				assertNull(context.getStartupFailure());
+				NotificationRelayProperties properties = context.getBean(NotificationRelayProperties.class);
+				assertTrue(properties.isEnabled());
+				assertEquals(Duration.ofMillis(10), properties.getPollInterval());
+				assertEquals(3, properties.getMaxEventsPerRun());
+			});
 	}
 
-	@TestConfiguration(proxyBeanMethods = false)
-	static class SchedulingConfiguration {
-
-		@Bean
-		@Primary
-		NotificationRelayCoordinator testNotificationRelayCoordinator() {
-			return mock(NotificationRelayCoordinator.class);
-		}
-	}
+	@Configuration(proxyBeanMethods = false)
+	@EnableConfigurationProperties(NotificationRelayProperties.class)
+	static class NotificationRelayPropertiesConfiguration {}
 }

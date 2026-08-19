@@ -50,6 +50,7 @@ import cloud.bamsongi.albammate.user.contract.UserNickname;
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
 	"app.security.cookie.secure=false",
+	"management.otlp.metrics.export.enabled=false",
 	"app.notification.relay.enabled=false"
 })
 class RedisSessionProductionProfilePostgresTest {
@@ -136,6 +137,7 @@ class RedisSessionProductionProfilePostgresTest {
 			"--app.redis.port=" + REDIS.getMappedPort(6379),
 			"--app.monitoring.upstream-role=app2",
 			"--app.security.cookie.secure=false",
+			"--management.otlp.metrics.export.enabled=false",
 			"--app.notification.relay.enabled=false");
 	}
 

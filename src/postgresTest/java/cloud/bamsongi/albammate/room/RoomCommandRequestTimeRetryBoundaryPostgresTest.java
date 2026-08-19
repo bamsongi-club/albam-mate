@@ -22,7 +22,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
@@ -31,9 +30,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
@@ -43,6 +40,7 @@ import cloud.bamsongi.albammate.room.service.command.RoomParticipationCancelServ
 import cloud.bamsongi.albammate.room.service.command.RoomParticipationService;
 import cloud.bamsongi.albammate.room.service.command.RoomWaitlistCommandService;
 import cloud.bamsongi.albammate.room.statuscorrection.RoomStatusCorrectionCoordinator;
+import cloud.bamsongi.albammate.testsupport.SharedPostgresIntegrationSupport;
 
 @Testcontainers
 @SpringBootTest(properties = {
@@ -51,15 +49,10 @@ import cloud.bamsongi.albammate.room.statuscorrection.RoomStatusCorrectionCoordi
 	"app.chat.retention.enabled=false",
 	"spring.main.allow-bean-definition-overriding=true"})
 @Import(RoomCommandRequestTimeRetryBoundaryPostgresTest.RetryBoundaryConfiguration.class)
-class RoomCommandRequestTimeRetryBoundaryPostgresTest {
+class RoomCommandRequestTimeRetryBoundaryPostgresTest extends SharedPostgresIntegrationSupport {
 
 	private static final Instant REQUEST_TIME = Instant.parse("2026-08-12T00:00:00Z");
 	private static final Instant RETRY_WALL_CLOCK_TIME = REQUEST_TIME.plusSeconds(60);
-
-	@Container
-	@ServiceConnection
-	static final PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:18.4")
-		.withDatabaseName("albam_mate_room_command_retry_boundary");
 
 	@Autowired
 	private RoomParticipationService roomParticipationService;

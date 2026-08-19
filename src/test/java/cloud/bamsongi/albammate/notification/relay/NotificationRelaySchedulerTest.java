@@ -3,21 +3,36 @@ package cloud.bamsongi.albammate.notification.relay;
 import static cloud.bamsongi.albammate.fixture.StructuredLogAssertions.assertFields;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 
+@SpringJUnitConfig(NotificationRelaySchedulerTest.SchedulingConfiguration.class)
+@TestPropertySource(properties = "app.notification.relay.poll-interval=10ms")
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class NotificationRelaySchedulerTest {
+
+	@org.springframework.beans.factory.annotation.Autowired
+	private NotificationRelayCoordinator coordinator;
 
 	@Test
 	void 활성화된_relay는_batch_처리를_시작한다() {
@@ -75,6 +90,13 @@ class NotificationRelaySchedulerTest {
 		}
 	}
 
+	@Test
+	void 활성화된_최소_Spring_scheduling은_짧은_relay_주기로_coordinator를_자동_호출한다() {
+		reset(coordinator);
+
+		verify(coordinator, timeout(2_000).atLeastOnce()).processBatch();
+	}
+
 	private Clock fixedClock() {
 		return Clock.fixed(Instant.parse("2026-08-03T00:00:00Z"), ZoneOffset.UTC);
 	}
@@ -91,5 +113,37 @@ class NotificationRelaySchedulerTest {
 		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(NotificationRelayScheduler.class);
 		logger.detachAppender(appender);
 		appender.stop();
+	}
+
+	@Configuration(proxyBeanMethods = false)
+	@EnableScheduling
+	static class SchedulingConfiguration {
+
+		@Bean
+		NotificationRelayProperties notificationRelayProperties() {
+			NotificationRelayProperties properties = new NotificationRelayProperties();
+			properties.setEnabled(true);
+			properties.setPollInterval(Duration.ofMillis(10));
+			properties.setMaxEventsPerRun(3);
+			return properties;
+		}
+
+		@Bean
+		NotificationRelayCoordinator notificationRelayCoordinator() {
+			return mock(NotificationRelayCoordinator.class);
+		}
+
+		@Bean
+		Clock clock() {
+			return Clock.systemUTC();
+		}
+
+		@Bean
+		NotificationRelayScheduler notificationRelayScheduler(
+			NotificationRelayCoordinator coordinator,
+			Clock clock,
+			NotificationRelayProperties properties) {
+			return new NotificationRelayScheduler(coordinator, clock, properties);
+		}
 	}
 }

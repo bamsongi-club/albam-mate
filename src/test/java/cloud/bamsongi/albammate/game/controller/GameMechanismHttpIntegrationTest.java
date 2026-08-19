@@ -147,7 +147,7 @@ class GameMechanismHttpIntegrationTest {
 
 		mockMvc.perform(get("/api/games").param("keyword", PREFIX + "Single").param("mechanism", "HAND_MANAGEMENT"))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.totalElements").value(1))
+			.andExpect(jsonPath("$.data.content.length()").value(1))
 			.andExpect(jsonPath("$.data.content[0].id").value(matched.getId()));
 
 		mockMvc.perform(get("/api/games").param("mechanism", privateMechanism.getCode()))
@@ -175,7 +175,6 @@ class GameMechanismHttpIntegrationTest {
 				.param("mechanism", "DICE_ROLLING")
 				.param("mechanism", "DICE_ROLLING"))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.totalElements").value(2))
 			.andExpect(jsonPath("$.data.content.length()").value(2));
 	}
 
@@ -200,8 +199,9 @@ class GameMechanismHttpIntegrationTest {
 				.param("page", "1")
 				.param("size", "1"))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.totalElements").value(2))
-			.andExpect(jsonPath("$.data.totalPages").value(2))
+			.andExpect(jsonPath("$.data.page").value(1))
+			.andExpect(jsonPath("$.data.size").value(1))
+			.andExpect(jsonPath("$.data.hasNext").value(false))
 			.andExpect(jsonPath("$.data.content[0].id").value(beta.getId()));
 	}
 
@@ -214,7 +214,7 @@ class GameMechanismHttpIntegrationTest {
 
 		mockMvc.perform(get("/api/games").param("keyword", PREFIX + "Omitted"))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.totalElements").value(2));
+			.andExpect(jsonPath("$.data.content.length()").value(2));
 
 		assertThrows(
 			DataIntegrityViolationException.class,

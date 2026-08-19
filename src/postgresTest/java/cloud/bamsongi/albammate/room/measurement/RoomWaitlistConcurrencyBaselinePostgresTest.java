@@ -28,6 +28,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -224,6 +225,7 @@ class RoomWaitlistConcurrencyBaselinePostgresTest {
 	}
 
 	@Test
+	@Tag("measurement")
 	void 대기와_자동_승격_경합_측정은_공통_raw_형식으로_기록한다() throws Exception {
 		baselineSupport.clearCollectedRounds();
 		runDirectFirstLastSeatWaitlistPreparationRound(createLastSeatWaitlistFixture("prepare-direct-first"));

@@ -1738,10 +1738,9 @@ export function ProfileView({ me, onSave, onLogout, socialProviders = [], onUplo
   const fileInputRef = useRef(null);
   const counts = useRequest((signal) => Promise.all([
     api.getMyRooms({ role: 'joined', page: 0, size: 1 }, signal),
-    api.getMyRooms({ role: 'hosted', page: 0, size: 1 }, signal),
-    api.getGames({ playedFilter: 'PLAYED_ONLY', page: 0, size: 1 }, signal)
+    api.getMyRooms({ role: 'hosted', page: 0, size: 1 }, signal)
   ]), [dataVersion]);
-  const [joinedPage, hostedPage, playedPage] = counts.data || [];
+  const [joinedPage, hostedPage] = counts.data || [];
   useEffect(() => setNickname(me.nickname), [me.nickname]);
   const logout = async () => {
     setLoggingOut(true);
@@ -1788,11 +1787,9 @@ export function ProfileView({ me, onSave, onLogout, socialProviders = [], onUplo
       setUploadingImage(false);
     }
   };
-  // 해 본 게임은 아래 메뉴 목록에 이미 같은 목적지로 가는 진입점이 있어 통계는 링크로 두지 않는다.
   const stats = [
     { key: '참가한 모임', value: joinedPage?.totalElements ?? '—', href: '#/my/joined' },
-    { key: '개설한 모임', value: hostedPage?.totalElements ?? '—', href: '#/my/hosted' },
-    { key: '해 본 게임', value: playedPage?.totalElements ?? '—' }
+    { key: '개설한 모임', value: hostedPage?.totalElements ?? '—', href: '#/my/hosted' }
   ];
 
   return (

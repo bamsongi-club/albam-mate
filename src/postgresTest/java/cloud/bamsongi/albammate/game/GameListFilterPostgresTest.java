@@ -1,23 +1,32 @@
 package cloud.bamsongi.albammate.game;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.SliceImpl;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor.SpecificationFluentQuery;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.annotation.Transactional;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import cloud.bamsongi.albammate.game.dto.GameListRequest;
 import cloud.bamsongi.albammate.game.dto.GamePlayTimeFilter;
@@ -33,21 +42,19 @@ import cloud.bamsongi.albammate.game.repository.GameMechanismRelationRepository;
 import cloud.bamsongi.albammate.game.repository.GameMechanismRepository;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
 import cloud.bamsongi.albammate.game.service.GameListSearchCriteria;
+import cloud.bamsongi.albammate.game.service.GameQueryService;
+import cloud.bamsongi.albammate.testsupport.SharedPostgresIntegrationSupport;
 
 @Testcontainers
 @SpringBootTest
 @Transactional
-class GameListFilterPostgresTest {
+class GameListFilterPostgresTest extends SharedPostgresIntegrationSupport {
 
-	private static final String POSTGRES_IMAGE = "postgres:18.4";
-
-	@Container
-	@ServiceConnection
-	static final PostgreSQLContainer postgres = new PostgreSQLContainer(POSTGRES_IMAGE)
-		.withDatabaseName("game_list_filter_test");
+	@MockitoSpyBean
+	private GameRepository gameRepository;
 
 	@Autowired
-	private GameRepository gameRepository;
+	private GameQueryService gameQueryService;
 
 	@Autowired
 	private GameMechanismRepository gameMechanismRepository;
@@ -60,6 +67,43 @@ class GameListFilterPostgresTest {
 
 	@Autowired
 	private GameCategoryRelationRepository gameCategoryRelationRepository;
+
+	@Test
+	void PostgreSQL_게임목록은_count없이_Slice_경계와_고정정렬을_보존한다() {
+		Game first = saveGame(9901L, "Slice-Alpha", 2, 4, 20, new BigDecimal("2.00"));
+		Game second = saveGame(9902L, "Slice-Beta", 2, 4, 20, new BigDecimal("2.00"));
+		Game third = saveGame(9903L, "Slice-Gamma", 2, 4, 20, new BigDecimal("2.00"));
+		GameListRequest firstRequest = new GameListRequest();
+		firstRequest.setKeyword("Slice-");
+		firstRequest.setSize(2);
+		GameListRequest secondRequest = new GameListRequest();
+		secondRequest.setKeyword("Slice-");
+		secondRequest.setPage(1);
+		secondRequest.setSize(2);
+
+		var firstPage = gameQueryService.findPage(firstRequest, null);
+		var secondPage = gameQueryService.findPage(secondRequest, null);
+
+		assertEquals(List.of(first.getId(), second.getId()),
+			firstPage.getContent().stream().map(game -> game.id()).toList());
+		assertEquals(true, firstPage.hasNext());
+		assertEquals(List.of(third.getId()), secondPage.getContent().stream().map(game -> game.id()).toList());
+		assertEquals(false, secondPage.hasNext());
+		ArgumentCaptor<Function> queryCallback = ArgumentCaptor.forClass(Function.class);
+		verify(gameRepository, times(2)).findBy(any(Specification.class), queryCallback.capture());
+		SpecificationFluentQuery<Game> query = mock(SpecificationFluentQuery.class);
+		when(query.slice(any(Pageable.class))).thenReturn(new SliceImpl<>(List.of()));
+		queryCallback.getAllValues().forEach(callback -> callback.apply(query));
+		ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
+		verify(query, times(2)).slice(pageable.capture());
+		assertEquals(
+			List.of(
+				PageRequest.of(0, 2, Sort.by(Sort.Order.desc("popularityScore"), Sort.Order.asc("name"),
+					Sort.Order.asc("id"))),
+				PageRequest.of(1, 2, Sort.by(Sort.Order.desc("popularityScore"), Sort.Order.asc("name"),
+					Sort.Order.asc("id")))),
+			pageable.getAllValues());
+	}
 
 	@Test
 	void PostgreSQL에서_메커니즘_EXISTS_조건은_OR와_다른_조건_AND를_중복없이_적용한다() {

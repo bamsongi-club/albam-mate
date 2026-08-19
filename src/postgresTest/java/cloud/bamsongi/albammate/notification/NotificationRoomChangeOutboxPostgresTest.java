@@ -26,7 +26,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
@@ -34,9 +33,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.util.AopTestUtils;
 import org.springframework.transaction.IllegalTransactionStateException;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import cloud.bamsongi.albammate.AlbamMateApplication;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
@@ -50,17 +47,13 @@ import cloud.bamsongi.albammate.room.service.command.RoomParticipationCancelServ
 import cloud.bamsongi.albammate.room.service.command.RoomParticipationService;
 import cloud.bamsongi.albammate.room.service.command.RoomStatusChangeService;
 import cloud.bamsongi.albammate.room.service.command.RoomWaitlistCommandService;
+import cloud.bamsongi.albammate.testsupport.SharedPostgresIntegrationSupport;
 
 /** PostgreSQL에서 ROOM 변경의 실제 커밋 순서별 Outbox 수신자 스냅샷을 검증한다. */
 @Testcontainers
 @SpringBootTest(classes = AlbamMateApplication.class, properties = "app.notification.relay.enabled=false")
 @Import(NotificationRoomChangeOutboxPostgresTest.AheadApplicationClockConfiguration.class)
-class NotificationRoomChangeOutboxPostgresTest {
-
-	@Container
-	@ServiceConnection
-	static final PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:18.4")
-		.withDatabaseName("albam_mate_notification_room_change_test");
+class NotificationRoomChangeOutboxPostgresTest extends SharedPostgresIntegrationSupport {
 
 	@Autowired
 	private JdbcTemplate jdbcTemplate;

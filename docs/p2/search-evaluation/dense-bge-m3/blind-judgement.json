@@ -1,0 +1,470 @@
+{
+  "schemaVersion": 1,
+  "kind": "search-04-blind-judgement",
+  "seed": "search-04-dense-bge-m3-v1",
+  "hides": [
+    "modelId",
+    "score",
+    "sourceRank"
+  ],
+  "gradeScale": {
+    "relevant": 2,
+    "borderline": 1,
+    "irrelevant": 0
+  },
+  "queries": [
+    {
+      "id": "Q-010",
+      "query": "가볍게 웃으면서 즐길 수 있는 게임",
+      "judgementRubric": {
+        "relevant": "가볍고 유쾌한 플레이 경험이 핵심이며 웃음·반응·재미있는 상황이 주요 매력인 게임",
+        "borderline": "가볍기는 하지만 웃으면서 즐길 수 있다는 근거가 약한 게임",
+        "irrelevant": "무겁고 진지한 전략·계산 중심이거나 해당 분위기를 뒷받침하는 근거가 없는 게임"
+      },
+      "candidates": [
+        {
+          "blindRank": 1,
+          "gameId": 2536,
+          "name": " 바방크",
+          "englishName": " Vabanque",
+          "grade": null
+        },
+        {
+          "blindRank": 2,
+          "gameId": 1382,
+          "name": " 우인느어스 크어크레",
+          "englishName": " Winner's Circle",
+          "grade": null
+        },
+        {
+          "blindRank": 3,
+          "gameId": 46213,
+          "name": " 트엘에스트라션스",
+          "englishName": " Telestrations",
+          "grade": null
+        },
+        {
+          "blindRank": 4,
+          "gameId": 105593,
+          "name": " 장난꾸러기 나방",
+          "englishName": " Cheating Moth",
+          "grade": null
+        },
+        {
+          "blindRank": 5,
+          "gameId": 395846,
+          "name": " 모조",
+          "englishName": " Mojo",
+          "grade": null
+        },
+        {
+          "blindRank": 6,
+          "gameId": 84732,
+          "name": " 크아이바",
+          "englishName": " Kariba",
+          "grade": null
+        },
+        {
+          "blindRank": 7,
+          "gameId": 269210,
+          "name": " 트위세 아스 크레브어!",
+          "englishName": " Twice as Clever!",
+          "grade": null
+        },
+        {
+          "blindRank": 8,
+          "gameId": 237792,
+          "name": " 루미큐브 트위스트",
+          "englishName": " Rummikub Twist",
+          "grade": null
+        },
+        {
+          "blindRank": 9,
+          "gameId": 142379,
+          "name": " 이스케이프 프엘앤",
+          "englishName": " Escape Plan",
+          "grade": null
+        },
+        {
+          "blindRank": 10,
+          "gameId": 203430,
+          "name": " 후지 플러시",
+          "englishName": " Fuji Flush",
+          "grade": null
+        },
+        {
+          "blindRank": 11,
+          "gameId": 12942,
+          "name": " 노 스앤크스!",
+          "englishName": " No Thanks!",
+          "grade": null
+        },
+        {
+          "blindRank": 12,
+          "gameId": 420087,
+          "name": " 프리프 7",
+          "englishName": " Flip 7",
+          "grade": null
+        },
+        {
+          "blindRank": 13,
+          "gameId": 406660,
+          "name": " 블루, 샌드, 씨사이드",
+          "englishName": " Seaside",
+          "grade": null
+        },
+        {
+          "blindRank": 14,
+          "gameId": 244522,
+          "name": " 스아트스 프레트트이 크레브어!",
+          "englishName": " That's Pretty Clever!",
+          "grade": null
+        },
+        {
+          "blindRank": 15,
+          "gameId": 16747,
+          "name": " 트엄브르인 다이스",
+          "englishName": " Tumblin' Dice",
+          "grade": null
+        },
+        {
+          "blindRank": 16,
+          "gameId": 284108,
+          "name": " 피크쳐스",
+          "englishName": " Pictures",
+          "grade": null
+        },
+        {
+          "blindRank": 17,
+          "gameId": 393325,
+          "name": " 캡틴 프리프",
+          "englishName": " Captain Flip",
+          "grade": null
+        },
+        {
+          "blindRank": 18,
+          "gameId": 117959,
+          "name": " 라스 베가스",
+          "englishName": " Las Vegas",
+          "grade": null
+        },
+        {
+          "blindRank": 19,
+          "gameId": 304051,
+          "name": " 크르이쳐 크옴프오트스",
+          "englishName": " Creature Comforts",
+          "grade": null
+        },
+        {
+          "blindRank": 20,
+          "gameId": 193214,
+          "name": " 엠이프레 크어쿠스",
+          "englishName": " Meeple Circus",
+          "grade": null
+        }
+      ]
+    },
+    {
+      "id": "Q-011",
+      "query": "상대의 반응을 살피며 서로 눈치를 보는 재미가 있는 게임",
+      "judgementRubric": {
+        "relevant": "상대의 반응·의도·선택을 읽는 것이 핵심 재미이고 행동 예측이 실제 의사결정에 중요한 게임",
+        "borderline": "상호작용은 강하지만 상대 의도를 읽는 것이 부차적인 게임",
+        "irrelevant": "multiplayer solitaire 성격이거나 상대 반응을 읽는 것이 거의 의미 없는 게임"
+      },
+      "candidates": [
+        {
+          "blindRank": 1,
+          "gameId": 163930,
+          "name": " 아브라카다...왓?",
+          "englishName": " Abracada...What?",
+          "grade": null
+        },
+        {
+          "blindRank": 2,
+          "gameId": 46213,
+          "name": " 트엘에스트라션스",
+          "englishName": " Telestrations",
+          "grade": null
+        },
+        {
+          "blindRank": 3,
+          "gameId": 322204,
+          "name": " 더블유오드 카프쳐",
+          "englishName": " Word Capture",
+          "grade": null
+        },
+        {
+          "blindRank": 4,
+          "gameId": 421762,
+          "name": " 에메랄드 스컬",
+          "englishName": " Emerald Skulls",
+          "grade": null
+        },
+        {
+          "blindRank": 5,
+          "gameId": 329839,
+          "name": " 소 크로브어!",
+          "englishName": " So Clover!",
+          "grade": null
+        },
+        {
+          "blindRank": 6,
+          "gameId": 134352,
+          "name": " 트워 르우름스 앤드 아 브우름",
+          "englishName": " Two Rooms and a Boom",
+          "grade": null
+        },
+        {
+          "blindRank": 7,
+          "gameId": 411567,
+          "name": " 스에 그앤그",
+          "englishName": " The Gang",
+          "grade": null
+        },
+        {
+          "blindRank": 8,
+          "gameId": 2536,
+          "name": " 바방크",
+          "englishName": " Vabanque",
+          "grade": null
+        },
+        {
+          "blindRank": 9,
+          "gameId": 254640,
+          "name": " 주스트 온에",
+          "englishName": " Just One",
+          "grade": null
+        },
+        {
+          "blindRank": 10,
+          "gameId": 291453,
+          "name": " 스크아우트",
+          "englishName": " SCOUT",
+          "grade": null
+        },
+        {
+          "blindRank": 11,
+          "gameId": 347889,
+          "name": " 캐치 스케치",
+          "englishName": " Catch Sketch",
+          "grade": null
+        },
+        {
+          "blindRank": 12,
+          "gameId": 3955,
+          "name": " 브앤그!",
+          "englishName": " BANG!",
+          "grade": null
+        },
+        {
+          "blindRank": 13,
+          "gameId": 102181,
+          "name": " 덤불 속",
+          "englishName": " In a Grove",
+          "grade": null
+        },
+        {
+          "blindRank": 14,
+          "gameId": 284108,
+          "name": " 피크쳐스",
+          "englishName": " Pictures",
+          "grade": null
+        },
+        {
+          "blindRank": 15,
+          "gameId": 400995,
+          "name": " 퍼스펙티브스",
+          "englishName": " Perspectives",
+          "grade": null
+        },
+        {
+          "blindRank": 16,
+          "gameId": 257743,
+          "name": " 사이 Whaaat?!",
+          "englishName": " Say Whaaat?!",
+          "grade": null
+        },
+        {
+          "blindRank": 17,
+          "gameId": 171,
+          "name": " 치에스스",
+          "englishName": " Chess",
+          "grade": null
+        },
+        {
+          "blindRank": 18,
+          "gameId": 92415,
+          "name": " 스크얼엘",
+          "englishName": " Skull",
+          "grade": null
+        },
+        {
+          "blindRank": 19,
+          "gameId": 262543,
+          "name": " 와브엘엔그스",
+          "englishName": " Wavelength",
+          "grade": null
+        },
+        {
+          "blindRank": 20,
+          "gameId": 257527,
+          "name": " 트라프더블유오드스",
+          "englishName": " Trapwords",
+          "grade": null
+        }
+      ]
+    },
+    {
+      "id": "Q-012",
+      "query": "보드게임을 처음 하는 초보자와도 부담 없이 시작할 수 있는 게임",
+      "judgementRubric": {
+        "relevant": "규칙·설명 부담이 낮고 처음 하는 사람이 빠르게 참여하며 숙련도 격차가 플레이를 크게 망치지 않는 게임",
+        "borderline": "중간 학습 부담이나 경험자의 도움이 필요하지만 초보자도 플레이할 수 있는 게임",
+        "irrelevant": "상당한 규칙 학습·사전 경험을 요구하거나 beginner-friendly 근거가 부족한 게임"
+      },
+      "candidates": [
+        {
+          "blindRank": 1,
+          "gameId": 180263,
+          "name": " 스에 7th 크온트인엔트",
+          "englishName": " The 7th Continent",
+          "grade": null
+        },
+        {
+          "blindRank": 2,
+          "gameId": 288098,
+          "name": " 섀도우 레이더스",
+          "englishName": " Shadow Raiders",
+          "grade": null
+        },
+        {
+          "blindRank": 3,
+          "gameId": 311988,
+          "name": " 프로스트프언크: 스에 보드 게임",
+          "englishName": " Frostpunk: The Board Game",
+          "grade": null
+        },
+        {
+          "blindRank": 4,
+          "gameId": 142325,
+          "name": " 코바야카와",
+          "englishName": " Kobayakawa",
+          "grade": null
+        },
+        {
+          "blindRank": 5,
+          "gameId": 51,
+          "name": " 리코치에트 로보트스",
+          "englishName": " Ricochet Robots",
+          "grade": null
+        },
+        {
+          "blindRank": 6,
+          "gameId": 36218,
+          "name": " 도미니언",
+          "englishName": " Dominion",
+          "grade": null
+        },
+        {
+          "blindRank": 7,
+          "gameId": 242302,
+          "name": " 스페이스 바세",
+          "englishName": " Space Base",
+          "grade": null
+        },
+        {
+          "blindRank": 8,
+          "gameId": 77130,
+          "name": " 시드 메이어스 시브일이자션: 스에 보드 게임",
+          "englishName": " Sid Meier's Civilization: The Board Game",
+          "grade": null
+        },
+        {
+          "blindRank": 9,
+          "gameId": 456619,
+          "name": " 브리트즈",
+          "englishName": " BLITZ",
+          "grade": null
+        },
+        {
+          "blindRank": 10,
+          "gameId": 91872,
+          "name": " 던전 & 드래곤: 스에 레전드 오프 드리즈즈트 보드 게임",
+          "englishName": " Dungeons & Dragons: The Legend of Drizzt Board Game",
+          "grade": null
+        },
+        {
+          "blindRank": 11,
+          "gameId": 358246,
+          "name": " 데드 바이 데이라이트: 보드게임",
+          "englishName": " Dead by Daylight: The Board Game",
+          "grade": null
+        },
+        {
+          "blindRank": 12,
+          "gameId": 446497,
+          "name": " 호트 스트르이크",
+          "englishName": " Hot Streak",
+          "grade": null
+        },
+        {
+          "blindRank": 13,
+          "gameId": 59946,
+          "name": " 던전 & 드래곤: 캐슬 라브엔로프트 보드 게임",
+          "englishName": " Dungeons & Dragons: Castle Ravenloft Board Game",
+          "grade": null
+        },
+        {
+          "blindRank": 14,
+          "gameId": 338960,
+          "name": " 스라이 스에 스프어에: 스에 보드 게임",
+          "englishName": " Slay the Spire: The Board Game",
+          "grade": null
+        },
+        {
+          "blindRank": 15,
+          "gameId": 17223,
+          "name": " 월드 오프 우아크라프트: 스에 브오르드그암에",
+          "englishName": " World of Warcraft: The Boardgame",
+          "grade": null
+        },
+        {
+          "blindRank": 16,
+          "gameId": 103343,
+          "name": " 아 게임 오프 스르온에스: 스에 보드 게임 (2판)",
+          "englishName": " A Game of Thrones: The Board Game (Second Edition)",
+          "grade": null
+        },
+        {
+          "blindRank": 17,
+          "gameId": 124361,
+          "name": " 콘코디아",
+          "englishName": " Concordia",
+          "grade": null
+        },
+        {
+          "blindRank": 18,
+          "gameId": 203430,
+          "name": " 후지 플러시",
+          "englishName": " Fuji Flush",
+          "grade": null
+        },
+        {
+          "blindRank": 19,
+          "gameId": 188920,
+          "name": " 스이스 워 오프 름인에: 스에 보드 게임",
+          "englishName": " This War of Mine: The Board Game",
+          "grade": null
+        },
+        {
+          "blindRank": 20,
+          "gameId": 416851,
+          "name": " 캐슬 크옴보",
+          "englishName": " Castle Combo",
+          "grade": null
+        }
+      ]
+    }
+  ]
+}
