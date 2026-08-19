@@ -15,53 +15,100 @@ const ITEM_PATTERN = /<item\b[^>]*\bid="(\d+)"[^>]*>([\s\S]*?)<\/item>/g;
 const DESCRIPTION_PATTERN = /<description>([\s\S]*?)<\/description>/;
 const PRIMARY_NAME_PATTERN = /<name\b[^>]*\btype="primary"[^>]*\bvalue="([^"]*)"/;
 
-const options = parseOptions(process.argv.slice(2));
-const wanted = options.ids ? new Set(readIds(options.ids)) : null;
-const extracted = [];
-const seen = new Set();
+if (process.argv[1] && import.meta.url.endsWith(process.argv[1].split('/').pop())) {
+    const options = parseOptions(process.argv.slice(2));
+    const wanted = options.ids ? new Set(readIds(options.ids)) : null;
+    const extracted = [];
+    const seen = new Set();
 
-for (const fileName of readdirSync(options.xmlDir).sort()) {
-    if (!fileName.endsWith('.xml')) continue;
-    if (options.limit && extracted.length >= options.limit) break;
-
-    const xml = readFileSync(resolve(options.xmlDir, fileName), 'utf8');
-    for (const [, id, body] of xml.matchAll(ITEM_PATTERN)) {
-        const bggId = Number(id);
-        if (wanted && !wanted.has(bggId)) continue;
-        if (seen.has(bggId)) continue;
-
-        const description = decodeEntities(body.match(DESCRIPTION_PATTERN)?.[1] ?? '').trim();
-        if (description === '') continue;
-
-        seen.add(bggId);
-        extracted.push({
-            bgg_id: bggId,
-            english_name: decodeEntities(body.match(PRIMARY_NAME_PATTERN)?.[1] ?? '').trim(),
-            source: description,
-        });
+    for (const fileName of readdirSync(options.xmlDir).sort()) {
+        if (!fileName.endsWith('.xml')) continue;
         if (options.limit && extracted.length >= options.limit) break;
+
+        const xml = readFileSync(resolve(options.xmlDir, fileName), 'utf8');
+        for (const [, id, body] of xml.matchAll(ITEM_PATTERN)) {
+            const bggId = Number(id);
+            if (wanted && !wanted.has(bggId)) continue;
+            if (seen.has(bggId)) continue;
+
+            const description = decodeEntities(body.match(DESCRIPTION_PATTERN)?.[1] ?? '').trim();
+            if (description === '') continue;
+
+            seen.add(bggId);
+            extracted.push({
+                bgg_id: bggId,
+                english_name: decodeEntities(body.match(PRIMARY_NAME_PATTERN)?.[1] ?? '').trim(),
+                source: description,
+            });
+            if (options.limit && extracted.length >= options.limit) break;
+        }
+    }
+
+    extracted.sort((left, right) => left.bgg_id - right.bgg_id);
+    writeFileSync(options.out, `${JSON.stringify(extracted, null, 1)}\n`, 'utf8');
+
+    const missing = wanted ? [...wanted].filter((id) => !seen.has(id)) : [];
+    process.stderr.write(`${extracted.length}건 추출 -> ${options.out}\n`);
+    if (missing.length > 0) {
+        process.stderr.write(`XML에 없어 제외한 ${missing.length}건: ${missing.slice(0, 10).join(', ')}\n`);
     }
 }
 
-extracted.sort((left, right) => left.bgg_id - right.bgg_id);
-writeFileSync(options.out, `${JSON.stringify(extracted, null, 1)}\n`, 'utf8');
+// BGG XML은 본문을 이스케이프해 담는다. 숫자 참조와 이름 참조를 모두 되돌리되,
+// 한 번의 순회만 수행해 이중 이스케이프를 다시 디코드하지 않는다.
+const ENTITY_PATTERN = /&(?:#(\d+)|#x([0-9a-f]+)|([a-z][a-z0-9]+));/gi;
+const NAMED_ENTITIES = Object.freeze({
+    amp: '&',
+    apos: "'",
+    bull: '•',
+    copy: '©',
+    deg: '°',
+    divide: '÷',
+    hellip: '…',
+    laquo: '«',
+    ldquo: '“',
+    le: '≤',
+    lsquo: '‘',
+    mdash: '—',
+    micro: 'µ',
+    middot: '·',
+    nbsp: '\u00a0',
+    ndash: '–',
+    ne: '≠',
+    plusmn: '±',
+    quot: '"',
+    raquo: '»',
+    rdquo: '”',
+    reg: '®',
+    rsquo: '’',
+    times: '×',
+    trade: '™',
+    gt: '>',
+    ge: '≥',
+    lt: '<',
+});
 
-const missing = wanted ? [...wanted].filter((id) => !seen.has(id)) : [];
-process.stderr.write(`${extracted.length}건 추출 -> ${options.out}\n`);
-if (missing.length > 0) {
-    process.stderr.write(`XML에 없어 제외한 ${missing.length}건: ${missing.slice(0, 10).join(', ')}\n`);
+export function decodeEntities(value) {
+    return value.replace(ENTITY_PATTERN, (entity, decimal, hexadecimal, name) => {
+        if (decimal !== undefined) {
+            return decodeCodePoint(entity, Number(decimal));
+        }
+        if (hexadecimal !== undefined) {
+            return decodeCodePoint(entity, Number.parseInt(hexadecimal, 16));
+        }
+        return NAMED_ENTITIES[name.toLowerCase()] ?? entity;
+    });
 }
 
-// BGG XML은 본문을 이스케이프해 담는다. 숫자 참조와 이름 참조를 모두 되돌린다.
-function decodeEntities(value) {
-    return value
-        .replaceAll(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)))
-        .replaceAll(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCodePoint(Number.parseInt(code, 16)))
-        .replaceAll('&quot;', '"')
-        .replaceAll('&apos;', "'")
-        .replaceAll('&lt;', '<')
-        .replaceAll('&gt;', '>')
-        .replaceAll('&amp;', '&');
+function decodeCodePoint(entity, codePoint) {
+    if (!Number.isInteger(codePoint) || codePoint < 0 || codePoint > 0x10ffff) {
+        return entity;
+    }
+    try {
+        return String.fromCodePoint(codePoint);
+    } catch {
+        return entity;
+    }
 }
 
 function readIds(path) {

@@ -3,7 +3,7 @@ import test from 'node:test';
 import { buildKoreanDescriptionUpsertSql } from './export-korean-descriptions.mjs';
 
 test('한국어 설명을 bgg_id 오름차순 UPSERT로 내보낸다', () => {
-    const { rows, sql } = buildKoreanDescriptionUpsertSql([
+    const { rows, sql } = buildApprovedDescriptionSql([
         koreanRow(20), koreanRow(3),
     ], approvedManifest());
 
@@ -15,7 +15,7 @@ test('한국어 설명을 bgg_id 오름차순 UPSERT로 내보낸다', () => {
 });
 
 test('작은따옴표를 이스케이프해 SQL이 깨지지 않는다', () => {
-    const { sql } = buildKoreanDescriptionUpsertSql([
+    const { sql } = buildApprovedDescriptionSql([
         { bgg_id: 7, description: "'재미'있는 게임입니다", detail_description: '설명이 길게 이어집니다' },
     ], approvedManifest());
 
@@ -24,13 +24,13 @@ test('작은따옴표를 이스케이프해 SQL이 깨지지 않는다', () => {
 
 test('번역되지 않은 설명은 내보내지 않는다', () => {
     assert.throws(
-        () => buildKoreanDescriptionUpsertSql([
+        () => buildApprovedDescriptionSql([
             { bgg_id: 1, description: 'Wingspan is a competitive board game.', detail_description: '한국어 상세 설명입니다' },
         ], approvedManifest()),
         /정상 한국어 설명이 아니다/u,
     );
     assert.throws(
-        () => buildKoreanDescriptionUpsertSql([
+        () => buildApprovedDescriptionSql([
             { bgg_id: 1, description: '한국어 간단 설명입니다', detail_description: 'Players draft cards and score points.' },
         ], approvedManifest()),
         /정상 한국어 설명이 아니다/u,
@@ -38,23 +38,23 @@ test('번역되지 않은 설명은 내보내지 않는다', () => {
 });
 
 test('영문 단어만 섞인 한국어 설명은 그대로 내보낸다', () => {
-    assert.doesNotThrow(() => buildKoreanDescriptionUpsertSql([
+    assert.doesNotThrow(() => buildApprovedDescriptionSql([
         { bgg_id: 1, description: 'Paths of Glory의 전투를 다루는 게임입니다', detail_description: '3M이 만든 고전입니다' },
     ], approvedManifest()));
 });
 
 test('빈 필드와 중복 bgg_id, 빈 입력을 막는다', () => {
     assert.throws(
-        () => buildKoreanDescriptionUpsertSql([{ bgg_id: 1, description: '  ', detail_description: '한국어 설명입니다' }], approvedManifest()),
+        () => buildApprovedDescriptionSql([{ bgg_id: 1, description: '  ', detail_description: '한국어 설명입니다' }]),
         /description가 비어 있다/u,
     );
     assert.throws(
-        () => buildKoreanDescriptionUpsertSql([koreanRow(5), koreanRow(5)], approvedManifest()),
+        () => buildApprovedDescriptionSql([koreanRow(5), koreanRow(5)]),
         /bgg_id가 중복됐다/u,
     );
-    assert.throws(() => buildKoreanDescriptionUpsertSql([], approvedManifest()), /비어 있지 않은 JSON 배열/u);
+    assert.throws(() => buildApprovedDescriptionSql([]), /비어 있지 않은 JSON 배열/u);
     assert.throws(
-        () => buildKoreanDescriptionUpsertSql([{ bgg_id: 0, description: '한국어', detail_description: '한국어' }], approvedManifest()),
+        () => buildApprovedDescriptionSql([{ bgg_id: 0, description: '한국어', detail_description: '한국어' }]),
         /bgg_id가 양의 정수가 아니다/u,
     );
 });
@@ -97,7 +97,9 @@ test('description-correction scope가 없으면 보정 SQL을 만들지 않는�
     ];
 
     assert.throws(
-        () => buildKoreanDescriptionUpsertSql([koreanRow(1)], manifest),
+        () => buildKoreanDescriptionUpsertSql([koreanRow(1)], manifest, {
+            actualDescriptionInput: approvedDescriptionInput(),
+        }),
         /description-correction/u,
     );
 });
@@ -107,6 +109,20 @@ function koreanRow(bggId) {
         bgg_id: bggId,
         description: '타일을 놓아 도시를 넓히는 게임입니다',
         detail_description: '자기 차례에 타일을 한 장 놓고 말을 올립니다',
+    };
+}
+
+function buildApprovedDescriptionSql(rows, manifest = approvedManifest()) {
+    return buildKoreanDescriptionUpsertSql(rows, manifest, {
+        actualDescriptionInput: approvedDescriptionInput(),
+    });
+}
+
+function approvedDescriptionInput() {
+    return {
+        fileName: 'descriptions.json',
+        sha256: 'a'.repeat(64),
+        rows: 1,
     };
 }
 

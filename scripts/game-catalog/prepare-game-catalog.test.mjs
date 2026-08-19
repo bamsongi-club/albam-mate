@@ -120,6 +120,44 @@ test("기존 비-AI manifest는 기존 출처·품질 validator로 계속 처리
     });
 });
 
+test("description 처리 manifest는 prepare의 실제 input checksum과 행 수를 검증한다", () => {
+    withCase([game(10, "10", "첫 번째 게임", "First Game")], ({
+        root,
+        games,
+        ranks,
+        manifest,
+        out,
+    }) => {
+        writeManifest(manifest, games, ranks, []);
+        const descriptionInput = join(root, "descriptions.json");
+        const descriptionContents = '[{"bgg_id":10,"source":"Players draw cards."}]\n';
+        writeFileSync(descriptionInput, descriptionContents);
+
+        const value = readJson(manifest);
+        value.approvedProcessingScopes.push("description-translation");
+        value.inputs.descriptions.sha256 = sha256(descriptionContents);
+        value.inputs.descriptions.rows = 1;
+        value.provenance.descriptionFields.description.processing = "approved-translation";
+        value.provenance.descriptionFields.detail_description.processing = "approved-translation";
+        writeFileSync(manifest, `${JSON.stringify(value, null, 2)}\n`);
+
+        const success = runCli(games, ranks, out, manifest, descriptionInput);
+        assert.equal(success.status, 0, success.stderr);
+
+        value.inputs.descriptions.sha256 = "0".repeat(64);
+        writeFileSync(manifest, `${JSON.stringify(value, null, 2)}\n`);
+        const failure = runCli(games, ranks, out, manifest, descriptionInput);
+        assert.equal(failure.status, 1);
+        assert.match(
+            readJson(join(out, "quality-report.json")).errors
+                .map(({ message }) => message)
+                .join("\n"),
+            /inputs\.descriptions\.sha256/u,
+        );
+        assert.throws(() => readFileSync(join(out, "service-catalog.json")));
+    });
+});
+
 test("번역·재작성 provenance가 구체 release 없이 있으면 적재 산출물을 만들지 않는다", () => {
     withCase([game(10, "10", "첫 번째 게임", "First Game")], ({
         games,
@@ -1772,10 +1810,13 @@ function withCase(rows, operation) {
     }
 }
 
-function runCli(games, ranks, out, manifest) {
+function runCli(games, ranks, out, manifest, descriptionInput) {
     const args = [SCRIPT, "--games", games, "--ranks", ranks, "--out", out];
     if (manifest) {
         args.push("--manifest", manifest);
+    }
+    if (descriptionInput) {
+        args.push("--description-input", descriptionInput);
     }
     return spawnSync(process.execPath, args, { encoding: "utf8" });
 }

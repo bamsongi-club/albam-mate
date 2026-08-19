@@ -4,6 +4,7 @@ import { basename } from "node:path";
 import {
     analyzeDescriptionQuality,
     DESCRIPTION_FIELDS,
+    isDescriptionProvenanceRequired,
     validateDescriptionProvenance,
 } from "./description-quality.mjs";
 
@@ -920,7 +921,9 @@ function validateManifest(manifest, gamesPath, gamesContents, ranksPath, ranksCo
             message: "모든 적재 필드의 출처 규칙이 필요합니다.",
         });
     }
-    errors.push(...validateDescriptionProvenance(manifest));
+    if (isDescriptionProvenanceRequired(manifest)) {
+        errors.push(...validateDescriptionProvenance(manifest));
+    }
     if (
         !isoTimestamp(manifest.review?.reviewedAt) ||
         !Array.isArray(manifest.review?.reviewers) ||

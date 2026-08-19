@@ -8,6 +8,30 @@ test('승인 release manifest는 필수 입력과 coverage를 보존한다', () 
     assert.deepEqual(validateApprovedReleaseManifest(manifest), manifest);
 });
 
+test('description 처리와 무관한 기존 승인 release는 provenance 없이도 하위 호환된다', () => {
+    const manifest = validManifest();
+    delete manifest.provenance;
+
+    assert.doesNotThrow(() => validateApprovedReleaseManifest(manifest));
+});
+
+test('description 처리 release는 실제 description input checksum과 행 수를 요구한다', () => {
+    const manifest = validManifest();
+    manifest.approvedProcessingScopes.push('description-translation');
+
+    assert.throws(
+        () => validateApprovedReleaseManifest(manifest),
+        /실제 description input/u,
+    );
+    assert.doesNotThrow(() => validateApprovedReleaseManifest(manifest, {
+        actualDescriptionInput: {
+            fileName: 'artifact.json',
+            sha256: 'a'.repeat(64),
+            rows: 1,
+        },
+    }));
+});
+
 test('승인되지 않았거나 test-only인 manifest는 차단한다', () => {
     assert.throws(
         () => validateApprovedReleaseManifest({ ...validManifest(), approved: false }),

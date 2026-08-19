@@ -48,14 +48,14 @@ try {
     process.exitCode = 1;
 }
 
-function ensureSeparatePaths({ games, ranks, manifest, out }) {
+function ensureSeparatePaths({ games, ranks, manifest, descriptionInput, out }) {
     const outputDirectory = realpathSync(out);
     const outputs = [
         "quality-report.json",
         "service-catalog.json",
         "upsert-games.sql", "service-mechanism-catalog.json", "upsert-game-mechanisms.sql",
     ].map((fileName) => resolve(outputDirectory, fileName));
-    const inputPaths = [games, ranks, manifest].filter(Boolean);
+    const inputPaths = [games, ranks, manifest, descriptionInput].filter(Boolean);
     for (const input of inputPaths) {
         const inputRealPath = realPathIfPresent(input);
         const conflict = outputs.find(
@@ -141,9 +141,18 @@ function parseRanks(contents) {
     }
 }
 
-function prepareCatalog({ games: gamesPath, ranks: ranksPath, manifest: manifestPath, out }) {
+function prepareCatalog({
+    games: gamesPath,
+    ranks: ranksPath,
+    manifest: manifestPath,
+    descriptionInput: descriptionInputPath,
+    out,
+}) {
     const gamesContents = readInput(gamesPath, "games");
     const ranksContents = readInput(ranksPath, "ranks");
+    const descriptionInputContents = descriptionInputPath
+        ? readInput(descriptionInputPath, "description input")
+        : null;
     const games = parseJson(
         gamesContents,
         "INVALID_GAMES_JSON",
@@ -151,6 +160,13 @@ function prepareCatalog({ games: gamesPath, ranks: ranksPath, manifest: manifest
         "games",
     );
     const rankRows = parseRanks(ranksContents);
+    const actualDescriptionInput = descriptionInputContents === null
+        ? undefined
+        : {
+              fileName: basename(descriptionInputPath),
+              sha256: sha256(descriptionInputContents),
+              rows: parseDescriptionInputRows(descriptionInputContents),
+          };
     const manifest = manifestPath
         ? parseJson(
               readInput(manifestPath, "manifest"),
@@ -182,7 +198,13 @@ function prepareCatalog({ games: gamesPath, ranks: ranksPath, manifest: manifest
         },
     };
     if (resolvedManifest) {
-        analysis.errors.push(...validateManifestGate(resolvedManifest, { actualInputs, manifestPath }));
+        analysis.errors.push(
+            ...validateManifestGate(resolvedManifest, {
+                actualInputs,
+                actualDescriptionInput,
+                manifestPath,
+            }),
+        );
     }
     const mechanisms = extractMechanismCatalog(games, resolvedManifest);
     if (mechanisms) {
@@ -222,7 +244,12 @@ function prepareCatalog({ games: gamesPath, ranks: ranksPath, manifest: manifest
         sqlSha256: actualOutputs.upsertSql.sha256,
     };
     analysis.errors.push(
-        ...validateManifestGate(resolvedManifest, { actualInputs, actualOutputs, manifestPath }),
+        ...validateManifestGate(resolvedManifest, {
+            actualInputs,
+            actualDescriptionInput,
+            actualOutputs,
+            manifestPath,
+        }),
     );
     if (analysis.errors.length > 0) {
         writeJson(
@@ -437,6 +464,22 @@ function inputMetadata(path) {
     }
 }
 
+function parseDescriptionInputRows(contents) {
+    const rows = parseJson(
+        contents,
+        "INVALID_DESCRIPTION_INPUT_JSON",
+        "description input JSON을 해석할 수 없습니다.",
+        "description input",
+    );
+    if (!Array.isArray(rows)) {
+        throw new InputError(
+            "INVALID_DESCRIPTION_INPUT",
+            "description input은 JSON 배열이어야 합니다.",
+        );
+    }
+    return rows.length;
+}
+
 function parseOptions(args) {
     const values = {};
     for (let index = 0; index < args.length; index += 2) {
@@ -456,6 +499,7 @@ function parseOptions(args) {
         games: resolve(values.games),
         ranks: resolve(values.ranks),
         manifest: values.manifest ? resolve(values.manifest) : null,
+        descriptionInput: values["description-input"] ? resolve(values["description-input"]) : null,
         out: resolve(values.out),
     };
 }
@@ -463,7 +507,7 @@ function parseOptions(args) {
 function failUsage() {
     process.stderr.write(
         "사용법: node prepare-game-catalog.mjs --games <json> --ranks <csv> " +
-            "[--manifest <json>] --out <directory>\n",
+            "[--manifest <json>] [--description-input <json>] --out <directory>\n",
     );
     process.exit(2);
 }

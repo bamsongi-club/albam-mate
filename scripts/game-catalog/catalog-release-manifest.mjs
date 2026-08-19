@@ -1,4 +1,8 @@
-import { validateDescriptionProvenance } from "./description-quality.mjs";
+import {
+    isDescriptionInputRequired,
+    isDescriptionProvenanceRequired,
+    validateDescriptionProvenance,
+} from "./description-quality.mjs";
 
 const REQUIRED_INPUTS = [
     'catalog',
@@ -67,9 +71,14 @@ export function validateApprovedReleaseManifest(
             `approvedFields must include rendered description fields: ${missingRenderedDescriptionFields.join(', ')}`,
         );
     }
-    const descriptionProvenanceErrors = validateDescriptionProvenance(manifest);
-    if (descriptionProvenanceErrors.length > 0) {
-        throw new Error(descriptionProvenanceErrors[0].message);
+    if (isDescriptionProvenanceRequired(manifest, requiredProcessingScopes)) {
+        const descriptionProvenanceErrors = validateDescriptionProvenance(manifest);
+        if (descriptionProvenanceErrors.length > 0) {
+            throw new Error(descriptionProvenanceErrors[0].message);
+        }
+    }
+    if (isDescriptionInputRequired(manifest, requiredProcessingScopes) && actualDescriptionInput === undefined) {
+        throw new Error('description 처리 release는 실제 description input checksum·행수가 필요합니다.');
     }
     const approvedProcessingScopes = validateProcessingScopes(manifest.approvedProcessingScopes);
     validateRequiredProcessingScopes(approvedProcessingScopes, requiredProcessingScopes);

@@ -45,6 +45,15 @@ VALUES (10, '경로 \\ ''와, 괄호(가) 포함', '상세 설명');`;
     assert.deepEqual({ ...chunked, source: null }, { ...whole, source: null });
 });
 
+test("SQL parser는 ON CONFLICT 키워드가 chunk 경계에서 잘려도 같은 결과를 낸다", () => {
+    const sql = "INSERT INTO games (bgg_id, description, detail_description) VALUES (10, '한국어 설명', '한국어 상세') ON CONFLICT (bgg_id) DO NOTHING;";
+    const split = sql.indexOf("ON CON") + "ON CON".length;
+    const chunked = parseGameCatalogSqlChunks([sql.slice(0, split), sql.slice(split)]);
+    const whole = parseGameCatalogSqlText(sql);
+
+    assert.deepEqual({ ...chunked, source: null }, { ...whole, source: null });
+});
+
 test("SQL parser는 닫히지 않은 문자열을 조용히 행으로 세지 않는다", () => {
     assert.throws(
         () => parseGameCatalogSqlText(

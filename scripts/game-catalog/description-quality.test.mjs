@@ -22,6 +22,20 @@ test("완전한 영문 문장이 한국어 문장과 함께 있으면 mixed로 �
     );
 });
 
+test("소문자 일반 영단어가 한국어 조사와 붙은 혼합 문장은 mixed로 차단한다", () => {
+    assert.equal(
+        classifyDescription("이 게임은 strategy를 요구합니다."),
+        "mixed",
+    );
+});
+
+test("별도 줄의 영문 게임명 뒤에 한국어 설명이 오면 korean으로 허용한다", () => {
+    assert.equal(
+        classifyDescription("Ticket to Ride: Europe\n\n이 게임은 유럽을 배경으로 합니다."),
+        "korean",
+    );
+});
+
 test("긴 영문 게임명과 고유명사가 포함된 정상 한국어 설명은 korean으로 허용한다", () => {
     assert.equal(
         classifyDescription(
@@ -105,6 +119,17 @@ test("승인된 설명 provenance는 필드별 source와 processing 상태를 �
     const placeholder = structuredClone(valid);
     placeholder.provenance.descriptionFields.description.source = "TODO: 원천 확인";
     assert.ok(validateDescriptionProvenance(placeholder).some(({ code }) => code === "INVALID_DESCRIPTION_PROVENANCE"));
+
+    for (const value of ["TBD", "N/A", "pending", "UNKNOWN source", "PLACEHOLDER"]) {
+        const invalidPlaceholder = structuredClone(valid);
+        invalidPlaceholder.provenance.descriptionFields.description.source = value;
+        assert.ok(
+            validateDescriptionProvenance(invalidPlaceholder).some(
+                ({ code }) => code === "INVALID_DESCRIPTION_PROVENANCE",
+            ),
+            value,
+        );
+    }
 });
 
 function provenance() {

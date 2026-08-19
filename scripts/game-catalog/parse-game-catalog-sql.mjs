@@ -202,6 +202,11 @@ class GameCatalogSqlParser {
                 return true;
             }
 
+            if (!final && isPartialOnConflict(tail)) {
+                this.buffer = tail;
+                return NEED_MORE;
+            }
+
             if (final) {
                 this.insertStatements += 1;
                 this.mode = "search";
@@ -255,6 +260,11 @@ class GameCatalogSqlParser {
             this.bothFieldsKorean += 1;
         }
     }
+}
+
+function isPartialOnConflict(value) {
+    const prefix = value.replace(/\s+/gu, " ").trimEnd().toLocaleUpperCase("en-US");
+    return prefix.length > 0 && "ON CONFLICT".startsWith(prefix);
 }
 
 function parseColumns(value) {

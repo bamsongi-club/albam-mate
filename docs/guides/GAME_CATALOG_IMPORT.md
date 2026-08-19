@@ -50,6 +50,8 @@ node scripts/game-catalog/prepare-game-catalog.mjs \
   --out build/game-catalog/2026-07-24-draft
 ```
 
+description 번역·재작성 release를 실행 manifest로 넘길 때는 `--description-input`으로 manifest의 `inputs.descriptions`와 같은 원문 JSON을 함께 지정한다. runner는 이 파일의 basename·SHA-256·행 수가 일치할 때만 산출물을 만든다.
+
 ## 2. 출처·검수 기록
 
 [manifest 초안](../game-catalog/2026-07-24-source-manifest.draft.json)에 다음 근거를 기록한다.

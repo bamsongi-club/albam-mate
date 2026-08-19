@@ -509,6 +509,26 @@ class GameCatalogImportPostgresTest {
 			    "description": "games.description",
 			    "detail_description": "games.detail_description"
 			  },
+			  "provenance": {
+			    "descriptionFields": {
+			      "description": {
+			        "source": "통합 테스트 fixture",
+			        "sourceVersion": "postgres-integration-test",
+			        "processing": "source-preserved",
+			        "status": "approved",
+			        "reviewedBy": "postgres-test",
+			        "reviewedAt": "2026-07-27T10:00:00Z"
+			      },
+			      "detail_description": {
+			        "source": "통합 테스트 fixture",
+			        "sourceVersion": "postgres-integration-test",
+			        "processing": "source-preserved",
+			        "status": "approved",
+			        "reviewedBy": "postgres-test",
+			        "reviewedAt": "2026-07-27T10:00:00Z"
+			      }
+			    }
+			  },
 			  "selectionRules": {
 			    "include": "BGG 기준 스냅샷과 bgg_id가 일치하고 필수 검수를 통과한 후보만 포함",
 			    "exclude": "매핑·필수값·판본 근거가 부족한 후보는 식별자와 사유를 남기고 제외"

@@ -9,6 +9,14 @@ const DESCRIPTION_PROCESSINGS = new Set([
     "approved-translation",
     "approved-rewrite",
 ]);
+const DESCRIPTION_PROVENANCE_SCOPES = new Set([
+    "description-translation",
+    "description-correction",
+]);
+const DESCRIPTION_REWRITE_PROCESSINGS = new Set([
+    "approved-translation",
+    "approved-rewrite",
+]);
 const SENTENCE_BOUNDARY = /(?<=[.!?。！？])\s+(?=[가-힣ㄱ-ㅎㅏ-ㅣ])|\n+/u;
 const TITLE_LIKE_LATIN_SPAN = /[\p{Script=Latin}][\p{Script=Latin}\p{Number}\p{P}\p{S}\p{M}\p{Zs}]*[\p{Script=Latin}\p{Number}](?=\s*[\p{P}\p{S}\p{M}]*\s*(?:은|는|이|가|을|를|의|에|에서|로|으로|와|과|도|만|까지|부터|처럼|보다))/gu;
 const ACRONYM = /\b[A-Z][A-Z0-9/&.-]{1,}\b/gu;
@@ -44,6 +52,7 @@ const TITLE_STOPWORDS = new Set([
     "were",
     "with",
 ]);
+const PROVENANCE_PLACEHOLDER_PATTERN = /^(?:TODO|TBD|N\/A|NA|PENDING|UNKNOWN|PLACEHOLDER)(?:\b|[\s:._-])/iu;
 const UTC_INSTANT_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/u;
 
 export { DESCRIPTION_FIELDS, DESCRIPTION_STATES };
@@ -64,11 +73,11 @@ export function classifyDescription(value) {
     }
 
     const segments = text.split(SENTENCE_BOUNDARY).filter(Boolean);
-    if (segments.some((segment) => hasLatin(segment) && !hasHangul(segment))) {
-        return "mixed";
-    }
+    const unresolvedSegments = segments
+        .filter((segment) => !isTitleLikeLatinSegment(segment))
+        .join(" ");
 
-    return hasLatin(removeAllowedLatin(text)) ? "mixed" : "korean";
+    return hasLatin(removeAllowedLatin(unresolvedSegments)) ? "mixed" : "korean";
 }
 
 export function analyzeDescriptionQuality(games) {
@@ -153,7 +162,62 @@ function isTitleLikeLatinSpan(value) {
     if (capitalizedWords.length >= 2) {
         return true;
     }
-    return words.length === 1 && !TITLE_STOPWORDS.has(words[0].toLocaleLowerCase("en-US"));
+    return (
+        words.length === 1 &&
+        /^\p{Lu}/u.test(words[0]) &&
+        !TITLE_STOPWORDS.has(words[0].toLocaleLowerCase("en-US"))
+    );
+}
+
+function isTitleLikeLatinSegment(value) {
+    const segment = value.trim();
+    if (!hasLatin(segment) || hasHangul(segment) || /[.!?。！？]\s*$/u.test(segment)) {
+        return false;
+    }
+    const words = segment.match(LATIN_WORD) ?? [];
+    if (words.length === 0) {
+        return false;
+    }
+    if (words.length === 1) {
+        return /^\p{Lu}/u.test(words[0]) && !TITLE_STOPWORDS.has(words[0].toLocaleLowerCase("en-US"));
+    }
+    return (
+        words.some((word) => /^\p{Lu}/u.test(word)) &&
+        words.every((word) =>
+            /^\p{Lu}/u.test(word) ||
+            TITLE_STOPWORDS.has(word.toLocaleLowerCase("en-US")) ||
+            /\d/u.test(word),
+        )
+    );
+}
+
+export function isDescriptionProvenanceRequired(manifest, requiredProcessingScopes = []) {
+    const scopes = [
+        ...(Array.isArray(manifest?.approvedProcessingScopes) ? manifest.approvedProcessingScopes : []),
+        ...(Array.isArray(requiredProcessingScopes) ? requiredProcessingScopes : []),
+    ];
+    return (
+        manifest?.provenance?.descriptionFields !== undefined ||
+        (Array.isArray(manifest?.review?.acceptedWarnings) &&
+            manifest.review.acceptedWarnings.includes("UNTRANSLATED_DESCRIPTION")) ||
+        scopes.some((scope) => DESCRIPTION_PROVENANCE_SCOPES.has(scope)) ||
+        Object.values(manifest?.provenance?.descriptionFields ?? {}).some((field) =>
+            DESCRIPTION_REWRITE_PROCESSINGS.has(field?.processing),
+        )
+    );
+}
+
+export function isDescriptionInputRequired(manifest, requiredProcessingScopes = []) {
+    const scopes = [
+        ...(Array.isArray(manifest?.approvedProcessingScopes) ? manifest.approvedProcessingScopes : []),
+        ...(Array.isArray(requiredProcessingScopes) ? requiredProcessingScopes : []),
+    ];
+    return (
+        scopes.some((scope) => DESCRIPTION_PROVENANCE_SCOPES.has(scope)) ||
+        Object.values(manifest?.provenance?.descriptionFields ?? {}).some((field) =>
+            DESCRIPTION_REWRITE_PROCESSINGS.has(field?.processing),
+        )
+    );
 }
 
 export function validateDescriptionProvenance(manifest) {
@@ -224,7 +288,7 @@ function completedText(value) {
 function completedProvenanceText(value) {
     return (
         completedText(value) &&
-        !/^TODO\b/i.test(value.trim()) &&
+        !PROVENANCE_PLACEHOLDER_PATTERN.test(value.trim()) &&
         !/^<.*>$/.test(value.trim())
     );
 }
