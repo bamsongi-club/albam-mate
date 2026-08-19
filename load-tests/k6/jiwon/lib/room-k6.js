@@ -8,7 +8,7 @@ import {
   hasT3CancelPayload,
   hasWaitlistPayload,
 } from './write-response-contract.mjs';
-import { writeOptions } from './write-options.mjs';
+import { outcomeDurationThresholds, writeOptions } from './write-options.mjs';
 import { START_SKEW_THRESHOLD } from './start-skew.mjs';
 
 export { writeOptions };
@@ -254,7 +254,7 @@ function preparedSessions(runtime) {
     if (!account) {
       fail(`fixture session user를 찾지 못했습니다: ${userKey}`);
     }
-    const client = { jar: http.cookieJar(), csrf: null, sessionId: null };
+    const client = { jar: new http.CookieJar(), csrf: null, sessionId: null };
     const setupTags = scenarioTags(runtime, null, { phase: 'session-setup', user_key: userKey });
     if (!login(client, runtime, account, setupTags)) {
       fail(`fixture session 준비에 실패했습니다(user=${userKey}). 인증 제한·비밀번호 hash·대상 환경을 확인하세요.`);
@@ -276,7 +276,7 @@ export function sessionFor(runtime, sessions, userKey) {
   if (!prepared || !prepared.sessionId || !prepared.csrfHeaderName || !prepared.csrfToken) {
     fail(`준비된 fixture session을 찾지 못했습니다: ${userKey}`);
   }
-  const jar = http.cookieJar();
+  const jar = new http.CookieJar();
   jar.set(runtime.targetUrl, 'JSESSIONID', prepared.sessionId);
   jar.set(runtime.targetUrl, 'XSRF-TOKEN', prepared.csrfToken);
   const client = {
@@ -290,7 +290,7 @@ export function sessionFor(runtime, sessions, userKey) {
 export function readOptions(runtime) {
   const maxDuration = runtime.sessionWarmupSeconds + runtime.readDurationSeconds + 30;
   return {
-    summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(90)', 'p(95)', 'count'],
+    summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(90)', 'p(95)', 'p(99)', 'count'],
     scenarios: {
       room_read: {
         executor: 'per-vu-iterations',
@@ -300,6 +300,7 @@ export function readOptions(runtime) {
       },
     },
     thresholds: {
+      ...outcomeDurationThresholds(),
       room_contract_failures: ['count==0'],
       room_unexpected_4xx: ['count==0'],
       room_server_failures: ['count==0'],
@@ -354,8 +355,9 @@ export function targetForRound(fixture, round) {
 }
 
 function recordResponse(response, outcome, tags, label) {
-  const metricTags = { ...tags, outcome: outcome.category };
-  roomRequestDuration.add(response.timings.duration, metricTags);
+  const outcomeCategory = outcome.contract ? outcome.category : 'unexpected';
+  const metricTags = { ...tags, outcome: outcomeCategory };
+  roomRequestDuration.add(response.timings.duration, { outcome: outcomeCategory });
   roomRequests.add(1, metricTags);
 
   const isSuccessful = outcome.category === 'success' && outcome.contract;

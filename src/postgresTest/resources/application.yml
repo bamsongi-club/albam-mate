@@ -15,6 +15,9 @@ spring:
   flyway:
     locations: classpath:db/migration,classpath:db/vendor-migration/postgresql
 app:
+  monitoring:
+    dependency-health:
+      enabled: false
   room:
     status-correction:
       lock-name: room-status-correction

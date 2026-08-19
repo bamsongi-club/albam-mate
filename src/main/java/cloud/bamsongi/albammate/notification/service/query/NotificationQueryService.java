@@ -8,7 +8,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import cloud.bamsongi.albammate.global.response.PageResponse;
-import cloud.bamsongi.albammate.measurement.AuthNotificationMeasurementRecorder;
 import cloud.bamsongi.albammate.notification.dto.NotificationListItem;
 import cloud.bamsongi.albammate.notification.dto.UnreadNotificationCountResponse;
 import cloud.bamsongi.albammate.notification.repository.NotificationQueryRepository;
@@ -18,14 +17,10 @@ import cloud.bamsongi.albammate.notification.repository.NotificationQueryReposit
 public class NotificationQueryService {
 
 	private final NotificationQueryRepository notificationQueryRepository;
-	private final AuthNotificationMeasurementRecorder measurementRecorder;
 
-	public NotificationQueryService(
-		NotificationQueryRepository notificationQueryRepository,
-		@org.springframework.lang.Nullable AuthNotificationMeasurementRecorder measurementRecorder) {
+	public NotificationQueryService(NotificationQueryRepository notificationQueryRepository) {
 		this.notificationQueryRepository = Objects.requireNonNull(notificationQueryRepository,
 			"notificationQueryRepository");
-		this.measurementRecorder = measurementRecorder;
 	}
 
 	/**
@@ -37,9 +32,9 @@ public class NotificationQueryService {
 	public PageResponse<NotificationListItem> findPage(long recipientUserId, int page, int size) {
 		PageRequest pageable = PageRequest.of(page, size);
 		return PageResponse.from(new PageImpl<>(
-			measure("content", () -> notificationQueryRepository.findPage(recipientUserId, page, size)),
+			notificationQueryRepository.findPage(recipientUserId, page, size),
 			pageable,
-			measure("total-count", () -> notificationQueryRepository.countUnexpired(recipientUserId))));
+			notificationQueryRepository.countUnexpired(recipientUserId)));
 	}
 
 	/**
@@ -50,10 +45,6 @@ public class NotificationQueryService {
 	@Transactional(readOnly = true)
 	public UnreadNotificationCountResponse countUnread(long recipientUserId) {
 		return new UnreadNotificationCountResponse(
-			measure("unread-count", () -> notificationQueryRepository.countUnreadUnexpired(recipientUserId)));
-	}
-
-	private <T> T measure(String stage, java.util.function.Supplier<T> work) {
-		return measurementRecorder == null ? work.get() : measurementRecorder.queryStage(stage, work);
+			notificationQueryRepository.countUnreadUnexpired(recipientUserId));
 	}
 }

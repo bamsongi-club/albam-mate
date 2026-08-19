@@ -5,9 +5,12 @@ import {
   buildCleanupSql,
   buildPrepareSql,
   buildResourceQuery,
+  buildSnapshotQuery,
   createFixturePlan,
   evaluateFixture,
   hydrateFixture,
+  normalizeRoomSummary,
+  roomRequestDurationMetricName,
 } from '../tools/fixture-model.mjs';
 
 const PREPARE_OWNERSHIP = 'a'.repeat(32);
@@ -96,10 +99,145 @@ function summaryWith(counts = {}) {
   ];
   const metrics = {};
   metricNames.forEach((name) => {
-    metrics[name] = { values: { count: counts[name] || 0 } };
+    metrics[name] = { values: { count: counts[name] ?? 0 } };
   });
+
+  const requestCount = counts.room_requests ?? 0;
+  const successCount = counts.room_success ?? 0;
+  const businessCount = counts.room_business_failures ?? 0;
+  const concurrencyCount = counts.room_concurrent_failures ?? 0;
+  const unexpectedCount = counts.room_unexpected_outcome
+    ?? Math.max(0, requestCount - successCount - businessCount - concurrencyCount);
+  const outcomeCounts = {
+    success: successCount,
+    business: businessCount,
+    concurrency: concurrencyCount,
+    unexpected: unexpectedCount,
+  };
+  for (const [category, count] of Object.entries(outcomeCounts)) {
+    metrics[roomRequestDurationMetricName(category)] = {
+      values: {
+        p50: count > 0 ? 10 : null,
+        p95: count > 0 ? 20 : null,
+        p99: count > 0 ? 30 : null,
+        max: count > 0 ? 40 : null,
+        count,
+      },
+    };
+  }
   return { metrics };
 }
+
+function summaryWithTopLevelCounts(counts = {}) {
+  const summary = summaryWith(counts);
+  Object.entries(summary.metrics).forEach(([name, metric]) => {
+    if (name.startsWith('room_request_duration{outcome:')) {
+      return;
+    }
+    summary.metrics[name] = { count: metric.values.count };
+  });
+  return summary;
+}
+
+test('outcome별 duration은 표본 유무와 관계없이 p50·p95·p99·max·count 구조를 유지한다', () => {
+  const successMetric = roomRequestDurationMetricName('success');
+  const concurrencyMetric = roomRequestDurationMetricName('concurrency');
+  const normalized = normalizeRoomSummary({
+    metrics: {
+      [successMetric]: {
+        type: 'trend',
+        contains: 'time',
+        values: { med: 12, 'p(95)': 18, 'p(99)': 20, max: 25, count: 2 },
+      },
+      [concurrencyMetric]: {
+        type: 'trend',
+        contains: 'time',
+        values: { med: 0, 'p(95)': 0, 'p(99)': 0, max: 0, count: 0 },
+      },
+    },
+  });
+
+  assert.deepEqual(normalized.metrics[successMetric].values, {
+    p50: 12,
+    p95: 18,
+    p99: 20,
+    max: 25,
+    count: 2,
+  });
+  for (const category of ['business', 'concurrency', 'unexpected']) {
+    assert.deepEqual(normalized.metrics[roomRequestDurationMetricName(category)].values, {
+      p50: null,
+      p95: null,
+      p99: null,
+      max: null,
+      count: 0,
+    });
+  }
+});
+
+test('T2 outcome별 count 합이 실제 ROOM 요청 수와 다르면 사후 판정은 실패한다', () => {
+  const { fixture } = fixtureFor({
+    scenario: 't2',
+    runId: 'fixture-t2-outcome-count-mismatch',
+    profile: 'spike',
+    mode: 'hot',
+    subcase: 'distinct',
+    concurrency: 2,
+  });
+  const snapshot = initialSnapshot(fixture);
+  fixture.targets.forEach((target, index) => {
+    const room = fixture.rooms[target.roomKey];
+    snapshot.waitlists.push({
+      roomId: room.id,
+      userId: fixture.users[target.actorKey].id,
+      status: 'WAITING',
+      queueOrder: index + 1,
+      queuedAt: '2030-01-01T00:01:00Z',
+    });
+  });
+  const summary = summaryWith({
+    room_requests: 2,
+    room_success: 2,
+    room_created: 2,
+    room_waitlist_position_1: 1,
+    room_waitlist_position_2: 1,
+    room_unexpected_outcome: 1,
+  });
+
+  const result = evaluateFixture(fixture, snapshot, 'after', summary);
+  assert.equal(result.status, 'FAIL');
+  assert.match(result.failures.join('\n'), /outcome별 count 합과 실제 ROOM 요청 수/);
+});
+
+test('기존 응답 분류 counter와 outcome별 count가 다르면 사후 판정은 실패한다', () => {
+  const { fixture } = fixtureFor({
+    scenario: 't5',
+    runId: 'fixture-outcome-counter-mismatch',
+    t5Role: 'public',
+    t5Scale: 1,
+  });
+  const snapshot = initialSnapshot(fixture);
+  fixture.baselineSnapshot = structuredClone(snapshot);
+  const summary = summaryWith({ room_requests: 1, room_success: 1 });
+  summary.metrics[roomRequestDurationMetricName('success')].values = {
+    p50: null,
+    p95: null,
+    p99: null,
+    max: null,
+    count: 0,
+  };
+  summary.metrics[roomRequestDurationMetricName('unexpected')].values = {
+    p50: 10,
+    p95: 20,
+    p99: 30,
+    max: 40,
+    count: 1,
+  };
+
+  const result = evaluateFixture(fixture, snapshot, 'after', summary);
+  assert.equal(result.status, 'FAIL');
+  assert.match(result.failures.join('\n'), /success outcome count와 기존 counter/);
+});
 
 test('T1 hot stress fixture는 8명 취소·9명 FIFO 대기자를 round마다 분리한다', () => {
   const { plan, fixture } = fixtureFor({
@@ -200,7 +338,7 @@ test('T5 scale=10은 정원 상한에 맞춘 CLOSED 만석 fixture다', () => {
   });
 });
 
-test('fixture SQL은 정확한 ID 기반 cleanup을 만들고 prefix 전체 삭제를 쓰지 않는다', () => {
+test('fixture SQL은 필수 users timestamp와 정확한 ID 기반 cleanup을 만들고 prefix 전체 삭제를 쓰지 않는다', () => {
   const { plan, fixture } = fixtureFor({
     scenario: 't2',
     runId: 'fixture-cleanup',
@@ -219,6 +357,12 @@ test('fixture SQL은 정확한 ID 기반 cleanup을 만들고 prefix 전체 삭�
   assert.equal(plan.schemaVersion, 2);
   assert.equal(fixture.schemaVersion, 2);
   assert.match(prepareSql, /pg_advisory_xact_lock/);
+  const usersSql = prepareSql.slice(
+    prepareSql.indexOf('INSERT INTO users'),
+    prepareSql.indexOf('INSERT INTO rooms'),
+  );
+  const userTimestampPairs = usersSql.match(/clock_timestamp\(\),\s*clock_timestamp\(\)/g) ?? [];
+  assert.equal(userTimestampPairs.length, plan.users.length);
   assert.match(cleanupSql, /room_k6_cleanup_users/);
   assert.match(cleanupSql, /room_k6_cleanup_rooms/);
   assert.match(prepareSql, /ROOM k6 fixture a{32}/);
@@ -263,6 +407,21 @@ test('fixture SQL은 정확한 ID 기반 cleanup을 만들고 prefix 전체 삭�
   assert.match(cleanupSql, /fixture ROOM has chat message by non-fixture user/);
   assert.doesNotMatch(cleanupSql, /\bLIKE\b/i);
   assert.doesNotMatch(cleanupSql, /TRUNCATE/i);
+});
+
+test('snapshot SQL은 파생 테이블의 quoted camelCase alias로 정렬한다', () => {
+  const { fixture } = fixtureFor({
+    scenario: 't2',
+    runId: 'fixture-snapshot-aliases',
+    mode: 'hot',
+    subcase: 'distinct',
+    concurrency: 2,
+  });
+
+  const snapshotSql = buildSnapshotQuery(fixture);
+
+  assert.match(snapshotSql, /ORDER BY participation_row\."roomId", participation_row\."userId"/);
+  assert.match(snapshotSql, /ORDER BY waitlist_row\."roomId", waitlist_row\."queueOrder", waitlist_row\."userId"/);
 });
 
 test('T2 duplicate는 동시성 2 이외의 입력을 거절한다', () => {
@@ -454,11 +613,39 @@ test('T5 사후 검증은 조회 전후 snapshot이 같을 때만 통과한다',
     failures: [],
   });
 
+  assert.deepEqual(evaluateFixture(fixture, snapshot, 'after', summaryWithTopLevelCounts({
+    room_requests: 1,
+    room_success: 1,
+  })), {
+    status: 'PASS',
+    failures: [],
+  });
+
   snapshot.rooms[0].updatedAt = '2030-01-01T00:01:00Z';
   assert.equal(evaluateFixture(fixture, snapshot, 'after', summaryWith({
     room_requests: 1,
     room_success: 1,
   })).status, 'FAIL');
+});
+
+test('summary metric count는 0 이상 safe integer가 아니면 PASS가 될 수 없다', () => {
+  const { fixture } = fixtureFor({
+    scenario: 't5',
+    runId: 'fixture-invalid-metric-count',
+    t5Role: 'public',
+    t5Scale: 1,
+  });
+  const snapshot = initialSnapshot(fixture);
+  fixture.baselineSnapshot = structuredClone(snapshot);
+
+  for (const count of [0.5, -1, Number.MAX_SAFE_INTEGER + 1, Number.NaN, Number.POSITIVE_INFINITY]) {
+    const summary = summaryWith({ room_requests: 1, room_success: 1 });
+    summary.metrics.room_requests.values.count = count;
+    summary.metrics.room_success.values.count = count;
+    const result = evaluateFixture(fixture, snapshot, 'after', summary);
+    assert.equal(result.status, 'FAIL', `invalid metric count ${count}가 PASS가 되었습니다.`);
+    assert.match(result.failures.join('\n'), /metric이 부족합니다/);
+  }
 });
 
 test('요청을 관측하지 못한 after summary는 PASS가 될 수 없다', () => {

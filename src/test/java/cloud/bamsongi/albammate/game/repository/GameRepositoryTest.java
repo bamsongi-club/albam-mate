@@ -34,7 +34,10 @@ import cloud.bamsongi.albammate.global.config.TimeConfig;
 import cloud.bamsongi.albammate.user.entity.User;
 import cloud.bamsongi.albammate.user.repository.UserRepository;
 
-@DataJpaTest
+@DataJpaTest(properties = {
+	"spring.flyway.enabled=false",
+	"spring.jpa.hibernate.ddl-auto=create-drop"
+})
 @Import({JpaConfig.class, TimeConfig.class})
 class GameRepositoryTest {
 

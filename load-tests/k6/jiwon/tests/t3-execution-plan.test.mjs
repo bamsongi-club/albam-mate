@@ -7,7 +7,7 @@ import {
   t3ExecutionPlan,
   t3SequentialRequestOrder,
 } from '../lib/t3-execution-plan.mjs';
-import { writeOptions } from '../lib/write-options.mjs';
+import { outcomeDurationThresholds, writeOptions } from '../lib/write-options.mjs';
 
 const PREPARE_OWNERSHIP = 'a'.repeat(32);
 
@@ -128,6 +128,35 @@ test('T3 실행 계획은 병렬과 순차 mode별 maxDuration을 충분히 계�
     iterations: 5,
     maxDuration: '145s',
   });
+});
+
+test('쓰기 옵션은 네 outcome duration submetric을 threshold로 생성한다', () => {
+  const expectedThresholds = Object.fromEntries(
+    ['success', 'business', 'concurrency', 'unexpected']
+      .map((category) => [`room_request_duration{outcome:${category}}`, ['p(99)>=0']]),
+  );
+
+  assert.deepEqual(outcomeDurationThresholds(), expectedThresholds);
+
+  const options = writeOptions({
+    fixture: fixtureFor({
+      scenario: 't1',
+      runId: 't1-outcome-thresholds',
+      profile: 'spike',
+      mode: 'hot',
+      concurrency: 2,
+    }),
+    sessionWarmupSeconds: 15,
+    roundIntervalSeconds: 20,
+  }, 2, 1);
+
+  assert.deepEqual(
+    Object.fromEntries(
+      Object.entries(options.thresholds)
+        .filter(([name]) => name.startsWith('room_request_duration{outcome:')),
+    ),
+    expectedThresholds,
+  );
 });
 
 test('쓰기 실행은 barrier 시작 편차가 1초를 넘으면 실패한다', () => {

@@ -86,19 +86,22 @@ class ChatMessageRetentionCoordinator {
 					}
 					if (result.failed()) {
 						failureCount++;
-						log.warn("event=chat_message_retention_room_failed");
+						log.atWarn().addKeyValue("event", "chat_message_retention_room_failed")
+							.log("chat message retention room failed");
 						continue;
 					}
 					if (result.candidateMessageCount() == 0) {
 						failureCount++;
-						log.warn("event=chat_message_retention_room_failed reason=no_progress");
+						log.atWarn().addKeyValue("event", "chat_message_retention_room_failed")
+							.addKeyValue("reasonCode", "NO_PROGRESS").log("chat message retention room failed");
 						continue;
 					}
 					pendingChatRooms.addFirst(dueChatRoom);
 				} catch (RuntimeException exception) {
 					failureCount++;
-					log.warn("event=chat_message_retention_room_failed exceptionClass={}",
-						exception.getClass().getSimpleName());
+					log.atWarn().addKeyValue("event", "chat_message_retention_room_failed")
+						.addKeyValue("exceptionClass", exception.getClass().getSimpleName())
+						.log("chat message retention room failed");
 				}
 			}
 			if (leaseGuardAborted) {
@@ -107,13 +110,11 @@ class ChatMessageRetentionCoordinator {
 		}
 
 		if (leaseGuardAborted) {
-			log.warn(
-				"event=chat_message_retention_lease_guard_aborted maxRunDurationMs={} lockAtMostForMs={} "
-					+ "purgedRoomCount={} deletedMessageCount={}",
-				properties.getMaxRunDuration().toMillis(),
-				properties.getLockAtMostFor().toMillis(),
-				purgedRoomCount,
-				deletedMessageCount);
+			log.atWarn().addKeyValue("event", "chat_message_retention_lease_guard_aborted")
+				.addKeyValue("maxRunDurationMs", properties.getMaxRunDuration().toMillis())
+				.addKeyValue("lockAtMostForMs", properties.getLockAtMostFor().toMillis())
+				.addKeyValue("purgedRoomCount", purgedRoomCount).addKeyValue("deletedMessageCount", deletedMessageCount)
+				.log("chat message retention lease guard aborted");
 		}
 		RetentionRunSummary summary = new RetentionRunSummary(
 			purgedRoomCount,
@@ -134,18 +135,22 @@ class ChatMessageRetentionCoordinator {
 
 	private void logSummary(RetentionRunSummary summary) {
 		if (summary.durationMillis() > properties.getExecutionWarningThreshold().toMillis()) {
-			log.warn(
-				"event=chat_message_retention_completed purgedRoomCount={} deletedMessageCount={} maximumDelayMs={} "
-					+ "failureCount={} durationMs={} warningThresholdMs={}",
-				summary.purgedRoomCount(),
-				summary.deletedMessageCount(), summary.maximumDelayMillis(), summary.failureCount(),
-				summary.durationMillis(),
-				properties.getExecutionWarningThreshold().toMillis());
+			log.atWarn().addKeyValue("event", "chat_message_retention_completed")
+				.addKeyValue("purgedRoomCount", summary.purgedRoomCount())
+				.addKeyValue("deletedMessageCount", summary.deletedMessageCount())
+				.addKeyValue("maximumDelayMs", summary.maximumDelayMillis())
+				.addKeyValue("failureCount", summary.failureCount())
+				.addKeyValue("durationMs", summary.durationMillis())
+				.addKeyValue("warningThresholdMs", properties.getExecutionWarningThreshold().toMillis())
+				.log("chat message retention completed");
 			return;
 		}
-		log.info("event=chat_message_retention_completed purgedRoomCount={} deletedMessageCount={} maximumDelayMs={} "
-			+ "failureCount={} durationMs={}", summary.purgedRoomCount(), summary.deletedMessageCount(),
-			summary.maximumDelayMillis(), summary.failureCount(), summary.durationMillis());
+		log.atInfo().addKeyValue("event", "chat_message_retention_completed")
+			.addKeyValue("purgedRoomCount", summary.purgedRoomCount())
+			.addKeyValue("deletedMessageCount", summary.deletedMessageCount())
+			.addKeyValue("maximumDelayMs", summary.maximumDelayMillis())
+			.addKeyValue("failureCount", summary.failureCount())
+			.addKeyValue("durationMs", summary.durationMillis()).log("chat message retention completed");
 	}
 
 	record RetentionRunSummary(

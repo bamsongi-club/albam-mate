@@ -21,10 +21,12 @@ import {
   createFixturePlan,
   evaluateFixture,
   hydrateFixture,
+  normalizeRoomSummary,
   normalizePrepareOwnership,
   RUN_ID_PATTERN,
 } from './fixture-model.mjs';
 import { readExecutionOptions } from '../lib/read-execution-options.mjs';
+import { executePortableBundleCommand, portableBundleArtifacts } from './portable-bundle.mjs';
 
 const toolDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(toolDirectory, '../../../..');
@@ -38,6 +40,7 @@ const SHA256_PATTERN = /^[0-9a-f]{64}$/i;
 const TARGET_ENVIRONMENT_PATTERN = /^[a-z0-9][a-z0-9._-]{0,79}$/;
 const T5_ROLES = ['public', 'host', 'participant'];
 const T5_SCALES = [1, 10];
+const PORTABLE_PHASE_NAMES = ['prepare', 'resourceQuery', 'beforeSnapshot', 'k6', 'afterSnapshot'];
 const SCENARIO_SCRIPTS = {
   t1: 't1-cancel-promotion.js',
   t2: 't2-concurrent-waitlist-registration.js',
@@ -54,7 +57,27 @@ const COMMAND_OPTION_KEYS = {
   'compare-t5': new Set(['runId']),
   cleanup: new Set(['fixture']),
   'recover-cleanup': new Set(['recovery']),
+  'render-bundle': new Set([
+    'scenario', 'runId', 'profile', 'rounds', 'mode', 'concurrency', 'subcase', 't3Mode', 't5Role', 't5Scale',
+  ]),
+  validate: new Set(['bundle', 'forExecution']),
+  'execution-options': new Set(['bundle']),
+  hydrate: new Set(['bundle']),
+  diagnose: new Set(['bundle', 'stage']),
+  aggregate: new Set(['bundle']),
 };
+const COMMAND_BOOLEAN_OPTION_KEYS = {
+  validate: new Set(['forExecution']),
+};
+const BUNDLE_RUNTIME_DIRECT_COMMANDS = new Set([
+  'prepare',
+  'run',
+  'verify',
+  'compare-t5',
+  'cleanup',
+  'recover-cleanup',
+  'render-bundle',
+]);
 
 function usage() {
   return `사용법:
@@ -64,6 +87,12 @@ function usage() {
   node load-tests/k6/jiwon/tools/fixture.mjs compare-t5 --run-id <run-id>
   node load-tests/k6/jiwon/tools/fixture.mjs cleanup --fixture <fixture.json>
   node load-tests/k6/jiwon/tools/fixture.mjs recover-cleanup --recovery <prepare-recovery.json>
+  node load-tests/k6/jiwon/tools/fixture.mjs render-bundle --scenario t1 --run-id <run-id> [옵션]
+  node load-tests/k6/jiwon/tools/fixture.mjs validate [--for-execution] --bundle <bundle-directory>
+  node load-tests/k6/jiwon/tools/fixture.mjs execution-options --bundle <bundle-directory>
+  node load-tests/k6/jiwon/tools/fixture.mjs hydrate --bundle <bundle-directory>
+  node load-tests/k6/jiwon/tools/fixture.mjs diagnose --bundle <bundle-directory> --stage before|after
+  node load-tests/k6/jiwon/tools/fixture.mjs aggregate --bundle <bundle-directory>
 
 prepare 공통 옵션: --profile stress|spike --rounds <1..20>
 T1/T2: --mode hot|spread --concurrency 2|4|8
@@ -98,6 +127,10 @@ function parseArguments(argv) {
     if (Object.prototype.hasOwnProperty.call(values, key)) {
       fail(`${token} 옵션이 중복되었습니다.`);
     }
+    if (COMMAND_BOOLEAN_OPTION_KEYS[command]?.has(key)) {
+      values[key] = true;
+      continue;
+    }
     const value = rest[index + 1];
     if (!value || value.startsWith('--')) {
       fail(`${token} 값이 필요합니다.`);
@@ -113,6 +146,36 @@ function parseArguments(argv) {
     }
   }
   return { command, values };
+}
+
+function portableBundleContext() {
+  const bundleRoot = path.resolve(toolDirectory, '..');
+  const isBundleRuntime = existsSync(path.join(bundleRoot, 'manifest.json'));
+  return {
+    repositoryRoot,
+    scenarioDirectory: path.resolve(toolDirectory, '..'),
+    buildRoot: isBundleRuntime ? path.dirname(path.dirname(bundleRoot)) : buildRoot,
+    bundleRoot,
+    isBundleRuntime,
+    environment: process.env,
+  };
+}
+
+function portableBundleCommand(command, values, context) {
+  const result = executePortableBundleCommand(command, values, context);
+  process.stdout.write(`${JSON.stringify(result)}\n`);
+  if (result.status === 'INVALID') {
+    process.exitCode = 2;
+  } else if (result.status === 'FAIL') {
+    process.exitCode = 1;
+  }
+}
+
+function assertBundleRuntimeCommand(command, context) {
+  if (context.isBundleRuntime && BUNDLE_RUNTIME_DIRECT_COMMANDS.has(command)) {
+    fail('실행 bundle에서는 직접 실행 명령을 사용할 수 없습니다. '
+      + 'validate, execution-options, hydrate, diagnose, aggregate만 사용하세요.');
+  }
 }
 
 function requireEnvironment(name) {
@@ -132,12 +195,47 @@ function assertInsideBuild(candidatePath) {
   return resolved;
 }
 
+function commandWithPrefix(environment, executableVariable, prefixVariable, defaultExecutable) {
+  const executable = String(environment[executableVariable] || defaultExecutable).trim();
+  if (!executable) {
+    fail(`${executableVariable}은 비어 있을 수 없습니다.`);
+  }
+  const rawPrefix = environment[prefixVariable];
+  if (!rawPrefix) {
+    return { executable, prefixArguments: [] };
+  }
+  let prefixArguments;
+  try {
+    prefixArguments = JSON.parse(rawPrefix);
+  } catch (_) {
+    fail(`${prefixVariable}는 string 배열 JSON이어야 합니다.`);
+  }
+  if (!Array.isArray(prefixArguments) || prefixArguments.some((argument) => typeof argument !== 'string' || !argument.trim())) {
+    fail(`${prefixVariable}는 비어 있지 않은 string 배열 JSON이어야 합니다.`);
+  }
+  return { executable, prefixArguments };
+}
+
 function psql(psqlArgs, input = undefined) {
-  const result = spawnSync('psql', ['-X', '--no-psqlrc', '-v', 'ON_ERROR_STOP=1', ...psqlArgs], {
+  const { executable, prefixArguments } = commandWithPrefix(
+    process.env,
+    'ROOM_K6_PSQL_EXECUTABLE',
+    'ROOM_K6_PSQL_ARGUMENT_PREFIX',
+    'psql',
+  );
+  const result = spawnSync(executable, [
+    ...prefixArguments,
+    '-X',
+    '--no-psqlrc',
+    '-v',
+    'ON_ERROR_STOP=1',
+    ...psqlArgs,
+  ], {
     cwd: repositoryRoot,
     encoding: 'utf8',
     env: process.env,
     input,
+    shell: false,
   });
 
   if (result.error) {
@@ -335,6 +433,15 @@ function writeJson(filePath, value) {
   writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
 }
 
+function normalizeSummaryFile(summaryPath) {
+  try {
+    const summary = JSON.parse(readFileSync(summaryPath, 'utf8'));
+    writeJson(summaryPath, normalizeRoomSummary(summary));
+  } catch (_) {
+    // 손상된 summary는 원본 artifact와 hash를 보존하고 after 검증에서 INVALID로 판정한다.
+  }
+}
+
 function writeNewJson(filePath, value) {
   writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, { encoding: 'utf8', flag: 'wx' });
 }
@@ -360,17 +467,56 @@ function requireTargetEnvironment() {
 }
 
 function runK6(k6Arguments, options = {}) {
-  return spawn('k6', k6Arguments, {
+  const { executable, prefixArguments } = commandWithPrefix(
+    options.env || process.env,
+    'ROOM_K6_EXECUTABLE',
+    'ROOM_K6_ARGUMENT_PREFIX',
+    'k6',
+  );
+  return spawn(executable, [...prefixArguments, ...k6Arguments], {
     ...options,
     shell: false,
   });
 }
 
 function runK6Sync(k6Arguments, options = {}) {
-  return spawnSync('k6', k6Arguments, {
+  const { executable, prefixArguments } = commandWithPrefix(
+    options.env || process.env,
+    'ROOM_K6_EXECUTABLE',
+    'ROOM_K6_ARGUMENT_PREFIX',
+    'k6',
+  );
+  return spawnSync(executable, [...prefixArguments, ...k6Arguments], {
     ...options,
     shell: false,
   });
+}
+
+function installTestInterruptWatcher(onInterrupt) {
+  const signalFile = String(process.env.ROOM_K6_TEST_INTERRUPT_FILE || '').trim();
+  if (!signalFile) {
+    return null;
+  }
+  const watcher = setInterval(() => {
+    if (!existsSync(signalFile)) {
+      return;
+    }
+    let signal;
+    try {
+      signal = readFileSync(signalFile, 'utf8').trim();
+    } catch (error) {
+      if (error?.code === 'ENOENT') {
+        return;
+      }
+      onInterrupt('SIGTERM');
+      return;
+    }
+    if (signal === 'SIGINT' || signal === 'SIGTERM') {
+      onInterrupt(signal);
+    }
+  }, 10);
+  watcher.unref();
+  return watcher;
 }
 
 function k6Version() {
@@ -450,6 +596,11 @@ function isT5ReadOptions(value) {
     && Number.isInteger(value.thinkTimeMilliseconds) && value.thinkTimeMilliseconds >= 0 && value.thinkTimeMilliseconds <= 10000;
 }
 
+function isPortableSnapshot(value) {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    && Array.isArray(value.rooms) && Array.isArray(value.participations) && Array.isArray(value.waitlists);
+}
+
 function completedRunArtifact(fixturePath, fixture) {
   const manifestPath = runManifestPath(fixturePath);
   if (!existsSync(manifestPath)) {
@@ -526,9 +677,19 @@ function sameT5ReadOptions(left, right) {
     && left.thinkTimeMilliseconds === right.thinkTimeMilliseconds;
 }
 
-function t5StartSkewMetricFailure(summary, manifest) {
-  const observedCount = summary?.metrics?.room_start_skew_ms?.values?.count;
-  const expectedCount = manifest.t5ReadOptions.vus;
+function metricCount(summary, name) {
+  const metric = summary?.metrics?.[name];
+  const nestedCount = metric?.values?.count;
+  if (nestedCount !== undefined) {
+    return Number.isSafeInteger(nestedCount) && nestedCount >= 0 ? nestedCount : null;
+  }
+  const directCount = metric?.count;
+  return Number.isSafeInteger(directCount) && directCount >= 0 ? directCount : null;
+}
+
+function t5StartSkewMetricFailure(summary, t5ReadOptions) {
+  const observedCount = metricCount(summary, 'room_start_skew_ms');
+  const expectedCount = t5ReadOptions.vus;
   if (!Number.isInteger(observedCount)) {
     return 'T5 room_start_skew_ms metric이 부족합니다.';
   }
@@ -536,6 +697,128 @@ function t5StartSkewMetricFailure(summary, manifest) {
     return `T5 room_start_skew_ms 관측 수 ${observedCount}가 VU 수 ${expectedCount}과 다릅니다.`;
   }
   return null;
+}
+
+function readPortableArtifact(directory, relativePath) {
+  const artifactPath = path.join(directory, relativePath);
+  if (!existsSync(artifactPath)) {
+    return { invalid: `portable T5 비교에는 ${relativePath}이 필요합니다.` };
+  }
+  try {
+    return { value: JSON.parse(readFileSync(artifactPath, 'utf8')) };
+  } catch (_) {
+    return { invalid: `portable T5 ${relativePath}을 읽을 수 없습니다.` };
+  }
+}
+
+function completedPortableT5Artifact(fixturePath, fixture, context) {
+  const directory = path.dirname(fixturePath);
+  try {
+    executePortableBundleCommand('validate', { bundle: directory }, context);
+  } catch (_) {
+    return { invalid: 'portable bundle manifest 또는 immutable artifact 계약을 검증하지 못했습니다.' };
+  }
+
+  const artifacts = {};
+  for (const relativePath of [
+    'manifest.json',
+    portableBundleArtifacts.executionOptions,
+    portableBundleArtifacts.summary,
+    portableBundleArtifacts.infraExecution,
+    portableBundleArtifacts.beforeDiagnosis,
+    portableBundleArtifacts.afterDiagnosis,
+    portableBundleArtifacts.finalResult,
+  ]) {
+    const artifact = readPortableArtifact(directory, relativePath);
+    if (artifact.invalid) {
+      return artifact;
+    }
+    artifacts[relativePath] = artifact.value;
+  }
+
+  const manifest = artifacts['manifest.json'];
+  if (manifest.fixtureId !== fixture.fixtureId
+    || manifest.options?.runId !== fixture.options.runId
+    || manifest.options?.scenario !== 't5'
+    || !isDeepStrictEqual(manifest.options, fixture.options)) {
+    return { invalid: 'portable manifest.json이 현재 T5 fixture와 맞지 않습니다.' };
+  }
+
+  const t5ReadOptions = artifacts[portableBundleArtifacts.executionOptions]?.t5ReadOptions;
+  if (!isT5ReadOptions(t5ReadOptions)) {
+    return { invalid: 'portable execution-options.json에 유효한 T5 read profile이 없습니다.' };
+  }
+
+  const summary = artifacts[portableBundleArtifacts.summary];
+  if (!summary || typeof summary !== 'object' || Array.isArray(summary)
+    || !summary.metrics || typeof summary.metrics !== 'object' || Array.isArray(summary.metrics)) {
+    return { invalid: 'portable k6-summary.json 형식이 올바르지 않습니다.' };
+  }
+
+  const execution = artifacts[portableBundleArtifacts.infraExecution];
+  if (!execution || typeof execution !== 'object' || Array.isArray(execution)
+    || execution.schemaVersion !== 1
+    || execution.runId !== fixture.options.runId
+    || execution.fixtureId !== fixture.fixtureId
+    || !execution.phases || typeof execution.phases !== 'object' || Array.isArray(execution.phases)
+    || !PORTABLE_PHASE_NAMES.every((name) => Number.isInteger(execution.phases[name]?.exitCode))) {
+    return { invalid: 'portable infra-execution.json이 현재 T5 fixture와 맞지 않습니다.' };
+  }
+
+  const beforeDiagnosis = artifacts[portableBundleArtifacts.beforeDiagnosis];
+  const afterDiagnosis = artifacts[portableBundleArtifacts.afterDiagnosis];
+  const matchesDiagnosis = (diagnosis, stage) => diagnosis && typeof diagnosis === 'object' && !Array.isArray(diagnosis)
+    && diagnosis.fixtureId === fixture.fixtureId
+    && diagnosis.scenario === 't5'
+    && diagnosis.stage === stage
+    && ['PASS', 'FAIL', 'INVALID'].includes(diagnosis.status)
+    && Array.isArray(diagnosis.failures)
+    && (diagnosis.status !== 'PASS' || diagnosis.failures.length === 0)
+    && (stage !== 'before' || isPortableSnapshot(diagnosis.baselineSnapshot));
+  if (!matchesDiagnosis(beforeDiagnosis, 'before') || !matchesDiagnosis(afterDiagnosis, 'after')) {
+    return { invalid: 'portable diagnosis artifact가 현재 T5 fixture와 맞지 않습니다.' };
+  }
+
+  const finalResult = artifacts[portableBundleArtifacts.finalResult];
+  const phaseCodes = PORTABLE_PHASE_NAMES.map((name) => execution.phases[name].exitCode);
+  const expectedStatus = finalResult?.issues?.length > 0
+    || beforeDiagnosis.status === 'INVALID'
+    || afterDiagnosis.status === 'INVALID'
+    ? 'INVALID'
+    : beforeDiagnosis.status === 'FAIL' || afterDiagnosis.status === 'FAIL' || phaseCodes.some((code) => code !== 0)
+      ? 'FAIL'
+      : 'PASS';
+  if (!finalResult || typeof finalResult !== 'object' || Array.isArray(finalResult)
+    || finalResult.schemaVersion !== 1
+    || finalResult.fixtureId !== fixture.fixtureId
+    || finalResult.runId !== fixture.options.runId
+    || finalResult.scenario !== 't5'
+    || !Array.isArray(finalResult.issues)
+    || !isDeepStrictEqual(finalResult.beforeDiagnosis, beforeDiagnosis)
+    || !isDeepStrictEqual(finalResult.afterDiagnosis, afterDiagnosis)
+    || !isDeepStrictEqual(finalResult.infraExecution, execution)
+    || finalResult.status !== expectedStatus) {
+    return { invalid: 'portable final-result.json이 현재 T5 실행 결과와 맞지 않습니다.' };
+  }
+  if (finalResult.status === 'INVALID') {
+    return { invalid: 'portable final-result.json이 INVALID로 끝났습니다.' };
+  }
+  return {
+    manifest: { k6ExitCode: execution.phases.k6.exitCode, t5ReadOptions },
+    summary,
+    afterArtifact: afterDiagnosis.status === 'PASS'
+      ? { verification: afterDiagnosis }
+      : { verification: afterDiagnosis, failed: 'portable after diagnosis가 FAIL로 끝났습니다.' },
+    finalFailure: finalResult.status === 'FAIL' ? 'portable final-result.json이 FAIL로 끝났습니다.' : null,
+  };
+}
+
+function completedT5Artifact(fixturePath, fixture, context) {
+  if (existsSync(path.join(path.dirname(fixturePath), 'manifest.json'))) {
+    const artifact = completedPortableT5Artifact(fixturePath, fixture, context);
+    return artifact.invalid ? { failure: artifact.invalid } : artifact;
+  }
+  return completedRunArtifact(fixturePath, fixture);
 }
 
 function t5AfterVerificationArtifact(fixturePath, fixture) {
@@ -573,6 +856,7 @@ function t5AfterVerificationArtifact(fixturePath, fixture) {
 function compareT5(values) {
   const runId = String(values.runId || '').trim();
   const outputDirectory = t5ComparisonDirectory(runId);
+  const bundleContext = portableBundleContext();
   const fixturePaths = readdirSync(outputDirectory, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .map((entry) => path.join(outputDirectory, entry.name, 'fixture.json'))
@@ -598,21 +882,24 @@ function compareT5(values) {
       continue;
     }
 
-    const runArtifact = completedRunArtifact(fixturePath, fixture);
+    const runArtifact = completedT5Artifact(fixturePath, fixture, bundleContext);
     if (runArtifact.failure) {
       invalidArtifact = true;
       failures.push(`T5 ${caseKey}: ${runArtifact.failure}`);
       continue;
     }
+    if (runArtifact.finalFailure) {
+      failures.push(`T5 ${caseKey}: ${runArtifact.finalFailure}`);
+    }
     if (runArtifact.manifest.k6ExitCode !== 0) {
       failures.push(`T5 ${caseKey}: k6 run이 exit=${runArtifact.manifest.k6ExitCode}로 종료되었습니다.`);
     }
-    const startSkewFailure = t5StartSkewMetricFailure(runArtifact.summary, runArtifact.manifest);
+    const startSkewFailure = t5StartSkewMetricFailure(runArtifact.summary, runArtifact.manifest.t5ReadOptions);
     if (startSkewFailure) {
       failures.push(`T5 ${caseKey}: ${startSkewFailure}`);
       continue;
     }
-    const afterArtifact = t5AfterVerificationArtifact(fixturePath, fixture);
+    const afterArtifact = runArtifact.afterArtifact || t5AfterVerificationArtifact(fixturePath, fixture);
     if (afterArtifact.invalid) {
       invalidArtifact = true;
       failures.push(`T5 ${caseKey}: ${afterArtifact.invalid}`);
@@ -752,6 +1039,7 @@ async function run(values) {
   }
   let k6Process = null;
   let interruptedSignal = null;
+  let testInterruptWatcher = null;
   const interruptK6 = (signal) => {
     if (interruptedSignal) {
       return;
@@ -766,6 +1054,7 @@ async function run(values) {
     process.on('SIGINT', interruptK6);
     process.on('SIGTERM', interruptK6);
     writeNewJson(manifestPath, manifest);
+    testInterruptWatcher = installTestInterruptWatcher(interruptK6);
 
     const k6Environment = {
       ...process.env,
@@ -798,6 +1087,7 @@ async function run(values) {
       manifest.k6Error = result.error.message;
     }
     if (existsSync(summaryPath)) {
+      normalizeSummaryFile(summaryPath);
       manifest.summarySha256 = sha256(summaryPath);
     }
     manifest.runState = k6Signal ? 'INTERRUPTED' : result.error ? 'FAILED_TO_START' : 'COMPLETED';
@@ -827,6 +1117,9 @@ async function run(values) {
       process.exitCode = manifest.k6ExitCode;
     }
   } finally {
+    if (testInterruptWatcher) {
+      clearInterval(testInterruptWatcher);
+    }
     process.off('SIGINT', interruptK6);
     process.off('SIGTERM', interruptK6);
   }
@@ -867,7 +1160,7 @@ function verify(values) {
     failures.push(`k6 run이 exit=${runManifest.k6ExitCode}로 종료되었습니다.`);
   }
   if (runManifest && fixture.options.scenario === 't5') {
-    const startSkewFailure = t5StartSkewMetricFailure(summary, runManifest);
+    const startSkewFailure = t5StartSkewMetricFailure(summary, runManifest.t5ReadOptions);
     if (startSkewFailure) {
       failures.push(startSkewFailure);
     }
@@ -912,6 +1205,8 @@ function recoverCleanup(values) {
 
 async function main() {
   const { command, values } = parseArguments(process.argv.slice(2));
+  const bundleContext = portableBundleContext();
+  assertBundleRuntimeCommand(command, bundleContext);
   switch (command) {
     case 'help':
       process.stdout.write(usage());
@@ -933,6 +1228,14 @@ async function main() {
       return;
     case 'recover-cleanup':
       recoverCleanup(values);
+      return;
+    case 'render-bundle':
+    case 'validate':
+    case 'execution-options':
+    case 'hydrate':
+    case 'diagnose':
+    case 'aggregate':
+      portableBundleCommand(command, values, bundleContext);
       return;
     default:
       fail(`지원하지 않는 명령: ${command}\n\n${usage()}`);

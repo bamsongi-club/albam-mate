@@ -181,12 +181,13 @@ function createCertificate(directory) {
     ]);
 }
 
-function productionEnvironment(certificateDirectory) {
+function productionEnvironment(certificateDirectory, observabilityLogDirectory = certificateDirectory) {
     return {
         ...process.env,
         ALBAM_MATE_IMAGE_NAMESPACE: 'registry.example.com/albam-mate',
         ALBAM_MATE_RELEASE: releaseSha,
         ALBAM_MATE_TLS_PATH: certificateDirectory,
+        ALBAM_MATE_OBSERVABILITY_LOG_PATH: observabilityLogDirectory,
         ALBAM_MATE_APP2_HOST: 'app-b.albam-mate.internal',
         ALBAM_MATE_DB_HOST: 'postgres.albam-mate.internal',
         ALBAM_MATE_DB_NAME: 'albam_mate',
@@ -194,6 +195,19 @@ function productionEnvironment(certificateDirectory) {
         ALBAM_MATE_DB_PASSWORD: 'verify_password',
         ALBAM_MATE_REDIS_HOST: 'redis.example.internal',
         ALBAM_MATE_REDIS_PORT: '6379',
+        ALBAM_MATE_OTLP_METRICS_URL: 'http://host.docker.internal:4318/v1/metrics',
+        ALBAM_MATE_ENVIRONMENT: 'production',
+        ALBAM_MATE_STACK_ID: 'albam-mate-production',
+        ALBAM_MATE_ROLE: 'app1',
+        ALBAM_MATE_INSTANCE_ID: 'app1',
+    };
+}
+
+function app2ProductionEnvironment(certificateDirectory, observabilityLogDirectory) {
+    return {
+        ...productionEnvironment(certificateDirectory, observabilityLogDirectory),
+        ALBAM_MATE_ROLE: 'app2',
+        ALBAM_MATE_INSTANCE_ID: 'app2',
     };
 }
 
@@ -243,7 +257,30 @@ function loadComposeConfig(file, env) {
     return JSON.parse(docker(['compose', '-f', file, 'config', '--format', 'json'], { env }).stdout);
 }
 
-function assertProductionConfig(config) {
+function assertSpringObservabilityEnvironment(spring, role, instanceId) {
+    assert(
+        spring.environment.ALBAM_MATE_ENVIRONMENT === 'production',
+        'Spring does not receive the observability environment',
+    );
+    assert(
+        spring.environment.ALBAM_MATE_STACK_ID === 'albam-mate-production',
+        'Spring does not receive the observability stack ID',
+    );
+    assert(
+        spring.environment.ALBAM_MATE_ROLE === role,
+        `Spring does not receive the ${role} observability role`,
+    );
+    assert(
+        spring.environment.ALBAM_MATE_INSTANCE_ID === instanceId,
+        `Spring does not receive the ${instanceId} observability instance ID`,
+    );
+    assert(
+        spring.environment.ALBAM_MATE_OTLP_METRICS_URL === 'http://host.docker.internal:4318/v1/metrics',
+        'Spring does not receive the same-host OTLP metrics URL',
+    );
+}
+
+function assertProductionConfig(config, observabilityLogDirectory = null) {
     const serviceNames = Object.keys(config.services).sort();
     assert(JSON.stringify(serviceNames) === JSON.stringify(['spring', 'web']), `unexpected services: ${serviceNames}`);
     for (const serviceName of serviceNames) {
@@ -270,6 +307,7 @@ function assertProductionConfig(config) {
         config.services.spring.environment.ALBAM_MATE_REDIS_PORT === '6379',
         'Spring does not receive the Redis port',
     );
+    assertSpringObservabilityEnvironment(config.services.spring, 'app1', 'app1');
     assert(
         config.services.spring.environment.JDK_JAVA_OPTIONS === '-Xmx256m',
         'Spring does not receive the P1 heap limit through JDK_JAVA_OPTIONS',
@@ -298,12 +336,60 @@ function assertProductionConfig(config) {
     assert(String(webPort.published) === '443' && String(webPort.target) === '8443', 'web is not 443 -> 8443');
     const webTls = config.services.web.volumes.find((volume) => volume.target === '/etc/albam-mate/tls');
     assert(webTls?.read_only === true, 'TLS mount is not read-only');
+    assertObservabilityLogBindMount(config.services.spring, observabilityLogDirectory);
     assert(
         config.services.web.environment.ALBAM_MATE_APP2_HOST === 'app-b.albam-mate.internal',
         'web does not receive the required App2 private DNS host',
     );
     assert(config.services.web.depends_on.spring.condition === 'service_healthy', 'web does not wait for Spring health');
     assert(config.services.web.depends_on.spring.restart === true, 'web dependency restart is not enabled');
+}
+
+function assertApp2ProductionConfig(config, observabilityLogDirectory) {
+    const serviceNames = Object.keys(config.services).sort();
+    assert(JSON.stringify(serviceNames) === JSON.stringify(['spring']), `unexpected App2 services: ${serviceNames}`);
+    const spring = config.services.spring;
+    assert(spring.platform === 'linux/arm64', `App2 Spring platform is ${spring.platform}`);
+    assert(spring.pull_policy === 'always', `App2 Spring pull_policy is ${spring.pull_policy}`);
+    assert(spring.build === undefined, 'App2 Spring has a source build fallback');
+    assert(spring.restart === 'unless-stopped', `App2 Spring restart is ${spring.restart}`);
+    assert(spring.healthcheck, 'App2 Spring healthcheck is missing');
+    assert(
+        spring.image === `registry.example.com/albam-mate/backend:${releaseSha}`,
+        'App2 Spring does not use namespace/backend with the shared release',
+    );
+    assertSpringObservabilityEnvironment(spring, 'app2', 'app2');
+    assertObservabilityLogBindMount(spring, observabilityLogDirectory);
+}
+
+function assertObservabilityLogBindMount(spring, expectedSource = null) {
+    const observabilityLog = spring.volumes.find((volume) => volume.target === '/var/log/albam-mate');
+    assert(observabilityLog?.type === 'bind', 'observability log is not a host bind mount');
+    assert(observabilityLog?.source, 'observability log mount has no host path');
+    assert(observabilityLog.read_only !== true, 'observability log mount is read-only');
+    if (expectedSource !== null) {
+        assert(
+            path.resolve(observabilityLog.source) === path.resolve(expectedSource),
+            `observability log mount source is ${observabilityLog.source}`,
+        );
+    }
+}
+
+function assertObservabilityLogBindWritableByRuntimeUser(image, directory) {
+    const mount = `type=bind,source=${directory},target=/var/log/albam-mate`;
+    const sentinel = `runtime-user-${contractRunId}.sentinel`;
+    assert(
+        docker(['image', 'inspect', '--format', '{{.Config.User}}', image]).stdout.trim() === '10001:10001',
+        `${image} does not use the expected runtime user`,
+    );
+    docker([
+        'run', '--rm', '--user', '0:0', '--entrypoint', 'sh', '--mount', mount, image, '-c',
+        'set -eu; chown 10001:10001 /var/log/albam-mate; chmod 0750 /var/log/albam-mate',
+    ]);
+    docker([
+        'run', '--rm', '--entrypoint', 'sh', '--mount', mount, image, '-c',
+        `set -eu; marker=/var/log/albam-mate/${sentinel}; : > "$marker"; test -f "$marker"; rm "$marker"; test ! -e "$marker"`,
+    ]);
 }
 
 function assertReleaseGate(image, additionalEnvironment = {}) {
@@ -613,11 +699,13 @@ function verifyT3() {
 
 function verifyT4() {
     const certificateDirectory = createTempDirectory('albam-mate-contract-t4');
+    const observabilityLogDirectory = createTempDirectory('albam-mate-contract-t4-observability-log');
     const springImage = contractImage('albam-mate-spring', 'T4');
     const webImage = contractImage('albam-mate-web-production', 'T4');
     const ownedImages = new Set();
     try {
-        const env = productionEnvironment(certificateDirectory);
+        const env = productionEnvironment(certificateDirectory, observabilityLogDirectory);
+        const app2Env = app2ProductionEnvironment(certificateDirectory, observabilityLogDirectory);
         const missingRelease = { ...env };
         delete missingRelease.ALBAM_MATE_RELEASE;
         const missingResult = docker(['compose', '-f', 'compose.production.yml', 'config', '--quiet'], {
@@ -632,9 +720,11 @@ function verifyT4() {
             allowFailure: true,
         });
         assert(missingApp2Result.status !== 0, 'production Compose accepted a missing App2 host');
-        assertProductionConfig(loadProductionConfig(env));
+        assertProductionConfig(loadProductionConfig(env), observabilityLogDirectory);
+        assertApp2ProductionConfig(loadComposeConfig('compose.app2.yml', app2Env), observabilityLogDirectory);
         buildOwnedImage(ownedImages, springImage, ['.']);
         buildOwnedImage(ownedImages, webImage, ['--file', 'frontend/Dockerfile.production', 'frontend']);
+        assertObservabilityLogBindWritableByRuntimeUser(springImage, observabilityLogDirectory);
         assertReleaseGate(springImage, { SPRING_PROFILES_ACTIVE: 'production' });
         assertReleaseGate(webImage, { ALBAM_MATE_APP2_HOST: env.ALBAM_MATE_APP2_HOST });
         const missingApp2Entrypoint = docker(['run', '--rm', '--env', `ALBAM_MATE_RELEASE=${releaseSha}`, webImage], {
@@ -669,10 +759,11 @@ function verifyT4() {
             ], { allowFailure: true });
             assert(invalidHostEntrypoint.status !== 0, `web entrypoint accepted invalid App2 host: ${invalidApp2Host}`);
         }
-        console.log('T4 PASS: ARM64 images retain the release gate and enforce App2 host, 512m Spring memory and JDK heap injection.');
+        console.log('T4 PASS: App1/App2 resolved observability contracts and UID 10001 bind-log writes pass with release, App2 host, memory and JDK gates.');
     } finally {
         removeOwnedImages(ownedImages);
         removeOwnedTempDirectory(certificateDirectory, 'albam-mate-contract-t4');
+        removeOwnedTempDirectory(observabilityLogDirectory, 'albam-mate-contract-t4-observability-log');
     }
 }
 
@@ -764,14 +855,30 @@ function verifyT6() {
     try {
         assertUnusedResources([spring, app2, web], network);
         createCertificate(certificateDirectory);
+        const springFixture = writeT6UpstreamFixture(certificateDirectory, 'app1', 'production-proxy-app1');
+        const app2Fixture = writeT6UpstreamFixture(certificateDirectory, 'app2', 'production-proxy-app2');
         assertProductionConfig(loadProductionConfig(productionEnvironment(certificateDirectory)));
         buildOwnedImage(ownedImages, webImage, ['--file', 'frontend/Dockerfile.production', 'frontend']);
         docker(['network', 'create', network]);
         networkCreated = true;
-        docker(['run', '-d', '--name', spring, '--network', network, '--network-alias', 'spring', httpEchoImage, '-listen=:8080', '-text=production-proxy-app1']);
+        docker([
+            'run', '-d', '--name', spring, '--network', network, '--network-alias', 'spring', '--mount',
+            `type=bind,source=${springFixture},target=/etc/nginx/conf.d/default.conf,readonly`, nginxImage,
+        ]);
         springCreated = true;
-        docker(['run', '-d', '--name', app2, '--network', network, '--network-alias', 'app-b.albam-mate.internal', httpEchoImage, '-listen=:8080', '-text=production-proxy-app2']);
+        docker([
+            'run', '-d', '--name', app2, '--network', network, '--network-alias', 'app-b.albam-mate.internal', '--mount',
+            `type=bind,source=${app2Fixture},target=/etc/nginx/conf.d/default.conf,readonly`, nginxImage,
+        ]);
         app2Created = true;
+        for (const [name, expectedBody] of [[spring, 'production-proxy-app1'], [app2, 'production-proxy-app2']]) {
+            waitFor(`${name} upstream fixture`, () => {
+                const response = docker(['exec', name, 'wget', '-qO-', 'http://127.0.0.1:8080/verify'], {
+                    allowFailure: true,
+                });
+                return response.status === 0 && response.stdout.trim() === expectedBody;
+            });
+        }
         docker([
             'run',
             '-d',
@@ -825,14 +932,41 @@ function verifyT6() {
                 body === 'production-proxy-app1' || body === 'production-proxy-app2',
                 `unexpected production upstream response: ${body}`,
             );
+            assertUpstreamPair(body, upstream);
             observedBodies.add(body);
             observedUpstreams.add(upstream);
         }
-        assert(observedBodies.has('production-proxy-app1'), 'repeated requests never observed App1');
-        assert(observedBodies.has('production-proxy-app2'), 'repeated requests never observed App2');
-        assert(observedUpstreams.size === 2, `repeated requests observed ${observedUpstreams.size} upstream addresses`);
+        removeContainer(spring);
+        springCreated = false;
+        const app2Response = waitFor('production App2 fallback', () => {
+            const response = docker([
+                'exec',
+                web,
+                'wget',
+                '--no-check-certificate',
+                '-S',
+                '-qO-',
+                'https://127.0.0.1:8443/api/verify',
+            ], { allowFailure: true });
+            const body = response.stdout.trim();
+            if (response.status !== 0 || body !== 'production-proxy-app2') {
+                return false;
+            }
+            assertUpstreamPair(body, upstreamHeader(response));
+            return response;
+        });
+        observedBodies.add(app2Response.stdout.trim());
+        observedUpstreams.add(upstreamHeader(app2Response));
+        assert(
+            observedBodies.has('production-proxy-app1') && observedBodies.has('production-proxy-app2'),
+            `repeated requests observed upstream bodies: ${[...observedBodies].join(', ')}`,
+        );
+        assert(
+            observedUpstreams.size === 2 && observedUpstreams.has('app1') && observedUpstreams.has('app2'),
+            `repeated requests observed bounded upstream roles: ${[...observedUpstreams].join(', ')}`,
+        );
         verifyDatabaseHealthcheck();
-        console.log('T6 PASS: repeated HTTPS requests observed both App1/App2 bodies and upstream headers while both backends stayed healthy; PostgreSQL also reached healthy.');
+        console.log('T6 PASS: HTTPS requests observed App1 then App2 fallback bodies and bounded upstream roles; PostgreSQL also reached healthy.');
     } finally {
         if (webCreated) removeContainer(web);
         if (app2Created) removeContainer(app2);
@@ -843,10 +977,28 @@ function verifyT6() {
     }
 }
 
+function writeT6UpstreamFixture(directory, role, body) {
+    const fixture = path.join(directory, `${role}.conf`);
+    fs.writeFileSync(
+        fixture,
+        `server {\n    listen 8080;\n    location / {\n        default_type text/plain;\n        add_header X-Albam-Mate-Upstream ${role} always;\n        return 200 '${body}';\n    }\n}\n`,
+        'utf8',
+    );
+    return fixture;
+}
+
 function upstreamHeader(response) {
     const match = response.stderr.match(/^\s*X-Albam-Mate-Upstream:\s*(.+)$/imu);
     assert(match, `response omitted X-Albam-Mate-Upstream: ${response.stderr}`);
     return match[1].trim();
+}
+
+function assertUpstreamPair(body, upstream) {
+    assert(
+        (body === 'production-proxy-app1' && upstream === 'app1')
+            || (body === 'production-proxy-app2' && upstream === 'app2'),
+        `production upstream body/header mismatch: body=${body}, upstream=${upstream}`,
+    );
 }
 
 function verifyDatabaseHealthcheck() {

@@ -238,6 +238,26 @@ describe('#427 T5 채팅 화면 이력 표시', () => {
     expect(container.querySelector('.chat-log img')).toBeNull();
   });
 
+  it('T3 발신자에게 프로필 이미지가 있으면 아바타에 이니셜 대신 이미지를 표시한다', async () => {
+    vi.spyOn(api, 'getChatMessages').mockResolvedValue({
+      messages: [
+        { messageId: 2, roomId: 7, sender: { nickname: '참가자', profileImageUrl: 'https://example.com/p.png' }, isMine: false, content: '이미지 있음', createdAt: '2026-09-01T19:05:00+09:00' },
+        { messageId: 1, roomId: 7, sender: { nickname: '주최자' }, isMine: false, content: '이미지 없음', createdAt: '2026-09-01T19:00:00+09:00' }
+      ],
+      nextBeforeMessageId: null,
+      hasNext: false
+    });
+
+    const { container } = render(<ChatRoomView roomId="7" dataVersion={0} />);
+
+    await waitFor(() => expect(screen.getByText('이미지 있음')).toBeTruthy());
+    const senderAvatars = container.querySelectorAll('.chat-sender .avatar');
+    expect(senderAvatars).toHaveLength(2);
+    expect(senderAvatars[0].querySelector('img')).toBeNull();
+    expect(senderAvatars[0].textContent).toBe('주');
+    expect(senderAvatars[1].querySelector('img')?.getAttribute('src')).toBe('https://example.com/p.png');
+  });
+
   it('내 메시지는 오른쪽 나 말풍선, 상대 메시지는 왼쪽 상대 말풍선으로 구분한다', async () => {
     vi.spyOn(api, 'getChatMessages').mockResolvedValue({
       messages: [

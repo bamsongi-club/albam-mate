@@ -34,6 +34,15 @@ public enum ErrorCode {
 	ALREADY_PARTICIPATING(HttpStatus.CONFLICT, "이미 참가 중인 방입니다."),
 	WAITLIST_NOT_AVAILABLE(HttpStatus.CONFLICT, "현재 대기 등록을 할 수 없습니다."),
 	WAITLIST_ENTRY_NOT_FOUND(HttpStatus.NOT_FOUND, "현재 대기 정보를 찾을 수 없습니다."),
+	IDEMPOTENCY_KEY_CONFLICT(HttpStatus.CONFLICT, "동일한 멱등성 키를 다른 요청에 사용할 수 없습니다."),
+	MATCH_CURRENT_STATE_NOT_STABLE(HttpStatus.CONFLICT, "매칭 현재 상태가 계속 변경 중입니다. 잠시 후 다시 시도해 주세요."),
+	MATCH_REQUEST_ALREADY_ACTIVE(HttpStatus.CONFLICT, "이미 진행 중인 매칭 요청이 있습니다."),
+	MATCH_REQUEST_CANCELLATION_NOT_AVAILABLE(HttpStatus.CONFLICT, "현재 성공 파티는 매칭 요청으로 취소할 수 없습니다."),
+	MATCH_PROPOSAL_RESPONSE_NOT_AVAILABLE(HttpStatus.CONFLICT, "현재 응답할 수 있는 매칭 제안이 없습니다."),
+	MATCH_PARTY_NOT_FOUND(HttpStatus.NOT_FOUND, "성공 파티를 찾을 수 없습니다."),
+	MATCH_PARTY_LEAVE_NOT_AVAILABLE(HttpStatus.CONFLICT, "현재 성공 파티에서 나갈 수 없습니다."),
+	MATCH_CHAT_NOT_ACTIVE(HttpStatus.CONFLICT, "매칭 채팅이 아직 준비되지 않았습니다."),
+	MATCH_PARTICIPANT_NOT_FOUND(HttpStatus.NOT_FOUND, "매칭 참가자를 찾을 수 없습니다."),
 	INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했습니다.");
 
 	private final HttpStatus httpStatus;

@@ -1,6 +1,6 @@
 # 알밤메이트 ERD
 
-이 문서는 현재 P0·P1 데이터 모델과 데이터 제약을 정의한다. 이 문서에 적은 P1 알림·채팅·다중 인스턴스 스케줄 잠금·소셜 계정·대기열·게임 검색 수치·메타데이터·메커니즘·사용자별 해 본 게임 관계는 전진 Flyway 마이그레이션과 생산 코드에 반영돼 있다. P2 저장 변경은 아직 반영하지 않았으며, P1 종료 상태는 [P1 기능 종료 상태](archive/p1/README.md#기능별-종료-상태), P2 진행 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)를 따른다.
+이 문서는 현재 P0·P1 데이터 모델과 데이터 제약, 승인된 P2 `AI-01`~`AI-03` 계획 저장 계약과 구현된 P2 `MATCH-01` 저장 구조를 정의한다. 이 문서에 적은 P1 알림·채팅·다중 인스턴스 스케줄 잠금·소셜 계정·대기열·게임 검색 수치·메타데이터·메커니즘·사용자별 해 본 게임 관계와 P2 MATCH 저장 구조는 전진 Flyway 마이그레이션과 생산 코드에 반영돼 있다. 아래 P2 AI 기능군 절은 구현 목표일 뿐 아직 Flyway·JPA 엔티티·생산 코드에 반영되지 않았다. P1 종료 상태는 [P1 기능 종료 상태](archive/p1/README.md#기능별-종료-상태), P2 진행 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)를 따른다.
 
 ### 이 문서의 범위
 
@@ -8,17 +8,21 @@
 |---|---|
 | 이 문서가 정본인 것 | 테이블·컬럼·타입·DB 제약, 저장 계산식과 저장 불변식 |
 | 이 문서가 담지 않는 것 | 제품 규칙(상태 전이·권한·시간·정원)은 [P2 명세](P2-spec.md), [P1 종료 명세](archive/p1/README.md)와 [P0-spec](archive/p0/P0-spec.md#공통-규칙), 요청·응답 계약은 [API](API.md), 기술 결정 이유는 [ADR](adr/README.md) |
+| P2 AI-01~AI-03 표기 | 아래 P2 AI 기능군 테이블·인덱스는 승인된 계획 계약이며 아직 물리 schema·JPA 매핑에 반영되지 않았다. |
+| P2 MATCH 표기 | 아래 P2 MATCH 테이블·인덱스는 승인된 저장 계약이며 물리 schema·JPA 매핑은 존재한다. 기능 제공·검증·배포·실측 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)로 판정한다. |
 | 변경 시 함께 갱신 | 스키마를 바꾸면 Flyway 마이그레이션과 JPA 엔티티를 같은 변경에서 일치시킨다(→ [마이그레이션 작업 안내](../src/main/resources/db/migration/AGENTS.md), [ADR-0008](adr/platform/0008-flyway-database-migrations.md)) |
 
 ## 기준과 범위
 
-- 기준: 새 P2 저장 계약은 [P2 기능 명세](p2/README.md)와 필요한 ADR을 먼저 확정하고 같은 변경에서 이 문서에 반영한다. 기존 P0·P1 규칙은 [P0 공통 명세](archive/p0/P0-spec.md), [P1 종료 명세](archive/p1/README.md)와 [관련 ADR](adr/README.md)을 따른다.
-- 범위: 현재 P0의 오프라인 방·게임 목록·사용자·방 참가, P1의 소셜 계정·대기열과 게임 검색 수치·메커니즘 목록·관계·사용자별 해 본 게임 관계·서비스 내 알림·방별 채팅·공용 스케줄 잠금, 3차 MVP RANK-02 인기 점수
-- 제외: 온라인 방, 온라인 자동 매칭, 후기, 룰마스터 가능 게임, 결제·포인트
+- 기준: 새 P2 저장 계약은 [P2 기능 명세](p2/README.md)와 필요한 ADR을 먼저 확정하고 같은 변경에서 이 문서에 반영한다. 아래 P2 AI 기능군 절의 후속 물리 구현도 같은 기준을 따른다. 기존 P0·P1 규칙은 [P0 공통 명세](archive/p0/P0-spec.md), [P1 종료 명세](archive/p1/README.md)와 [관련 ADR](adr/README.md)을 따른다.
+- 범위: 현재 P0의 오프라인 방·게임 목록·사용자·방 참가, P1의 소셜 계정·대기열과 게임 검색 수치·메커니즘 목록·관계·사용자별 해 본 게임 관계·서비스 내 알림·방별 채팅·공용 스케줄 잠금, 3차 MVP RANK-02 인기 점수, P2 계획의 게임·플랫폼과 독립적인 MATCH 요청·제안·성공 파티·전용 채팅·신고·차단
+- 제외: 기존 ROOM을 확장한 온라인 방·온라인 ROOM 자동 매칭, 후기, 룰마스터 가능 게임, 결제·포인트. 아래 `MATCH-01`은 기존 ROOM·참가·대기열과 별개인 인원 범위 기반 사람 매칭·전용 채팅 연결 계약이므로 이 제외 범위에 포함하지 않는다.
 - P0 검색: 게임 목록은 게임명 `keyword`, 사람 중심 방 목록은 방 제목 `keyword` 검색을 지원한다. 게임 태그는 표시값이며 필터가 아니다.
 - 시간대가 겹치는 서로 다른 방에는 같은 사용자가 동시에 참가할 수 있다. 따라서 종료 시각과 시간 중복 제약은 두지 않는다.
 
 ## 관계도
+
+아래 관계도는 P0·P1 저장 구조만 나타낸다. P2 MATCH 관계는 [P2 MATCH 저장 계약](#p2-match-저장-계약)에서 별도로 표현한다.
 
 ~~~mermaid
 erDiagram
@@ -427,7 +431,7 @@ ERD의 `ROOMS` 표기는 물리 테이블명 `rooms`를 뜻한다.
 | description | VARCHAR(255) | NULL | 선택 모임 소개 |
 | experience_level | VARCHAR(30) | NN, `ck_rooms_experience_level`: `CHECK (experience_level IN ('ALL_LEVELS', 'BEGINNER_WELCOME', 'EXPERIENCED_PREFERRED'))` | `ALL_LEVELS`, `BEGINNER_WELCOME`, `EXPERIENCED_PREFERRED` |
 | is_rulemaster_led | BOOLEAN | NN | 개설자의 룰마스터 진행 자기신고 |
-| region | VARCHAR(50) | NN, DEFAULT `홍대` | 모임 지역 |
+| region | VARCHAR(50) | NN, DEFAULT `홍대` · P2 목표 `ck_rooms_region`: `CHECK (region IN ('홍대', '강남', '건대', '잠실'))` | 모임 지역. AI-03 확인형 생성은 닫힌 지역 집합을 사용 |
 | capacity | INT | NN | 방 생성 시 입력하는 개설자 제외 모집 정원 |
 | active_participant_count | INT | NN, DEFAULT 0 | 개설자를 제외한 현재 `ACTIVE` 참가 관계 수 |
 | start_at | TIMESTAMPTZ | NN | 실제 모임 시작 시각 |
@@ -438,6 +442,8 @@ ERD의 `ROOMS` 표기는 물리 테이블명 `rooms`를 뜻한다.
 | updated_at | TIMESTAMPTZ | NN | 수정 시각 |
 
 `idx_rooms_public_start_at_id (start_at, id) WHERE status IN ('RECRUITING', 'CLOSED')`는 공개 방의 날짜 범위와 `startsAt ASC, id ASC` 페이지를 위한 PostgreSQL 전용 부분 인덱스다.
+
+P2 AI-03a migration은 기존 `rooms.region` 값을 먼저 검사한다. 허용 집합 밖의 값이 하나라도 있으면 제약을 추가하지 않고 migration을 중단하며, 기존 Room 행은 재작성하지 않는다. 기존 직접 Room 생성 요청의 `region` 생략과 `홍대` 기본값은 호환 기간 동안 유지한다.
 
 ### PARTICIPATIONS
 
@@ -713,6 +719,234 @@ Outbox의 `occurred_at`과 Notification의 `created_at`은 애플리케이션 `C
 - 사용자·방 삭제 기능은 P1 알림 범위에 없으므로 관련 FK는 `ON DELETE NO ACTION`으로 둔다. 향후 계정 삭제나 방 물리 삭제를 도입할 때 알림 익명화·삭제 순서를 별도로 결정한다.
 - 별도 복구 이력 테이블은 두지 않는다. 현재·누적 실패 횟수, 재처리 횟수와 마지막 실패·재처리·폐기 근거만 Outbox에 보존하며 강한 감사 이력이 필요해지면 후속 저장 계약으로 확장한다.
 
+## P2 AI 기능군 저장 계약 (계획·미구현)
+
+> 이 절은 `AI-01`~`AI-03`의 승인된 목표 저장 계약이며 아직 Flyway·JPA 엔티티·생산 테이블이 없다. 현재 제공·검증·배포·실측 여부는 [P2 기능 상태](p2/README.md#기능별-현재-상태)에서만 판정한다. 외부 provider·동의·보존·비용 경계는 [ADR-0074](adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md), 초안·확인·멱등성은 [ADR-0075](adr/room/0075-p2-ai-draft-confirmation-and-idempotent-room-command.md), 지역은 [ADR-0076](adr/room/0076-p2-room-region-closed-set-and-compatibility.md)을 따른다.
+
+이 절은 AI-01 동의와 AI-03 초안·확인 멱등성의 저장 이름·타입·제약과 저장 효과만 소유한다. AI-02의 자연어 요청·provider payload·모델 원문 응답·대화 이력·게임 후보는 저장하지 않으며, HTTP 필드·오류는 [AI 기능군 API](API.md#ai-기능군-api), 모듈·트랜잭션 흐름은 [아키텍처의 AI 기능군 모듈 계약](ARCHITECTURE.md#p2-ai-기능군-모듈-계약-승인된-계획미구현)이 소유한다.
+
+### 소유 경계와 관계도
+
+`assistant`는 AI-01의 사용자별 외부 처리 동의와 AI-03의 현재 초안·확인 결과 참조를 소유한다. AI-02의 provider 호출·추천 결과를 위한 원문·대화·후보 저장 테이블은 만들지 않는다. `ROOMS`·`CHAT_ROOMS`는 기존 `room`의 저장 구조를 유지하며 확인 성공 시 결과만 참조한다.
+
+~~~mermaid
+erDiagram
+    USERS ||--o| ASSISTANT_CONSENTS : "동의"
+    USERS ||--o{ ASSISTANT_DRAFTS : "초안"
+    ASSISTANT_DRAFTS ||--o| ASSISTANT_IDEMPOTENCY_RECORDS : "확인 멱등성"
+    ROOMS o|--o| ASSISTANT_DRAFTS : "확인 결과"
+    CHAT_ROOMS o|--o| ASSISTANT_DRAFTS : "확인 결과"
+~~~
+
+### ASSISTANT_CONSENTS
+
+사용자별 최신 외부 처리 동의와 확인된 provider 정책 메타데이터만 저장한다. 동의 원문·provider token·자연어 입력은 저장하지 않는다.
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| user_id | BIGINT | PK, FK → USERS.id, NN | 동의 주체. 한 사용자당 한 최신 상태 |
+| status | VARCHAR(20) | NN, `ck_assistant_consents_status`: `CHECK (status IN ('GRANTED', 'REVOKED'))` | 행이 없으면 API에서 `NOT_GRANTED`로 응답 |
+| consent_version | VARCHAR(50) | NN | 사용자가 승인한 동의문 버전 |
+| provider | VARCHAR(20) | NN, `CHECK (provider = 'OPENAI')` | 현재 승인 provider |
+| policy_version | VARCHAR(100) | NN | 확인한 provider 정책 버전 |
+| policy_url | VARCHAR(500) | NN | 확인한 provider 정책 주소 |
+| store | BOOLEAN | NN, `CHECK (store = FALSE)` | provider 요청 저장 금지 |
+| granted_at | TIMESTAMPTZ | NULL | 마지막 동의 시각 |
+| revoked_at | TIMESTAMPTZ | NULL | 마지막 철회 시각 |
+| updated_at | TIMESTAMPTZ | NN | 상태 갱신 시각 |
+
+### ASSISTANT_DRAFTS
+
+`CREATE_ROOM`으로 전환한 구조화 입력을 15분 동안 보관하는 임시 초안이다. `place`는 사용자가 확인 카드에서 직접 입력하기 전까지 NULL일 수 있으며, 초안 자체는 Room·ChatRoom·참가 관계가 아니다.
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| id | BIGINT | PK, NN, AI | 초안 식별자 |
+| user_id | BIGINT | FK → USERS.id, NN | 초안 소유 사용자 |
+| draft_version | BIGINT | NN, DEFAULT 0 | PATCH·confirm의 낙관적 버전 |
+| status | VARCHAR(20) | NN, `ck_assistant_drafts_status`: `CHECK (status IN ('ACTIVE', 'CONFIRMED', 'DISCARDED'))` | 만료는 요청 시작 시각에 논리 판정하며 별도 scheduler 상태를 요구하지 않음 |
+| room_type | VARCHAR(20) | NN | 기존 `ROOMS.room_type` 값 집합 |
+| title | VARCHAR(100) | NN | 확인형 Room 제목 |
+| description | VARCHAR(255) | NULL | 선택 소개 |
+| game_id | BIGINT | FK → GAMES.id, NULL | `GAME_FOCUSED` 선택 게임 |
+| experience_level | VARCHAR(30) | NN | 기존 Room 경험 수준 값 집합 |
+| is_rulemaster_led | BOOLEAN | NN | 룰마스터 진행 자기신고 |
+| region | VARCHAR(50) | NN, DEFAULT `홍대` | `홍대`·`강남`·`건대`·`잠실` 중 하나 |
+| capacity | INT | NN | 개설자 제외 모집 정원 |
+| start_at | TIMESTAMPTZ | NN | 확인형 Room 시작 시각 |
+| place | VARCHAR(100) | NULL | 확인 전 사용자 입력 대기. confirm 전 NN이어야 함 |
+| expires_at | TIMESTAMPTZ | NN | 생성 시각 + 15분. API 응답에는 노출하지 않음 |
+| confirmed_at | TIMESTAMPTZ | NULL | Room 확인 성공 시각 |
+| room_id | BIGINT | FK → ROOMS.id, NULL | 확인 성공 결과 Room 참조 |
+| chat_room_id | BIGINT | FK → CHAT_ROOMS.id, NULL | 같은 트랜잭션 결과 ChatRoom 참조 |
+| created_at, updated_at | TIMESTAMPTZ | NN | 생성·마지막 변경 시각 |
+
+### ASSISTANT_IDEMPOTENCY_RECORDS
+
+확인 명령의 같은 범위·같은 key 재시도와 다른 key 충돌을 저장한다. 원본 `Idempotency-Key`와 자연어·payload는 저장하지 않고 SHA-256 hash와 결과 메타데이터만 보관한다.
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| id | BIGINT | PK, NN, AI | 확인 멱등성 기록 ID |
+| user_id | BIGINT | FK → USERS.id, NN | 현재 사용자 범위 |
+| draft_id | BIGINT | FK → ASSISTANT_DRAFTS.id, NN | 확인 대상 초안 |
+| operation | VARCHAR(30) | NN, `CHECK (operation = 'DRAFT_CONFIRM')` | 현재 AI-03 확인 operation |
+| key_hash | CHAR(64) | NN | ASCII key의 SHA-256 hex digest |
+| draft_version | BIGINT | NN | 확인 시 사용한 초안 버전 |
+| status | VARCHAR(20) | NN, `CHECK (status IN ('PENDING', 'CONFIRMED'))` | 결과 확정 전·확정 후 |
+| room_id | BIGINT | FK → ROOMS.id, NULL | 성공 결과 Room 참조 |
+| chat_room_id | BIGINT | FK → CHAT_ROOMS.id, NULL | 성공 결과 ChatRoom 참조 |
+| created_at | TIMESTAMPTZ | NN | key를 등록한 시각 |
+| confirmed_at | TIMESTAMPTZ | NULL | Room·ChatRoom 결과 확정 시각 |
+| expires_at | TIMESTAMPTZ | NN | `PENDING`은 초안 만료 시각, `CONFIRMED`는 확인 시각 + 24시간 |
+
+### AI-01·AI-03 제약과 저장 경계
+
+| 대상 | 제약 또는 인덱스 | 의미 |
+|---|---|---|
+| ASSISTANT_CONSENTS | `UNIQUE (user_id)` 및 status·provider·store CHECK | 한 사용자의 최신 동의와 승인된 provider 정책만 저장한다. |
+| ASSISTANT_DRAFTS | `uq_assistant_drafts_active_user`: `UNIQUE (user_id) WHERE status = 'ACTIVE'` | 한 사용자당 활성 초안을 하나로 제한한다. |
+| ASSISTANT_DRAFTS | `ck_assistant_drafts_room_type`, `ck_assistant_drafts_experience_level`, `ck_assistant_drafts_region`, `ck_assistant_drafts_capacity` | 기존 Room 값 집합·네 지역·모집 정원 범위를 DB에서도 제한한다. |
+| ASSISTANT_DRAFTS | `ck_assistant_drafts_place_before_confirm`: `status <> 'CONFIRMED' OR place IS NOT NULL` | `ACTIVE`·`DISCARDED` 초안은 장소가 NULL일 수 있고, `CONFIRMED` 초안은 사용자 장소 입력 없이는 저장하지 않는다. |
+| ASSISTANT_DRAFTS | `ck_assistant_drafts_result`: `status = 'CONFIRMED'`이면 `confirmed_at`, `room_id`, `chat_room_id`가 모두 NN이고, 그 외에는 모두 NULL | 초안 상태와 결과 참조의 부분 기록을 막는다. |
+| ASSISTANT_IDEMPOTENCY_RECORDS | `UNIQUE (user_id, draft_id, operation)` | 한 초안 확인 범위에는 하나의 key 의미만 허용한다. 다른 key는 `ASSISTANT_DRAFT_CONFLICT`다. |
+| ASSISTANT_IDEMPOTENCY_RECORDS | `UNIQUE (user_id, key_hash)` | 같은 사용자의 key를 다른 draft·operation에 재사용하지 않는다. 시간 없는 제약이라 보존 기간 자체를 판정하지 않으며, `expires_at <= 요청 시작 시각`인 그 사용자의 행은 batch purge를 기다리지 않고 다음 초안 생성·확인 명령 트랜잭션에서 모두 삭제한 뒤 새 key를 별도 행으로 등록한다. |
+| ASSISTANT_IDEMPOTENCY_RECORDS | `idx_assistant_idempotency_expiry (expires_at, id)` | PENDING·확인 결과의 제한된 보존 정리를 지원한다. 명령은 batch purge를 기다리지 않고 만료를 판정하며, 만료 행의 실제 삭제 주체도 같은 사용자의 다음 초안 생성·확인 명령이다. |
+
+`ASSISTANT_DRAFTS` 생성·수정·확인은 모두 대상 `USERS` 행 → 초안 행 → `ASSISTANT_IDEMPOTENCY_RECORDS` 순서로 `FOR UPDATE` 잠그며, 확인은 그 뒤 요청 시작 시각·동의·version·필수 입력을 검증한다. 같은 트랜잭션에서 `ASSISTANT_IDEMPOTENCY_RECORDS`를 유일성으로 확보한 뒤 `room.contract` 확인형 command를 호출하며, Room·ChatRoom·초안 결과 참조가 함께 커밋되거나 함께 롤백된다. 같은 트랜잭션에서 그 사용자의 만료된 멱등성 기록을 먼저 모두 삭제하므로 보존이 끝난 key hash가 유일 제약에 남지 않으며, 이 정리는 멱등성 기록만 삭제하고 참조하던 Room·ChatRoom은 삭제하지 않는다. 이후 AI-03 명령을 실행하지 않는 사용자의 만료 기록이 남는 경계는 [ADR-0075](adr/room/0075-p2-ai-draft-confirmation-and-idempotent-room-command.md)가 알려진 한계로 소유한다. 동의 철회는 활성 초안을 `DISCARDED`로 종결하고 새 provider 호출·초안 생성을 막는다.
+
+AI 기능 저장소에는 `raw_prompt`, provider 원문 응답, prompt hash, 대화 이력, BGG 원문, 후보 목록, 사용자 ID·세션·secret을 provider payload 또는 관측 저장소로 복제하는 테이블·컬럼을 두지 않는다.
+
+## P2 MATCH 저장 계약
+
+> 이 절은 `MATCH-01`의 승인된 저장 계약이다. 아래 테이블은 Flyway 마이그레이션과 JPA 엔티티로 이미 만들어져 있으며, 기능별 제공·검증·배포·실측 여부는 [P2 기능 상태](p2/README.md#기능별-현재-상태)에서만 판정한다. 저장 구조가 있다는 사실을 기능 구현의 완료 증거로 읽지 않는다. 후보 선점·멱등성 선택 근거는 [ADR-0061](adr/matching/0061-postgresql-candidate-reservation-idempotency.md), MATCH 전용 채팅의 도메인 분리·port 선택 근거는 [ADR-0062](adr/matching/0062-match-chat-handoff-recovery-retention.md), URL 텍스트 표현 선택은 [ADR-0064](adr/matching/0064-match-chat-url-text-storage.md), baseline 전 목표·Redis 재검토 결정은 [ADR-0063](adr/matching/0063-match-baseline-measurement-gate.md)을 따른다. MATCH 채팅의 제품 동작·보존은 [MATCH-01 성공 파티 채팅](p2/matching.md#성공-파티-채팅), 복구 실행은 [아키텍처의 P2 MATCH 모듈 계약](ARCHITECTURE.md#p2-match-모듈-계약), candidate 측정 상세는 [후보 탐색 baseline 측정 계약](measurements/match-01-candidate-search-baseline-contract.md)이 각각 소유한다.
+
+이 절은 저장 이름·타입·제약·인덱스와 저장 효과만 소유한다. 제품 흐름과 HTTP 필드는 [MATCH-01 명세](p2/matching.md#match-01-실시간-파티-매칭), API 필드·오류는 [API](API.md)가 소유하며 여기서 반복하지 않는다.
+
+### 소유 경계와 관계도
+
+`matching`은 요청·제안·응답·성공 파티·참가자 접근, 멱등성·신고·차단을 소유한다. `chat`은 `MATCH_CHAT_ROOMS`와 URL 텍스트를 포함한 메시지·실시간 전달만 소유한다. P1 `CHAT_ROOMS.room_id`는 계속 `ROOMS.id`만 참조하며 P1 ROOM 접근 계산과 30일 메시지 보존에만 사용한다. MATCH는 이를 넓히거나 재사용하지 않고 `MATCH_CHAT_ROOMS.party_id`의 별도 관계를 사용한다.
+
+~~~mermaid
+erDiagram
+    USERS ||--o{ MATCH_REQUESTS : "요청"
+    MATCH_PROPOSALS ||--|{ MATCH_PROPOSAL_MEMBERS : "고정 후보"
+    MATCH_REQUESTS ||--o{ MATCH_PROPOSAL_MEMBERS : "제안 이력"
+    MATCH_PROPOSALS ||--o| MATCH_PARTIES : "전원 수락 성공"
+    MATCH_PARTIES ||--|{ MATCH_PARTY_PARTICIPANTS : "접근 관계"
+    USERS ||--o{ MATCH_PARTY_PARTICIPANTS : "성공 파티 참가"
+    MATCH_PARTIES ||--o| MATCH_CHAT_ROOMS : "MATCH 전용 채팅"
+    MATCH_CHAT_ROOMS ||--o{ MATCH_CHAT_MESSAGES : "메시지"
+    USERS ||--o{ MATCH_CHAT_MESSAGES : "작성"
+    USERS ||--o{ MATCH_IDEMPOTENCY_RECORDS : "멱등성 기록"
+    USERS ||--o{ MATCH_BLOCKS : "차단 시작"
+    USERS ||--o{ MATCH_BLOCKS : "차단 대상"
+    USERS ||--o{ MATCH_REPORTS : "신고자"
+    USERS ||--o{ MATCH_REPORTS : "피신고자"
+~~~
+
+### P2 MATCH 논리 enum
+
+| 이름 | 저장값 |
+|---|---|
+| `match_request_status` | `WAITING`, `PROPOSED`, `PAUSED`, `MATCHED`, `CANCELED` |
+| `match_proposal_status` | `OPEN`, `CONFIRMED`, `DECLINED`, `EXPIRED`, `CANCELED` |
+| `match_proposal_response_status` | `PENDING`, `ACCEPTED`, `REQUEUED`, `CANCELED`, `EXPIRED` |
+| `match_party_status` | `PREPARING`, `ACTIVE`, `CLOSED` |
+| `match_chat_message_type` | `USER`, `SYSTEM` |
+| `match_chat_system_event_key` | `CHAT_OPENED`, `CLOSES_IN_ONE_HOUR` |
+| `match_idempotency_operation` | `MATCH_REQUEST_CREATE`, `MATCH_PROPOSAL_RESPONSE` |
+| `match_report_reason` | `ABUSE_OR_HARASSMENT`, `HATE_OR_DISCRIMINATION`, `SEXUAL_CONTENT`, `SPAM_OR_SCAM`, `OTHER_RULE_VIOLATION` |
+
+물리 구현은 기존 P1과 같이 PostgreSQL native enum 대신 `VARCHAR`와 이름 있는 `CHECK` 제약을 사용한다. `PURGED`는 행을 남기는 저장 상태가 아니라 물리 삭제 완료 결과이므로 `MATCH_PARTIES`와 `MATCH_CHAT_ROOMS`에 저장하지 않는다.
+
+### MATCH_REQUESTS
+
+물리 테이블명은 `match_requests`다. MATCH 요청은 게임이나 플랫폼을 저장하지 않고 인원 범위와 대기 순서로만 후보를 표현한다.
+
+`min_party_size`·`max_party_size`는 요청 등록 시점에 확정한 요청 인원 범위를 저장한다. 후보 선별은 이 두 컬럼만 읽는다.
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| id | BIGINT | PK, NN, AI | `matchRequestId` |
+| user_id | BIGINT | FK → USERS.id, NN | 요청 사용자 |
+| min_party_size | SMALLINT | NN | 요청 인원 범위 하한 |
+| max_party_size | SMALLINT | NN | 요청 인원 범위 상한 |
+| status | VARCHAR(20) | NN | `match_request_status` |
+| queued_at | TIMESTAMPTZ | NN | 현재 대기 시도 시작 시각 |
+| priority_since | TIMESTAMPTZ | NN | 현재 대기 시도의 FIFO 기준 시각 |
+| proposed_at | TIMESTAMPTZ | NULL | 현재 제안으로 전환한 시각 |
+| matched_at | TIMESTAMPTZ | NULL | 성공 파티 확정 시각 |
+| purge_after | TIMESTAMPTZ | NULL | 종료 원자료의 물리 삭제 기준 |
+| created_at, updated_at | TIMESTAMPTZ | NN | 생성·마지막 상태 변경 시각 |
+
+### MATCH_PROPOSALS와 MATCH_PROPOSAL_MEMBERS
+
+`MATCH_PROPOSALS`는 고정된 후보 파티와 응답 기한을, `MATCH_PROPOSAL_MEMBERS`는 그 제안에 포함된 요청·사용자와 최초 유효 응답을 저장한다.
+
+| 테이블 | 주요 컬럼 | 타입·제약 |
+|---|---|---|
+| MATCH_PROPOSALS | id, party_size, status, respond_by, confirmed_at, purge_after, created_at, updated_at | `id BIGINT PK`; `party_size SMALLINT NN`; `status VARCHAR(20) NN`; `respond_by TIMESTAMPTZ NN`; `confirmed_at`·`purge_after`는 TIMESTAMPTZ NULL; `created_at`·`updated_at`은 TIMESTAMPTZ NN |
+| MATCH_PROPOSAL_MEMBERS | proposal_id, match_request_id, user_id, response_status, responded_at, created_at, updated_at | `(proposal_id, match_request_id) BIGINT PK`; `proposal_id BIGINT NN FK → MATCH_PROPOSALS.id ON DELETE CASCADE`; `match_request_id BIGINT NN`; `user_id BIGINT NN FK → USERS.id`; `response_status VARCHAR(20) NN`; `responded_at TIMESTAMPTZ NULL`; `created_at`·`updated_at`은 TIMESTAMPTZ NN; `(match_request_id, user_id) FK → MATCH_REQUESTS(id, user_id) ON DELETE CASCADE` |
+
+### MATCH_PARTIES와 MATCH_PARTY_PARTICIPANTS
+
+`MATCH_PARTIES`는 전원 수락 뒤 한 번만 생기는 성공 파티다. `MATCH_PARTY_PARTICIPANTS`는 성공 파티의 사용자별 채팅 접근 근거이며, 일반 사용자 접근은 이 행만으로 부여되지 않고 Party 상태와 함께 판정한다.
+
+| 테이블 | 주요 컬럼 | 타입·제약 |
+|---|---|---|
+| MATCH_PARTIES | id, proposal_id, status, preparing_started_at, chat_opened_at, closes_at, closed_at, purge_after, created_at, updated_at | `id BIGINT PK`; `proposal_id BIGINT NULL FK → MATCH_PROPOSALS.id ON DELETE SET NULL`; `status VARCHAR(20) NN`; `preparing_started_at TIMESTAMPTZ NN`; `chat_opened_at`·`closes_at`·`closed_at`·`purge_after`는 TIMESTAMPTZ NULL; `created_at`·`updated_at`은 TIMESTAMPTZ NN |
+| MATCH_PARTY_PARTICIPANTS | party_id, user_id, participant_ref, left_at, created_at | `(party_id, user_id) BIGINT PK`; `party_id BIGINT NN FK → MATCH_PARTIES.id ON DELETE CASCADE`; `user_id BIGINT NN FK → USERS.id`; `participant_ref UUID NN`; `left_at TIMESTAMPTZ NULL`; `created_at TIMESTAMPTZ NN`; `UNIQUE (party_id, participant_ref)`. `participant_ref`는 해당 Party 안에서만 의미를 갖는 외부용 불투명 식별자이며, `left_at IS NULL`인 행만 현재 채팅 접근 관계다. 명시적 나가기 뒤에도 Party의 `purge_after`가 될 때까지 행을 남긴다. 보존 기한은 [MATCH-01 성공 파티 채팅](p2/matching.md#성공-파티-채팅)을 따른다. |
+
+### MATCH 전용 채팅 저장
+
+이 두 테이블은 `chat` 소유의 저장 구조다. `MATCH_CHAT_ROOMS`는 `MATCH_PARTIES`와 0 또는 1 관계이고 `CHAT_ROOMS`와 FK·공유 행·공유 접근 규칙을 갖지 않는다.
+
+| 테이블 | 주요 컬럼 | 타입·제약 |
+|---|---|---|
+| MATCH_CHAT_ROOMS | id, party_id, created_at, updated_at | `id BIGINT PK`; `party_id BIGINT NN FK → MATCH_PARTIES.id ON DELETE RESTRICT`; `created_at`·`updated_at`은 TIMESTAMPTZ NN. matching이 파티를 연쇄 삭제하지 않도록 chat 정리 후에만 파티를 삭제한다. |
+| MATCH_CHAT_MESSAGES | id, match_chat_room_id, sender_user_id, message_type, client_message_id, system_event_key, content, created_at | `id BIGINT PK`; `match_chat_room_id BIGINT NN FK → MATCH_CHAT_ROOMS.id ON DELETE CASCADE`; `sender_user_id BIGINT NULL FK → USERS.id`; `message_type VARCHAR(20) NN`; `client_message_id`·`system_event_key`는 VARCHAR NULL; `content TEXT NN`; `created_at TIMESTAMPTZ NN`. USER는 `sender_user_id`·`client_message_id`를, SYSTEM은 내부 `system_event_key`를 사용해 각각 재시도 중복을 막는다. |
+
+### MATCH_IDEMPOTENCY_RECORDS, MATCH_BLOCKS와 MATCH_REPORTS
+
+| 테이블 | 주요 컬럼 | 타입·제약 |
+|---|---|---|
+| MATCH_IDEMPOTENCY_RECORDS | id, user_id, idempotency_key, operation, payload_fingerprint, result_entity_type, result_entity_id, result_state, created_at, expires_at | `id BIGINT PK`; `user_id BIGINT NN FK → USERS.id`; `idempotency_key`·`operation`·`payload_fingerprint`은 VARCHAR NN; `result_entity_type`·`result_entity_id`·`result_state`는 현재 상태가 없을 수 있어 NULL 가능; `created_at`·`expires_at`은 TIMESTAMPTZ NN. result 참조는 [MATCH 멱등성 키 보장 기간](API.md#match-멱등성-키-공통-계약) 동안 기록을 유지하기 위해 FK가 아닌 논리 메타데이터다. |
+| MATCH_BLOCKS | id, blocker_user_id, blocked_user_id, created_at | `id BIGINT PK`; `blocker_user_id`·`blocked_user_id`는 BIGINT NN FK → USERS.id; `created_at TIMESTAMPTZ NN`; `(blocker_user_id, blocked_user_id)`는 UNIQUE |
+| MATCH_REPORTS | id, reporter_user_id, reported_user_id, reason, reported_at, purge_after | `id BIGINT PK`; `reporter_user_id`·`reported_user_id`는 BIGINT NN FK → USERS.id; `reason VARCHAR(30) NN`; `reported_at`·`purge_after`는 TIMESTAMPTZ NN |
+
+### P2 MATCH 제약과 인덱스
+
+| 대상 | 제약 또는 인덱스 | 의미 |
+|---|---|---|
+| MATCH_REQUESTS | `ck_match_requests_party_size`: `min_party_size > 0 AND min_party_size <= max_party_size` | 유효하지 않은 인원 범위를 저장하지 않는다. |
+| MATCH_REQUESTS | `ck_match_requests_status`: `status IN ('WAITING', 'PROPOSED', 'PAUSED', 'MATCHED', 'CANCELED')` | 승인된 요청 상태만 저장한다. |
+| MATCH_REQUESTS | `uq_match_requests_active_user`: `UNIQUE (user_id) WHERE status IN ('WAITING', 'PROPOSED', 'PAUSED')` | 한 사용자의 현재 비종료 요청을 하나로 제한한다. 이 요청 테이블 내부 제약만으로는 성공 파티 참가자 접근 관계와의 cross-table 불변식을 보장하지 않는다. |
+| MATCH_REQUESTS | `uq_match_requests_id_user`: `UNIQUE (id, user_id)` | Proposal Member의 `match_request_id`와 `user_id`가 같은 요청 소유자를 가리키도록 복합 FK의 참조 대상을 제공한다. |
+| MATCH_REQUESTS | `idx_match_requests_waiting_candidate`: `(priority_since ASC, id ASC) WHERE status = 'WAITING'` | 인원 범위 매칭 후보의 결정적 선점 순서 `prioritySince ASC, matchRequestId ASC`를 지원한다. |
+| MATCH_REQUESTS, MATCH_PROPOSALS, MATCH_PARTIES | 각 `purge_after`의 `(purge_after, id) WHERE purge_after IS NOT NULL` 인덱스 | 종료 원자료를 제한된 묶음으로 물리 삭제한다. |
+| MATCH_PROPOSALS | `ck_match_proposals_status`: `status IN ('OPEN', 'CONFIRMED', 'DECLINED', 'EXPIRED', 'CANCELED')` | 제안의 저장 상태를 고정한다. |
+| MATCH_PROPOSALS | `ck_match_proposals_party_size`: `party_size > 0` | 실제 파티 인원이 없거나 음수인 제안을 저장하지 않는다. 각 요청 인원 범위와의 교집합은 제안 생성 트랜잭션에서 검증한다. |
+| MATCH_PROPOSAL_MEMBERS | `UNIQUE (proposal_id, user_id)`, `ck_match_proposal_members_response_status`: `response_status IN ('PENDING', 'ACCEPTED', 'REQUEUED', 'CANCELED', 'EXPIRED')`, `ck_match_proposal_members_response_lifecycle`: `PENDING`·`EXPIRED`는 `responded_at IS NULL`, `ACCEPTED`·`REQUEUED`·`CANCELED`는 `responded_at IS NOT NULL`; `proposal_id FK ON DELETE CASCADE`; `(match_request_id, user_id) FK → MATCH_REQUESTS(id, user_id) ON DELETE CASCADE` | 한 제안에 같은 사용자를 중복으로 넣거나 요청 소유자와 다른 사용자를 Proposal Member로 저장하지 않는다. 응답 전·기한 만료 상태와 사용자의 최초 유효 응답 시각을 구분한다. 제안 또는 요청의 종료 원자료를 각 `purge_after`에 물리 삭제할 때 남은 응답 관계가 삭제를 막지 않는다. |
+| MATCH_PARTIES | `UNIQUE (proposal_id) WHERE proposal_id IS NOT NULL`, `proposal_id FK ON DELETE SET NULL`, `ck_match_parties_status`, `idx_match_parties_preparing_due (preparing_started_at, id) WHERE status = 'PREPARING'`, `idx_match_parties_active_due (closes_at, id) WHERE status = 'ACTIVE'` | 하나의 제안이 연결돼 있는 동안 둘 이상의 성공 파티를 만들지 않으며 `PREPARING`·`ACTIVE`·`CLOSED`만 저장한다. 제안이 먼저 purge되어도 늦게 `CLOSED`된 파티의 `purge_after` 보존은 막지 않는다. recovery scan은 저장한 lifecycle 시각으로 준비·사전 알림·예약 종료 due 후보를 제한적으로 찾으며, 각 제품 시각은 [MATCH-01 성공 파티 채팅](p2/matching.md#성공-파티-채팅)을 따른다. |
+| MATCH_PARTIES | `ck_match_parties_lifecycle`: `PREPARING`은 `preparing_started_at` NN, `ACTIVE`는 `chat_opened_at`·`closes_at` NN, `CLOSED`는 `closed_at`·`purge_after` NN 및 `purge_after = closed_at + INTERVAL '7 days'` | 상태에 필요한 lifecycle 시각과 [제품 보존 규칙](p2/matching.md#성공-파티-채팅)의 저장 투영을 함께 강제한다. `ACTIVE` Party가 종료 기준 없이 due scan에서 빠지거나 `CLOSED` Party가 실제 종료·purge 기준 없이 남는 것을 허용하지 않는다. |
+| MATCH_PARTY_PARTICIPANTS | `PRIMARY KEY (party_id, user_id)`, `UNIQUE (party_id, participant_ref)`, `idx_match_party_participants_current (party_id, user_id) WHERE left_at IS NULL` | 성공 파티의 같은 사용자 접근 관계와 Party-scoped participant reference는 한 번만 저장한다. `left_at IS NULL`만 현재 접근·마지막 사용자 판정에 포함하고, 나간 관계는 Party purge까지 보존한다. |
+| MATCH_CHAT_ROOMS | `UNIQUE (party_id)`, `party_id FK ON DELETE RESTRICT` | 복구·재시도로 MATCH 채팅방을 중복 생성하지 않는다. matching이 파티를 연쇄 삭제하지 않고 chat 정리 경계가 방을 먼저 삭제하게 한다. |
+| MATCH_CHAT_MESSAGES | `ck_match_chat_messages_kind`: USER는 `sender_user_id`·`client_message_id` NN 및 `system_event_key` NULL, SYSTEM은 sender·client ID NULL 및 `system_event_key IN ('CHAT_OPENED', 'CLOSES_IN_ONE_HOUR')`; `uq_match_chat_messages_user_client (match_chat_room_id, sender_user_id, client_message_id) WHERE client_message_id IS NOT NULL`; `uq_match_chat_messages_system_event (match_chat_room_id, system_event_key) WHERE system_event_key IS NOT NULL` | USER와 SYSTEM의 멱등성 근거를 섞지 않는다. 같은 사용자의 같은 USER 재전송과 같은 채팅방의 같은 SYSTEM lifecycle 알림은 각각 한 행으로 수렴한다. |
+| MATCH_BLOCKS | `CHECK (blocker_user_id <> blocked_user_id)`, `UNIQUE (blocker_user_id, blocked_user_id)`, `idx_match_blocks_blocked_blocker (blocked_user_id, blocker_user_id)` | 자기 차단을 막고 차단 리소스 ID로 반복·해제할 수 있으며 양방향 차단 후보 제외 조회를 지원한다. |
+| MATCH_REPORTS | `ck_match_reports_reason`: `reason IN ('ABUSE_OR_HARASSMENT', 'HATE_OR_DISCRIMINATION', 'SEXUAL_CONTENT', 'SPAM_OR_SCAM', 'OTHER_RULE_VIOLATION')`, `UNIQUE (reporter_user_id, reported_user_id)`, `CHECK (reporter_user_id <> reported_user_id)`, `(purge_after, id)` | 고정 신고 사유 다섯 값만 저장하며, `purge_after` 전 같은 신고자·피신고자 쌍을 한 건으로 제한한다. 보존 기한은 [MATCH-01 신고와 차단](p2/matching.md#신고와-차단)을 따른다. 만료 판정·행 교체는 이 물리 UNIQUE를 우회하지 않고 명령 트랜잭션에서 수행한다. |
+| MATCH_IDEMPOTENCY_RECORDS | `UNIQUE (user_id, idempotency_key)`, `ck_match_idempotency_operation`, `idx_match_idempotency_records_expiry (expires_at, id)` | 사용자 단위 키의 물리 중복을 막는다. [MATCH 멱등성 키 계약](API.md#match-멱등성-키-공통-계약)에 따라 `expires_at <= operationTime`인 행은 배치 purge를 기다리지 않고 명령 트랜잭션에서 만료 판정 후 교체한다. |
+
+`MATCH_IDEMPOTENCY_RECORDS.operation`은 `MATCH_REQUEST_CREATE`, `MATCH_PROPOSAL_RESPONSE`만 허용한다. `payload_fingerprint`은 method·path·body action을 포함한 canonical 의미의 fingerprint이며, 같은 사용자·키의 다른 operation 또는 payload는 충돌이다.
+
+### P2 MATCH 저장 경계
+
+이 절은 MATCH 테이블의 저장 구조·제약·인덱스와 물리 삭제 효과만 소유한다. 후보 선점, Proposal terminal 경합, 사용자·Party 잠금, 채팅 handoff·복구, 현재 상태 조회와 만료 행의 명령 처리 순서는 [아키텍처](ARCHITECTURE.md#p2-match-제안채팅-복구-흐름-계획미구현)가 유일한 정본이다.
+
+- `MATCH_PROPOSAL_MEMBERS`의 복합 FK와 `MATCH_PARTY_PARTICIPANTS.participant_ref`는 각각 요청 소유자와 Party-scoped 외부 식별자의 저장 불변식을 DB에서 보장한다.
+- `MATCH_REPORTS`와 `MATCH_IDEMPOTENCY_RECORDS`의 시간 없는 UNIQUE 제약은 보관 기간 자체를 판정하지 않는다. 만료된 행을 새 명령이 재사용할 수 있는 규칙은 아키텍처의 operation-time 계약을 따르며, 지연 batch purge에 의존하지 않는다.
+- `purge_after` 인덱스는 종료 원자료의 제한된 묶음 삭제를 지원한다. chat message·room, Party/access의 삭제 순서와 PREPARING 실패 시 즉시 삭제 여부는 아키텍처의 Cleanup Executor가 소유한다.
+
 ## 필수 제약과 계산 규칙
 
 ### DB 제약
@@ -801,4 +1035,4 @@ Outbox의 `occurred_at`과 Notification의 `created_at`은 애플리케이션 `C
 - 방이 `CANCELED`·`FINISHED`로 전이된 뒤에도 저장된 메시지는 30일 보관하지만 일반 사용자 조회·전송·실시간 구독은 허용하지 않는다. 만료 메시지는 다음 일일 삭제 작업에서 최대 24시간 안에 제거한다.
 - ROOM Scheduler 상태 보정은 영속 순회 경계에서 제한된 ID를 선별한 뒤 ROOM마다 독립 트랜잭션으로 처리하고, cursor는 별도 조건부 갱신 트랜잭션으로 전진한다. 채팅 만료 삭제는 소량 묶음마다 독립 트랜잭션으로 처리한다. ShedLock 임대 만료로 실행이 겹쳐도 ROOM은 최신 상태를 다시 확인하고 늦은 실행 주체의 진행 상태 갱신은 generation·version 불일치로 거절한다.
 
-> 문서 관리: 소유자 `밤송이클럽 백엔드 팀` · 최종 검증일 `2026-08-12` · 폐기 조건 `저장 계약이 승인된 schema 생성 문서로 완전히 대체될 때`
+> 문서 관리: 소유자 `밤송이클럽 백엔드 팀` · 최종 검증일 `2026-08-18` · 폐기 조건 `저장 계약이 승인된 schema 생성 문서로 완전히 대체될 때`

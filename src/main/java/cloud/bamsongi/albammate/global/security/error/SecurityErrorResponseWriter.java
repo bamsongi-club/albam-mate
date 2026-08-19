@@ -49,18 +49,15 @@ public final class SecurityErrorResponseWriter {
 		}
 		String action = "PUT".equals(request.getMethod()) ? "mark" : "unmark";
 		Long accessRestrictedGameId = positiveGameIdOrNull(gameId);
-		if (accessRestrictedGameId == null) {
-			log.info(
-				"event=game_played_state_change_failed action={} outcome=rejected failureCode={}",
-				action,
-				errorCode.getCode());
-			return;
+		var failureLog = log.atInfo()
+			.addKeyValue("event", "game_played_state_change_failed")
+			.addKeyValue("action", action)
+			.addKeyValue("outcome", "rejected")
+			.addKeyValue("failureCode", errorCode.getCode());
+		if (accessRestrictedGameId != null) {
+			failureLog.addKeyValue("gameId", accessRestrictedGameId);
 		}
-		log.info(
-			"event=game_played_state_change_failed action={} outcome=rejected failureCode={} gameId={}",
-			action,
-			errorCode.getCode(),
-			accessRestrictedGameId);
+		failureLog.log("game played state change rejected");
 	}
 
 	private String gameIdPathSegment(String requestUri) {

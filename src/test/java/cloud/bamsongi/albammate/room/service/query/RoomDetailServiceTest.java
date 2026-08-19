@@ -117,7 +117,7 @@ class RoomDetailServiceTest {
 	}
 
 	@Test
-	void 주최자는_정확한_장소와_HOST_역할_및_ACTIVE_참가자_목록을_받는다() {
+	void T3_T6_주최자는_정확한_장소와_HOST_역할_및_ACTIVE_참가자_목록과_프로필_이미지_URL을_받는다() {
 		Room room = room(7L, 42L, 100L, RoomStatus.RECRUITING, 3, NOW.plusSeconds(60));
 		when(room.getTotalParticipantCount()).thenReturn(3);
 		when(room.getRemainingRecruitmentSeats()).thenReturn(1);
@@ -127,8 +127,11 @@ class RoomDetailServiceTest {
 			.thenReturn(readResult(room, List.of(firstParticipation, secondParticipation), false));
 		when(gameQuery.findSummaryById(100L))
 			.thenReturn(Optional.of(new GameSummary(100L, 1100L, "카탄")));
-		when(userQuery.findNicknamesByIds(List.of(42L, 77L, 88L)))
-			.thenReturn(Map.of(88L, "두 번째 참가자", 42L, "방장", 77L, "첫 번째 참가자"));
+		when(userQuery.findUserSummariesByIds(List.of(42L, 77L, 88L)))
+			.thenReturn(Map.of(
+				88L, new UserQuery.UserSummary("두 번째 참가자", null),
+				42L, new UserQuery.UserSummary("방장", "https://cdn.example.com/host.png"),
+				77L, new UserQuery.UserSummary("첫 번째 참가자", "https://cdn.example.com/first.png")));
 
 		ParticipantRoomResponse response = assertInstanceOf(
 			ParticipantRoomResponse.class,
@@ -142,8 +145,15 @@ class RoomDetailServiceTest {
 			response.participants().stream().map(p -> p.nickname()).toList());
 		assertEquals(3, response.participantCount());
 		assertEquals(1, response.remainingRecruitmentSeats());
-		verify(userQuery).findNicknamesByIds(List.of(42L, 77L, 88L));
-		verify(userQuery, never()).findNicknameById(org.mockito.ArgumentMatchers.anyLong());
+		assertEquals("https://cdn.example.com/host.png", response.host().profileImageUrl());
+		assertEquals(
+			java.util.Arrays.asList(
+				"https://cdn.example.com/host.png",
+				"https://cdn.example.com/first.png",
+				null),
+			response.participants().stream().map(p -> p.profileImageUrl()).toList());
+		verify(userQuery).findUserSummariesByIds(List.of(42L, 77L, 88L));
+		verify(userQuery, never()).findUserSummaryById(org.mockito.ArgumentMatchers.anyLong());
 		verifyNoMoreInteractions(userQuery);
 	}
 
@@ -152,14 +162,14 @@ class RoomDetailServiceTest {
 		Room room = room(7L, 42L, 100L, RoomStatus.RECRUITING, 3, NOW.plusSeconds(60));
 		when(roomDetailReadService.findRoomDetail(7L, 42L)).thenReturn(readResult(room, List.of(), false));
 		when(gameQuery.findSummaryById(100L)).thenReturn(Optional.of(new GameSummary(100L, 1100L, "카탄")));
-		when(userQuery.findNicknamesByIds(List.of(42L))).thenReturn(Map.of(42L, "방장"));
+		when(userQuery.findUserSummariesByIds(List.of(42L))).thenReturn(Map.of(42L, summary("방장")));
 
 		roomDetailService.findRoomDetail(7L, Optional.of(42L));
 
 		InOrder inOrder = inOrder(roomDetailReadService, gameQuery, userQuery);
 		inOrder.verify(roomDetailReadService).findRoomDetail(7L, 42L);
 		inOrder.verify(gameQuery).findSummaryById(100L);
-		inOrder.verify(userQuery).findNicknamesByIds(List.of(42L));
+		inOrder.verify(userQuery).findUserSummariesByIds(List.of(42L));
 	}
 
 	@Test
@@ -168,8 +178,8 @@ class RoomDetailServiceTest {
 		Participation participation = participation(77L);
 		when(roomDetailReadService.findRoomDetail(7L, 42L))
 			.thenReturn(readResult(room, List.of(participation), false));
-		when(userQuery.findNicknamesByIds(List.of(42L, 77L)))
-			.thenReturn(Map.of(42L, "방장", 77L, "참가자"));
+		when(userQuery.findUserSummariesByIds(List.of(42L, 77L)))
+			.thenReturn(Map.of(42L, summary("방장"), 77L, summary("참가자")));
 
 		ParticipantRoomResponse response = assertInstanceOf(
 			ParticipantRoomResponse.class,
@@ -190,8 +200,8 @@ class RoomDetailServiceTest {
 		Participation participation = participation(77L);
 		when(roomDetailReadService.findRoomDetail(7L, 77L))
 			.thenReturn(readResult(room, List.of(participation), true, false));
-		when(userQuery.findNicknamesByIds(List.of(42L, 77L)))
-			.thenReturn(Map.of(42L, "방장", 77L, "참가자"));
+		when(userQuery.findUserSummariesByIds(List.of(42L, 77L)))
+			.thenReturn(Map.of(42L, summary("방장"), 77L, summary("참가자")));
 
 		ParticipantRoomResponse response = assertInstanceOf(
 			ParticipantRoomResponse.class,
@@ -209,8 +219,8 @@ class RoomDetailServiceTest {
 		Participation activeParticipation = participation(88L);
 		when(roomDetailReadService.findRoomDetail(7L, 77L))
 			.thenReturn(readResult(room, List.of(activeParticipation), true, false));
-		when(userQuery.findNicknamesByIds(List.of(42L, 88L)))
-			.thenReturn(Map.of(42L, "방장", 88L, "다른 참가자"));
+		when(userQuery.findUserSummariesByIds(List.of(42L, 88L)))
+			.thenReturn(Map.of(42L, summary("방장"), 88L, summary("다른 참가자")));
 
 		ParticipantRoomResponse response = assertInstanceOf(
 			ParticipantRoomResponse.class,
@@ -227,8 +237,8 @@ class RoomDetailServiceTest {
 		Participation participation = participation(77L);
 		when(roomDetailReadService.findRoomDetail(7L, 77L))
 			.thenReturn(readResult(room, List.of(participation), true, false));
-		when(userQuery.findNicknamesByIds(List.of(42L, 77L)))
-			.thenReturn(Map.of(42L, "방장", 77L, "참가자"));
+		when(userQuery.findUserSummariesByIds(List.of(42L, 77L)))
+			.thenReturn(Map.of(42L, summary("방장"), 77L, summary("참가자")));
 
 		ParticipantRoomResponse response = assertInstanceOf(
 			ParticipantRoomResponse.class,
@@ -252,7 +262,7 @@ class RoomDetailServiceTest {
 		Participation participation = participation(77L);
 		when(roomDetailReadService.findRoomDetail(7L, 42L))
 			.thenReturn(readResult(room, List.of(participation), false));
-		when(userQuery.findNicknamesByIds(List.of(42L, 77L))).thenReturn(Map.of(42L, "방장"));
+		when(userQuery.findUserSummariesByIds(List.of(42L, 77L))).thenReturn(Map.of(42L, summary("방장")));
 
 		BusinessException exception = assertThrows(
 			BusinessException.class,
@@ -311,6 +321,10 @@ class RoomDetailServiceTest {
 		boolean currentUserWaiting) {
 		return new RoomDetailReadService.RoomDetailReadResult(
 			room, activeParticipations, currentUserIsActiveParticipant, currentUserWaiting);
+	}
+
+	private UserQuery.UserSummary summary(String nickname) {
+		return new UserQuery.UserSummary(nickname, null);
 	}
 
 	private Participation participation(long userId) {

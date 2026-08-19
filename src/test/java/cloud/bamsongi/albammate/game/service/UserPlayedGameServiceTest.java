@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -18,6 +19,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import cloud.bamsongi.albammate.game.dto.PlayedGameStateResponse;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
 import cloud.bamsongi.albammate.game.repository.UserPlayedGameRepository;
@@ -45,6 +49,26 @@ class UserPlayedGameServiceTest {
 
 		assertEquals(new PlayedGameStateResponse(2L, true), userPlayedGameService.markPlayed(1L, 2L));
 		verify(commandExecutor).inspectAfterMarkFailure(1L, 2L);
+	}
+
+	@Test
+	void T3_플레이_상태_변경_성공은_허용된_구조화_key_value로_기록한다() {
+		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(UserPlayedGameService.class);
+		ListAppender<ILoggingEvent> appender = new ListAppender<>();
+		appender.start();
+		logger.addAppender(appender);
+
+		try {
+			userPlayedGameService.markPlayed(1L, 2L);
+			userPlayedGameService.unmarkPlayed(1L, 2L);
+
+			assertEquals(2, appender.list.size());
+			assertPlayedStateChange(appender.list.get(0), "mark", "played");
+			assertPlayedStateChange(appender.list.get(1), "unmark", "not_played");
+		} finally {
+			logger.detachAppender(appender);
+			appender.stop();
+		}
 	}
 
 	@Test
@@ -81,5 +105,15 @@ class UserPlayedGameServiceTest {
 		assertEquals(RecoveryState.RELATION_EXISTS, executor.inspectAfterMarkFailure(1L, 2L));
 		assertEquals(RecoveryState.GAME_EXISTS, executor.inspectAfterMarkFailure(1L, 2L));
 		assertEquals(RecoveryState.GAME_MISSING, executor.inspectAfterMarkFailure(1L, 2L));
+	}
+
+	private void assertPlayedStateChange(ILoggingEvent event, String action, String outcome) {
+		Map<String, Object> fields = event.getKeyValuePairs().stream()
+			.collect(java.util.stream.Collectors.toMap(pair -> pair.key, pair -> pair.value));
+
+		assertEquals("game_played_state_changed", fields.get("event"));
+		assertEquals(2L, fields.get("gameId"));
+		assertEquals(action, fields.get("action"));
+		assertEquals(outcome, fields.get("outcome"));
 	}
 }

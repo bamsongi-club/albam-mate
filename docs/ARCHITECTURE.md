@@ -2,13 +2,15 @@
 
 이 문서는 Albam Mate 백엔드 코드의 안정적인 구조 규칙을 설명하는 정본이다. 개별 파일·클래스·엔드포인트 목록은 관리하지 않으며, 같은 경계 안에서 기능을 추가하는 것만으로는 이 문서를 갱신하지 않는다.
 
-본문에서 `후속` 또는 `필요 시 생성`으로 표시한 항목은 아직 만들지 않은 경계다. 모듈 관계 Mermaid와 모듈 책임 표는 현재 생산 코드 구조를 설명하지만, 기능별 절에는 구현된 P1 계약과 남은 운영값이 함께 있을 수 있다. P1 종료 상태는 [P1 기능 종료 상태](archive/p1/README.md#기능별-종료-상태), 새 P2 기능의 현재 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)에서 확인한다.
+본문에서 `후속` 또는 `필요 시 생성`으로 표시한 항목은 아직 만들지 않은 경계다. 모듈 관계 Mermaid와 모듈 책임 표는 현재 생산 코드 구조를 설명하되, 명시한 `P2 계획·미구현` 항목은 승인된 목표 구조일 뿐 현재 코드·구조 검사 규칙이 아니다. 기능별 절에는 구현된 P1 계약과 남은 운영값이 함께 있을 수 있다. P1 종료 상태는 [P1 기능 종료 상태](archive/p1/README.md#기능별-종료-상태), 새 P2 기능의 현재 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)에서 확인한다.
 
 - 모듈러 모놀리스 선택 근거: [ADR-0007](adr/platform/0007-domain-centered-modular-monolith.md)
 - 낙관 락·저장 상태 보정·조회 snapshot 근거: [ADR-0005](adr/participation/0005-room-participation-optimistic-locking.md), [ADR-0055](adr/room/0055-room-query-effective-status-and-persistence-correction.md), [ADR-0056](adr/room/0056-postgresql-room-query-snapshot-without-global-pre-correction.md)
 - 알림 통합 이벤트·Outbox·relay 근거: [ADR-0029](adr/notification/0029-room-integration-event-transactional-outbox.md), [ADR-0040](adr/notification/0040-postgresql-notification-relay-recovery-retention.md)
 - 알림 표시 투영·조회·읽음 시각 근거: [ADR-0039](adr/notification/0039-notification-presentation-and-bulk-read-snapshot.md)
-- P2 운영 관측 전송 근거: [ADR-0058](adr/platform/0058-p2-application-metrics-otlp-host-cloudwatch-agent.md), [ADR-0059](adr/platform/0059-p2-structured-stdout-cloudwatch-logs.md)
+- P2 운영 관측 전송 근거: [ADR-0071](adr/platform/0071-p2-application-metrics-otlp-host-cloudwatch-agent.md), [ADR-0059](adr/platform/0059-p2-structured-stdout-cloudwatch-logs.md)
+- P2 AI provider·동의·초안·확인형 Room·지역 경계: [ADR-0074](adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md), [ADR-0075](adr/room/0075-p2-ai-draft-confirmation-and-idempotent-room-command.md), [ADR-0076](adr/room/0076-p2-room-region-closed-set-and-compatibility.md)
+- P2 MATCH 후보 선점·멱등성, 채팅 handoff·복구·보존, URL 텍스트 표현, 기준 측정 gate, 게임·플랫폼 없는 인원 범위 매칭: [ADR-0061](adr/matching/0061-postgresql-candidate-reservation-idempotency.md), [ADR-0062](adr/matching/0062-match-chat-handoff-recovery-retention.md), [ADR-0064](adr/matching/0064-match-chat-url-text-storage.md), [ADR-0063](adr/matching/0063-match-baseline-measurement-gate.md), [ADR-0077](adr/matching/0077-match-no-game-player-range.md)
 - 코드 배치·네이밍·트랜잭션 규칙: [CONVENTIONS](CONVENTIONS.md)
 - 제품·HTTP·저장 계약: [P2 명세](P2-spec.md), [P2 기능 문서](p2/README.md), [P1 종료 명세](archive/p1/README.md), [P0 완료 명세](archive/p0/P0-spec.md), [API 명세](API.md), [ERD](ERD.md)
 
@@ -38,7 +40,7 @@
 
 - 하나의 Gradle 프로젝트와 Spring Boot 애플리케이션, 데이터베이스를 유지한다.
 - 같은 Spring Boot 애플리케이션을 여러 인스턴스로 실행하되 모든 인스턴스가 공용 PostgreSQL과 Redis를 사용한다. 채팅을 별도 서비스로 분리하지 않는다.
-- `auth`, `user`, `game`, `room`과 P1의 `chat`·`notification`을 논리적 업무 모듈로 유지한다. OAuth 제공자 통신과 앱 세션 전환은 `auth`, 외부 신원 저장은 `user`가 소유한다.
+- `auth`, `user`, `game`, `room`과 P1의 `chat`·`notification`을 논리적 업무 모듈로 유지한다. P2 계획 `assistant`와 P2의 `matching`은 각각 AI-01~AI-03·MATCH-01의 별도 업무 모듈이며, `matching`의 저장 구조와 공개 계약은 생산 코드에 있다. OAuth 제공자 통신과 앱 세션 전환은 `auth`, 외부 신원 저장은 `user`가 소유한다.
 - 조회와 상태 변경 유스케이스는 각각 `query`, `command`로 구분하지만 Entity, Repository와 데이터베이스까지 나누는 CQRS는 도입하지 않는다.
 - 모듈 간 협력은 상대 모듈의 `contract`만 사용한다.
 - 독립 트랜잭션과 재시도가 필요한 Coordinator·Executor 분리는 유지하며, 재시도마다 최신 Entity와 version을 다시 조회한다.
@@ -56,6 +58,10 @@ flowchart LR
     chat["chat"] -->|"room.contract"| room
     chat -->|"user.contract"| user
     notification["notification"] -->|"room.contract"| room
+    assistant["assistant<br/>P2 계획·미구현"] -->|"game.contract"| game
+    assistant -->|"room.contract"| room
+    matching["matching"] -->|"user.contract"| user
+    chat -->|"matching.contract<br/>P2 MATCH"| matching
 
     auth -.->|"기술 기반"| global["global"]
     user -.->|"기술 기반"| global
@@ -63,11 +69,14 @@ flowchart LR
     room -.->|"기술 기반"| global
     chat -.->|"기술 기반"| global
     notification -.->|"기술 기반"| global
+    assistant -.->|"기술 기반"| global
+    matching -.->|"기술 기반"| global
     infra["infra"] -.->|"기술 기반"| global
+    infra -->|"assistant.contract<br/>provider adapter"| assistant
     infra -->|"실시간 전달 port 구현"| chat
 ```
 
-허용된 업무 모듈 의존 방향은 `auth → user`, `room → user·game`, `chat → room.contract·user.contract`, `notification → room.contract`이다. `chat`은 `room`·`user`의 Entity와 Repository를, `notification`은 `room`의 Entity와 Repository를 직접 참조하지 않고 공개 계약만 사용한다. 반대 방향의 직접 참조와 순환 의존은 허용하지 않는다.
+현재 허용된 업무 모듈 의존 방향은 `auth → user`, `room → user·game`, `chat → room.contract·user.contract`, `notification → room.contract`, `matching → user.contract`, `chat → matching.contract`, `assistant → game.contract·room.contract`, `infra → assistant.contract`이다. `assistant`는 `game`·`room`의 Entity·Repository와 `infra.ai`를 직접 참조하지 않고 공개 계약만 사용한다. `chat`은 `room`·`user`·`matching`의 Entity와 Repository를, `notification`은 `room`의 Entity와 Repository를, `matching`은 `user`의 Entity와 Repository를 직접 참조하지 않고 공개 계약만 사용한다. 이 금지는 타입 참조뿐 아니라 JPQL에서 다른 모듈의 Entity를 조인하는 경로에도 적용한다. `matching → chat` 직접 의존은 만들지 않으며 반대 방향의 직접 참조와 순환 의존은 허용하지 않는다.
 
 런타임 호출 방향과 컴파일 의존 방향이 다를 수 있다. 예를 들어 `game`이 예정 모임 수를 조회할 때는 [`game.contract.UpcomingRoomCountQuery`](../src/main/java/cloud/bamsongi/albammate/game/contract/UpcomingRoomCountQuery.java)를 [`room.service.query.RoomUpcomingRoomCountQuery`](../src/main/java/cloud/bamsongi/albammate/room/service/query/RoomUpcomingRoomCountQuery.java)가 구현한다. 런타임 호출은 game에서 room으로 이어지지만, 컴파일 의존은 `room → game.contract`로 유지된다.
 
@@ -83,7 +92,9 @@ RANK-02의 외부·내부 인기 점수는 런타임 모듈 호출이 아니라 
 | `user` | 사용자 계정·비밀번호 자격증명·외부 신원 연결·프로필·공개 사용자 조회 | OAuth 제공자 통신, 세션 생성·폐기 |
 | `game` | 게임 목록·검색·상세, RANK-02 저장 인기 점수와 게임 요약 계약 | 방 데이터 직접 조회 |
 | `room` | 방·참가 관계·정원·상태 전이·재시도·상태 보정 | 사용자·게임 내부 구현 |
-| `chat` (P1) | 방별 채팅방·메시지 저장, 이력 커서 조회, 현재 관계자 접근 검증, 실시간 전달 경계 | 방·참가 Entity/Repository, 인증 세션 내부 구현, 온라인 자동 매칭 |
+| `assistant` (P2 계획·미구현) | 외부 처리 동의·철회, 자연어 의도 추출 orchestration, 서버 후보 추천, 15분 초안·확인·멱등성 HTTP 흐름 | provider SDK·원문 보존, game·room Entity/Repository, 사용자 확인 없는 Room 변경 |
+| `matching` (P2 일부 구현) | MATCH 요청·제안·응답·성공 파티·참가자 접근, 후보 선점·복구·멱등성·신고·차단. 현재 생산 코드는 저장 구조와 chat 접근 계약뿐이고 나머지는 P2 계획 | MATCH 채팅방·메시지·실시간 전달, 사용자 내부 구현 |
+| `chat` (P1 구현, P2 MATCH 일부 구현) | P1 ROOM별 채팅방·메시지 저장, 이력 cursor 조회, 현재 관계자 접근 검증과 실시간 전달. P2에서는 `matching.contract`를 통해 MATCH 전용 채팅방·URL 텍스트를 포함한 메시지·실시간 전달만 담당하며, 현재 생산 코드는 그 저장 구조뿐이고 adapter·유스케이스는 P2 계획 | 방·참가·MATCH 요청·제안·응답·성공 파티·참가자 접근 Entity/Repository, 인증 세션 내부 구현 |
 | `notification` (P1) | 웹 알림 조회·읽음, Outbox·수신자 스냅샷·알림 저장, relay·재시도·복구·보존 정리 | 방 상태 전이·수신자 재계산, 이메일·모바일 푸시·Web Push·SMS 전달 |
 | `global` | 공통 응답·예외·보안·설정·UTC 시간 기반 | 업무 Entity·DTO·규칙 |
 | `infra` (P1) | Redis 세션·채팅 fan-out과 PostgreSQL 스케줄 잠금 같은 기술 adapter | 업무 규칙·Entity·HTTP DTO |
@@ -109,6 +120,74 @@ RANK-02의 외부·내부 인기 점수는 런타임 모듈 호출이 아니라 
 
 알림 코드는 `notification/service/query`, `notification/service/command`, `notification/relay`, `notification/recovery`, `notification/cleanup`의 책임 경계에 배치한다. `/api/users/me/notifications` 하위 조회·읽음은 URL 접두사가 아니라 데이터와 불변식 소유권에 따라 P1 `NotificationController`가 담당한다.
 
+### P2 AI 기능군 모듈 계약 (승인된 계획·미구현)
+
+> 이 절은 P2 `AI-01`~`AI-03`의 승인된 목표 구조다. `assistant` 모듈·`assistant.contract`·`infra.ai` adapter는 아직 존재하지 않으며, 현재 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)로만 판정한다. 외부 provider와 Room 쓰기 권한은 분리하고, 사용자의 명시적 확인 전에는 Room·ChatRoom 상태 변경을 허용하지 않는다.
+
+`assistant`는 AI-01의 동의·철회와 제품 흐름, AI-02의 자연어 추천, AI-03의 초안·확인 HTTP 경계와 `ASSISTANT_*` 저장 구조를 소유한다. 외부 provider SDK는 `infra.ai`만 참조하고, `game`·`room`의 Entity·Repository와 `DISCOVERY-01`의 `SEARCH-04` tool은 직접 참조하지 않는다.
+
+AI-01~AI-03 협력 계약은 책임을 소유한 모듈의 `contract`에 둔다. provider 경계인 `AssistantIntentExtractor`와 후보 조회는 AI-02가 각각 `assistant.contract`와 `game.contract`를 통해 소유하고, 확인형 Room 생성은 AI-03이 `room.contract`를 통해 소유한다.
+
+| 계약 | 소유 | 호출·구현 | 책임과 트랜잭션 경계 |
+|---|---|---|---|
+| `AssistantIntentExtractor` (AI-02) | `assistant.contract` | `assistant`의 추천 Service가 호출하고 `infra.ai`가 구현 | 현재 한 번의 사용자 문장과 서버가 허용한 schema만 provider에 전달해 `AssistantConditionSummary` 후보를 반환한다. 게임 조회·Room 쓰기·tool loop·원문 저장은 하지 않는다. 기본 구현은 deterministic fake provider다. |
+| `AssistantGameCandidateQuery` (AI-02) | `game.contract` | `assistant`가 호출하고 `game`이 구현 | 카테고리·메커니즘·테마 배열은 각각 목록 안 `ANY`로 고정 결합하고, 이 셋과 난이도 상한·플레이 시간 상한·이미 확인된 총 인원·게임 선택은 서로 `AND`로 적용하며 내부 `RANK-01` 순서로 후보를 반환한다. 정렬 뒤 상위 10건만 반환하고 동점은 게임 ID 오름차순으로 끊으며 pagination은 제공하지 않는다. `assistant`는 game repository·catalog를 직접 읽지 않는다. |
+| `AssistantRoomCreationCommand` (AI-03) | `room.contract` | `assistant`의 Confirm Executor가 호출하고 `room`이 구현 | 현재 인증 사용자 컨텍스트와 초안 입력을 받아 기존 Room 생성 불변식과 `RoomCreated → ChatRoom` 원자성을 적용하고 `roomId`·`chatRoomId` 생성 결과를 반환한다. 사용자 ID를 요청 body에서 받지 않는다. |
+
+`AssistantRoomCreationCommand`는 `room`이 `chat` Entity·Repository를 직접 참조해 `chatRoomId`를 얻는 구조가 아니다. 확인형 command는 `room.contract`가 정의한 동기 `RoomCreated` handoff를 같은 트랜잭션에서 발행하고, `chat`의 listener가 `CHAT_ROOMS`를 저장한 뒤 생성된 ID를 handoff에 채운다. listener가 결과를 채우기 전에 실패하거나 ID가 없으면 command도 실패하고 Room·ChatRoom·초안 결과를 함께 롤백한다. 따라서 컴파일 의존은 `assistant → room.contract`와 `chat → room.contract`로 유지되며 `room → chat` 직접 의존은 생기지 않는다.
+
+`AssistantIntentExtractor`는 버전이 지정된 `propose_game_room_intent` schema만 사용한다. `assistant`는 provider가 반환한 game ID·조건을 신뢰하지 않고 구조화 검증 뒤 `AssistantGameCandidateQuery`로 재조회한다. provider는 게임 후보·BGG 원문·prompt hash·Room command 권한을 받지 않는다.
+
+### AI 기능군 처리·잠금 흐름
+
+1. `AssistantController`가 세션·CSRF·동의·입력 형식을 확인한다. 추천의 외부 호출은 `assistant.service`가 quota·비용 예약과 PII/secret allowlist 검사를 통과한 뒤 시작한다.
+2. 추천은 provider 호출과 후보 조회만 수행하고 Room·ChatRoom·초안을 만들지 않는다. provider 장애·schema 오류·Redis 비용 예약 실패는 명시적 오류로 끝내며 다른 model로 자동 전환하지 않는다.
+3. AI-03의 모든 쓰기 Executor는 `USERS` 행 → `ASSISTANT_DRAFTS` 행 → `ASSISTANT_IDEMPOTENCY_RECORDS` 순서로만 잠근다. 이 순서는 MATCH 멱등성 Executor와 같은 원칙이며, 활성 초안 유일 제약을 잠금 순서나 삭제의 배타성 근거로 쓰지 않는다. 같은 사용자의 초안 생성·수정·확인이 동시에 들어와도 이 순서 때문에 교착 없이 직렬화된다.
+4. `DraftCreate/PatchExecutor`는 `ASSISTANT_DRAFTS`를 사용자별 활성 하나로 유지하고, 초안 생성도 confirm과 같은 규칙으로 그 사용자의 만료된 `ASSISTANT_IDEMPOTENCY_RECORDS`를 같은 트랜잭션에서 삭제한다. `PatchExecutor`는 `ACTIVE` 초안만 수정한다. `region`은 네 지역 enum과 DB CHECK를 통과시키고 생략 시 호환 기본값 `홍대`를 적용한다.
+5. `DraftConfirmExecutor`는 provider를 호출하지 않는다. 진입 전에 `ASSISTANT_NOT_ENABLED` gate를 fail-closed로 먼저 통과해야 하며, 비활성 상태에서는 아래 잠금·정리·재생을 수행하지 않는다. 위 순서로 `USERS` 행 → `ASSISTANT_DRAFTS` 행 → `ASSISTANT_IDEMPOTENCY_RECORDS`를 먼저 잠근 뒤, 같은 `operationTime`으로 만료를 확인해 `expiresAt <= operationTime`인 그 사용자의 기록을 batch purge 없이 모두 삭제한다. 그다음 `expiresAt > operationTime`인 같은 범위·같은 key의 저장 결과를 초안 상태·만료·동의·version·필수 `place` 확인보다 먼저 재생하고, 재생 대상이 없을 때만 그 확인들을 수행한 뒤 새 key를 별도 행으로 등록한다.
+6. 확인 성공은 같은 트랜잭션에서 `AssistantRoomCreationCommand`를 호출해 Room과 ChatRoom을 만들고, 동기 handoff로 받은 `chatRoomId`를 포함한 초안·확인 결과 참조를 `CONFIRMED`로 커밋한다. handoff 또는 어느 저장 경계라도 실패하면 세 저장 경계를 함께 롤백한다. 같은 사용자·draft·operation의 같은 key 재시도는 결과를 반환하고 다른 key·오래된 version은 Room을 만들지 않는다.
+
+`REVOKE`는 활성 초안을 `DISCARDED`로 만들고 이후 추천·초안·확인을 차단한다. `assistant`는 `room`의 Entity·Repository를 직접 잠그지 않으며, Room 생성의 잠금·참가·알림·ChatRoom 불변식은 `room.contract`와 Room 내부 Executor가 소유한다. `assistant → infra.ai` 직접 의존이나 provider 호출을 Room 트랜잭션 안에 넣는 구조는 허용하지 않는다.
+
+### P2 MATCH 모듈 계약
+
+> 이 절은 P2 MATCH의 승인된 구조다. `matching` 모듈·`matching.contract`·MATCH 전용 chat 저장 구조와 구조 검사는 존재한다. `user.contract` 조회와 `MatchPartyChatAccess` 확장은 [ADR-0067](adr/matching/0067-match-shared-contract-boundary.md)의 결정이며 [#801](https://github.com/bamsongi-club/albam-mate/issues/801)이 구현한다. 게임·플랫폼 없는 인원 범위 매칭과 그에 따른 공개 계약은 [ADR-0077](adr/matching/0077-match-no-game-player-range.md)와 [#835](https://github.com/bamsongi-club/albam-mate/issues/835)에 반영한다. 기능별 구현·검증 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)로만 판정하고, 이 절의 계약 서술을 완료 증거로 읽지 않는다.
+
+`matching`은 MATCH 요청·제안·응답, 성공 파티와 참가자 접근, 후보 선점·복구·멱등성·신고·차단을 소유한다. `chat`은 MATCH 전용 채팅방·URL 텍스트를 포함한 메시지·실시간 전달만 소유한다. P1 `ChatRoom`/`roomId`/ROOM 접근/30일 보존은 계속 ROOM 전용이며 MATCH로 확장하거나 재사용하지 않는다.
+
+MATCH 협력 계약은 `matching.contract`가 소유한다.
+
+| 계약 | 호출·구현 | 책임과 트랜잭션 경계 |
+| --- | --- | --- |
+| `MatchChatProvisionPort` | `matching`의 `PREPARING` Recovery Executor가 호출하고 `chat`이 구현 | `partyId`별로 MATCH 채팅방 하나를 멱등 준비한다. |
+| `MatchChatSystemMessagePort` | `matching`이 Party 상태를 잠근 뒤 호출하고 `chat`이 구현 | `CHAT_OPENED`·`CLOSES_IN_ONE_HOUR` lifecycle 알림을 Party별로 멱등 저장한다. 호출한 Executor의 DB 트랜잭션에 참여하며, 이미 기록한 같은 이벤트는 성공으로 수렴한다. |
+| `MatchChatCleanupPort` | `matching`의 Recovery/Cleanup Executor가 호출하고 `chat`이 구현 | `partyId`별 URL 텍스트를 포함한 MATCH 메시지를 먼저, 채팅방을 마지막에 멱등 정리한다. 호출한 Executor의 DB 트랜잭션에 참여하며 별도 커밋·독립 트랜잭션을 열지 않는다. 성공 반환은 해당 chat 데이터 정리가 완료됐다는 뜻이다. |
+| `MatchPartyAccessQuery` | `chat`이 호출하고 `matching`이 구현 | 현재 Party 상태와 아직 명시적으로 나가지 않은 참가자 접근을 함께 확인해 `MatchPartyChatAccess`를 반환한다. |
+| `MatchPartyChatWriteGuard` | `chat`의 URL 텍스트를 포함한 메시지 쓰기 Command가 호출하고 `matching`이 구현 | 호출자 트랜잭션에서 Party를 `FOR UPDATE`로 잠근 뒤 같은 `MatchPartyChatAccess` 판정을 적용한다. 성공 반환 뒤 caller가 같은 트랜잭션에서만 chat 데이터를 저장한다. |
+
+`MatchPartyChatAccess`는 `matching.contract`가 소유하는 3-way 결과 타입이다. Party가 `ACTIVE`이고 아직 명시적으로 나가지 않은 현재 참가자면 `ALLOWED`, 현재 참가자인데 Party가 `PREPARING`이면 `NOT_ACTIVE`, 그 밖의 `CLOSED`·비참가자·이탈자·Party 미존재는 모두 `FORBIDDEN`이다. Party 존재 여부를 접근 권한이 없는 호출자에게 노출하지 않기 위해 미존재를 `FORBIDDEN`으로 흡수하므로, MATCH chat 경로는 `MATCH_PARTY_NOT_FOUND`를 반환하지 않는다. `NOT_ACTIVE → MATCH_CHAT_NOT_ACTIVE`, `FORBIDDEN → FORBIDDEN` 오류 매핑은 `matching`이 한 곳에서 소유하고 `chat`이 다시 판정하지 않는다.
+
+따라서 런타임에는 양 모듈이 협력해도 컴파일 의존은 `chat → matching.contract`만 생긴다. `matching` Recovery/Cleanup Executor는 위 provision·SYSTEM message·cleanup port만 호출하며 chat Entity·Repository를 직접 참조하지 않는다. `matching → chat`이나 순환 의존은 생기지 않는다.
+
+`matching`이 다른 업무 모듈에서 읽는 값은 그 모듈의 `contract`가 소유한다. MATCH 자체는 게임 카탈로그나 플랫폼 계약을 읽지 않는다.
+
+| 계약 | 호출·구현 | 책임과 트랜잭션 경계 |
+| --- | --- | --- |
+| `user.contract`의 공개 프로필 조회 | `matching`·`chat`이 호출하고 `user`가 구현 | 닉네임과 공개 프로필 이미지만 단건·일괄로 반환한다. 없는 사용자 ID는 결과에서 제외하고 예외로 만들지 않으며, 이미지가 없으면 빈 값으로 표현한다. 이메일·비밀번호·세션·인증 정보와 사용자 Entity는 공개하지 않는다. |
+| `user.contract`의 사용자 행 잠금 port | `matching`이 호출하고 `user`가 구현 | 호출자 트랜잭션에 참여해 입력 사용자 ID를 오름차순으로 `FOR UPDATE` 잠그고 실제 존재한 ID만 반환한다. 사용자 Entity를 반환하지 않으므로 잠금 경로로 개인정보가 새지 않는다. 잠금 뒤 표시용 값이 필요하면 같은 트랜잭션에서 공개 프로필 조회를 따로 호출한다. |
+
+MATCH 요청은 사용자가 입력한 인원 범위 그대로 저장한다. 후보 선별은 연결된 요청들의 저장 범위 교집합을 계산하고, 실제 파티 인원은 그 교집합의 하한으로 고정한다. 게임 카탈로그나 플랫폼은 요청 등록·후보 선별·제안·성공 파티의 판정에 사용하지 않으며, 참가자 간 게임 선택은 성공 파티 채팅에서 이뤄진다.
+
+`matching`이 MATCH 저장 구조와 공개 프로필을 함께 보여주는 목록을 만들 때는 자기 테이블만 조회해 사용자 ID를 얻은 뒤, 그 페이지의 ID를 모아 공개 프로필 일괄 조회를 한 번 호출해 응답을 조립한다. `matching`의 JPQL은 다른 모듈의 Entity를 조인하지 않는다.
+
+Recovery/Cleanup Executor는 Party별 `REQUIRES_NEW`를 시작할 때 대상 `MATCH_PARTIES` 행을 `FOR UPDATE`로 잠근다. 잠금 뒤 PostgreSQL 시각으로 `operationTime`과 [제품이 정한 PREPARING 기한](p2/matching.md#성공-파티-채팅)에서 계산한 `prepareUntil`을 한 번 정하고 현재 `status`·MATCH 채팅 존재를 다시 읽는다. `operationTime < prepareUntil`인 아직 `PREPARING` Party만 provision을 시작할 수 있으며, `PREPARING → ACTIVE` 조건부 전이 직전에도 DB 시각이 deadline 전인지 다시 확인한다. 그 조건이 0건이거나 `operationTime >= prepareUntil`이면 채팅방 존재와 무관하게 실패 cleanup만 수행한다. 잠금 뒤 `ACTIVE`·`CLOSED`가 되었거나 Party가 없으면 no-op으로 끝내므로 provision과 stale cleanup이 같은 Party에 함께 적용되지 않는다.
+
+`PREPARING` deadline을 넘긴 실패에서는 같은 Executor가 `MatchChatCleanupPort` 완료 뒤 Party·참가자 접근을 물리 삭제하고 연결 요청을 기존 `queuedAt`·`prioritySince` 그대로 `WAITING`으로 복귀시킨다. `CLOSED` Party의 `purgeAfter <= operationTime`에서도 같은 Executor가 port 완료 뒤 Party·참가자 접근을 물리 삭제한다. 두 기한의 제품 규칙은 [MATCH-01 성공 파티 채팅](p2/matching.md#성공-파티-채팅)이 소유한다. 두 경우 모두 port 정리와 matching lifecycle 변경은 같은 DB 트랜잭션에서 성공하거나 함께 롤백하므로 부분 완료를 사용자에게 노출하지 않는다.
+
+`PREPARING` Party는 채팅방 행이 이미 있어도 메시지 조회·전송·실시간 구독 권한을 부여하지 않는다. `MatchPartyAccessQuery`가 `ALLOWED`를 반환한 뒤에만 기존 P1의 세션·Redis Pub/Sub·전송 제한 기술을 MATCH 전달에 재사용할 수 있다. 재접속·이벤트 유실의 정본은 같은 query가 읽는 PostgreSQL 현재 상태이며 실시간 신호는 정본이 아니다.
+
+MATCH 사용자 메시지 쓰기는 chat Command가 연 트랜잭션에서 `MatchPartyChatWriteGuard`를 먼저 호출해 Party를 잠근 뒤 `MATCH_CHAT_ROOMS`를 잠그고 저장한다. MATCH의 쓰기 잠금 순서는 항상 `MATCH_PARTIES → MATCH_CHAT_ROOMS`다. 마지막 나가기·`closesAt` 예약 종료도 같은 Party 잠금을 먼저 얻으므로, close가 먼저 커밋되면 이후 쓰기는 거절되고 write가 먼저 커밋되면 URL 텍스트를 포함한 메시지는 close 전 상태에만 남는다. SYSTEM lifecycle 알림은 matching Executor가 Party 잠금과 `ACTIVE` 조건을 유지한 채 `MatchChatSystemMessagePort`를 호출해 같은 순서로 저장한다. 예약 종료 제품 규칙은 [MATCH-01 성공 파티 채팅](p2/matching.md#성공-파티-채팅)을 따른다.
+
 ### 패키지 구조
 
 패키지는 파일 목록이 아니라 책임 경계로 관리한다. 다음 패턴 안에서 클래스나 하위 구현을 추가할 때는 이 문서를 갱신하지 않는다.
@@ -126,13 +205,28 @@ RANK-02의 외부·내부 인기 점수는 런타임 모듈 호출이 아니라 
 | `room/service/command` | ROOM 변경 유스케이스, Coordinator와 Executor |
 | `room/enums` | ROOM Entity·DTO가 공유하는 방·참가 도메인 타입 |
 | `room/statuscorrection` | 공통 단건 상태 보정과 Scheduler 전용 제한 선별·영속 진행 조정 |
+| `assistant/contract` (P2 계획) | AI-02 `AssistantIntentExtractor` provider 협력 계약 |
+| `game/contract` (P2 확장) | AI-02 `AssistantGameCandidateQuery` 후보 조회 계약 |
+| `room/contract` (P2 확장) | AI-03 `AssistantRoomCreationCommand` 확인형 Room command와 ChatRoom 결과 handoff 계약 |
+| `assistant/controller`, `assistant/dto` (P2 계획) | AI-01 동의·AI-02 추천·AI-03 초안·확인 HTTP 경계와 요청·응답 변환 |
+| `assistant/entity`, `assistant/repository` (P2 계획) | AI-01 동의·AI-03 초안·확인 멱등성 저장 계약. provider 원문은 저장하지 않음 |
+| `assistant/service` (P2 계획) | AI-01 요청 orchestration, AI-02 추천 Provider 경계, AI-03 초안 lifecycle·확인 Executor와 트랜잭션 조정 |
+| `matching/contract` (P2) | MATCH chat provision·cleanup·access 공개 계약. `chat`이 구현 또는 호출한다. |
+| `matching/service/query` (P2) | MATCH 조회 유스케이스와 `chat`에 공개하는 접근·쓰기 guard 판정 |
+| `matching/service/command` (P2 계획) | MATCH 상태 변경, 후보 선점 Coordinator와 독립 Executor |
+| `matching/recovery` (P2 계획) | 제안 기한·`PREPARING` 복구·종료 정리 Scheduler와 제한된 묶음 Executor |
 | `chat/service` (P1) | 채팅방 접근, 메시지 저장·이력 조회 유스케이스 |
 | `chat/websocket` (P1) | 방별 WebSocket handshake, 인스턴스 로컬 연결과 PostgreSQL 이력 복구 상태 |
 | `chat/retention` (P1) | 최종 상태 메시지의 일일 만료 선별, 소량 묶음 삭제와 실패 계측 |
+| `chat/match` (P2) | MATCH 채팅이 공유하는 메시지 종류·SYSTEM 이벤트 키 도메인 타입 |
+| `chat/match/entity`, `chat/match/repository` (P2) | MATCH 전용 채팅방과 URL 텍스트를 포함한 메시지의 영속 구조 |
+| `chat/match/adapter` (P2 계획) | `matching.contract`의 provision·SYSTEM message·cleanup port 구현 |
+| `chat/match/service` (P2 계획) | `matching.contract`의 access·write guard 계약을 사용하는 MATCH 채팅 조회·저장 유스케이스 |
 | `global/security/session` (P1) | 공용 서버 세션 설정과 세션 쿠키 공통 규칙 |
 | `global/scheduling` (P1) | 업무 규칙을 모르는 클러스터 스케줄 잠금 port |
 | `global` | 업무 의미가 없는 공통 기술 기반 |
 | `infra/redis` (P1) | `chat.contract`의 실시간 발행·구독 port와 Spring Session Redis adapter |
+| `infra/ai` (P2 계획) | AI-02 `assistant.contract.AssistantIntentExtractor`의 OpenAI·fake provider adapter. `assistant` 업무 규칙은 소유하지 않음 |
 | `infra/scheduling` (P1) | PostgreSQL 시각과 `SHEDLOCK` 테이블을 사용하는 스케줄 잠금 adapter |
 
 필요한 구현만 만들며 빈 폴더를 미리 생성하지 않는다. `contract`도 다른 모듈에 공개할 계약이나 `infra`가 구현할 포트가 생길 때만 추가한다. 표는 모든 모듈에 모든 패키지를 허용한다는 뜻이 아니다. 기존 패키지에 파일을 추가할 때는 갱신하지 않지만, 모듈에 새로운 최상위 책임 패키지를 만들 때는 이 절과 구조 검사를 함께 확인한다.
@@ -184,6 +278,10 @@ RANK-02의 외부·내부 인기 점수는 런타임 모듈 호출이 아니라 
 | Integration Event Recorder | `room.contract`의 기록 포트를 구현하고 호출한 Room Command Executor의 트랜잭션에 참여해 Outbox 이벤트와 수신자 스냅샷만 저장한다. |
 | Notification Relay Coordinator·Executor | polling과 최대 처리 수는 트랜잭션 밖에서 조정하고, 선점·Notification 생성·완료 전환은 이벤트별 독립 트랜잭션에서 수행한다. |
 | Notification Recovery·Cleanup | 운영 명령 adapter와 Scheduler는 Repository를 직접 사용하지 않으며, application service·Executor가 제한된 묶음의 상태 전환과 물리 삭제 트랜잭션을 소유한다. |
+| MATCH Proposal Coordinator·Executor (P2 계획) | Coordinator는 트랜잭션 밖에서 제한된 후보 처리만 조정한다. Executor는 `REQUIRES_NEW`에서 `FOR UPDATE SKIP LOCKED` 후보 선점, `WAITING → PROPOSED` 조건부 전이와 제안·회원 저장을 함께 커밋한다. |
+| MATCH Proposal Response·Terminal Executor (P2 계획) | 응답, `PROPOSED` 요청 취소와 expiry의 종결 경합을 같은 `REQUIRES_NEW`에서 처리한다. Proposal 잠금·`OPEN → terminal` CAS 뒤 승자만 회원·요청·요청 멱등성 결과를 갱신하며, `CONFIRMED`면 성공 Party·참가자 접근·연결 요청 `MATCHED`·Party `PREPARING`을 원자적으로 확정한다. |
+| MATCH Party Leave Executor (P2 계획) | 명시적 나가기에서 Party를 잠근 뒤 본인 접근만 종료하고, 남은 현재 접근이 0이면 `ACTIVE → CLOSED`를 같은 `REQUIRES_NEW`에서 확정한다. 연결 종료·서버 재시작은 이 command를 호출하지 않는다. |
+| MATCH Recovery/Cleanup Scheduler·Coordinator·Executor (P2 계획) | Scheduler·Coordinator는 전역 스케줄 잠금과 제한된 후보 순회만 조정한다. 제안 기한 후보는 Proposal Response·Terminal Executor를 호출하고, `PREPARING` 복구·`CLOSED` 정리 Executor는 Party별 독립 `REQUIRES_NEW`를 소유한다. Party 잠금 뒤 DB 시각·상태·기한·채팅을 다시 판정해 deadline 전 provision·ACTIVE CAS, deadline 뒤 cleanup의 우선순위를 고정한다. `PREPARING` 실패와 `CLOSED` purge에서는 `MatchChatCleanupPort`가 그 트랜잭션에 참여한 뒤 matching lifecycle을 처리한다. |
 
 클래스 가시성은 호출 범위에서 가장 좁게 둔다. 같은 패키지에서만 쓰는 ReadService·Executor·Coordinator는 package-private으로 두고, 다른 패키지에서 호출해야 하는 Coordinator와 Retrier만 `public`으로 공개한다. Spring Proxy가 트랜잭션을 적용하거나 다른 패키지에서 호출하는 진입 메서드는 클래스 가시성과 별개로 `public`일 수 있다.
 
@@ -368,6 +466,60 @@ flowchart LR
 
 방이 최종 상태가 되면 일반 사용자 접근은 즉시 차단하고, 메시지는 [ADR-0049](adr/chat/0049-chat-message-retention-lock-section-boundary.md)에 따라 30일 뒤 일일 스케줄러가 소량 묶음으로 삭제한다. 모든 인스턴스가 스케줄을 등록하지만 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)의 PostgreSQL ShedLock을 얻은 하나만 작업을 실행한다. 잠금 트랜잭션과 각 삭제 묶음의 독립 트랜잭션은 결합하지 않는다.
 
+#### P2 MATCH 제안·채팅 복구 흐름 (계획·미구현)
+
+> 아래 Coordinator·Executor·Scheduler는 승인된 목표 경계이며 아직 생산 코드와 운영 작업이 없다. `matching`의 패키지 경계는 이미 구조 검사에 등록돼 있으나, 이 절의 실행 경계가 구현됐다는 뜻은 아니다. P1 `CHAT_ROOMS` 흐름을 바꾸지 않는다.
+
+```mermaid
+flowchart LR
+    matcher["MATCH Proposal Scheduler/trigger"] --> coordinator["Proposal Coordinator<br/>트랜잭션 없음"]
+    coordinator --> proposalExecutor["Proposal Executor<br/>REQUIRES_NEW"]
+    proposalExecutor --> claim["WAITING 후보<br/>prioritySince ASC, matchRequestId ASC<br/>FOR UPDATE SKIP LOCKED"]
+    claim --> proposalWrite["조건부 PROPOSED 전이 + Proposal/Members 저장<br/>같은 트랜잭션"]
+    response["Proposal Response Service"] --> responseExecutor["Proposal Response/Terminal Executor<br/>REQUIRES_NEW"]
+    requestCancel["PROPOSED 요청 취소 / expiry recovery"] --> responseExecutor
+    responseExecutor --> proposalLock["MATCH_PROPOSALS FOR UPDATE<br/>OPEN·기한·첫 응답 재확인"]
+    proposalLock --> terminal["마지막 ACCEPT/REQUEUE/CANCEL/취소/만료<br/>OPEN terminal CAS + Member/Request 결과<br/>같은 트랜잭션"]
+    terminal --> finalize["CONFIRMED만: Party/접근 + 요청 MATCHED<br/>Party PREPARING<br/>같은 트랜잭션"]
+    recoveryScheduler["Startup/Recovery Scheduler"] --> schedulerLock["ScheduledTaskLock<br/>scan 조정만"]
+    schedulerLock --> recovery["Recovery/Cleanup Executor<br/>Party별 REQUIRES_NEW"]
+    recovery --> partyLock["MATCH_PARTIES FOR UPDATE<br/>DB 시각·상태·기한·채팅 재확인"]
+    partyLock --> provisionPort["PREPARING + deadline 전: matching.contract<br/>MatchChatProvisionPort"]
+    provisionPort --> matchChat["chat: MATCH 전용 채팅 준비"]
+    matchChat --> active["deadline 전 ACTIVE CAS + CHAT_OPENED 1건"]
+    partyLock --> preparingFailure["PREPARING + deadline 경과"]
+    preparingFailure --> preparingCleanupPort["matching.contract<br/>MatchChatCleanupPort<br/>호출 Executor 트랜잭션 참여"]
+    preparingCleanupPort --> preparingChatCleanup["chat: partyId별 URL 텍스트 포함 메시지 → 채팅방 멱등 삭제"]
+    preparingChatCleanup --> failed["matching: Party/접근 물리 삭제<br/>연결 요청 WAITING 복귀<br/>같은 트랜잭션"]
+    partyLock --> closedPurge["CLOSED + purgeAfter due"]
+    closedPurge --> closedCleanupPort["matching.contract<br/>MatchChatCleanupPort<br/>호출 Executor 트랜잭션 참여"]
+    closedCleanupPort --> closedChatCleanup["chat: partyId별 URL 텍스트 포함 메시지 → 채팅방 멱등 삭제"]
+    closedChatCleanup --> purged["matching: Party/접근 물리 삭제<br/>같은 트랜잭션"]
+```
+
+- Proposal Executor는 인원 범위가 겹치는 후보를 `(prioritySince ASC, matchRequestId ASC)`로 `FOR UPDATE SKIP LOCKED` 선점한다. `WAITING → PROPOSED` 조건부 전이, Proposal·Member 저장은 같은 `REQUIRES_NEW`에서 성공하거나 함께 롤백한다. `ScheduledTaskLock`은 이 업무 claim을 대신하지 않는다.
+- MATCH 요청 생성과 제안 응답의 `Idempotency-Key` 기록·결과 메타데이터는 각 Command Executor의 같은 트랜잭션에 저장한다. 같은 user·key·canonical 의미면 연결된 현재 상태를 반환하고, 다른 operation·path·body action은 충돌이다. 취소·차단·차단 해제에는 key를 요구하지 않는다.
+- 멱등성 Command Executor는 operation별 잠금 순서를 고정한다. `MATCH_REQUEST_CREATE`는 PostgreSQL `operationTime`을 고정한 뒤 대상 `USERS` 행 → `MATCH_IDEMPOTENCY_RECORDS` 순서로, `MATCH_PROPOSAL_RESPONSE`는 `MATCH_PROPOSALS` 행 → 제안 회원의 모든 `USERS` 행 `id ASC` → 해당 멱등성 기록 순서로 잠근다. Proposal을 기다리는 경로가 사용자·멱등성 행을 먼저 보유하지 않으므로 두 command 순서가 교착을 만들지 않는다. `expiresAt > operationTime`이면 같은 canonical 의미는 저장 결과를 재사용하고 다른 의미는 `IDEMPOTENCY_KEY_CONFLICT`로 끝낸다. `expiresAt <= operationTime`이면 batch purge를 기다리지 않고 같은 트랜잭션에서 기존 row의 의미·결과·`createdAt`·`expiresAt`를 새 명령으로 원자 교체한다. 만료 row를 삭제하는 Cleanup은 요청 생성과 같은 사용자 → 멱등성 기록 순서와 만료 재확인을 사용한다.
+- 신고 Command Executor는 `operationTime`을 고정한 뒤 reporter·reported 두 `USERS` 행을 `id ASC`로 잠그고 `MATCH_REPORTS`를 읽는다. `purgeAfter > operationTime`이면 사유·접수 시각을 바꾸지 않고 기존 receipt를 `alreadyReceived = true`로 반환한다. `purgeAfter <= operationTime`이면 지연 purge 여부와 관계없이 같은 신고자·피신고자 row를 새 사유·접수 시각·`purgeAfter`로 원자 교체해 새 접수로 반환한다. 신고 Cleanup도 같은 사용자 잠금 순서와 만료 조건을 재확인하며, Party-scoped `participantRef` 해석은 해당 Party 접근 관계 안에서만 수행한다.
+- Proposal Response/Terminal Executor는 모든 응답, `PROPOSED` 요청 취소, expiry recovery에서 `MATCH_PROPOSALS` 행을 먼저 `FOR UPDATE`로 잠근 뒤 제안 회원의 `USERS` 행을 `id ASC`로 잠그고, 응답에 필요한 멱등성 기록을 마지막에 잠근다. 마지막 `ACCEPT`·`REQUEUE`·`CANCEL`·취소·만료는 한 `OPEN → terminal` 조건부 전이만 경쟁하며, 승자만 회원·요청·Party·요청 멱등성 결과를 하나의 `REQUIRES_NEW`에서 바꾼다. `OPEN`이 아니거나 기한 뒤 도착한 패자는 상태를 다시 전이하지 않는다. 저장 순서는 [ERD의 MATCH 저장 경계](ERD.md#p2-match-저장-경계)를, 이 전이와 결과별 요청 상태는 이 아키텍처 절을 정본으로 삼는다.
+- MATCH 요청 생성과 `CONFIRMED` finalization은 관련 `USERS` 행을 `userId ASC`로 잠근 뒤 활성 MATCH 요청과 `PREPARING`·아직 명시적으로 나가지 않은 `ACTIVE` Party 소속을 함께 판정한다. 따라서 새 요청 생성과 all-accept finalization의 경합도 한 사용자에게 두 현재 상태를 만들지 않는다. `CONFIRMED` finalization은 Party·참가자 접근·연결 요청 `MATCHED`·Party `PREPARING`을 하나의 `REQUIRES_NEW`에서 만든다. 채팅 provisioning은 그 이후 `matching.contract.MatchChatProvisionPort`를 통해 idempotent하게 실행한다. `chat`은 `partyId` 유일 채팅방을 만들거나 기존 방을 반환할 뿐 MATCH Entity·Repository를 참조하지 않는다.
+- startup과 모든 인스턴스의 recovery Scheduler는 `PREPARING`과 `ACTIVE` lifecycle due를 다시 선별한다. `ScheduledTaskLock`은 scan 조정만 하므로 Party별 Executor는 먼저 Party 행을 `FOR UPDATE`로 잠근 뒤 DB 시각·상태·준비 시각·`closesAt`·채팅을 재확인한다. lock 뒤 deadline 전인 `PREPARING`만 기존 MATCH 채팅으로 `ACTIVE`에 수렴하거나 provision을 시작할 수 있고, `ACTIVE` Party는 `closesAt <= operationTime`이거나 `closeNoticeAt <= operationTime < closesAt`이면서 해당 `CLOSES_IN_ONE_HOUR`가 없을 때만 lifecycle due로 처리한다. [제품이 정한 사전 알림 시각](p2/matching.md#성공-파티-채팅)에서 계산한 `closeNoticeAt` 구간의 미생성 event는 멱등 저장하고, `operationTime >= closesAt`이면 `ACTIVE → CLOSED`를 확정한다. 각 조건은 전이·메시지 저장 직전에 다시 확인하고, 이미 event가 있거나 조기 `CLOSED`이거나 상태가 바뀌었으면 no-op으로 처리한다. `ACTIVE` due 처리도 재기동 뒤 같은 `idx_match_parties_active_due`로 다시 선별하며, 잠금 뒤 상태가 바뀌었거나 Party가 없으면 no-op이다. port 정리나 이후 matching lifecycle 변경이 실패하면 모두 롤백해 partial chat·Party·접근 또는 재대기 완료를 남기지 않는다.
+- `ACTIVE` Party의 명시적 나가기는 Party 잠금 안에서 본인 접근을 끝내고 남은 현재 접근을 다시 센다. 마지막 사용자의 나가기 또는 `closesAt` 도달 중 먼저 확정된 하나만 `ACTIVE → CLOSED`로 전이한다. 연결 종료·서버 재시작은 나가기가 아니므로 재접속 권한을 보존한다. `ACTIVE → CLOSED` 전이는 즉시 `MatchPartyAccessQuery`의 메시지·실시간 접근을 거절한다. URL 텍스트를 포함한 메시지 쓰기도 같은 Party 잠금 뒤 현재 접근을 다시 검증하므로 close 커밋 뒤 새 저장을 성공시키지 않는다. chat WebSocket은 메시지 전달 전과 관계 변경 뒤 이 query를 다시 확인해 이미 연결된 사용자도 접근을 잃으면 종료한다. cleanup Executor는 `purgeAfter <= operationTime`인 Party를 같은 `REQUIRES_NEW`에서 `MatchChatCleanupPort` 완료 후 참가자 접근과 함께 물리 삭제한다. `purgeAfter`의 제품 규칙은 [MATCH-01 성공 파티 채팅](p2/matching.md#성공-파티-채팅)을 따른다. port 정리 실패 시 Party·접근을 먼저 삭제하지 않으며 함께 롤백한다. `PREPARING`도 일반 사용자 메시지 접근을 허용하지 않는다.
+- chat은 Party가 `ACTIVE`로 확정된 뒤 `CHAT_OPENED`, `closeNoticeAt`에 도달해도 아직 `ACTIVE`인 경우 `CLOSES_IN_ONE_HOUR` SYSTEM 메시지를 matching Executor의 Party 잠금 안에서 저장한다. 같은 방·이벤트 키의 유일 제약과 conflict-as-exists 처리로 재시작·재시도·겹친 scheduler도 각 lifecycle 알림 한 건으로 수렴하며, 조기 `CLOSED` Party에는 사전 종료 알림을 새로 만들지 않는다.
+- 재접속과 이벤트 유실은 한 번의 서버 상태 조회로 복구한다. P1 Redis Pub/Sub·세션·전송 제한은 `ACTIVE` 뒤 전달에만 재사용하며, Redis business lock은 MATCH 후보·응답·복구 정합성에 도입하지 않는다.
+
+#### P2 MATCH 현재 상태 snapshot (계획·미구현)
+
+`GET /api/matches/current`는 만료 보정과 읽기 snapshot을 서로 다른 경계로 고정한다. Query Coordinator는 due `OPEN` Proposal을 Proposal Terminal/expiry Executor에, `PREPARING` deadline 초과 Party를 Recovery/Cleanup Executor에, `ACTIVE` lifecycle 미처리 due Party를 Party lifecycle Executor에 위임하고, 해당 Executor가 최신 상태를 확정한 뒤에만 읽기를 시작한다. `CLOSES_IN_ONE_HOUR`가 이미 존재하는 종료 전 `ACTIVE` Party는 due가 아니므로 정상 snapshot으로 반환한다. 조회가 보정을 대신해 상태를 추정하거나, 만료된 행을 단순히 `null`로 숨기지 않는다.
+
+최종 CurrentState ReadService는 `REQUIRES_NEW`, `readOnly`, PostgreSQL `REPEATABLE_READ` 트랜잭션을 시작한다. 첫 업무 조회 전에 `transaction_timestamp()`를 한 번 평가한 `operationTime`을 고정하고, 하나의 SQL snapshot에서 사용자 요청·열린 제안·Party·현재 참가자 접근·채팅 handoff를 함께 읽는다. 같은 snapshot에서 `respondBy <= operationTime`인 `OPEN` Proposal, `prepareUntil <= operationTime`인 `PREPARING` Party, `closesAt <= operationTime`인 `ACTIVE` Party 또는 `closeNoticeAt <= operationTime < closesAt` 구간에서 `CLOSES_IN_ONE_HOUR`가 없는 `ACTIVE` Party가 보이면 응답을 조합하지 않고 read transaction을 rollback한다. Query Coordinator가 해당 Terminal/Recovery/Party lifecycle Executor를 호출한 뒤 새 `REPEATABLE_READ` snapshot을 다시 열어 미처리 due 행이 없는 결과만 반환한다. 이 재시도는 최대 3회로 제한하고 계속 미처리 due 상태가 관찰되면 `MATCH_CURRENT_STATE_NOT_STABLE`로 종료한다. 요청과 Party가 동시에 살아 있는 것처럼 보이면 우선순위로 하나를 고르지 않고 정합성 위반으로 처리한다. `operationTime` 이후 커밋된 변경은 다음 조회에서만 보이며, 실시간 이벤트와 서로 다른 조회 시각을 합쳐 응답하지 않는다. `prepareUntil`·`closeNoticeAt`·`closesAt`의 제품 시간 규칙은 [MATCH-01 성공 파티 채팅](p2/matching.md#성공-파티-채팅)을 따른다.
+
+`WAITING`·`PROPOSED`·`PAUSED`는 요청 사실과 같은 snapshot의 제안 사실로, `PREPARING`·`ACTIVE`는 성공 Party와 접근 관계로 판정한다. `PREPARING`에는 채팅 경로를 조합하지 않고, `ACTIVE`에서만 `MatchPartyAccessQuery`가 반환한 접근 관계와 chat handoff를 조합한다. 이 경계가 API의 `CurrentMatchStateResponse.operationTime`과 만료 상태 처리 정본이며, ERD는 해당 실행 순서를 다시 정의하지 않는다.
+
+#### P2 MATCH 기준 측정 gate (계획·미구현)
+
+candidate claim transaction baseline의 fixture·round·통계·결과 채택은 [MATCH-01 후보 탐색 baseline 측정 계약](measurements/match-01-candidate-search-baseline-contract.md)만 소유한다. candidate claim과 최종 상태 정합성 증거를 분리하는 선택 이유는 [ADR-0065](adr/matching/0065-match-candidate-claim-baseline-scope.md), baseline 전 수치 목표·Redis 업무 락을 채택하지 않는 결정은 [ADR-0063](adr/matching/0063-match-baseline-measurement-gate.md)을 따른다.
+
 #### 다중 인스턴스 실행
 
 공용 세션과 스케줄 실행 조정의 기술 결정은 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)이 소유하고, 실행 프로필·로컬 검증 경계는 [ADR-0052](adr/platform/0052-local-profile-multi-instance-default.md)가 소유한다.
@@ -393,7 +545,7 @@ App1과 `local` Nginx는 Spring의 유일한 신뢰 프록시다. HTTP와 WebSoc
 
 P2 운영 관측의 기능 규칙과 완료 기준은 [운영 관측 명세](p2/monitoring.md), 화면·경고·비용·배포 검증 정책은 [대시보드 정책](p2/dashboard.md), metric·log inventory와 운영 상태 전이·runbook은 [운영 관측 런북](guides/MONITORING_OPERATIONS.md)이 소유한다. 아래 전송 경계는 승인됐지만 아직 생산 배포에서 검증하지 않았으며, 현재 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)를 따른다.
 
-- Spring 애플리케이션은 [ADR-0058](adr/platform/0058-p2-application-metrics-otlp-host-cloudwatch-agent.md)에 따라 Micrometer metric을 OTLP HTTP로 같은 EC2의 host CloudWatch Agent에 보낸다. Spring container의 `127.0.0.1`을 host loopback으로 해석하지 않고, 외부에 publish하지 않은 동일 호스트 전용 Docker bridge와 host 방화벽으로 수신자를 해당 Spring container에 제한한다.
+- Spring 애플리케이션은 [ADR-0071](adr/platform/0071-p2-application-metrics-otlp-host-cloudwatch-agent.md)에 따라 Micrometer metric을 OTLP HTTP로 같은 EC2의 host CloudWatch Agent에 보낸다. Spring container의 `127.0.0.1`을 host loopback으로 해석하지 않고, 외부에 publish하지 않은 동일 호스트 전용 Docker bridge와 host 방화벽으로 수신자를 해당 Spring container에 제한한다.
 - App1·App2는 각자 자신의 host Agent만 사용한다. Agent·CloudWatch 장애는 사용자 요청과 업무 트랜잭션을 실패시키지 않고 마지막 수집 시각과 관측 공백으로 드러낸다. 애플리케이션은 CloudWatch SDK나 다른 host Agent fallback을 사용하지 않는다.
 - production Spring은 [ADR-0059](adr/platform/0059-p2-structured-stdout-cloudwatch-logs.md)에 따라 같은 Spring Boot Logstash 한 줄 JSON event를 stdout과 bind-mounted Agent 전용 rolling file에 함께 기록한다. Docker `json-file`과 전용 file은 각각 10MB × 5개로 sink별 최대 50MB, 두 sink 합계는 Spring container별 최대 100MB 이내로 제한 회전한다. host 전체 용량은 Spring container 수에 따른 이 합계와 다른 container·host log를 별도로 더해 산정한다. host Agent는 Docker daemon 전용 내부 파일이 아니라 전용 file의 허용 event만 CloudWatch Logs에 14일 보존한다.
 - metric·log 수집기는 제품 모듈이나 업무 데이터 정본이 아니다. 도메인 코드는 안정된 meter·event와 금지 데이터 경계를 소유하고, bridge·Agent·CloudWatch·dashboard·alarm은 인프라 adapter와 별도 인프라 저장소가 소유한다.
@@ -488,15 +640,18 @@ Repository Projection은 쿼리가 선택한 열을 담는 저장소 계층 타�
 
 - 업무 모듈 사이의 순환 의존 금지
 - 다른 업무 모듈의 `contract` 외 내부 구현 참조 금지
-- `auth → user`, `room → user·game`, `notification → room.contract`, `chat → room.contract·user.contract` 외 현재 업무 모듈 의존 금지
+- `auth → user`, `room → user·game`, `notification → room.contract`, `chat → room.contract·user.contract·matching.contract`, `matching → user.contract`만 허용하며 `matching → game`은 금지
 - `global`의 업무 모듈 의존 금지
 - 생산 코드의 `@Autowired` 필드·생성자·메서드 주입 금지
 - ROOM 코드를 `contract`를 포함해 이 문서가 허용한 패키지에만 배치
-- Chat 코드를 `entity`·`repository` 허용 패키지에만 배치
+- Chat 코드를 이 문서가 허용한 패키지에만 배치
+- MATCH 코드를 이 문서가 허용한 패키지에만 배치하고, `matching → chat` 직접 참조와 `chat → matching.contract` 밖 참조를 금지
 - P1 Notification 코드를 조회·변경·relay·recovery·cleanup 책임에 맞는 허용 패키지에만 배치
 - Retrier 직접 사용자를 `RoomCommandExecutionCoordinator`, `RoomStatusCorrectionCoordinator`로 제한
 - `infra`가 업무 모듈의 `contract` 밖 내부 구현에 의존하지 않는다.
 - 업무 모듈이 `infra`의 구체 구현을 참조하지 않는다.
+
+P2 MATCH의 허용 의존 방향과 `matching`·`chat` 패키지 경계는 이 구조 검사에 등록돼 있다. MATCH 기능 구현에서 새 최상위 책임 패키지를 만들면 이 절의 패키지 표와 구조 검사의 허용 목록을 같은 변경에서 함께 갱신한다. 여러 기능 이슈가 같은 허용 목록을 각자 고치면 충돌하므로, MATCH 공통 계약 구현 이슈([#801](https://github.com/bamsongi-club/albam-mate/issues/801))가 필요한 등록을 한 번에 소유한다. 구조 검사는 타입 참조만 검출하므로 JPQL이 다른 모듈 Entity를 조인하는 경로는 계약 테스트와 리뷰로 확인한다. P1 CHAT의 허용 패키지와 `CHAT_ROOMS` 계약을 MATCH 구현의 완료 증거로 해석하지 않는다.
 
 `notification` 모듈의 현재 구현·검증 여부는 [P1 기능 종료 상태](archive/p1/README.md#기능별-종료-상태)으로 판정한다. 구조 테스트에 모듈·허용 의존·패키지 규칙을 먼저 등록하거나 빈 패키지를 추가한 사실만으로 생산 코드·자동 검증 상태를 완료로 바꾸지 않는다. ADR-0029·ADR-0039·ADR-0040의 트랜잭션·잠금·복구·정리·표시·읽음 결정은 요구된 생산 코드와 PostgreSQL 검증 증거를 모두 갖춰야 한다.
 
@@ -535,4 +690,4 @@ Repository Projection은 쿼리가 선택한 열을 담는 저장소 계층 타�
 
 중요한 구조 선택의 근거나 대안이 바뀌면 ADR을 추가하거나 기존 ADR을 대체한다. 코드 작성 규칙은 [CONVENTIONS](CONVENTIONS.md), HTTP 계약은 [API 명세](API.md), 저장 계약은 [ERD](ERD.md)가 각각 소유한다.
 
-> 문서 관리: 소유자 `밤송이클럽 백엔드 팀` · 최종 검증일 `2026-08-12` · 폐기 조건 `모듈러 모놀리스 구조를 더 이상 사용하지 않거나 후속 아키텍처 정본이 승인될 때`
+> 문서 관리: 소유자 `밤송이클럽 백엔드 팀` · 최종 검증일 `2026-08-18` · 폐기 조건 `모듈러 모놀리스 구조를 더 이상 사용하지 않거나 후속 아키텍처 정본이 승인될 때`

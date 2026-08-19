@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import cloud.bamsongi.albammate.user.contract.UserPublicProfile;
 import cloud.bamsongi.albammate.user.entity.User;
 import jakarta.persistence.LockModeType;
 
@@ -30,6 +31,16 @@ public interface UserRepository extends JpaRepository<User, Long> {
 	Optional<User> findByIdForUpdate(@Param("userId")
 	Long userId);
 
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("""
+		select u
+		from User u
+		where u.id in :userIds
+		order by u.id asc
+		""")
+	List<User> findExistingUsersForUpdateInAscendingOrder(@Param("userIds")
+	Collection<Long> userIds);
+
 	@Query("""
 		select u.nickname
 		from User u
@@ -39,6 +50,22 @@ public interface UserRepository extends JpaRepository<User, Long> {
 	Long userId);
 
 	@Query("""
+		select new cloud.bamsongi.albammate.user.contract.UserPublicProfile(u.id, u.nickname, u.profileImageUrl)
+		from User u
+		where u.id = :userId
+		""")
+	Optional<UserPublicProfile> findPublicProfileById(@Param("userId")
+	Long userId);
+
+	@Query("""
+		select new cloud.bamsongi.albammate.user.contract.UserPublicProfile(u.id, u.nickname, u.profileImageUrl)
+		from User u
+		where u.id in :userIds
+		""")
+	List<UserPublicProfile> findPublicProfilesByIds(@Param("userIds")
+	Collection<Long> userIds);
+
+	@Query("""
 		select u.id as id, u.nickname as nickname
 		from User u
 		where u.id in :userIds
@@ -46,10 +73,35 @@ public interface UserRepository extends JpaRepository<User, Long> {
 	List<UserNicknameProjection> findNicknameProjectionsByIds(@Param("userIds")
 	Collection<Long> userIds);
 
+	@Query("""
+		select u.nickname as nickname, u.profileImageUrl as profileImageUrl
+		from User u
+		where u.id = :userId
+		""")
+	Optional<UserSummaryProjection> findUserSummaryProjectionById(@Param("userId")
+	Long userId);
+
+	@Query("""
+		select u.id as id, u.nickname as nickname, u.profileImageUrl as profileImageUrl
+		from User u
+		where u.id in :userIds
+		""")
+	List<UserSummaryProjection> findUserSummaryProjectionsByIds(@Param("userIds")
+	Collection<Long> userIds);
+
 	interface UserNicknameProjection {
 
 		Long getId();
 
 		String getNickname();
+	}
+
+	interface UserSummaryProjection {
+
+		Long getId();
+
+		String getNickname();
+
+		String getProfileImageUrl();
 	}
 }

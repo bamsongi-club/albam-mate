@@ -141,6 +141,43 @@ class ChatMessageHistoryQueryServiceIntegrationTest {
 		assertEquals(ErrorCode.FORBIDDEN, exception.getErrorCode());
 	}
 
+	@Test
+	void T2_이력_조회_응답의_sender에_발신자의_현재_프로필_이미지_URL이_채워진다() {
+		long hostUserId = insertUserWithProfileImage("host", "https://cdn.example.com/host.png");
+		Room room = createChatRoom(hostUserId);
+		insertMessages(room.getId(), hostUserId, 1);
+
+		ChatMessagePageResponse page = chatMessageHistoryQueryService.history(hostUserId, room.getId(), null, 50);
+
+		assertEquals("https://cdn.example.com/host.png", page.messages().get(0).sender().profileImageUrl());
+	}
+
+	@Test
+	void T6_프로필_이미지가_없는_발신자의_sender_profileImageUrl은_null이다() {
+		long hostUserId = insertUser("host");
+		Room room = createChatRoom(hostUserId);
+		insertMessages(room.getId(), hostUserId, 1);
+
+		ChatMessagePageResponse page = chatMessageHistoryQueryService.history(hostUserId, room.getId(), null, 50);
+
+		assertNull(page.messages().get(0).sender().profileImageUrl());
+	}
+
+	private long insertUserWithProfileImage(String nickname, String profileImageUrl) {
+		String email = "chat-history-" + UUID.randomUUID() + "@example.com";
+		jdbcTemplate.update(
+			"insert into users (email, password_hash, nickname, profile_image_url, created_at, updated_at) "
+				+ "values (?, 'hash', ?, ?, ?, ?)",
+			email,
+			nickname,
+			profileImageUrl,
+			NOW,
+			NOW);
+		Long userId = jdbcTemplate.queryForObject("select id from users where email = ?", Long.class, email);
+		userIds.add(userId);
+		return userId;
+	}
+
 	private List<Long> insertMessages(long roomId, long senderUserId, int count) {
 		List<Long> messageIds = new ArrayList<>(count);
 		for (int i = 0; i < count; i++) {

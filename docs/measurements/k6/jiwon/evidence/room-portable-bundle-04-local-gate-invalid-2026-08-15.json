@@ -1,0 +1,232 @@
+{
+  "schema": "k6-campaign-manifest-v3",
+  "kind": "room-portable-bundle",
+  "campaignId": "room-k6-local-gate-2026-08-15",
+  "campaignStatus": "completed-with-limitations",
+  "campaignOutcome": "incomplete",
+  "documentStatus": "superseded",
+  "reportStatus": "INVALID",
+  "purpose": "official ROOM matrix를 새 source에서 다시 시작하되, clean-source render gate가 remote handoff 전에 untracked 변경을 차단하는지와 중단된 campaign의 원자료 경계를 기록한다.",
+  "documents": {
+    "ownerIndex": "../README.md",
+    "report": "../room-portable-bundle-04-local-gate-invalid-2026-08-15.md"
+  },
+  "lineage": {
+    "campaignSequence": 4,
+    "successorCampaign": "room-k6-final-clean-2026-08-15"
+  },
+  "executionPath": {
+    "included": "ROOM portable bundle -> infra run.sh room-k6",
+    "excluded": "generic loadtest"
+  },
+  "window": {
+    "reportedStartedAtUtc": "2026-08-14T15:22:53Z",
+    "reportedEndedAtUtc": "2026-08-14T15:37:07Z",
+    "reportedStartedAtKst": "2026-08-15T00:22:53+09:00",
+    "reportedEndedAtKst": "2026-08-15T00:37:07+09:00",
+    "reportedDurationSeconds": 854,
+    "remoteArtifactStartedAtUtc": "2026-08-14T15:22:59Z",
+    "remoteArtifactEndedAtUtc": "2026-08-14T15:37:05Z"
+  },
+  "artifactBoundary": {
+    "rawArtifacts": "local-only",
+    "directoryPattern": "build/k6/room/<run-id>/<fixture-id>",
+    "rawArtifactsVersioned": false,
+    "notRetained": [
+      "password and credential-derived hash",
+      "token, session, and CSRF material",
+      "target URL and actual fixture or resource identifiers",
+      "raw SQL, console log, and raw k6 summary content"
+    ],
+    "digestScope": "remote Run only: per-run portable manifest, final-result, and k6-summary SHA-256"
+  },
+  "sources": [
+    {
+      "sequences": [1, 2, 3, 4],
+      "sourceRevision": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+      "applicationRevision": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+      "sourceToApplicationAlignment": "MATCH"
+    },
+    {
+      "sequences": [5, 6, 7, 8, 9, 10, 11, 12, 13],
+      "sourceToApplicationAlignment": "NOT_ASSERTED",
+      "reason": "clean-source gate가 bundle render 전에 차단했으므로 portable source artifact와 deployed application alignment를 만들지 않았다."
+    }
+  ],
+  "integrityChecks": {
+    "historicalBundleValidation": {
+      "method": "embedded historical portable-bundle validator",
+      "checkedRemoteRunCount": 4,
+      "passedRemoteRunCount": 4,
+      "failedRemoteRunCount": 0,
+      "rawBundleTampering": "NOT_DETECTED"
+    },
+    "currentSourceRevalidation": {
+      "method": "current checkout validator against the historical local-only bundles",
+      "checkedRemoteRunCount": 4,
+      "passedRemoteRunCount": 4,
+      "failedRemoteRunCount": 0,
+      "outcome": "PASS",
+      "reason": "remote raw bundle의 validator 호환성 통과는 clean-source gate로 raw가 생성되지 않은 후속 attempt에 적용되지 않는다."
+    }
+  },
+  "selection": {
+    "plannedOfficialRunCount": 25,
+    "remoteArtifactRunCount": 4,
+    "preRenderGateBlockedAttemptCount": 9,
+    "notAttemptedOfficialRunCount": 12,
+    "includedRunCount": 0,
+    "excludedRunCount": 13,
+    "method": "공식 matrix의 시간순 순서대로 실행을 시작했고, remote T1 네 Run 뒤 render 전 clean-source gate가 다음 아홉 attempt를 차단했다.",
+    "reasonAllExcluded": "remote PASS 네 개만으로 공식 matrix를 완주하지 못했으며, 후속 아홉 attempt에는 raw bundle 또는 remote artifact가 없다."
+  },
+  "runs": [
+    {
+      "sequence": 1,
+      "attemptStage": "remote-executed",
+      "scenario": "t1",
+      "condition": { "profile": "stress", "rounds": 5, "mode": "hot", "concurrency": 2 },
+      "window": { "startedAtUtc": "2026-08-14T15:22:59Z", "endedAtUtc": "2026-08-14T15:26:27Z" },
+      "status": "PASS",
+      "reportDisposition": "excluded",
+      "phaseExitCodes": { "prepare": 0, "resourceQuery": 0, "beforeSnapshot": 0, "k6": 0, "afterSnapshot": 0 },
+      "metrics": { "requestCount": 10, "successCount": 10, "businessFailureCount": 0, "concurrentFailureCount": 0, "unexpected4xxCount": 0, "serverFailureCount": 0, "contractFailureCount": 0, "startSkewMaxMs": 1 },
+      "artifactDigests": { "portableBundleManifestSha256": "3dd4f79617f3662f7f958d240555d37e0461e2e558997085a4bf8bb832248962", "finalResultSha256": "bbc7c088ce0bb09c2e0989b59708bd529209c80e3b048da4bbefb8bb09b4344a", "k6SummarySha256": "fdcd0c50d8cde7cd48b68215726c7f2b98e9cfc3a1c21819daf49d7fb98ed642" }
+    },
+    {
+      "sequence": 2,
+      "attemptStage": "remote-executed",
+      "scenario": "t1",
+      "condition": { "profile": "stress", "rounds": 5, "mode": "hot", "concurrency": 4 },
+      "window": { "startedAtUtc": "2026-08-14T15:26:32Z", "endedAtUtc": "2026-08-14T15:30:01Z" },
+      "status": "PASS",
+      "reportDisposition": "excluded",
+      "phaseExitCodes": { "prepare": 0, "resourceQuery": 0, "beforeSnapshot": 0, "k6": 0, "afterSnapshot": 0 },
+      "metrics": { "requestCount": 20, "successCount": 15, "businessFailureCount": 0, "concurrentFailureCount": 5, "unexpected4xxCount": 0, "serverFailureCount": 0, "contractFailureCount": 0, "startSkewMaxMs": 1 },
+      "artifactDigests": { "portableBundleManifestSha256": "be031462d83ac6c27f769a30cb14876606ad922135316c61dc5fcf6f5b69aab8", "finalResultSha256": "4f6a08e443edc4c226f2390de20903419efb282dedfea81fb09f8c851b5a77e3", "k6SummarySha256": "fa9eeccf5231a39ecaf5e3d7347700abd876ff9621b798f449f0b693ed63548f" }
+    },
+    {
+      "sequence": 3,
+      "attemptStage": "remote-executed",
+      "scenario": "t1",
+      "condition": { "profile": "stress", "rounds": 5, "mode": "hot", "concurrency": 8 },
+      "window": { "startedAtUtc": "2026-08-14T15:30:07Z", "endedAtUtc": "2026-08-14T15:33:33Z" },
+      "status": "PASS",
+      "reportDisposition": "excluded",
+      "phaseExitCodes": { "prepare": 0, "resourceQuery": 0, "beforeSnapshot": 0, "k6": 0, "afterSnapshot": 0 },
+      "metrics": { "requestCount": 40, "successCount": 19, "businessFailureCount": 0, "concurrentFailureCount": 21, "unexpected4xxCount": 0, "serverFailureCount": 0, "contractFailureCount": 0, "startSkewMaxMs": 1 },
+      "artifactDigests": { "portableBundleManifestSha256": "cedb96b358ca503597091f5dc480fd06f41e99c870383d49300c4ca35ba74cb3", "finalResultSha256": "2ba7f9487de1a31ff7bce8269f002cd6a1d265492d4566a4a7d9a649084e969d", "k6SummarySha256": "24daa6af4a6853753050ef50a0e82c98e49ea117135aca7ecd7975f0311b92ad" }
+    },
+    {
+      "sequence": 4,
+      "attemptStage": "remote-executed",
+      "scenario": "t1",
+      "condition": { "profile": "stress", "rounds": 5, "mode": "spread", "concurrency": 2 },
+      "window": { "startedAtUtc": "2026-08-14T15:33:39Z", "endedAtUtc": "2026-08-14T15:37:05Z" },
+      "status": "PASS",
+      "reportDisposition": "excluded",
+      "phaseExitCodes": { "prepare": 0, "resourceQuery": 0, "beforeSnapshot": 0, "k6": 0, "afterSnapshot": 0 },
+      "metrics": { "requestCount": 10, "successCount": 10, "businessFailureCount": 0, "concurrentFailureCount": 0, "unexpected4xxCount": 0, "serverFailureCount": 0, "contractFailureCount": 0, "startSkewMaxMs": 1 },
+      "artifactDigests": { "portableBundleManifestSha256": "9040bd1a965272486278f00ef498e955be04a750ff427c6318b9622ac1fe9f4a", "finalResultSha256": "d371e65dc9a67ce58d008734e2d818b23c4658ff578df24355e07d59a2024e43", "k6SummarySha256": "4837de730c8783ebfbc9899a2f6e5c96d0844ffd06985ebe285408d329fe4938" }
+    },
+    {
+      "sequence": 5,
+      "attemptStage": "local-render-gate",
+      "scenario": "t1",
+      "condition": { "profile": "stress", "rounds": 5, "mode": "spread", "concurrency": 4 },
+      "status": "INVALID",
+      "reportDisposition": "excluded",
+      "remoteArtifactAvailable": false,
+      "reason": "clean-source gate blocked bundle render before remote handoff; no raw artifact digest exists."
+    },
+    {
+      "sequence": 6,
+      "attemptStage": "local-render-gate",
+      "scenario": "t1",
+      "condition": { "profile": "stress", "rounds": 5, "mode": "spread", "concurrency": 8 },
+      "status": "INVALID",
+      "reportDisposition": "excluded",
+      "remoteArtifactAvailable": false,
+      "reason": "clean-source gate blocked bundle render before remote handoff; no raw artifact digest exists."
+    },
+    {
+      "sequence": 7,
+      "attemptStage": "local-render-gate",
+      "scenario": "t2",
+      "condition": { "profile": "stress", "rounds": 5, "mode": "hot", "concurrency": 2, "subcase": "distinct" },
+      "status": "INVALID",
+      "reportDisposition": "excluded",
+      "remoteArtifactAvailable": false,
+      "reason": "clean-source gate blocked bundle render before remote handoff; no raw artifact digest exists."
+    },
+    {
+      "sequence": 8,
+      "attemptStage": "local-render-gate",
+      "scenario": "t2",
+      "condition": { "profile": "stress", "rounds": 5, "mode": "hot", "concurrency": 4, "subcase": "distinct" },
+      "status": "INVALID",
+      "reportDisposition": "excluded",
+      "remoteArtifactAvailable": false,
+      "reason": "clean-source gate blocked bundle render before remote handoff; no raw artifact digest exists."
+    },
+    {
+      "sequence": 9,
+      "attemptStage": "local-render-gate",
+      "scenario": "t2",
+      "condition": { "profile": "stress", "rounds": 5, "mode": "hot", "concurrency": 8, "subcase": "distinct" },
+      "status": "INVALID",
+      "reportDisposition": "excluded",
+      "remoteArtifactAvailable": false,
+      "reason": "clean-source gate blocked bundle render before remote handoff; no raw artifact digest exists."
+    },
+    {
+      "sequence": 10,
+      "attemptStage": "local-render-gate",
+      "scenario": "t2",
+      "condition": { "profile": "stress", "rounds": 5, "mode": "spread", "concurrency": 2, "subcase": "distinct" },
+      "status": "INVALID",
+      "reportDisposition": "excluded",
+      "remoteArtifactAvailable": false,
+      "reason": "clean-source gate blocked bundle render before remote handoff; no raw artifact digest exists."
+    },
+    {
+      "sequence": 11,
+      "attemptStage": "local-render-gate",
+      "scenario": "t2",
+      "condition": { "profile": "stress", "rounds": 5, "mode": "spread", "concurrency": 4, "subcase": "distinct" },
+      "status": "INVALID",
+      "reportDisposition": "excluded",
+      "remoteArtifactAvailable": false,
+      "reason": "clean-source gate blocked bundle render before remote handoff; no raw artifact digest exists."
+    },
+    {
+      "sequence": 12,
+      "attemptStage": "local-render-gate",
+      "scenario": "t2",
+      "condition": { "profile": "stress", "rounds": 5, "mode": "spread", "concurrency": 8, "subcase": "distinct" },
+      "status": "INVALID",
+      "reportDisposition": "excluded",
+      "remoteArtifactAvailable": false,
+      "reason": "clean-source gate blocked bundle render before remote handoff; no raw artifact digest exists."
+    },
+    {
+      "sequence": 13,
+      "attemptStage": "local-render-gate",
+      "scenario": "t2",
+      "condition": { "profile": "spike", "rounds": 1, "mode": "hot", "concurrency": 2, "subcase": "duplicate" },
+      "status": "INVALID",
+      "reportDisposition": "excluded",
+      "remoteArtifactAvailable": false,
+      "reason": "clean-source gate blocked bundle render before remote handoff; no raw artifact digest exists."
+    }
+  ],
+  "knownLimitations": [
+    "remote artifact가 없는 local-render-gate attempt에는 시간, phase exit, metric, source/application alignment, artifact digest를 만들지 않았다.",
+    "official 25개 중 12개는 이 campaign에서 시도하지 않았다.",
+    "local-only artifact digests prove later local modification only; this Git repository cannot independently reconstruct the raw bundle."
+  ],
+  "teardown": {
+    "status": "not-run",
+    "reason": "완전한 official matrix와 T5 comparison을 재시작하기 위해 전용 stack을 유지했으며 teardown 결과는 최종 유효 campaign에만 기록한다."
+  }
+}

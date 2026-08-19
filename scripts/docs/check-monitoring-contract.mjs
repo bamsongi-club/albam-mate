@@ -11,10 +11,22 @@ export function validateMonitoringContract({ runbookText, chatListenerText }) {
   const sourceEvent =
     /event=chat_realtime_publish_failed[^"\r\n]*exceptionType=\{\}/.test(
       chatListenerText,
+    ) ||
+    /addKeyValue\("event", "chat_realtime_publish_failed"\)(?:(?!;|\.log\s*\()[\s\S])*?addKeyValue\("exceptionType",/.test(
+      chatListenerText,
+    );
+  const fluentEventWithExceptionClass =
+    /addKeyValue\("event", "chat_realtime_publish_failed"\)(?:(?!;|\.log\s*\()[\s\S])*?addKeyValue\("exceptionClass",(?:(?!;|\.log\s*\()[\s\S])*?\.log\s*\(/.test(
+      chatListenerText,
     );
   if (!sourceEvent) {
     problems.push(
       `${CHAT_LISTENER_PATH}: chat_realtime_publish_failed는 exceptionType key를 기록해야 합니다.`,
+    );
+  }
+  if (fluentEventWithExceptionClass) {
+    problems.push(
+      `${CHAT_LISTENER_PATH}: chat_realtime_publish_failed fluent event 체인에 exceptionClass를 기록할 수 없습니다.`,
     );
   }
 

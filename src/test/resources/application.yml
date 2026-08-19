@@ -24,6 +24,9 @@ spring:
         jdbc:
           time_zone: UTC
 app:
+  monitoring:
+    dependency-health:
+      enabled: false
   room:
     status-correction:
       lock-name: room-status-correction

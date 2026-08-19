@@ -61,16 +61,16 @@ public class NotificationCleanupCoordinator {
 		NotificationCleanupExecutor.CleanupBatchResult batchResult,
 		long durationMillis) {
 		if (batchResult.deletedCount() == 0) {
-			log.debug(
-				"event=notification_cleanup_completed targetType={} batchNumber={} deletedCount={} durationMs={} measurementTime={}",
-				batchResult.targetType(), batchNumber, batchResult.deletedCount(), durationMillis,
-				batchResult.measurementTime());
+			log.atDebug().addKeyValue("event", "notification_cleanup_completed")
+				.addKeyValue("targetType", batchResult.targetType()).addKeyValue("batchNumber", batchNumber)
+				.addKeyValue("deletedCount", batchResult.deletedCount()).addKeyValue("durationMs", durationMillis)
+				.addKeyValue("measurementTime", batchResult.measurementTime()).log("notification cleanup completed");
 			return;
 		}
-		log.info(
-			"event=notification_cleanup_completed targetType={} batchNumber={} deletedCount={} durationMs={} measurementTime={}",
-			batchResult.targetType(), batchNumber, batchResult.deletedCount(), durationMillis,
-			batchResult.measurementTime());
+		log.atInfo().addKeyValue("event", "notification_cleanup_completed")
+			.addKeyValue("targetType", batchResult.targetType()).addKeyValue("batchNumber", batchNumber)
+			.addKeyValue("deletedCount", batchResult.deletedCount()).addKeyValue("durationMs", durationMillis)
+			.addKeyValue("measurementTime", batchResult.measurementTime()).log("notification cleanup completed");
 	}
 
 	private void logFailedBatch(
@@ -80,14 +80,17 @@ public class NotificationCleanupCoordinator {
 		Instant measurementTime,
 		long durationMillis) {
 		if (measurementTime == null) {
-			log.warn(
-				"event=notification_cleanup_failed targetType={} batchNumber={} deletedCount={} failureCode={} exceptionClass={} durationMs={}",
-				targetType, batchNumber, 0, CLEANUP_BATCH_FAILURE, exceptionClass, durationMillis);
+			log.atWarn().addKeyValue("event", "notification_cleanup_failed").addKeyValue("targetType", targetType)
+				.addKeyValue("batchNumber", batchNumber).addKeyValue("deletedCount", 0)
+				.addKeyValue("failureCode", CLEANUP_BATCH_FAILURE).addKeyValue("exceptionClass", exceptionClass)
+				.addKeyValue("durationMs", durationMillis).log("notification cleanup failed");
 			return;
 		}
-		log.warn(
-			"event=notification_cleanup_failed targetType={} batchNumber={} deletedCount={} failureCode={} exceptionClass={} durationMs={} measurementTime={}",
-			targetType, batchNumber, 0, CLEANUP_BATCH_FAILURE, exceptionClass, durationMillis, measurementTime);
+		log.atWarn().addKeyValue("event", "notification_cleanup_failed").addKeyValue("targetType", targetType)
+			.addKeyValue("batchNumber", batchNumber).addKeyValue("deletedCount", 0)
+			.addKeyValue("failureCode", CLEANUP_BATCH_FAILURE).addKeyValue("exceptionClass", exceptionClass)
+			.addKeyValue("durationMs", durationMillis).addKeyValue("measurementTime", measurementTime)
+			.log("notification cleanup failed");
 	}
 
 	private long elapsedMillis(long startedAtNanos) {

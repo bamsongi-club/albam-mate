@@ -58,14 +58,16 @@ class RoomCreateServiceUnitTest {
 		roomCreateService = new RoomCreateService(
 			roomRepository, gameQuery, userQuery, Clock.fixed(NOW, ZoneOffset.UTC), eventPublisher,
 			new RoomActionAvailabilityEvaluator());
-		lenient().when(userQuery.findNicknameById(42L)).thenReturn(Optional.of("방장"));
+		lenient()
+			.when(userQuery.findUserSummaryById(42L))
+			.thenReturn(Optional.of(new UserQuery.UserSummary("방장", "https://cdn.example.com/host.png")));
 		lenient()
 			.when(roomRepository.save(any(Room.class)))
 			.thenAnswer(invocation -> withId(invocation.getArgument(0), 1L));
 	}
 
 	@Test
-	void 게임_중심_방을_생성하면_모집중이고_주최자는_참가행없이_표시된다() {
+	void T4_게임_중심_방을_생성하면_모집중이고_주최자는_참가행없이_프로필_이미지_URL과_함께_표시된다() {
 		GameSummary game = new GameSummary(7L, 1007L, "카탄");
 		when(gameQuery.findSummaryById(7L)).thenReturn(Optional.of(game));
 
@@ -80,8 +82,20 @@ class RoomCreateServiceUnitTest {
 		assertEquals("RECRUITING", response.status().name());
 		assertEquals(MyRole.HOST, response.myRole());
 		assertEquals("방장", response.host().nickname());
-		assertEquals(java.util.List.of(new NicknameSummary("방장")), response.participants());
+		assertEquals("https://cdn.example.com/host.png", response.host().profileImageUrl());
+		assertEquals(
+			java.util.List.of(new NicknameSummary("방장", "https://cdn.example.com/host.png")),
+			response.participants());
 		verify(roomRepository).save(any(Room.class));
+	}
+
+	@Test
+	void T6_프로필_이미지가_없는_주최자의_host_profileImageUrl은_null이다() {
+		when(userQuery.findUserSummaryById(42L)).thenReturn(Optional.of(new UserQuery.UserSummary("방장", null)));
+
+		ParticipantRoomResponse response = roomCreateService.createRoom(42L, request(RoomType.PERSON_FOCUSED, null));
+
+		assertEquals(null, response.host().profileImageUrl());
 	}
 
 	@Test
@@ -151,7 +165,7 @@ class RoomCreateServiceUnitTest {
 
 	@Test
 	void 인증_주체에_대응하는_사용자가_없으면_인증필요_오류로_종료한다() {
-		when(userQuery.findNicknameById(42L)).thenReturn(Optional.empty());
+		when(userQuery.findUserSummaryById(42L)).thenReturn(Optional.empty());
 
 		assertThrows(
 			UnauthenticatedException.class,

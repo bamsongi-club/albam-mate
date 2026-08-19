@@ -21,9 +21,6 @@ spring:
       max-file-size: 6MB
       max-request-size: 6MB
 app:
-  measurement:
-    auth-notification:
-      enabled: false
   profile-image:
     upload-dir: ${ALBAM_MATE_PROFILE_IMAGE_DIR:./uploads/profile}
   room:
