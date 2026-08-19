@@ -25,8 +25,8 @@ public final class NotificationRelayMetrics {
 	}
 
 	/** 커밋된 relay 성공만 기록해 롤백된 저장을 성공으로 집계하지 않는다. */
-	public void recordProcessed(long processingDurationMillis) {
+	public void recordProcessed(long deliveryDelayMillis) {
 		processedEvents.increment();
-		deliveryDuration.record(Duration.ofMillis(processingDurationMillis));
+		deliveryDuration.record(Duration.ofMillis(deliveryDelayMillis));
 	}
 }

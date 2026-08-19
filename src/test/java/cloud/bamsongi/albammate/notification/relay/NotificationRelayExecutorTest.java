@@ -199,7 +199,11 @@ class NotificationRelayExecutorTest {
 
 			assertEquals(1.0, registry.find("notification.relay.events").tag("outcome", "processed").counter()
 				.count());
-			assertEquals(1L, registry.find("notification.relay.delivery.duration").timer().count());
+			io.micrometer.core.instrument.Timer deliveryDuration = registry.find("notification.relay.delivery.duration")
+				.timer();
+			assertEquals(1L, deliveryDuration.count());
+			assertEquals(60_000.0, deliveryDuration.totalTime(java.util.concurrent.TimeUnit.MILLISECONDS));
+			assertEquals(60_000.0, deliveryDuration.max(java.util.concurrent.TimeUnit.MILLISECONDS));
 			assertTrue(registry.find("notification.relay.events").meters().stream()
 				.allMatch(meter -> meter.getId().getTags().stream().allMatch(tag -> "outcome".equals(tag.getKey()))));
 		} finally {

@@ -15,6 +15,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
@@ -27,6 +28,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.GZIPInputStream;
 
+import javax.sql.DataSource;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,12 +40,17 @@ import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.data.redis.connection.RedisConnection;
+import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import org.testcontainers.utility.DockerImageName;
 
 import com.sun.net.httpserver.HttpServer;
 
@@ -66,7 +74,6 @@ import jakarta.persistence.OptimisticLockException;
 	"ALBAM_MATE_DB_NAME=albam_mate",
 	"ALBAM_MATE_DB_USER=albam_mate",
 	"ALBAM_MATE_DB_PASSWORD=not-a-secret",
-	"ALBAM_MATE_REDIS_HOST=127.0.0.1",
 	"ALBAM_MATE_ENVIRONMENT=test",
 	"ALBAM_MATE_STACK_ID=issue-730",
 	"ALBAM_MATE_ROLE=app1",
@@ -77,6 +84,9 @@ import jakarta.persistence.OptimisticLockException;
 class MonitoringProductionPostgresTest {
 
 	private static final String POSTGRES_IMAGE = "postgres:18.4";
+	private static final String REDIS_IMAGE = "redis:8.4-alpine";
+	private static final int REDIS_STOP_MAX_ATTEMPTS = 50;
+	private static final int REDIS_STARTUP_MAX_ATTEMPTS = 50;
 	private static final Set<String> FORBIDDEN_MDC_KEYS = Set.of(
 		"email", "ip", "session", "cookie", "token", "authorization", "requestbody", "responsebody",
 		"querystring", "prompt", "response", "toolargs", "toolresult", "chatcontent", "notificationpayload",
@@ -104,8 +114,17 @@ class MonitoringProductionPostgresTest {
 	static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(POSTGRES_IMAGE)
 		.withDatabaseName("monitoring_production_test");
 
+	@Container
+	static final GenericContainer<?> APP_REDIS = redisContainer();
+
+	@Container
+	static final GenericContainer<?> PROBE_REDIS = redisContainer();
+
 	@Autowired
 	private MeterRegistry meterRegistry;
+
+	@Autowired
+	private DataSource dataSource;
 
 	@Autowired
 	private DependencyHealthMetrics dependencyHealthMetrics;
@@ -118,6 +137,9 @@ class MonitoringProductionPostgresTest {
 
 	@DynamicPropertySource
 	static void monitoringProperties(DynamicPropertyRegistry registry) {
+		registry.add("ALBAM_MATE_REDIS_HOST", APP_REDIS::getHost);
+		registry.add("ALBAM_MATE_REDIS_PORT", () -> APP_REDIS.getMappedPort(6379));
+		registry.add("app.monitoring.dependency-health.poll-interval", () -> "1h");
 		registry.add("management.otlp.metrics.export.step", () -> "500ms");
 		registry.add("management.otlp.metrics.export.connect-timeout", () -> "50ms");
 		registry.add("management.otlp.metrics.export.read-timeout", () -> "50ms");
@@ -286,24 +308,104 @@ class MonitoringProductionPostgresTest {
 	}
 
 	@Test
-	void T3_운영_PostgreSQL_context에서_Redis_장애와_복구는_같은_release의_meter와_JSON_log로_연결된다() throws IOException {
+	void T3_운영_PostgreSQL_context에서_Redis_장애와_복구는_같은_release의_meter와_JSON_log로_연결된다() throws Exception {
 		LoggerContext context = (LoggerContext)org.slf4j.LoggerFactory.getILoggerFactory();
 		Logger root = context.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME);
 		FileAppender<ILoggingEvent> appender = (FileAppender<ILoggingEvent>)root.getAppender("FILE");
 		Path logPath = Path.of(appender.getFile());
 		long offset = Files.exists(logPath) ? Files.size(logPath) : 0;
-		dependencyHealthMetrics.recordRedis(true);
-		dependencyHealthMetrics.recordRedis(false);
-		dependencyHealthMetrics.recordRedis(true);
+		LettuceConnectionFactory probeRedisConnectionFactory = new LettuceConnectionFactory(PROBE_REDIS.getHost(),
+			PROBE_REDIS.getMappedPort(6379));
+		probeRedisConnectionFactory.setShareNativeConnection(false);
+		probeRedisConnectionFactory.afterPropertiesSet();
+		probeRedisConnectionFactory.start();
+		DependencyHealthSampler probeSampler = new DependencyHealthSampler(dataSource, probeRedisConnectionFactory,
+			dependencyHealthMetrics, Duration.ofHours(1));
+		try {
+			awaitRedisReady(probeRedisConnectionFactory);
+			probeSampler.sample();
+			assertEquals(1.0, meterRegistry.find("albam.dependency.health").tag("dependency", "redis").gauge().value());
 
-		assertEquals(1.0, meterRegistry.find("albam.dependency.health").tag("dependency", "redis").gauge().value());
-		byte[] all = Files.readAllBytes(logPath);
-		String logOutput = new String(Arrays.copyOfRange(all, Math.toIntExact(offset), all.length),
-			StandardCharsets.UTF_8);
-		assertTrue(logOutput.contains("\"event\":\"dependency_health_changed\""));
-		assertTrue(logOutput.contains("\"failureCode\":\"REDIS_UNAVAILABLE\""));
-		assertTrue(logOutput.contains("\"release\":\"test-release\""));
-		assertFalse(logOutput.contains("redis unavailable"));
+			try {
+				stopRedisProcess(PROBE_REDIS);
+				probeSampler.sample();
+				assertEquals(0.0, meterRegistry.find("albam.dependency.health")
+					.tag("dependency", "redis")
+					.gauge()
+					.value());
+			} finally {
+				ensureRedisRunning(PROBE_REDIS);
+				awaitRedisReady(probeRedisConnectionFactory);
+			}
+			probeSampler.sample();
+
+			assertEquals(1.0, meterRegistry.find("albam.dependency.health").tag("dependency", "redis").gauge().value());
+			byte[] all = Files.readAllBytes(logPath);
+			String logOutput = new String(Arrays.copyOfRange(all, Math.toIntExact(offset), all.length),
+				StandardCharsets.UTF_8);
+			assertTrue(logOutput.contains("\"event\":\"dependency_health_changed\""));
+			assertTrue(logOutput.contains("\"failureCode\":\"REDIS_UNAVAILABLE\""));
+			assertTrue(logOutput.contains("\"outcome\":\"down\""));
+			assertTrue(logOutput.contains("\"outcome\":\"recovered\""));
+			assertTrue(logOutput.contains("\"release\":\"test-release\""));
+			assertFalse(logOutput.contains("redis unavailable"));
+		} finally {
+			probeSampler.shutdown();
+			probeRedisConnectionFactory.destroy();
+		}
+	}
+
+	private static GenericContainer<?> redisContainer() {
+		return new GenericContainer<>(DockerImageName.parse(REDIS_IMAGE))
+			.withExposedPorts(6379)
+			.withCommand("sh", "-c", "redis-server --save '' --daemonize yes && tail -f /dev/null")
+			.waitingFor(Wait.forListeningPort());
+	}
+
+	private static void stopRedisProcess(GenericContainer<?> redis) throws Exception {
+		assertEquals(0, redis.execInContainer("redis-cli", "shutdown", "nosave").getExitCode());
+		String waitForStoppedCommand = "attempt=0; while [ \"$attempt\" -lt " + REDIS_STOP_MAX_ATTEMPTS
+			+ " ]; do if ! redis-cli ping >/dev/null 2>&1; then exit 0; fi; attempt=$((attempt + 1)); sleep 0.1; done; "
+			+ "echo 'Redis did not stop after " + REDIS_STOP_MAX_ATTEMPTS + " attempts.' >&2; exit 1";
+		org.testcontainers.containers.Container.ExecResult result = redis.execInContainer("sh", "-c",
+			waitForStoppedCommand);
+		assertEquals(0, result.getExitCode(), "Redis 종료 대기 실패: " + result.getStderr());
+	}
+
+	private static void ensureRedisRunning(GenericContainer<?> redis) throws Exception {
+		if (redisRespondsToPing(redis)) {
+			return;
+		}
+		org.testcontainers.containers.Container.ExecResult start = redis.execInContainer(
+			"redis-server", "--save", "", "--daemonize", "yes");
+		if (start.getExitCode() != 0 && !redisRespondsToPing(redis)) {
+			throw new AssertionError("Redis 재기동 실패: " + start.getStderr());
+		}
+		String waitForPongCommand = "attempt=0; while [ \"$attempt\" -lt " + REDIS_STARTUP_MAX_ATTEMPTS
+			+ " ]; do if redis-cli ping | grep -qx PONG; then exit 0; fi; attempt=$((attempt + 1)); sleep 0.1; done; "
+			+ "echo 'Redis did not return PONG after " + REDIS_STARTUP_MAX_ATTEMPTS + " attempts.' >&2; exit 1";
+		org.testcontainers.containers.Container.ExecResult result = redis.execInContainer("sh", "-c",
+			waitForPongCommand);
+		assertEquals(0, result.getExitCode(), "Redis 시작 대기 실패: " + result.getStderr());
+	}
+
+	private static boolean redisRespondsToPing(GenericContainer<?> redis) throws Exception {
+		return redis.execInContainer("redis-cli", "ping").getExitCode() == 0;
+	}
+
+	private static void awaitRedisReady(LettuceConnectionFactory redisConnectionFactory) throws InterruptedException {
+		long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+		while (System.nanoTime() < deadline) {
+			try (RedisConnection connection = redisConnectionFactory.getConnection()) {
+				if ("PONG".equals(connection.ping())) {
+					return;
+				}
+			} catch (RuntimeException ignored) {
+				// 자동 재연결이 새 native connection을 준비하는 동안만 poll한다.
+			}
+			Thread.sleep(100);
+		}
+		throw new AssertionError("Redis 복구 뒤 probe Redis connection이 5초 안에 준비되지 않았습니다");
 	}
 
 	@Test

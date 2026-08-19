@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.chat.retention;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import org.junit.jupiter.api.Test;
 
@@ -9,16 +10,18 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 class ChatMessageRetentionMetricsTest {
 
 	@Test
-	void T2_단발과_반복_실패뒤_다음_성공은_한번의_복구로_기록한다() {
-		SimpleMeterRegistry registry = new SimpleMeterRegistry();
-		ChatMessageRetentionMetrics metrics = new ChatMessageRetentionMetrics(registry);
+	void T2_서로_다른_인스턴스와_재시작_경계에서_앱이_복구를_합성하지_않는다() {
+		SimpleMeterRegistry beforeRestartRegistry = new SimpleMeterRegistry();
+		ChatMessageRetentionMetrics metricsBeforeRestart = new ChatMessageRetentionMetrics(beforeRestartRegistry);
+		SimpleMeterRegistry afterRestartRegistry = new SimpleMeterRegistry();
+		ChatMessageRetentionMetrics metricsAfterRestart = new ChatMessageRetentionMetrics(afterRestartRegistry);
 
-		metrics.recordExecutionFailure();
-		metrics.recordExecutionFailure();
-		metrics.recordCompleted(new ChatMessageRetentionCoordinator.RetentionRunSummary(0, 0, 0, 0, 10, false));
-		metrics.recordCompleted(new ChatMessageRetentionCoordinator.RetentionRunSummary(0, 0, 0, 0, 10, false));
+		metricsBeforeRestart.recordExecutionFailure();
+		metricsAfterRestart.recordCompleted(
+			new ChatMessageRetentionCoordinator.RetentionRunSummary(0, 0, 0, 0, 10, false));
 
-		assertEquals(2.0, registry.find("chat.message.retention.failures").counter().count());
-		assertEquals(1.0, registry.find("chat.message.retention.recoveries").counter().count());
+		assertEquals(1.0, beforeRestartRegistry.find("chat.message.retention.failures").counter().count());
+		assertNull(beforeRestartRegistry.find("chat.message.retention.recoveries").counter());
+		assertNull(afterRestartRegistry.find("chat.message.retention.recoveries").counter());
 	}
 }

@@ -100,7 +100,7 @@ public class NotificationRelayExecutor {
 		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
 			@Override
 			public void afterCommit() {
-				metrics.recordProcessed(processedEvent.processingDurationMs());
+				metrics.recordProcessed(processedEvent.deliveryDelayMs());
 				logProcessedEvent(processedEvent);
 			}
 		});

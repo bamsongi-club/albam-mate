@@ -137,7 +137,6 @@ source는 첫 두 meter가 `AuthenticationRequestLimiterMetrics`, WebSocket 네 
 | `chat.message.retention.rooms.purged` | counter | 없음 | 1일 `Sum` | 현재 코드·export 필요 |
 | `chat.message.retention.messages.deleted` | counter | 없음 | 1일 `Sum` | 현재 코드·export 필요 |
 | `chat.message.retention.failures` | counter | 없음 | 15분 `Sum` | 현재 코드·export 필요 |
-| `chat.message.retention.recoveries` | counter | 없음 | 15분 `Sum`·실패 뒤 다음 성공 확인 | 현재 코드·export 필요, CloudWatch 배포·실측 필요 |
 | `chat.message.retention.lease.guard.aborted` | counter | 없음 | 15분 `Sum` | 현재 코드·export 필요 |
 | `chat.message.retention.backlog.remaining` | counter | 없음 | 15분 `Sum` | 현재 코드·export 필요 |
 | `chat.message.retention.execution.duration` | timer | 없음 | 실행별 p95·max | 현재 코드·export 필요 |
@@ -148,6 +147,10 @@ source는 첫 두 meter가 `AuthenticationRequestLimiterMetrics`, WebSocket 네 
 | `room.status.correction.runs` | counter | `outcome=completed|failed|skipped|batch_limit` | 15분 `Sum`·보정 결과 | `completed|failed|batch_limit` 현재 코드·export 필요, `skipped` 추가 구현 필요 |
 | `room.status.correction.duration` | timer | 없음 | 실행별 p95·180초 warning | 현재 코드·export 필요, CloudWatch 배포·실측 필요 |
 | `room.waitlist.operations` | counter | `operation=join|cancel|promote`, `outcome=accepted|rejected|failed` | 배포 fixture별 `Sum`·최종 업무 결과 | 추가 구현 필요 |
+
+`notification.relay.delivery.duration`은 outbox의 `recordedAt`부터 Notification 기록 시각까지의 `deliveryDelayMs`를 기록한다. `processingDurationMs`는 구조화 로그의 진단 필드일 뿐 meter에 기록하지 않는다.
+
+채팅 보존의 복구 판정은 앱 인스턴스 메모리나 domain meter가 합성하지 않는다. release 전체의 `failures`와 `completed` 신호를 함께 평가하는 비공개 infra alarm이 소유하며, 그 alarm 구현·배포·실측은 미완료다.
 
 마지막 여섯 meter는 현재 구조화 log·업무 결과에 값이 있거나 검증 경계가 있지만 지속 alarm·업무 결과용 meter는 없는 항목의 구현 이름을 고정한다. 구현 중 다른 이름이나 Logs metric filter가 더 적합하다고 판단하면 코드만 다르게 만들지 않고 이 inventory와 alarm query를 같은 변경에서 갱신한다.
 
@@ -174,7 +177,7 @@ source는 첫 두 meter가 `AuthenticationRequestLimiterMetrics`, WebSocket 네 
 | `notification_outbox_relay_retry_scheduled` | WARN; 단일 `sourceEventId`, 고정 failure 값·count·다음 시각 | 허용·상관 키 비집계 |
 | `notification_outbox_relay_event_failed` | WARN; 단일 `sourceEventId`, 고정 failure 값·count, 전용 boolean `deterministicFailure` | 허용·상관 키 비집계 |
 | `notification_outbox_relay_scheduler_failed`, `notification_outbox_operation_failed` | ERROR; `failureCode`, `exceptionClass`, `occurredAt` | 허용 |
-| `http_request_failed` | ERROR; `failureCode=HTTP_SERVER_ERROR|HTTP_TIMEOUT`, 서버 확정 `requestId` | 허용 |
+| `http_request_failed` | ERROR; `failureCode=HTTP_SERVER_ERROR`, 서버 확정 `requestId` | 허용 |
 | `dependency_health_changed` | WARN/INFO; `dependency=postgresql|redis`, `outcome=down|recovered`, down일 때만 고정 `failureCode` | 허용 |
 | `notification_cleanup_completed`, `notification_cleanup_failed` | INFO/WARN; `targetType`, batch·delete count, duration, 고정 failure 값 | 허용 |
 | `chat_message_retention_completed`, `chat_message_retention_lease_guard_aborted`, `chat_message_retention_backlog_remaining`, `chat_message_retention_failed` | INFO/WARN/ERROR; count·duration·threshold·`exceptionClass` | 허용 |
@@ -215,6 +218,8 @@ Query 결과를 Git에 원문으로 저장하지 않는다. 장기 증거는 금
 ## Alarm·runbook matrix
 
 모든 alarm은 `jiho`를 1차 담당자로 하고 SNS 실제 구독에서만 이메일 주소를 관리한다. `warning`과 `critical`, `OK` 복구를 전달하며 자동 restart·scale·rollback·데이터 재처리를 실행하지 않는다. 측정 전 값은 `후보`이며 SLA가 아니다.
+
+일반 API의 60초 timeout은 Nginx가 504를 확정하므로 애플리케이션이 `HTTP_TIMEOUT` 로그나 meter를 합성하지 않는다. Nginx timing과 중앙 수집을 연결한 timeout 경고·복구 검증은 비공개 infra alarm 소유의 미완료 항목이다.
 
 | alarm·query | 기간·평가 | 등급·missing data | `PLANNED_STOP` | 복구·첫 조치 |
 | --- | --- | --- | --- | --- |
