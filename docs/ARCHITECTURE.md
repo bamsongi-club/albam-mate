@@ -188,6 +188,47 @@ Recovery/Cleanup Executor는 Party별 `REQUIRES_NEW`를 시작할 때 대상 `MA
 
 MATCH 사용자 메시지 쓰기는 chat Command가 연 트랜잭션에서 `MatchPartyChatWriteGuard`를 먼저 호출해 Party를 잠근 뒤 `MATCH_CHAT_ROOMS`를 잠그고 저장한다. MATCH의 쓰기 잠금 순서는 항상 `MATCH_PARTIES → MATCH_CHAT_ROOMS`다. 마지막 나가기·`closesAt` 예약 종료도 같은 Party 잠금을 먼저 얻으므로, close가 먼저 커밋되면 이후 쓰기는 거절되고 write가 먼저 커밋되면 URL 텍스트를 포함한 메시지는 close 전 상태에만 남는다. SYSTEM lifecycle 알림은 matching Executor가 Party 잠금과 `ACTIVE` 조건을 유지한 채 `MatchChatSystemMessagePort`를 호출해 같은 순서로 저장한다. 예약 종료 제품 규칙은 [MATCH-01 성공 파티 채팅](p2/matching.md#성공-파티-채팅)을 따른다.
 
+### P2 CHAT-06 입장·퇴장 시스템 메시지 흐름 (계획·미구현)
+
+> 이 절은 P2 `CHAT-06`의 승인된 목표 구조다. 아래 공개 계약과 listener는 아직 존재하지 않으며, 현재 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)로만 판정한다. 제품 규칙은 [CHAT-06 명세](p2/chat.md#chat-06-입장퇴장-시스템-메시지), 저장 계약은 [ERD](ERD.md#chat-06-입장퇴장-시스템-메시지-저장-계약), 선택 이유는 [ADR-0078](adr/chat/0078-chat-system-message-storage-and-read-time-composition.md)이 소유한다.
+
+`room`은 참가·참가 취소가 참가 관계를 실제로 전이시킨 사실만 발행하고 안내 문구·메시지 저장을 알지 않는다. `chat`은 그 사실을 `CHAT_MESSAGES`의 `SYSTEM` 행으로 저장하고 조회 시점에 문장을 조립한다. 컴파일 의존은 기존과 같은 `chat → room.contract`만 생기며 `room → chat` 직접 의존은 만들지 않는다.
+
+| 계약 | 방향 | 책임 |
+| --- | --- | --- |
+| `room.contract.RoomParticipantChanged` | `room`이 발행하고 `chat`의 동기 listener가 처리 | 참가 확정·참가 취소 확정 한 건의 `roomId`, 대상 사용자 ID, 변경 종류와 업무 트랜잭션이 고정한 `occurredAt`을 전달한다. 상태를 전이시키지 못한 요청에서는 발행하지 않는다. |
+| `user.contract`의 공개 프로필 조회 | `chat`이 호출하고 `user`가 구현 | 안내 대상의 현재 닉네임을 읽기 시점에 조회한다. 없는 사용자 ID는 결과에서 제외되며 `chat`이 고정된 대체 표시명으로 조립한다. |
+
+`RoomParticipantChanged`는 기존 `RoomChangeEvent`와 별개의 계약이다. `RoomChangeEvent`는 알림 수신자 단위 사실이라 자동 승격이 일어난 참가 취소나 빈자리가 남지 않은 취소에서는 발행되지 않지만, `CHAT-06`은 전이가 일어난 모든 참가·참가 취소에 안내가 필요하다. 두 계약을 합치면 알림 수신자 규칙이 채팅 이력의 완결성을 결정하게 되므로 분리한다.
+
+listener는 안내를 저장하기 전에 같은 트랜잭션에서 `CHAT_SYSTEM_MESSAGE_ACTIVATION` 전역 gate를 읽고, 활성화 시각 이후의 사건만 저장한다. 이 비교는 판정 트랜잭션이 고정한 PostgreSQL 시각으로 하며, 이벤트가 전달한 애플리케이션 `Clock` 기준 `occurredAt`을 gate 비교에 쓰지 않는다([시계 도메인 경계](ERD.md#chat-06-혼합-버전-배포활성화rollback-순서)). 인스턴스별 설정으로 이 판정을 대신하지 않으므로 순차 배포 구간에도 모든 인스턴스가 같은 결론에 이른다. listener는 동기이며 원인 Executor의 트랜잭션에 참여한다. 별도 커밋·독립 트랜잭션·`AFTER_COMMIT` 지연 저장을 하지 않으므로 참가 전이와 안내는 함께 커밋되거나 함께 롤백된다. 저장 실패는 참가 요청 자체의 실패로 전파하며 재시도 큐·보정 스케줄러를 두지 않는다.
+
+잠금 순서는 기존 채팅 쓰기와 같은 `ROOMS → CHAT_ROOMS`다. 참가·참가 취소 Executor가 `ROOMS`를 갱신한 뒤 listener가 `CHAT_ROOMS`를 잠그고 `SYSTEM` 행을 append하므로, 사용자 메시지 저장 경로와 잠금 획득 순서가 같아 새로운 교착 조합을 만들지 않는다. 다만 참가·참가 취소가 이제 같은 방의 채팅방 append 잠금을 얻으므로, 메시지 전송과 새로 직렬화된다. 이는 방별 ID 순서를 지키기 위해 받아들이는 비용이며 관측 대상은 [CHAT-06 운영 측정](p2/chat.md#운영-측정)이 소유한다. 커밋 뒤 실시간 발행은 기존 `chat.contract.ChatRealtimePublisher`와 같은 `AFTER_COMMIT` 경로·같은 이벤트 타입을 사용하며 별도 채널을 만들지 않는다.
+
+실시간 경로에서 응답을 조립하는 지점은 발행자가 아니다. `ChatMessageCommittedListener`는 `roomId`·`messageId` 신호만 발행하고, 그 신호를 받은 각 인스턴스의 `chat/websocket`이 PostgreSQL 행을 다시 읽어 응답을 만든다. 따라서 `SYSTEM` 행의 종류 구분·대상 프로필 조회·문장 조립은 이력 경로와 실시간 경로 **양쪽**에 있어야 한다.
+
+행을 읽는 지점은 이력 경로의 `ChatMessageHistoryQueryService`와 실시간·catch-up 경로의 `ChatMessageDeliveryService` 둘이다. 두 경로는 종류 판정, `user.contract` 공개 프로필 일괄 조회, 대체 표시명 규칙과 문장 조립을 하나의 mapper로 공유한다. 조립 규칙을 경로별로 따로 구현하면 같은 행이 이력과 실시간에서 다른 문장으로 보일 수 있다. 현재 `ChatMessageDeliveryService`는 모든 행의 `senderUserId`를 필수로 일괄 조회하고 sender가 없으면 전달 실패를 기록한 뒤 WebSocket을 닫으므로, `sender_user_id`가 `NULL`인 `SYSTEM` 행을 이 경로가 먼저 다룰 수 있게 바꾸지 않으면 이력만 동작하고 실시간·catch-up은 실패한다. 이 변경은 `SYSTEM` 쓰기를 켜기 전에 모든 인스턴스에 배포돼 있어야 하며, 그 배포 순서는 [혼합 버전 배포·활성화·rollback 순서](ERD.md#chat-06-혼합-버전-배포활성화rollback-순서)가 소유한다.
+
+```mermaid
+flowchart LR
+    partExecutor["RoomParticipationExecutor<br/>RoomParticipationCancelExecutor<br/>단일 트랜잭션"] --> roomWrite["ROOMS·PARTICIPATIONS 저장"]
+    partExecutor --> changed["room.contract<br/>RoomParticipantChanged"]
+    changed --> sysListener["chat 동기 listener"]
+    sysListener --> appendLock["CHAT_ROOMS 쓰기 잠금"]
+    appendLock --> sysRow["CHAT_MESSAGES SYSTEM 행 저장<br/>같은 트랜잭션"]
+    sysRow --> committed["원인 트랜잭션 커밋"]
+    committed --> afterCommit["ChatMessageCommittedListener<br/>AFTER_COMMIT"]
+    afterCommit --> publishPort["chat.contract<br/>ChatRealtimePublisher<br/>roomId·messageId 신호만"]
+    publishPort --> handler["각 인스턴스<br/>ChatWebSocketHandler"]
+    handler --> delivery["ChatMessageDeliveryService<br/>PostgreSQL 행 재조회"]
+    delivery --> compose
+    historyQuery["ChatMessageHistoryQueryService<br/>커서 조회"] --> sysRow
+    historyQuery --> compose
+    compose["공통 SYSTEM 응답 mapper<br/>안내 문장 조립"] --> profile["user.contract<br/>공개 프로필 일괄 조회"]
+```
+
+한 응답 안의 같은 대상 사용자 ID는 한 번만 조회한다. 공개 프로필 조회 실패나 미존재는 이력 조회를 실패시키지 않고 대체 표시명으로 수렴한다. 안내 문장·닉네임·사용자 ID는 로그와 metric label에 남기지 않는다.
+
 ### 패키지 구조
 
 패키지는 파일 목록이 아니라 책임 경계로 관리한다. 다음 패턴 안에서 클래스나 하위 구현을 추가할 때는 이 문서를 갱신하지 않는다.
@@ -218,6 +259,7 @@ MATCH 사용자 메시지 쓰기는 chat Command가 연 트랜잭션에서 `Matc
 | `chat/service` (P1) | 채팅방 접근, 메시지 저장·이력 조회 유스케이스 |
 | `chat/websocket` (P1) | 방별 WebSocket handshake, 인스턴스 로컬 연결과 PostgreSQL 이력 복구 상태 |
 | `chat/retention` (P1) | 최종 상태 메시지의 일일 만료 선별, 소량 묶음 삭제와 실패 계측 |
+| `chat/system` (P2 계획) | `room.contract`의 참가 변경 사실을 받는 동기 listener와 입장·퇴장 안내 문장 조립 |
 | `chat/match` (P2) | MATCH 채팅이 공유하는 메시지 종류·SYSTEM 이벤트 키 도메인 타입 |
 | `chat/match/entity`, `chat/match/repository` (P2) | MATCH 전용 채팅방과 URL 텍스트를 포함한 메시지의 영속 구조 |
 | `chat/match/adapter` (P2 계획) | `matching.contract`의 provision·SYSTEM message·cleanup port 구현 |

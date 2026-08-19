@@ -465,6 +465,28 @@ AI-03 초안 요청에서 `region`을 생략하면 호환 기간 동안 `홍대`
 
 `NotificationListItem`에는 `message` 필드가 없고 서버도 표시 문구를 생성하거나 저장하지 않는다. P1 웹 클라이언트는 `type`과 `roomTitle`로 문구를 만들며, 정확한 기본 문구와 텍스트 렌더링 규칙은 [알림 프론트엔드 UX 계약](archive/p1/notification.md#프론트엔드-ux-계약)을 따른다. 이 규칙은 참가자 식별자를 문구에 복원하거나 추론하는 근거가 아니다.
 
+### ChatMessageType
+
+> **도입 단계: P2** · **기능: CHAT-06** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+
+| 값 | 의미 |
+|---|---|
+| `USER` | 사용자가 메시지 전송 API로 저장한 메시지 |
+| `SYSTEM` | 서버가 참가·참가 취소 확정에 따라 남긴 입장·퇴장 안내 |
+
+`ChatMessageType`은 P1 ROOM 채팅의 종류이며 MATCH 전용 [MatchChatMessageType](#matchchatmessagetype)과 값·저장·멱등성 근거를 공유하지 않는다.
+
+### ChatSystemEventKey
+
+> **도입 단계: P2** · **기능: CHAT-06** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+
+| 값 | 의미 |
+|---|---|
+| `PARTICIPANT_ENTERED` | 참가 확정으로 채팅방에 들어옴. 최초 참가와 취소 뒤 재참가를 구분하지 않음 |
+| `PARTICIPANT_LEFT` | 참가 취소 확정으로 채팅방에서 나감 |
+
+대기열 자동 승격, 방 취소, 방 종료는 `CHAT-06` 사건이 아니므로 이 enum 값을 갖지 않는다. 사건 경계는 [CHAT-06 안내를 남기는 사건](p2/chat.md#안내를-남기는-사건)을 따른다.
+
 ### MatchCurrentState
 
 > **도입 단계: P2** · **기능: MATCH-01** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
@@ -733,19 +755,24 @@ P0 프로필은 닉네임만 제공·수정한다. P1부터 프로필 이미지 
 
 ### 4.15 ChatMessage
 
-> **단계: P1 계약** · 현재 상태: [P1 기능 종료 상태의 `CHAT-02`](archive/p1/README.md#기능별-종료-상태)
+> **단계: P1 계약 + P2 `CHAT-06` 확장** · 현재 상태: [P1 기능 종료 상태의 `CHAT-02`](archive/p1/README.md#기능별-종료-상태)와 [P2 기능 상태의 `CHAT-06`](p2/README.md#기능별-현재-상태)
 
 채팅 이력과 메시지 전송 성공 응답에 사용한다. 메시지 본문은 일반 텍스트로만 반환하며 HTML·스크립트로 해석하지 않는다.
 
-| 필드 | 타입 | 필수 | nullable | 설명 |
-|---|---|:---:|:---:|---|
-| `messageId` | integer | Y | N | 서버가 저장 순서에 사용하는 메시지 ID |
-| `roomId` | integer | Y | N | 채팅 대상 방 ID |
-| `clientMessageId` | string | Y | N | 클라이언트가 재시도 멱등성에 사용하는 1~100자 식별자 |
-| `sender` | NicknameSummary | Y | N | 작성자 표시명 |
-| `isMine` | boolean | Y | N | 서버가 현재 요청자와 발신자가 같은지 계산한 값. 사용자 ID는 노출하지 않는다 |
-| `content` | string | Y | N | 앞뒤 공백 제거 후 1~500자의 일반 텍스트 |
-| `createdAt` | string(date-time) | Y | N | 서버가 저장한 시각 |
+| 필드 | 타입 | 필수 | nullable | 도입 단계 | 제공 상태 | 설명 |
+|---|---|:---:|:---:|:---:|:---:|---|
+| `messageId` | integer | Y | N | P1 | 제공 | 서버가 저장 순서에 사용하는 메시지 ID |
+| `roomId` | integer | Y | N | P1 | 제공 | 채팅 대상 방 ID |
+| `messageType` | ChatMessageType | Y | N | P2 `CHAT-06` | 구현 예정 | 사용자 메시지와 입장·퇴장 안내를 구분하는 종류 |
+| `clientMessageId` | string | Y | Y | P1 | 제공 | 클라이언트가 재시도 멱등성에 사용하는 1~100자 식별자. `messageType = SYSTEM`이면 `null` |
+| `sender` | NicknameSummary | Y | Y | P1 | 제공 | 작성자 표시명. `messageType = SYSTEM`이면 `null` |
+| `isMine` | boolean | Y | N | P1 | 제공 | 서버가 현재 요청자와 발신자가 같은지 계산한 값. 사용자 ID는 노출하지 않으며 `messageType = SYSTEM`이면 항상 `false` |
+| `systemEvent` | ChatSystemEventKey | Y | Y | P2 `CHAT-06` | 구현 예정 | 안내를 만든 사건. `messageType = USER`이면 `null` |
+| `subject` | NicknameSummary | Y | Y | P2 `CHAT-06` | 구현 예정 | 안내 대상 사용자의 현재 표시명. `messageType = USER`이면 `null` |
+| `content` | string | Y | N | P1 | 제공 | `USER`는 앞뒤 공백 제거 후 1~500자의 일반 텍스트, `SYSTEM`은 서버가 읽기 시점에 조립한 안내 문장 |
+| `createdAt` | string(date-time) | Y | N | P1 | 제공 | 서버가 저장한 시각 |
+
+`messageType`·`systemEvent`·`subject`는 `CHAT-06`의 목표 계약이며 현재 제공 필드가 아니다. `clientMessageId`·`sender`의 `null` 허용도 `SYSTEM` 메시지에만 해당하므로, `CHAT-06` 구현 전까지 모든 메시지는 `USER`이고 두 필드는 `null`이 되지 않는다. `SYSTEM` 메시지의 `content`는 저장된 값이 아니라 서버가 사건 키와 대상 사용자의 현재 공개 닉네임으로 조립한 문장이며, 문구와 대체 표시명의 정본은 [입장·퇴장 시스템 메시지 계약](#chat-06-입장퇴장-시스템-메시지-계약)이다. 저장 계층에는 완성 문장과 닉네임 사본을 두지 않는다([ADR-0078](adr/chat/0078-chat-system-message-storage-and-read-time-composition.md)).
 
 ### 4.16 ChatMessagePage
 
@@ -761,15 +788,17 @@ P0 프로필은 닉네임만 제공·수정한다. P1부터 프로필 이미지 
 
 ### 4.17 ChatMessageEvent
 
-> **단계: P1 계약** · 현재 상태: [P1 기능 종료 상태의 `CHAT-03`](archive/p1/README.md#기능별-종료-상태)
+> **단계: P1 계약 + P2 `CHAT-06` 확장** · 현재 상태: [P1 기능 종료 상태의 `CHAT-03`](archive/p1/README.md#기능별-종료-상태)와 [P2 기능 상태의 `CHAT-06`](p2/README.md#기능별-현재-상태)
 
 `GET /api/rooms/{roomId}/chat/ws`로 Upgrade한 WebSocket이 보내는 서버 발신 텍스트 이벤트다.
 
 | 필드 | 타입 | 필수 | nullable | 설명 |
 |---|---|:---:|:---:|---|
 | `eventId` | integer | Y | N | 중복 제거와 재연결 기준으로 사용하는 `messageId` |
-| `type` | string | Y | N | P1에서는 `MESSAGE_CREATED`만 사용 |
-| `message` | ChatMessage | Y | N | 커밋된 메시지 |
+| `type` | string | Y | N | `MESSAGE_CREATED`만 사용 |
+| `message` | ChatMessage | Y | N | 커밋된 사용자 메시지 또는 입장·퇴장 안내 |
+
+`CHAT-06`의 입장·퇴장 안내도 같은 `MESSAGE_CREATED` 이벤트로 전달하며 별도 이벤트 타입을 만들지 않는다. `eventId = messageId` 불변식과 재연결 커서를 하나로 유지하고 클라이언트가 종류별 수신 경로를 나누지 않게 하기 위해, 두 종류의 구분은 `message.messageType`으로만 판정한다.
 
 ### 4.18 MyRoomWaitlistResponse
 
@@ -2403,6 +2432,33 @@ Path variable·query parameter·body는 없다. `unreadCount`는 미확인 개�
 
 모든 채팅 요청은 요청 시점의 방 상태와 주최자·현재 `ACTIVE` 참가자 관계를 서버에서 다시 확인한다. 접근 확인 전 대상 ROOM 보정의 낙관 락 재시도를 소진하면 `409 ROOM_CONCURRENT_MODIFICATION`을 반환한다. `RECRUITING`·`CLOSED` 방만 일반 사용자 접근을 허용하며, 참가 취소·`CANCELED`·`FINISHED` 상태는 `FORBIDDEN`으로 거절한다. 메시지 본문은 로그와 메트릭에 기록하지 않는다.
 
+### CHAT-06 입장·퇴장 시스템 메시지 계약
+
+> **도입 단계: P2** · **기능: CHAT-06** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+>
+> 이 절의 필드·enum·문구는 승인된 목표 계약이며 현재 제공 기능이 아니다. 제품 상태는 [P2 기능 상태의 `CHAT-06`](p2/README.md#기능별-현재-상태)에서만 판정한다.
+
+`CHAT-06`은 새 엔드포인트를 추가하지 않는다. 기존 이력 조회와 실시간 구독이 사용자 메시지와 함께 입장·퇴장 안내를 반환하도록 [ChatMessage](#415-chatmessage)와 [ChatMessageEvent](#417-chatmessageevent)를 확장한다. 안내를 남기는 사건 경계와 소급 생성 제외는 [CHAT-06 명세](p2/chat.md#chat-06-입장퇴장-시스템-메시지), 저장 모델·문구 소유의 선택 이유는 [ADR-0078](adr/chat/0078-chat-system-message-storage-and-read-time-composition.md)을 따른다.
+
+#### 안내 문구
+
+서버는 `systemEvent`와 안내 대상의 현재 공개 닉네임으로 아래 문장을 조립해 `content`로 반환한다. 클라이언트는 이 문장을 그대로 표시하고 자체 문구를 조립하지 않는다.
+
+| `systemEvent` | `content` |
+|---|---|
+| `PARTICIPANT_ENTERED` | `{닉네임}님이 입장했어요.` |
+| `PARTICIPANT_LEFT` | `{닉네임}님이 나갔어요.` |
+
+`{닉네임}`은 조회 시점의 `subject.nickname`이다. 대상 사용자의 공개 프로필을 찾지 못하면 조회를 실패시키지 않고 `알 수 없는 사용자`를 대신 사용하며, 이때 `subject.nickname`도 같은 값으로 반환한다. 닉네임이 바뀌면 과거 안내도 현재 닉네임으로 조립되며, 사건 당시의 닉네임은 제공하지 않는다.
+
+#### 이력·구독에서의 취급
+
+- 시스템 메시지는 사용자 메시지와 같은 `messageId` 순서를 사용하며, `beforeMessageId`·`size`·`nextBeforeMessageId`·`hasNext`와 `afterMessageId` catch-up 규칙을 그대로 따른다. `size`는 두 종류를 합해 센다.
+- 접근 판정은 [채팅 공통 계약](#채팅-공통-계약)과 같다. 주최자·현재 `ACTIVE` 참가자가 아니거나 방이 `CANCELED`·`FINISHED`이면 시스템 메시지도 반환하지 않는다.
+- 시스템 메시지는 사용자가 만들 수 없다. `POST /api/rooms/{roomId}/chat/messages`는 `USER` 메시지만 저장하며, 시스템 메시지는 사용자·방 전송 제한 quota를 소비하지 않는다.
+- 안내 문장·닉네임·사용자 ID는 로그와 metric label에 기록하지 않는다.
+- 이 계약이 적용되기 전에 만들어진 채팅방에는 안내를 소급 생성하지 않으므로, 기존 방의 이력에는 배포 이후 사건의 안내만 나타난다.
+
 ### CHAT-02 메시지 전송
 
 | 항목 | 값 |
@@ -2432,6 +2488,8 @@ Path variable·query parameter·body는 없다. `unreadCount`는 미확인 개�
 | `content` | string | Y | CRLF(`\r\n`)를 LF(`\n`)로 정규화하고 LF 외 제어문자(단독 CR·탭·NUL 등)를 거절한 뒤, 앞뒤 공백 제거 후 1~500자의 일반 텍스트 |
 
 LF는 본문에 그대로 보존하며, 저장·이력 조회·실시간 수신은 정규화된 LF 형태를 반환한다. 본문 길이와 같은 `clientMessageId` 재시도의 본문 비교도 정규화·공백 제거 뒤 본문을 기준으로 한다.
+
+이 API로는 `USER` 메시지만 만들 수 있다. `CHAT-06` 입장·퇴장 시스템 메시지는 참가·참가 취소 확정에서만 서버가 저장하며 클라이언트가 요청으로 만들 수 없다([CHAT-06 계약](#chat-06-입장퇴장-시스템-메시지-계약)).
 
 검증·권한 판정은 세션, 방 존재, 방 상태·현재 관계, 본문, 멱등성 순서로 수행한다. 같은 사용자가 같은 방에서 같은 `clientMessageId`로 다른 정규화 본문을 보내면 `400 VALIDATION_ERROR`다. 전송 제한은 아래 검증을 통과한 신규 전송에만 적용하며 PostgreSQL 저장 직전에 두 bucket을 함께 판정한다.
 
