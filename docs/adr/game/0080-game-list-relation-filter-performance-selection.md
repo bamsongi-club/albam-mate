@@ -113,6 +113,7 @@ HTTP p50/p95/max와 한 번 실행한 `EXPLAIN ANALYZE` execution time은 같은
 
 - [게임 목록 17만 건 기준선](../../measurements/game-list-740-baseline.md)
 - [#770 Slice 실측 결과](../../measurements/results/game-list-740/game-list-770-2026-08-19.md)
+- [#867 relation·complex 후보 비교 결과](../../measurements/results/game-list-740/game-list-867-2026-08-19.md)
 - [relation·complex 후보 비교 설계](../../superpowers/specs/2026-08-19-game-list-relation-performance-comparison-design.md)
 - [#770 게임 목록 Slice 전환](https://github.com/bamsongi-club/albam-mate/issues/770)
 - [#867 relation·complex 후보 비교](https://github.com/bamsongi-club/albam-mate/issues/867)
@@ -121,11 +122,14 @@ HTTP p50/p95/max와 한 번 실행한 `EXPLAIN ANALYZE` execution time은 같은
 ## 검증
 
 - 상태: 미검증
-- 근거: 없음
+- 근거:
+  - 구현: final branch는 V1 `GameListSpecification`의 DB 내부 game-ID subquery query shape만 포함한다. V2/V3의 PostgreSQL index migration은 포함하지 않는다.
+  - 계약: 16개 HTTP artifact의 모든 `base` capture는 `content`·`page`·`size`·`hasNext`만 반환하고, 24건 첫 페이지·`hasNext=true`를 보존한다. PostgreSQL capture는 `fetch first $2 rows only`의 `$2 = '25'`와 game exact count statement 부재를 보존한다.
+  - 테스트:
+    - `./gradlew test --tests "cloud.bamsongi.albammate.game.GameMatchModeHttpIntegrationTest" --rerun --fail-fast` — 5/5 PASS
+    - `./gradlew postgresTest --tests "cloud.bamsongi.albammate.game.GameListFilterPostgresTest" --rerun --fail-fast --no-daemon --stacktrace` — 6/6 PASS (Testcontainers PostgreSQL 18.4)
+    - 같은 170,005건 fixture·runner SHA의 V0~V3 16개 `VALID` artifact comparator에서 V1만 전 scenario 5% p95 회귀 제한과 relation·complex 개선 gate를 통과했다. raw HTTP·SQL·EXPLAIN와 판정은 [#867 결과](../../measurements/results/game-list-740/game-list-867-2026-08-19.md)에 보존한다.
 - 미검증:
-  - [#867](https://github.com/bamsongi-club/albam-mate/issues/867)의 최신 전체 T1~T5 승인과 V1/V2/V3 구현·H2/PostgreSQL 회귀 테스트
-  - 동일 fixture·runner SHA의 16개 valid raw artifact와 comparator 선택 결과
-  - 여섯 scenario SQL capture, relation·complex content plan, base exact count 부재 capture
-  - 선택된 candidate의 PostgreSQL migration pre-flight와 [#863](https://github.com/bamsongi-club/albam-mate/issues/863) 동시 부하·자원·오류율 결과
+  - [#863](https://github.com/bamsongi-club/albam-mate/issues/863)의 동시 HTTP·CPU·memory·connection·오류율과 production SLO 검증
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.
