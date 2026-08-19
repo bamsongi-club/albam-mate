@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   hasExpectedRoomId,
+  hasNicknameSummary,
   hasNicknameOnlySet,
   hasParticipationPayload,
   hasT3CancelPayload,
@@ -94,4 +95,12 @@ test('T5 참가자 응답은 순서와 무관한 nickname-only 집합을 검증�
     ], expectedNicknames),
     false,
   );
+});
+
+test('T5 닉네임 summary는 nullable 또는 URL profileImageUrl을 허용하고 다른 필드는 거절한다', () => {
+  assert.equal(hasNicknameSummary({ nickname: 'host', profileImageUrl: null }), true);
+  assert.equal(hasNicknameSummary({ nickname: 'host', profileImageUrl: 'https://cdn.example.com/host.png' }), true);
+  assert.equal(hasNicknameSummary({ nickname: 'host' }), true);
+  assert.equal(hasNicknameSummary({ nickname: 'host', profileImageUrl: 42 }), false);
+  assert.equal(hasNicknameSummary({ nickname: 'host', userId: 1 }), false);
 });
