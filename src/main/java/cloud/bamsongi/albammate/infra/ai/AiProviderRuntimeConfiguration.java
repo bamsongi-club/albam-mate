@@ -5,19 +5,17 @@ import java.time.Clock;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Profile;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
-import org.springframework.data.redis.connection.RedisConnectionFactory;
-import org.springframework.data.redis.core.StringRedisTemplate;
 
 import cloud.bamsongi.albammate.assistant.contract.AssistantIntentExtractor;
 
-/** 기본 fake와 명시적 local-openai, profile별 quota ledger를 선택하는 구성이다. */
+/** 기본 fake와 명시적 local-openai, quota fail-closed seam을 선택하는 구성이다. */
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(AiProviderProperties.class)
 class AiProviderRuntimeConfiguration {
@@ -58,31 +56,15 @@ class AiProviderRuntimeConfiguration {
 	@Bean
 	AssistantIntentExtractor assistantIntentExtractor(
 		AiProviderClient provider,
-		AiQuotaLedger quotaLedger,
+		ObjectProvider<AiQuotaLedger> quotaLedgerProvider,
 		AssistantUsageEventSink usageEventSink,
 		AiProviderProperties properties) {
 		return new AiProviderIntentExtractor(
 			provider,
-			quotaLedger,
+			quotaLedgerProvider.getIfAvailable(UnavailableAiQuotaLedger::new),
 			usageEventSink,
 			settings(properties, true),
 			Clock.systemUTC());
-	}
-
-	@Bean
-	@Profile("local | production")
-	AiQuotaLedger redisAiQuotaLedger(
-		RedisConnectionFactory connectionFactory,
-		AiProviderProperties properties,
-		AiCostWarningEventSink costWarningEventSink) {
-		return new RedisAiQuotaLedger(
-			new StringRedisTemplate(connectionFactory), properties.getTimeout(), costWarningEventSink);
-	}
-
-	@Bean
-	@Profile("!local & !production")
-	AiQuotaLedger inMemoryAiQuotaLedger() {
-		return new InMemoryAiQuotaLedger();
 	}
 
 	static AiProviderClient selectProvider(

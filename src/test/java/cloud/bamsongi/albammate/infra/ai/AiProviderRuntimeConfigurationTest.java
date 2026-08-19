@@ -12,8 +12,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.context.annotation.AnnotationConfigApplicationContext;
-import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.mock.env.MockEnvironment;
 
 import cloud.bamsongi.albammate.assistant.contract.AssistantUsageEvent;
@@ -60,12 +58,6 @@ class AiProviderRuntimeConfigurationTest {
 	}
 
 	@Test
-	void T4_local과_production_runtime_quota는_공유_Redis_adapter를_사용한다() {
-		assertRedisQuotaLedger("local");
-		assertRedisQuotaLedger("production");
-	}
-
-	@Test
 	void T6_runtime_usage_sink는_Spring_event로_usage를_전달한다() {
 		AiProviderRuntimeConfiguration configuration = new AiProviderRuntimeConfiguration();
 		AtomicBoolean published = new AtomicBoolean();
@@ -77,14 +69,4 @@ class AiProviderRuntimeConfigurationTest {
 		assertTrue(published.get());
 	}
 
-	private void assertRedisQuotaLedger(String profile) {
-		try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext()) {
-			context.getEnvironment().setActiveProfiles(profile);
-			context.registerBean(RedisConnectionFactory.class, () -> mock(RedisConnectionFactory.class));
-			context.register(AiProviderRuntimeConfiguration.class);
-			context.refresh();
-
-			assertInstanceOf(RedisAiQuotaLedger.class, context.getBean(AiQuotaLedger.class));
-		}
-	}
 }

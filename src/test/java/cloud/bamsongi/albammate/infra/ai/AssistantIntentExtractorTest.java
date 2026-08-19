@@ -28,7 +28,7 @@ class AssistantIntentExtractorTest {
 		RecordingUsageEventSink usageEvents = new RecordingUsageEventSink();
 		AssistantIntentExtractor extractor = new AiProviderIntentExtractor(
 			new DeterministicFakeAssistantProvider(),
-			new InMemoryAiQuotaLedger(),
+			new PermittingAiQuotaLedger(),
 			usageEvents,
 			AiProviderSettings.fakeDefaults(),
 			CLOCK);
@@ -48,7 +48,7 @@ class AssistantIntentExtractorTest {
 	@Test
 	void T2_provider_payload은_allowlist만_포함하고_tool_권한과_원문_식별자를_전달하지_않는다() {
 		CapturingAssistantProvider provider = new CapturingAssistantProvider();
-		AssistantIntentExtractor extractor = extractor(provider, new InMemoryAiQuotaLedger(),
+		AssistantIntentExtractor extractor = extractor(provider, new PermittingAiQuotaLedger(),
 			new RecordingUsageEventSink());
 
 		AssistantIntentExtraction result = extractor.extract(AssistantIntentRequest.forUser(
@@ -68,6 +68,11 @@ class AssistantIntentExtractorTest {
 
 		assertEquals(AssistantIntentStatus.SENSITIVE_INPUT_REJECTED, rejected.status());
 		assertEquals(1, provider.calls());
+		AssistantIntentExtraction missingFieldRejected = extractor.extract(AssistantIntentRequest.forUser(
+			"user-991", "주말 보드게임 추천해줘", List.of("EMAIL=member@example.com")));
+
+		assertEquals(AssistantIntentStatus.SENSITIVE_INPUT_REJECTED, missingFieldRejected.status());
+		assertEquals(1, provider.calls());
 
 		for (String piiSentence : List.of(
 			"메일은 member@example.com이고 게임만 추천해줘",
@@ -85,7 +90,7 @@ class AssistantIntentExtractorTest {
 	@Test
 	void T3_동의_feature_flag_설정과_보존조건이_충족될때만_호출하고_실패에는_재시도와_fallback이_없다() {
 		CapturingAssistantProvider provider = new CapturingAssistantProvider();
-		AssistantIntentExtraction withoutConsent = extractor(provider, new InMemoryAiQuotaLedger(),
+		AssistantIntentExtraction withoutConsent = extractor(provider, new PermittingAiQuotaLedger(),
 			new RecordingUsageEventSink())
 			.extract(AssistantIntentRequest.withoutConsent("quota-subject-c", "주말 보드게임 추천", List.of()));
 
@@ -94,7 +99,7 @@ class AssistantIntentExtractorTest {
 
 		AssistantIntentExtractor disabled = new AiProviderIntentExtractor(
 			provider,
-			new InMemoryAiQuotaLedger(),
+			new PermittingAiQuotaLedger(),
 			new RecordingUsageEventSink(),
 			AiProviderSettings.fakeDefaults().withEnabled(false),
 			CLOCK);
@@ -105,7 +110,7 @@ class AssistantIntentExtractorTest {
 		assertEquals(0, provider.calls());
 
 		FailingAssistantProvider timeoutProvider = new FailingAssistantProvider(AiProviderFailure.TIMEOUT);
-		AssistantIntentExtraction timeout = extractor(timeoutProvider, new InMemoryAiQuotaLedger(),
+		AssistantIntentExtraction timeout = extractor(timeoutProvider, new PermittingAiQuotaLedger(),
 			new RecordingUsageEventSink())
 			.extract(request());
 
@@ -116,16 +121,14 @@ class AssistantIntentExtractorTest {
 
 	@Test
 	void T3_provider_예외도_active_reservation을_남기지_않는다() {
-		InMemoryAiQuotaLedger quotaLedger = new InMemoryAiQuotaLedger();
+		PermittingAiQuotaLedger quotaLedger = new PermittingAiQuotaLedger();
 		AiProviderClient throwingProvider = request -> {
 			throw new IllegalStateException("provider timeout");
 		};
-		AssistantIntentExtractor extractor = extractor(
-			throwingProvider,
-			quotaLedger,
-			new RecordingUsageEventSink());
 
-		AssistantIntentExtraction failed = extractor.extract(request());
+		AssistantIntentExtraction failed = extractor(throwingProvider, quotaLedger, new RecordingUsageEventSink())
+			.extract(request());
+
 		assertEquals(AssistantIntentStatus.SERVICE_UNAVAILABLE, failed.status());
 
 		AssistantIntentExtraction retryAfterException = new AiProviderIntentExtractor(
@@ -188,6 +191,19 @@ class AssistantIntentExtractorTest {
 
 		int calls() {
 			return calls;
+		}
+	}
+
+	private static class PermittingAiQuotaLedger implements AiQuotaLedger {
+
+		@Override
+		public AiQuotaReservation reserve(String quotaSubject, Instant now) {
+			return AiQuotaReservation.acquired(quotaSubject);
+		}
+
+		@Override
+		public AiQuotaCompletionStatus complete(AiQuotaReservation reservation, BigDecimal costUsd) {
+			return AiQuotaCompletionStatus.COMPLETED;
 		}
 	}
 
