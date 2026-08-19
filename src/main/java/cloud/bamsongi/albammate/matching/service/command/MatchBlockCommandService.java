@@ -2,6 +2,7 @@ package cloud.bamsongi.albammate.matching.service.command;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -63,7 +64,8 @@ public class MatchBlockCommandService {
 		verifyBothUsersLocked(blockerUserId, blockedUserId);
 		MatchBlock block = matchBlockRepository.findByBlockerUserIdAndBlockedUserId(blockerUserId, blockedUserId)
 			.orElseGet(
-				() -> matchBlockRepository.save(MatchBlock.create(blockerUserId, blockedUserId, Instant.now(clock))));
+				() -> matchBlockRepository.save(MatchBlock.create(
+					blockerUserId, blockedUserId, Instant.now(clock).truncatedTo(ChronoUnit.MICROS))));
 		UserPublicProfile blockedProfile = userQuery.findPublicProfileById(blockedUserId)
 			.orElseThrow(() -> new IllegalStateException("locked blocked user must have a public profile"));
 		return MatchBlockListItemResponse.from(block, blockedProfile);
