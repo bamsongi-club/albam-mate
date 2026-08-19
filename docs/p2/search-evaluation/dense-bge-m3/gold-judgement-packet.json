@@ -1,0 +1,608 @@
+{
+  "schemaVersion": 1,
+  "kind": "search-04-gold-judgement-packet",
+  "status": "pending-independent-human-judgement",
+  "hides": [
+    "modelId",
+    "score",
+    "sourceRank",
+    "sourceModel"
+  ],
+  "gradeScale": {
+    "relevant": 2,
+    "borderline": 1,
+    "irrelevant": 0
+  },
+  "judgementContract": {
+    "requiredIndependentJudges": 2,
+    "thirdJudgeRequiredOnDisagreement": true,
+    "gradeMeaning": "2=relevant, 1=borderline, 0=irrelevant"
+  },
+  "annotationRule": "query와 후보 evidenceText만 읽고 관련도 0·1·2와 짧은 근거를 독립적으로 기록한다. 모델 점수·원래 순위·모델명은 판정에 사용하지 않는다.",
+  "sources": {
+    "blindJudgement": {
+      "path": "docs/p2/search-evaluation/dense-bge-m3/blind-judgement.json",
+      "sha256": "ad48e0cef803e5c08f3024381e5b915080e103ed33f6f41ef9c44eeeb36d873b"
+    },
+    "searchText": {
+      "path": "docs/p2/search-evaluation/dense-bge-m3/search-text-top1000.json",
+      "sha256": "ec364be3a34268d1bb6d27e3c41e2cdd31852565eec79fa31faaacda17af4ece",
+      "rows": 1000
+    }
+  },
+  "queries": [
+    {
+      "id": "Q-010",
+      "query": "가볍게 웃으면서 즐길 수 있는 게임",
+      "judgementRubric": {
+        "relevant": "가볍고 유쾌한 플레이 경험이 핵심이며 웃음·반응·재미있는 상황이 주요 매력인 게임",
+        "borderline": "가볍기는 하지만 웃으면서 즐길 수 있다는 근거가 약한 게임",
+        "irrelevant": "무겁고 진지한 전략·계산 중심이거나 해당 분위기를 뒷받침하는 근거가 없는 게임"
+      },
+      "candidates": [
+        {
+          "order": 1,
+          "gameId": 2536,
+          "name": " 바방크",
+          "englishName": " Vabanque",
+          "evidenceText": "게임명: 바방크\n영문명: Vabanque\n메커니즘: 베팅과 블러핑\n카테고리: 가족\n테마: 블러핑\n설명: A party meets for a game in the casino., A party meets for a game in the casino. After the 플레이어 determine how much money can be won at the casino tables they play their character 카드 and move their pawns to a casino table. The payout can be multiplied or lost to 카드 sharks. In the beginning the stakes are low but they increase from 라운드 to 라운드. In Vabanque, if you carefully watch the others, and guess their bluffs, you can win a lot. 가장 높은 점수를 획득한 플레이어가 money after four 라운드 is the 승리자.",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 2,
+          "gameId": 1382,
+          "name": " 우인느어스 크어크레",
+          "englishName": " Winner's Circle",
+          "evidenceText": "게임명: 우인느어스 크어크레, 위너스서클, Winner's Circle\n영문명: Winner's Circle\n메커니즘: 베팅과 블러핑, 굴리기 / 돌리기 후 이동\n카테고리: 가족\n테마: 레이싱, 스포츠, 동물\n설명: A lively game of horse racing where 플레이어 bet on several of seven horses to try to gain the most money by the end of three races., A lively game of horse racing where 플레이어 bet on several of seven horses to try to gain the most money by the end of three races.\n\n승리자's Circle is a re-issue of Knizia's Turf Horse Racing (published by Gibsons Games). This new version has updated graphics and uses the same mechanism of 4 symbols on the horse 카드 also appearing on the die. 플레이어 roll the die and choose which horse they want to move (from those that haven't moved this 턴 yet). The seven horses vary in strength, but even the weakest horses have some amazing bursts of speed. 플레이어 bet on the horses before each race and must either cooperate or compete to get their horses over the finish line.\n\nThere are various differences between 승리자's Circle and Turf Horse Racing. There are only 3 races instead of 4. The circuit is oval instead of a straight line. The horses start on separate starting spaces instead of all together on the same space. During the race, horses cannot share spaces so if a horse has to move to an occupied space, they have to move back to the last available space. A Pace chip has been added to space 18 where the first horse to pass it receives it and earns a higher payout 게임이 종료되면 the race (if they finish top 3). Also, there is a variant where the betting is done secretly with 플레이어 using a 0 betting chip (for bluffing) in addition to the 1, 1, and 2 betting chips of the basic game.\n\nOriginally called \"Royal Turf\" but was then republished by Face 2 Face Games as \"승리자's Circle\" in 2006.\n\n\"Royal Turf\" is #2 in the Alea small box series.",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 3,
+          "gameId": 46213,
+          "name": " 트엘에스트라션스",
+          "englishName": " Telestrations",
+          "evidenceText": "게임명: 트엘에스트라션스, 텔레스트레이션, Telestrations\n영문명: Telestrations\n메커니즘: 종이와 연필, 그리기\n카테고리: 파티\n테마: 파티 게임, 실시간, 유머\n설명: The award-winning party game Telestrations will get your family and friends laughing as they draw what they see, then guess what they saw for hours of hilarious miscommunication., The award-winning party game Telestrations will get your family and friends laughing as they draw what they see, then guess what they saw for hours of hilarious miscommunication. All 플레이어 simultaneously sketch, pass, and guess while revealing laugh-out-loud and unpredictable outcomes!",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 4,
+          "gameId": 105593,
+          "name": " 장난꾸러기 나방",
+          "englishName": " Cheating Moth",
+          "evidenceText": "게임명: 장난꾸러기 나방\n영문명: Cheating Moth\n메커니즘: 핸드 관리\n카테고리: 파티\n테마: 카드 게임, 행동,액션·손기술\n설명: Cheating is forbidden?, Cheating is forbidden? Not in this naughty game of 카드 – in fact, you'll probably have to cheat in order to win.\n\nIn Mogel Motte you want to get rid of all the 카드 in your hand before anyone else. 각 플레이어는 starts the 라운드 with a hand of eight 카드, with one 플레이어 (the oldest) receiving the guard bug – which stays on the table throughout the game – and one 카드 being 턴d face-up to start a dis카드 pile. The 카드 are numbered 1-5, with the majority of them having only numbers; some 카드 have special abilities that come into play when added to the dis카드 pile or in a 플레이어's hand.\n\nOn a 턴, a 플레이어 places one 카드 from her hand onto the dis카드 pile; that 카드 must be numbered exactly one higher or lower than the 카드 on top of the dis카드 pile. (The numbers wrap, so a 1 can be played on a 5 and vice versa.) If a 플레이어 can't 손에 든 카드를 1장 냅니다, she draws one from the deck and her 턴 ends.\n\nThere's another way to rid yourself of 카드, though: cheating! Throughout the 라운드, you can make 카드 disappear by dropping them on the floor, hiding them up your sleeve and so on. You must keep your hand of 카드 above the table at all times, you can't vanish more than one 카드 at once, and you can't rid yourself of your final 카드 this way. The 플레이어 with the guard bug – and only him! – can call out other 플레이어 for cheating, and no one can cheat while the accusation is being resolved. If the accusation was false, the Guard must 덱에서 카드를 1장 뽑습니다; otherwise the cheating 플레이어 takes back the 카드 she tried to lose, is given a 카드 from the Guard's hand as additional punishment, and becomes the new Guard.\n\nCheating is a necessity as the \"Cheating Moth\" 카드 can't be played onto the dis카드 pile, but must be disappeared via cheating. (The Guard, however, can play these 카드 as the Guard is not allowed to cheat.)\n\nThe 액션 카드 work as follows:\n\nAnt: After an ant is played, everyone but the active 플레이어 must take a 카드 from the draw pile.\nCockroach: After a cockroach is played, everyone races to play an identically-numbered 카드 on top of it. Only the fastest 플레이어 gets to leave her 카드 in place.\nMosquito: After a mosquito is played, everyone but the active 플레이어 must slap the pile of 카드. Whoever is slowest receives a 카드 from the hand of all other 플레이어.\nSpider: After playing this, give a non-Cheating Moth 카드 from your hand to another 플레이어.\n\nWhen one 플레이어 has no 카드 in hand, the 라운드 ends. All other 플레이어 점수 10 점수 for each Cheating Moth in hand, 5 점수 for each 액션 카드, and 1 점수 for each number 카드. After a number of 라운드 equal to the number of 플레이어, the game ends and the 플레이어 with the lowest 점수 wins.",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 5,
+          "gameId": 395846,
+          "name": " 모조",
+          "englishName": " Mojo",
+          "evidenceText": "게임명: 모조\n영문명: Mojo\n메커니즘: 핸드 관리, 짝 맞추기\n테마: 카드 게임, 파티 게임\n설명: To win, you will need to have as few 점수 as possible 게임이 종료되면 the game., To win, you will need to have as few 점수 as possible 게임이 종료되면 the game. To do this, dis카드 your big 카드 OR prefer to play the small ones. Part with your 카드 OR keep those of the same suit.\nDo you have the Mojo 카드? Be good or you may regret it!\n\nMojo is a real party game. The more people there are, the stronger the inter액션. It is also fun to try different 전략 over the games. Depending on our opponents and our 카드, the options are numerous, which makes the game dynamic and different in each game.\n\nMojo means extreme luck in everything you do. Nature is the source of its energy, and animals are its vectors May the Mojo be with you!",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 6,
+          "gameId": 84732,
+          "name": " 크아이바",
+          "englishName": " Kariba",
+          "evidenceText": "게임명: 크아이바, 카리바, Kariba\n영문명: Kariba\n메커니즘: 가위바위보, 핸드 관리\n카테고리: 가족\n테마: 카드 게임, 어린이 게임\n설명: All animals are thirsty after an adventurous day in the savannah, so they've all trekked to the drinking g라운드., All animals are thirsty after an adventurous day in the savannah, so they've all trekked to the drinking g라운드. Every animal wants to be the first to drink, but watch out! The elephant scares the rhino, the rhino scares the ostrich, and the ostrich scares the zebra. Anything can happen... The mice might even scare the elephant! The 플레이어 who scares away the most animals wins.\n\nTo set up Kariba, shuffle the 카드 and deal five to 각 플레이어는, placing the remainder face down as a deck. Place the 게임 보드 in the center of the table.\nDuring a 라운드, a 플레이어 lays down one or more 카드 of the same animal, placing the 카드 in the corresponding position (1-9) a라운드 the lake.\nIf at least 3 카드 of the same animal are placed in front of the lake, then these animals scare weaker animal(s) (closest lower number) while they are drinking. The 플레이어 picks all the 카드 from the weaker animal off the board and puts them face down in front of her/him. Each 카드 is worth 1 점수, and whoever has the most 점수 wins.",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 7,
+          "gameId": 269210,
+          "name": " 트위세 아스 크레브어!",
+          "englishName": " Twice as Clever!",
+          "evidenceText": "게임명: 트위세 아스 크레브어!, 두 배로 영리한 여우, Twice as Clever!\n영문명: Twice as Clever!\n메커니즘: 종이와 연필, 주사위 굴림, 솔로/솔로테어 게임, 재굴림 및 고정\n카테고리: 가족\n테마: 주사위, 숫자\n설명: Doppelt so clever follows the model of 2018's Ganz schön clever., Doppelt so clever follows the model of 2018's Ganz schön clever. Each 턴 the active 플레이어 rolls six 주사위, chooses one of them to mark off a space on their 점수 계산 grid, places any 주사위 with lower numbers aside, then re-rolls any remaining 주사위. The white die is a joker and can be used as any one of the other five colors. After the active 플레이어 chooses at most three 주사위, then the other 플레이어 each choose one of the set-aside 주사위 for use on their 점수 계산 sheet.\n\nDoppelt so clever has five new 주사위-marking challenges and a new 액션 beyond the re-roll and \"use one more die\" 액션 of the earlier game.",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 8,
+          "gameId": 237792,
+          "name": " 루미큐브 트위스트",
+          "englishName": " Rummikub Twist",
+          "evidenceText": "게임명: 루미큐브 트위스트\n영문명: Rummikub Twist\n메커니즘: 셋 컬렉션, 핸드 관리, 패턴 만들기\n카테고리: 가족\n테마: 추상전략, 숫자\n설명: It's the classic Rummikub game with a major Twist, It's the classic Rummikub game with a major Twist\n\nThe beloved classic gets a fresh Twist! Rummikub has been enjoyed by millions, and now includes three new Jokers for a fun, new way to play. Easy-to-learn and fast paced, Rummikub is a favorite for new and seasoned 플레이어. The introduction of Jokers such as the Double Joker, Color Change Joker and Mirror Joker adds a new way to strategize your way to 승리. This set features high quality, stackable 타일 with bright, colorful numbers that are easy to see.\n\n—description from the publisher",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 9,
+          "gameId": 142379,
+          "name": " 이스케이프 프엘앤",
+          "englishName": " Escape Plan",
+          "evidenceText": "게임명: 이스케이프 프엘앤, 이스케이프 플랜, Escape Plan\n영문명: Escape Plan\n메커니즘: 타일 놓기, 조립 보드, 플레이어별 고유 능력, 육각형 격자, 공개 드래프팅, 영역 둘러싸기, 지역 이동, 경주\n카테고리: 전략\n테마: 모험\n설명: After a successful bank heist, you and your fellow thieves are laying low and enjoying the good life., After a successful bank heist, you and your fellow thieves are laying low and enjoying the good life. Most of the cash has been hidden away, and the rest has been invested in businesses throughout the city. Everything is going according to plan until the police get a breakthrough in their investigation. Accusations are made, fingers are 점수ed, and after a heated argument, you decide to go your separate ways.\nChaos ensues as the SWAT team is called in and start to close off the city’s exits. Your only choice now is to escape the city before it is completely locked down. But you need a plan — a good route that allows you to leave the city while recovering as much of the money as possible.\nYou will need to call in some favors and hire the local gangs to create diversions. Bribing the Police would be a good idea too, but it isn't cheap. Disguises may help, but they don’t fool everyone. Setting the Police on the trail of your former colleagues will give you a better chance of escape, but the other thieves are thinking the same thing...\nWill you escape the city with the most money, or will the Police lockdown the city before you can escape?\n\nIn Escape Plan, 플레이어 are the thieves, but they may influence the cops' moves every 턴. The robbers move on a 모듈식 보드 trying to reach the best spots to recover their loot and escape from the city with more money than the other thieves. The cops are trying to thwart their escape plan — by force if necessary. The 플레이어 play 카드 to aid their escape and slow the other 플레이어 down. The 플레이어 take 액션 that allow them to move and to engage gangs, mules, and snitches.\n\nIt contains asymmetric roles set by missions that 플레이어 may achieve during the game while avoiding the police. The 플레이어' roles as thieves are individual with every 플레이어 for themselves. In the end, only the 플레이어 who escapes with the most cash wins.\n\nThe game design is influenced by great heist films.",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 10,
+          "gameId": 203430,
+          "name": " 후지 플러시",
+          "englishName": " Fuji Flush",
+          "evidenceText": "게임명: 후지 플러시\n영문명: Fuji Flush\n메커니즘: 핸드 관리, 직접 공격\n카테고리: 가족\n테마: 카드 게임, 숫자\n설명: Be the first 플레이어 to get rid of all of your 카드!, Be the first 플레이어 to get rid of all of your 카드!\n\nJoin forces with fellow 플레이어 to beat 카드 played by other 플레이어...or independently play the highest 카드 to outdo all your opponents together, flushing their 카드 down the drain!\n\nFuji Flush is a fast, fun, easy-to-learn 카드게임 that will have you shouting as your 카드 are sent down the drain!\n\nFuji Flush is a 카드게임, which consists of 카드 numbered 2 through 20, with higher numbers being rarer. 각 플레이어는 holds six 카드 at the beginning. In clockwise order, 플레이어 play one 카드 each. If it is higher than another 카드 currently on the table, the lower 카드 or 카드 are dis카드ed and the 플레이어 who had played the lower 카드 must draw a new 카드. However, if two or more 플레이어 play the same number, the 카드 values are added together.  When it is a 플레이어's 턴 and their 카드 is still in front of them, they can dis카드 it without redrawing. First 플레이어(s) to get rid of their 카드 wins!\n\nFuji Flush supports from 3 to 8 플레이어!  A great game for large 인원수s!",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 11,
+          "gameId": 12942,
+          "name": " 노 스앤크스!",
+          "englishName": " No Thanks!",
+          "evidenceText": "게임명: 노 스앤크스!, 노 땡스!, No Thanks!\n영문명: No Thanks!\n메커니즘: 셋 컬렉션, 경매 / 입찰, 운 시험하기, 점수 계산 후 초기화, 폐쇄 경제 경매\n카테고리: 가족\n테마: 카드 게임\n설명: No Thanks!, No Thanks! is a 카드게임 designed to be as simple as it is engaging.\n\nThe 규칙 are simple.  Each 턴, 플레이어 have two options:\n\nplay one of their chips to avoid picking up the current face-up 카드\npick up the face-up 카드 (along with any chips that have already been played on that 카드) and 턴 over the next 카드\n\nHowever, the choices aren't so easy as 플레이어 compete to have the lowest 점수 게임이 종료되면 the game.  The deck of 카드 is numbered from 3 to 35, with each 카드 counting for a number of 점수 equal to its face value.  Runs of two or more 카드 only count as the lowest value in the run - but nine 카드 are removed from the deck before starting, so be careful looking for connectors.  Each chip is worth -1 점수, but they can be even more valuable by allowing you to avoid drawing that unwanted 카드.\n\nThe first versions of the game supported up to five 플레이어, but the German 2011 edition supports up to seven (simply by increasing the number of chips).\n\nThis game was originally published in Germany in 2004 by Amigo as Geschenkt ...ist noch zu teuer!, meaning Even given as a gift, it is still too expensive!.  Amigo's 2006 international edition, titled No Merci! (a delightful multi-lingual pun), had 규칙 in several languages, including English. The game has subsequently been released in other countries under an assortment of names. The German 2024 edition includes additional 카드 to allow for play with variant 규칙.",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 12,
+          "gameId": 420087,
+          "name": " 프리프 7",
+          "englishName": " Flip 7",
+          "evidenceText": "게임명: 프리프 7, 플립 7, Flip 7\n영문명: Flip 7\n메커니즘: 운 시험하기, 직접 공격, 점수 계산 후 초기화, 끼어들기\n카테고리: 가족, 파티\n테마: 카드 게임, 파티 게임, 어린이 게임, 소설-기반, 숫자\n설명: Flip over 카드 one by one without flipping the same number twice., Flip over 카드 one by one without flipping the same number twice.\n\nSound easy? Think again! This isn't just any deck of 카드… In Flip 7 there's only one 1 카드, two 2's, three 3’s, etc plus a bunch of special 카드 that can 점수 you extra 점수, give you a second chance, or freeze you or your opponents in your tracks.\n\nAre you the type of 플레이어 to play it safe and bank 점수 before you bust, or are you going to risk it all and go for the bonus 점수 by flipping over seven in a row? Press your luck meets strategy in this addictive 카드게임 that's sure to be the greatest 카드게임 you’ve ever played!\n\n—description from the publisher",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 13,
+          "gameId": 406660,
+          "name": " 블루, 샌드, 씨사이드",
+          "englishName": " Seaside",
+          "evidenceText": "게임명: 블루, 샌드, 씨사이드\n영문명: Seaside\n메커니즘: 셋 컬렉션, 운 시험하기\n카테고리: 가족\n테마: 추상전략\n설명: The sun is shining, as a light, salty wind sends cottony clouds scudding across the sky., The sun is shining, as a light, salty wind sends cottony clouds scudding across the sky. Sandpipers filling their bellies with strange insects, crabs hiding under piles of rocks, seashells washed up on the sand, curling waves that break along the beach. Nature in its simplest beauty.\n\nSeaside is a game that features only wooden 토큰. One 토큰 at a time, create your Seaside with the elements the sea sends your way. 게임의 최종 목표는 to have the highest stack of 토큰.\n\nOn your 턴, draw a 토큰 from the Bag, look at it secretly, choose the side that interests you and apply its effect. Once you have chosen the side of the 토큰 you'd like to play, it will remain like that for the rest of the game.  Once you've applied the 토큰's effect, your 턴 is over; pass the Bag to the 플레이어 on your left.\nIf you pick a 토큰 with a blue design and throw it into the sea, you immediately take another 턴. Your 턴 ends when you pick a 토큰 with a white design and put it on your Seaside.\n\nThe key to the game lies in the inter액션 among the various elements of Seaside’s ecosystem. The Sandpiper allows you to fetch Isopods from the Sea. The more Beaches you have, the more Shells you can collect from the Sea. Having one Rock does nothing, but the second one you place allows you to collect all the Crabs from the Sea... and even steal one from another 플레이어! Finally, Waves wash across the Beach 타일 and flip them over.\n\nAs soon as the bag is empty, the game is over. Stack up all the 토큰 from your Seaside, and the 플레이어 with the highest stack wins!\n\n—description from the publisher",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 14,
+          "gameId": 244522,
+          "name": " 스아트스 프레트트이 크레브어!",
+          "englishName": " That's Pretty Clever!",
+          "evidenceText": "게임명: 스아트스 프레트트이 크레브어!, 영리한 여우, That's Pretty Clever!\n영문명: That's Pretty Clever!\n메커니즘: 종이와 연필, 주사위 굴림, 솔로/솔로테어 게임, 재굴림 및 고정\n카테고리: 가족\n테마: 주사위, 숫자\n설명: Choose your 주사위 cleverly in Ganz schön clever (German for \"That's Pretty Clever\") to enter them into the matching colored areas on your 점수 sheet, putting together tricky chain-점수 계산 opportunities, and racking up the 점수!, Choose your 주사위 cleverly in Ganz schön clever (German for \"That's Pretty Clever\") to enter them into the matching colored areas on your 점수 sheet, putting together tricky chain-점수 계산 opportunities, and racking up the 점수! The 주사위 you don't use are as important as those you do, because every die with a lower value than the chosen one can be used by the other 플레이어, keeping everyone in the game at all times.",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 15,
+          "gameId": 16747,
+          "name": " 트엄브르인 다이스",
+          "englishName": " Tumblin' Dice",
+          "evidenceText": "게임명: 트엄브르인 다이스, 텀블링 다이스, Tumblin' Dice\n영문명: Tumblin' Dice\n메커니즘: 주사위 굴림, 알까기\n카테고리: 가족, 파티\n테마: 주사위, 파티 게임, 행동,액션·손기술\n설명: Tumblin' 주사위 is a dexterity 주사위 game in which 플레이어 시계 방향으로 차례를 돌아가며 진행합니다 sliding, rolling, or flicking one of their 주사위 down stepped surface., Tumblin' 주사위 is a dexterity 주사위 game in which 플레이어 시계 방향으로 차례를 돌아가며 진행합니다 sliding, rolling, or flicking one of their 주사위 down stepped surface. 모든 플레이어 have launched their four 주사위, they 점수 점수, multiplying the value of the die roll by 1&times;, 2&times;, 3&times;, or 4&times; depending on which area of the board the die has landed. (주사위 which land in the 0&times; region are immediately removed from play.) After four 라운드, 가장 높은 점수를 획득한 플레이어가 점수 win.\n\nTumblin' 주사위 Jr. is a \"travel\" version of this game.\n\nNote that the 인원수 of Tumblin' 주사위 has varied across multiple editions, with some sets having only four colors of 주사위 and others having up to six colors. In addition, some sets have a -1x 점수 계산 area in place of or preceding 0x.",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 16,
+          "gameId": 284108,
+          "name": " 피크쳐스",
+          "englishName": " Pictures",
+          "evidenceText": "게임명: 피크쳐스, 픽처스, Pictures\n영문명: Pictures\n메커니즘: 패턴 인식, 의사소통 제한, 추리\n카테고리: 가족, 파티\n테마: 파티 게임, 추리\n설명: Pictures is a quick-playing family game with very simple 규칙., Pictures is a quick-playing family game with very simple 규칙. Form the image on your secret picture 카드 with one set of 구성품, either shoelaces, color cubes, icon 카드, sticks and stones or building blocks in such a way that the other 플레이어 guess what image you have pictured:\n\nPull out a marker from the bag that determines your secret picture 카드.\nThen form that image with your 구성품 in such a way that it is recognizable.\nAnd finally guess what image each other 플레이어 has pictured.\n\nThe 플레이어 get 점수 for correctly guessing other 플레이어 images and for other 플레이어 guessing their image. The most 점수 wins!\n\n—description from the publisher",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 17,
+          "gameId": 393325,
+          "name": " 캡틴 프리프",
+          "englishName": " Captain Flip",
+          "evidenceText": "게임명: 캡틴 프리프, 뒤집어줘! 캡틴, Captain Flip\n영문명: Captain Flip\n메커니즘: 타일 놓기, 기억력, 운 시험하기, 우위 토큰, 게임 종료 보너스, 다중 지도, 격자 채우기\n카테고리: 가족\n테마: 항해, 해적\n설명: Ahoy, Captain!, Ahoy, Captain!\nHoist your flag, recruit a crew, and fill your coffers with shiny, gold coins.\n\nCaptain Flip is a game of obvious simplicity explained in less time than a cannonball shot. On your 턴, draw a 타일 from the bag. You like it? Keep it! You don't like it? Flip it! Then place it on your board to form your crew.\n\nWith its nine characters and four boards with different 전술, Captain Flip offers an immediate, fun, and subtle gaming experience.\n\n—description from the publisher",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 18,
+          "gameId": 117959,
+          "name": " 라스 베가스",
+          "englishName": " Las Vegas",
+          "evidenceText": "게임명: 라스 베가스, 라스베가스, Las Vegas\n영문명: Las Vegas\n메커니즘: 주사위 굴림, 지역 다수 / 영향력, 운 시험하기, 재굴림 및 고정\n카테고리: 가족\n테마: 주사위\n설명: Developer Stefan Brück at alea describes Las Vegas as \"an easy, 주사위-rolling, fun-and-luck game with a lot of inter액션 and 'schadenfreude'\"., Developer Stefan Brück at alea describes Las Vegas as \"an easy, 주사위-rolling, fun-and-luck game with a lot of inter액션 and 'schadenfreude'\". Who doesn't love schadenfreude? (Well, other than those being schadened, I suppose...)\n\nIn more detail, Las Vegas includes six 카드board casino mats, one for each side of a normal six-sided die. For each mat, 플레이어 draw money 카드 until at least $50k is showing, but the amount may end up being a lot more, making that casino more desirable.\n\n각 플레이어는 has eight 주사위 of a different color, which they 시계 방향으로 차례를 돌아가며 진행합니다 rolling. When you roll your 주사위, you can choose to place them on the relevant casino 카드; for example, a die showing a 1 will be placed on the casino mat marked \"1\". You must place all 주사위 of one number on one casino in your 턴. All 플레이어 시계 방향으로 차례를 돌아가며 진행합니다 doing this until all the 주사위 have been used. Finally, 가장 높은 점수를 획득한 플레이어가 주사위 on each casino 카드 takes the money associated with it. In case of a tie, the next non-tied 플레이어 takes the highest-valued money 카드 at that casino.\n\nLas Vegas rates a 1 out of 10 on alea's difficulty scale.",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 19,
+          "gameId": 304051,
+          "name": " 크르이쳐 크옴프오트스",
+          "englishName": " Creature Comforts",
+          "evidenceText": "게임명: 크르이쳐 크옴프오트스, 크리처 컴포트: 메이플 밸리의 겨울나기, Creature Comforts\n영문명: Creature Comforts\n메커니즘: 셋 컬렉션, 핸드 관리, 공개 드래프팅, 주사위 굴림, 일꾼 놓기, 운 시험하기, 솔로/솔로테어 게임, 차례 순서: 순차 이동, 이벤트, 게임 종료 보너스, 소유권, 계약, 경매: 네덜란드식, 주사위 일꾼 놓기, 태그\n카테고리: 가족\n테마: 동물\n설명: Life in the forest is a lot of fun, at least while the sun is shining and the leaves are on the trees., Life in the forest is a lot of fun, at least while the sun is shining and the leaves are on the trees. Those days don’t last forever though, and long before the weather starts to change, the wise animals start to harvest for the long cold winter ahead. You will spend many months tucked into your burrow and you want to make it as cozy as possible. A nice bowl of soup, a comfortable rocking chair, and some toys and games will go a long way to make those dark winter days pass by quickly.\n\nIn Creature Comforts, you spend the Spring, Summer, and Fall gathering different goods from the forest and spending them to collect items that will make your home more inviting while the world outside is covered in a layer of snow. Each 라운드 you send family members out to various locations in an attempt to gain supplies. If they fall short of their goal, they’ll learn a lesson and be better prepared next time. The family that has created the most comfortable den 게임에서 최종 승리합니다.\n\n—description from the publisher",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 20,
+          "gameId": 193214,
+          "name": " 엠이프레 크어쿠스",
+          "englishName": " Meeple Circus",
+          "evidenceText": "게임명: 엠이프레 크어쿠스, 미플 서커스, Meeple Circus\n영문명: Meeple Circus\n메커니즘: 공개 드래프팅, 패턴 만들기, 운 시험하기, 실시간, 쌓기와 균형 잡기\n카테고리: 가족\n테마: 행동,액션·손기술, 실시간, 동물\n설명: Let the show begin!, Let the show begin!\n\nYou have only one goal in Meeple Circus: Entertain the audience. The competition is tough, but you can create the most amazing circus by proposing incredible acts! Acrobats, horses, and many accessories are at your disposal. Be sure to undertake a good rehearsal, then with your remarkable dexterity, you can give them the show of their lifetime. Once the circus music starts, all eyes will be upon you!\n\nIn short, Meeple Circus is a dexterity game in which you do what all gamers do when setting up a game: Pile up your meeples!",
+          "grade": null,
+          "rationale": null
+        }
+      ]
+    },
+    {
+      "id": "Q-011",
+      "query": "상대의 반응을 살피며 서로 눈치를 보는 재미가 있는 게임",
+      "judgementRubric": {
+        "relevant": "상대의 반응·의도·선택을 읽는 것이 핵심 재미이고 행동 예측이 실제 의사결정에 중요한 게임",
+        "borderline": "상호작용은 강하지만 상대 의도를 읽는 것이 부차적인 게임",
+        "irrelevant": "multiplayer solitaire 성격이거나 상대 반응을 읽는 것이 거의 의미 없는 게임"
+      },
+      "candidates": [
+        {
+          "order": 1,
+          "gameId": 163930,
+          "name": " 아브라카다...왓?",
+          "englishName": " Abracada...What?",
+          "evidenceText": "게임명: 아브라카다...왓?\n영문명: Abracada...What?\n메커니즘: 기억력, 운 시험하기, 비대칭 정보를 가진 역할\n카테고리: 가족\n테마: 추리\n설명: Abraca...what?, Abraca...what? is a family game of deduction and spellcasting. On your 턴, you try to cast one of the spells you have in front of you — but it's harder than it looks because only the other 플레이어 can see which spells are available to you! So with cunning wit, clever logic, and a little luck, you have to determine which spells to use against your competitors. Watch your magic words, though, because if you try to cast the wrong spell too often, you'll lose the game!",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 2,
+          "gameId": 46213,
+          "name": " 트엘에스트라션스",
+          "englishName": " Telestrations",
+          "evidenceText": "게임명: 트엘에스트라션스, 텔레스트레이션, Telestrations\n영문명: Telestrations\n메커니즘: 종이와 연필, 그리기\n카테고리: 파티\n테마: 파티 게임, 실시간, 유머\n설명: The award-winning party game Telestrations will get your family and friends laughing as they draw what they see, then guess what they saw for hours of hilarious miscommunication., The award-winning party game Telestrations will get your family and friends laughing as they draw what they see, then guess what they saw for hours of hilarious miscommunication. All 플레이어 simultaneously sketch, pass, and guess while revealing laugh-out-loud and unpredictable outcomes!",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 3,
+          "gameId": 322204,
+          "name": " 더블유오드 카프쳐",
+          "englishName": " Word Capture",
+          "evidenceText": "게임명: 더블유오드 카프쳐\n영문명: Word Capture\n메커니즘: 실시간, 빠른 짝 맞추기\n테마: 카드 게임, 단어 게임, 파티 게임, 행동,액션·손기술, 실시간\n설명: Word Capture needs speed and wit., Word Capture needs speed and wit. This game for 2-6 플레이어, and takes 10 minutes to play.\n\nIn Word Capture 플레이어 has to call an associated word following the calling condition. But be aware of calling with another 플레이어 at the same time unless you might get a penalty 점수.\nTo set up, shuffle 40 subject 카드 playing with 2 to 3 플레이어 and 50 카드 playing with 4 to 6 플레이어 and make a face-down deck on the middle of the table and 턴 the rest back to the box\nWhen the game begins, one of the 플레이어 턴 the 카드 over and puts it on the table so every 플레이어 can see the Alphabet on the deck and the subject on the front of the 카드.\nWhen there is a subject that matches the alphabet, every 플레이어 has to call a word that is associated with the subject following the calling condition.\nWhen this condition appears 플레이어 must call a word matching the number of characters shown on the 카드.\nWhen this condition appears 플레이어 have to call the number of syllable word that matches with the number of orders they have to call. For example, the first 플레이어 who calls must call a one-syllable word, and the second 플레이어 must call a two-syllable word. When playing with 2플레이어, this condition is fixed by calling a five-syllable word.\nWhen this condition appears, the first letter of the word must include the letter that is shown on the 카드.\nThe last 플레이어 who didn’t call an associated word or a 플레이어 who didn’t follow the condition of calling has to take the subject 카드 that is currently opened on the table as a penalty 점수.\nAnd when 2 플레이어 calls an associated word at the same time they both get a penalty 점수 by one taking from the front opened 카드 and one from the deck.\nWhen there is no alphabet matching with the subject, every 플레이어 must place their hand on the 카드 which is opened on the table. The last 플레이어 who placed its hand on the 카드 takes the 카드 and gets a penalty 점수. If 플레이어 made a mistake the first 플레이어 who made the mistake takes the 카드.\nThe game ends immediately when there is one or less subject 카드 left on the deck and the 플레이어 with the less 카드 on their front 게임에서 최종 승리합니다. In case of a tie, take 8 unused 카드 from the box and take extra 라운드.",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 4,
+          "gameId": 421762,
+          "name": " 에메랄드 스컬",
+          "englishName": " Emerald Skulls",
+          "evidenceText": "게임명: 에메랄드 스컬\n영문명: Emerald Skulls\n메커니즘: 베팅과 블러핑, 주사위 굴림, 운 시험하기, 실시간, 재굴림 및 고정, 승점을 자원으로 사용, 손재주 경매, 예측 입찰, 입찰을 내기로 사용\n테마: 판타지, 주사위, 실시간\n설명: In the grimy depths of Kulbak Prison, where the greatest Dragul warriors are confined, inmates gather a라운드 Nargash the goblin and his bone-carved 주사위., In the grimy depths of Kulbak Prison, where the greatest Dragul warriors are confined, inmates gather a라운드 Nargash the goblin and his bone-carved 주사위. Best to keep your wits about you. A game of Emerald Skulls is about to begin…\n\nEmerald Skulls is a push-your-luck, 주사위 gambling game. Attempt to fill the skull board with 주사위 and place speedy, real-time wagers on the outcomes of your opponents’ rolls.\n\nOn your 턴 as the tumbler, roll 주사위 and use tricks to place them on the five ascending tiers of the skull. But be warned - once you place 주사위, you can no longer put them on lower tiers for the rest of your 턴!\n\nDuring your opponents’ 턴 as tumbler, you are a gambler. Swiftly place bets and counter-bets on the results of the tumbler’s rolls. You may wager twice per 라운드, but can only bet while the 주사위 are in the tumbler’s hands. So think fast and bet smart - the quicker your wager, the bigger your payout!\n\nWhen the pot of gears runs out, 가장 높은 점수를 획득한 플레이어가 claims the 승리.\n\n—description from the publisher",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 5,
+          "gameId": 329839,
+          "name": " 소 크로브어!",
+          "englishName": " So Clover!",
+          "evidenceText": "게임명: 소 크로브어!, 쏘 클로버!, So Clover!\n영문명: So Clover!\n메커니즘: 협력 게임, 의사소통 제한\n카테고리: 파티\n테마: 단어 게임, 파티 게임\n설명: So Clover!, So Clover! is a 협력형 word-association game. Play as a team to get the highest 점수. Get Keywords and secretly write their common features on your Clover board; these are your Clues. Then work together to try to figure out 각 플레이어는’s Keywords. 게임이 종료되면 the game, add up your 점수 according to how many Keywords you found and write it in the Record of Legends. Try to beat your high 점수 each game!\n\n-description from the publisher",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 6,
+          "gameId": 134352,
+          "name": " 트워 르우름스 앤드 아 브우름",
+          "englishName": " Two Rooms and a Boom",
+          "evidenceText": "게임명: 트워 르우름스 앤드 아 브우름, 두 개의 방과 폭탄, Two Rooms and a Boom\n영문명: Two Rooms and a Boom\n메커니즘: 플레이어별 고유 능력, 투표, 팀 기반 게임, 연기, 실시간, 실제 경과 시간 종료, 비공개 역할\n카테고리: 파티\n테마: 카드 게임, 블러핑, 협상, 파티 게임, 실시간, 추리, 스파이/첩보원, 프린트 & 플레이\n설명: In Two Rooms and a Boom – a social deduction/hidden role party game for six or more 플레이어 – there are two teams: the Red Team and the Blue Team., In Two Rooms and a Boom – a social deduction/hidden role party game for six or more 플레이어 – there are two teams: the Red Team and the Blue Team. The Blue Team has a President. The Red Team has a Bomber. 플레이어 are equally distributed between two rooms (i.e., separate playing areas). The game consists of five timed 라운드. 게임이 종료되면 each 라운드, some 플레이어 will be swapped into opposing rooms. If the Red Team's Bomber is in the same room as the President 게임이 종료되면 the game, then the Red Team wins; otherwise the Blue Team wins. Lying encouraged.",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 7,
+          "gameId": 411567,
+          "name": " 스에 그앤그",
+          "englishName": " The Gang",
+          "evidenceText": "게임명: 스에 그앤그, 갱스터, The Gang\n영문명: The Gang\n메커니즘: 협력 게임, 의사소통 제한, 예측 입찰\n카테고리: 가족\n테마: 카드 게임, 파티 게임\n설명: 라운드 up your gang and get ready to pull off a series of bank heists using the power of poker!, 라운드 up your gang and get ready to pull off a series of bank heists using the power of poker!\n\nIn The Gang, a 협력erative version of Texas Hold'em, 플레이어 bet on how good they think their hand of 카드 will be relative to the other 플레이어, then try to make their predictions a reality.\n\nEarly in a 라운드, without talking to each other, 각 플레이어는 chooses a chip indicating how good they think their hand is. Then they begin dealing 카드 into the middle of the table and have a chance to reassess their hands as more 카드 are revealed. 게임이 종료되면 the 라운드, 플레이어 see whether they correctly evaluated their hand. If all 플레이어 did, you get to open one of the bank vaults! If not, you trip the alarm! If you manage to open three vaults before you trip the alarm three times, your gang wins!\n\n—description from the publisher",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 8,
+          "gameId": 2536,
+          "name": " 바방크",
+          "englishName": " Vabanque",
+          "evidenceText": "게임명: 바방크\n영문명: Vabanque\n메커니즘: 베팅과 블러핑\n카테고리: 가족\n테마: 블러핑\n설명: A party meets for a game in the casino., A party meets for a game in the casino. After the 플레이어 determine how much money can be won at the casino tables they play their character 카드 and move their pawns to a casino table. The payout can be multiplied or lost to 카드 sharks. In the beginning the stakes are low but they increase from 라운드 to 라운드. In Vabanque, if you carefully watch the others, and guess their bluffs, you can win a lot. 가장 높은 점수를 획득한 플레이어가 money after four 라운드 is the 승리자.",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 9,
+          "gameId": 254640,
+          "name": " 주스트 온에",
+          "englishName": " Just One",
+          "evidenceText": "게임명: 주스트 온에, 저스트 원!, Just One\n영문명: Just One\n메커니즘: 협력 게임, 점수 계산 후 초기화, 의사소통 제한, 추리\n카테고리: 파티\n테마: 단어 게임, 파티 게임, 추리\n설명: Just One is a 협력erative party game in which you all play together to get the best 점수!, Just One is a 협력erative party game in which you all play together to get the best 점수! Your goal each 라운드 is to get one 플레이어 — the active 플레이어 — to guess a mystery word based on the clues given by teammates. Can you achieve a perfect 점수 by guessing all the mystery words?\n\nIn more detail, everyone who is not the active 플레이어 sees the mystery word, then 각 플레이어는 independently writes a clue on their personal easel. Once everyone has finished, you reveal the clues to one another. All identical clues are removed from play, so try to be original!\n\nAfter eliminating duplicate clues, reveal the remaining clues to the active 플레이어. If they correctly guess the mystery word, your team 점수 a 점수. If they decline to guess, you don't 점수 the current 카드. If they guess wrong, you don't 점수 the current 카드 and you lose one of the 점수 you had already 점수d. Thus, be original, but not so original that you don't help the active 플레이어 guess correctly!",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 10,
+          "gameId": 291453,
+          "name": " 스크아우트",
+          "englishName": " SCOUT",
+          "evidenceText": "게임명: 스크아우트, 스카우트, SCOUT\n영문명: SCOUT\n메커니즘: 핸드 관리, 점수 계산 후 초기화, 사다리 오르기\n카테고리: 가족\n테마: 카드 게임\n설명: SCOUT is a ladder-climbing game in which 카드 have two potential values, 플레이어 may not rearrange their hand of 카드, and 플레이어 may pass their 턴 to take a 카드 from the current high set of 카드 into their hand., SCOUT is a ladder-climbing game in which 카드 have two potential values, 플레이어 may not rearrange their hand of 카드, and 플레이어 may pass their 턴 to take a 카드 from the current high set of 카드 into their hand.\n\nMore specifically, 카드 are dual-indexed, with different values on each half of the 카드, with the 45 카드 having all possible combinations of the numbers 1-10. During set-up, whoever is shuffling the 카드 should randomize both the order of the 카드 in the deck and their orientation. Once 각 플레이어는 has been dealt their entire hand of 카드, they pick up that hand without rearranging any of the 카드; if they wish, they can rotate their entire hand of 카드 in order to use the values on the other end of each 카드, but again they cannot rearrange the order of 카드 in their hand.\n\nOn a 턴, a 플레이어 takes one of two 액션:\n\n• Play: A 플레이어 chooses one or more adjacent 카드 in their hand that have all the same value or that have values in consecutive order (whether ascending or descending), then they play this set of 카드 to the table. They can do this only if the table is empty (as on the first 턴) or the set they're playing is ranked higher than the set currently on the table; a set is higher if it has more 카드 or has 카드 of the same value instead of consecutive 카드 or has a set of the same quantity and type but with higher values. In this latter case when a 플레이어 overplays another set, the 플레이어 captures the 카드 in this previous set and places them face down in front of themselves.\n\n• Scout: A 플레이어 takes a 카드 from either end of the set currently on the table and places it anywhere they wish in their hand in either orientation. Whoever played this previous set receives a 1 VP 토큰 as a reward for playing a set that wasn't beaten.\n\nOnce per 라운드, a 플레이어 can scout, then immediately play.\n\nWhen a 플레이어 has emptied their hand of 카드 or all but one 플레이어 have scouted instead of playing, the 라운드 ends. 플레이어 receive 1 VP for each face-down 카드, then subtract one 점수 for each 카드 in their hand (except if they were the 플레이어 scouted repeatedly to end the game). Play as many 라운드 as the number of 플레이어, then whoever has the most 점수 wins.",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 11,
+          "gameId": 347889,
+          "name": " 캐치 스케치",
+          "englishName": " Catch Sketch",
+          "evidenceText": "게임명: 캐치 스케치\n영문명: Catch Sketch\n메커니즘: 종이와 연필\n테마: 파티 게임, 실시간, 유머\n설명: Catch Sketch is a speed drawing game., Catch Sketch is a speed drawing game. You have to draw images to explain a keyword as quick as possible. The active 플레이어 will guess the keyword by looking at the images of the fastest 플레이어. But, if he makes a wrong guess, the chance to get a 점수 will passed to the next fastest 플레이어. So be quick, but draw recognizable images to win.\n\n—description from the publisher",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 12,
+          "gameId": 3955,
+          "name": " 브앤그!",
+          "englishName": " BANG!",
+          "evidenceText": "게임명: 브앤그!, 뱅!, BANG!\n영문명: BANG!\n메커니즘: 플레이어별 고유 능력, 팀 기반 게임, 핸드 관리, 플레이어 탈락, 직접 공격, 처치 가로채기, 비공개 역할, 폭탄 돌리기\n카테고리: 파티\n테마: 카드 게임, 블러핑, 추리, 전투, 미국 서부\n설명: \"The Outlaws hunt the Sheriff., \"The Outlaws hunt the Sheriff. The Sheriff hunts the Outlaws. The Renegade plots secretly, ready to take one side or the other. Bullets fly. Who among the gunmen is a Deputy, ready to sacrifice himself for the Sheriff? And who is a merciless Outlaw, willing to kill him? If you want to find out, just draw (your 카드)!\" (From back of box)\n\nThe 카드게임 BANG! recreates an old-fashioned spaghetti western shoot-out, with 각 플레이어는 randomly receiving a Character 카드 to determine special abilities, and a secret Role 카드 to determine their goal.\n\nFour different Roles are available, each with a unique 승리 condition:\n\nSheriff - Kill all Outlaws and the Renegade\nDeputy - Protect the Sheriff and kill any Outlaws\nOutlaw - Kill the Sheriff\nRenegade - Be the last person standing\n\nA 플레이어's Role is kept secret, except for the Sheriff. Character 카드 are placed face up on table, and also track strength (hand limit) in addition to special ability.\n\nThere are 22 different types of 카드 in the draw deck. Most common are the BANG! 카드, which let you shoot at another 플레이어, assuming the target is within \"range\" of your current gun.  The target 플레이어 can play a \"MISSED!\" 카드 to dodge the shot.  Other 카드 can provide temporary boosts while in play (for example, different guns to improve your firing range) and special one-time effects to help you or hinder your opponents (such as Beer to restore health, or Barrels to hide behind during a shootout). A horse is useful for keeping your distance from unruly neighbors, while the Winchester can hit a target at range 5. The Gatling is a deadly exception where range doesn't matter: it can only be used once, but targets all other 플레이어 at the table!\n\nInformation on the 카드 is displayed using language-independent symbols, and 7 summary/reference 카드 are included.",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 13,
+          "gameId": 102181,
+          "name": " 덤불 속",
+          "englishName": " In a Grove",
+          "evidenceText": "게임명: 덤불 속\n영문명: In a Grove\n메커니즘: 기억력\n카테고리: 추상 전략, 파티\n테마: 블러핑, 추리, 살인/미스터리\n설명: In a Grove — a.k.a., In a Grove — a.k.a. 藪の中, Yabunonaka, and Hattari — is a game of bluffing and deduction, and the 플레이어 who makes too many false accusations loses the game.\n\nThe game 은(는) 다음과 같은 방식으로 진행됩니다: 라운드. Each 라운드, 각 플레이어는 receives one of the eight silhouettes (which are numbered 2-8 with one blank), while three silhouettes are placed in the center of the table as suspects and the final silhouette is dubbed the victim. (With three 플레이어, the #2 is removed from the game.) You have to determine which suspect is the culprit, either to accuse him or to lure the other 플레이어 into accusing someone who's innocent!\n\nAll 플레이어 secretly look at their silhouettes, then pass them right, then look at the new silhouette they received. The first 플레이어 of the 라운드 secretly looks at two of the three suspects, optionally swapping the victim for one of these suspects. This 플레이어 then places a colored accusation marker below one of the suspects. The next 플레이어 looks at the two suspects not just marked with an accusation marker, then places a colored accusation marker of their own, covering any markers already beneath that suspect. This continues until all four 플레이어 have placed an accusation marker, with 각 플레이어는 not being allowed to look at the suspect just accused.\n\nThe 라운드 ends, and 플레이어 reveal the suspects. Who's the culprit? The suspect bearing the highest number – except if the #5 is among the suspects, in which case the suspect with the lowest number is guilty. (The suspect with no number is always innocent.) Anyone who has accused the correct suspect receives their accusation marker back. Any markers incorrectly placed are flipped colored-side down and given to the 플레이어 who owns the marker on top of the stack. The first 플레이어 토큰 rotates clockwise, then a new 라운드 begins.\n\n게임이 종료되면 a 턴 if a 플레이어 has eight or more 토큰 — or has no 토큰 — then the game ends, and that 플레이어 loses.\n\nEarlier editions of In a Grove 3~4명의 플레이어를 지원합니다, while the 2021 edition contains slight changes to the 규칙 and 구성품 to allow for play with 2-5 people.",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 14,
+          "gameId": 284108,
+          "name": " 피크쳐스",
+          "englishName": " Pictures",
+          "evidenceText": "게임명: 피크쳐스, 픽처스, Pictures\n영문명: Pictures\n메커니즘: 패턴 인식, 의사소통 제한, 추리\n카테고리: 가족, 파티\n테마: 파티 게임, 추리\n설명: Pictures is a quick-playing family game with very simple 규칙., Pictures is a quick-playing family game with very simple 규칙. Form the image on your secret picture 카드 with one set of 구성품, either shoelaces, color cubes, icon 카드, sticks and stones or building blocks in such a way that the other 플레이어 guess what image you have pictured:\n\nPull out a marker from the bag that determines your secret picture 카드.\nThen form that image with your 구성품 in such a way that it is recognizable.\nAnd finally guess what image each other 플레이어 has pictured.\n\nThe 플레이어 get 점수 for correctly guessing other 플레이어 images and for other 플레이어 guessing their image. The most 점수 wins!\n\n—description from the publisher",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 15,
+          "gameId": 400995,
+          "name": " 퍼스펙티브스",
+          "englishName": " Perspectives",
+          "evidenceText": "게임명: 퍼스펙티브스\n영문명: Perspectives\n메커니즘: 협력 게임, 의사소통 제한, 추리\n카테고리: 테마\n테마: 퍼즐, 추리, 살인/미스터리\n설명: In Perspectives, 각 플레이어는 holds key information for piecing together what has happened and finding the solution., In Perspectives, 각 플레이어는 holds key information for piecing together what has happened and finding the solution.\n\nThree cases, each in four acts.\nCross-reference photographs, reports, and clues... without looking at the documents of your team 플레이어!\nWill you find the details connecting all the pieces of the puzzle?\n\nWORK TOGETHER TO SOLVE THE CASES!\n\nThe three 시나리오s:\n\nTHE NAGARAJA - CASE 1: India - Museum – Theft\nTHE DREGS - CASE 2: California - Rock music – Poison\nFROM BUENAVISTA WITH LOVE - CASE 3: South America - Gangs – Murders\n\n—description from the publisher",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 16,
+          "gameId": 257743,
+          "name": " 사이 Whaaat?!",
+          "englishName": " Say Whaaat?!",
+          "evidenceText": "게임명: 사이 Whaaat?!\n영문명: Say Whaaat?!\n메커니즘: 투표, 팀 기반 게임\n테마: 파티 게임\n설명: In each 라운드 of Say Whaaat?!, one of the 플레이어 becomes the judge and has to secretly define the \"ranking of importance\" between five seemingly unrelated items or even ideas., In each 라운드 of Say Whaaat?!, one of the 플레이어 becomes the judge and has to secretly define the \"ranking of importance\" between five seemingly unrelated items or even ideas. All the other 플레이어 then try to guess this ranking, 점수 계산 점수 for each correct guess, with 가장 높은 점수를 획득한 플레이어가 correct guesses in a 라운드 점수 계산 an extra 점수. When all 플레이어 have been the judge once, the game is over.\n\nAn alternative way to play Say Whaaat?! is in teams of two. Each 라운드, one of the two 플레이어 becomes the judge and the other 플레이어 the guesser. All the judges simultaneously rank their 카드 and all their guessers try to find their couple's preferences. The couple with the most correct guesses after five 라운드 wins.",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 17,
+          "gameId": 171,
+          "name": " 치에스스",
+          "englishName": " Chess",
+          "evidenceText": "게임명: 치에스스, 체스, Chess\n영문명: Chess\n메커니즘: 격자 이동, 게임당 1회 능력, 상대 말 제거, 즉시 종료, 정사각형 격자, 패턴 이동\n카테고리: 추상 전략\n테마: 추상전략\n설명: Chess is a two-플레이어, abstract strategy 보드게임 that represents medieval warfare on an 8x8 board with alternating light and dark squares., Chess is a two-플레이어, abstract strategy 보드게임 that represents medieval warfare on an 8x8 board with alternating light and dark squares. Opposing pieces, traditionally designated White and Black, are initially lined up on either side of the board. Each type of piece has a unique form of movement and capturing occurs when a piece, via its movement, occupies the square of an opposing piece. 플레이어 시계 방향으로 차례를 돌아가며 진행합니다 moving one of their pieces in an attempt to capture, attack, defend, or develop their positions. Chess games can end in checkmate (when the king cannot escape from the opponent's pieces), resignation (when one 플레이어 recognizes that 패배 is inevitable and ends the game), or one of several types of draws.\n\nChess is one of the most popular games in the world, played by millions of people worldwide at home, in clubs, online, by correspondence, and in tournaments. Between two highly skilled 플레이어, chess can be a beautiful thing to watch, and a game can provide great entertainment even for novices. The 2020 Netflix series, The Queen's Gambit was enjoyed by both chess 플레이어 and non-플레이어 alike. There is also a large literature of books and periodicals about chess, typically featuring games and commentary by chess masters. Chess is so well known and highly regarded that it is often used as a metaphor in journalism, poetry, fiction, and film.\n\nChess evolved from the ancient Indian game Chaturanga, which became Shatranj when introduced to the Persians. The current form of the game emerged in the second half of the 15th century when the Persians brought Shatranj to Southern Europe. The tradition of organized 경쟁형 chess began in the 16th century. The first official World Chess Champion, Wilhelm Steinitz, claimed his title in 1886. Chess is also a recognized sport of the International Olympic Committee.",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 18,
+          "gameId": 92415,
+          "name": " 스크얼엘",
+          "englishName": " Skull",
+          "evidenceText": "게임명: 스크얼엘, 스컬, Skull\n영문명: Skull\n메커니즘: 경매 / 입찰, 핸드 관리, 플레이어 탈락, 경매: 패스할 때까지 차례순, 예측 입찰, 입찰을 내기로 사용\n카테고리: 파티\n테마: 카드 게임, 블러핑, 파티 게임\n설명: Edited description from Bruno Faidutti's write-up of the game in his Ideal Game Library:, Edited description from Bruno Faidutti's write-up of the game in his Ideal Game Library:\n\nSkull & Roses is the quintessence of bluffing, a game in which everything 은(는) 다음과 같은 방식으로 진행됩니다: the 플레이어' heads. 각 플레이어는 plays a face-down 카드, then 각 플레이어는 in 턴 adds one more 카드 – until someone feels safe enough to state that they can 턴 a number of 카드 face up and get only roses. Other 플레이어 can then overbid them, saying they can 턴 even more 카드 face up. The highest bidder must then 턴 that number of 카드 face up, starting with their own. If they show only roses, they win; if they reveal a skull, they lose, placing one of their 카드 out of play. Two successful challenges 게임에서 최종 승리합니다. Skull & Roses is not a game of luck; it's a game of poker face and meeting eyes.\n\nSkull & Roses Red features the same gameplay as Skull & Roses, with the only change being alternate 규칙 that allow 각 플레이어는 to control two biker gangs. Both Skull & Roses Red and Skull are playable on their own, with each game containing six different biker gangs. Each Skull or Skull & Roses set can be combined with another to allow for games with more than six 플레이어.",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 19,
+          "gameId": 262543,
+          "name": " 와브엘엔그스",
+          "englishName": " Wavelength",
+          "evidenceText": "게임명: 와브엘엔그스, 내 마음의 주파수, Wavelength\n영문명: Wavelength\n메커니즘: 팀 기반 게임, 대상 지정 단서, 경주\n카테고리: 파티\n테마: 파티 게임\n설명: Wavelength is a social guessing game in which two teams compete to read each other's minds., Wavelength is a social guessing game in which two teams compete to read each other's minds. Teams 시계 방향으로 차례를 돌아가며 진행합니다 rotating a dial to where they think a hidden bullseye is located on a spectrum. One of the 플레이어 on your team — the Psychic — knows exactly where the bullseye is, and draws a 카드 with a pair of binaries on it (such as: Job - Career, Rough - Smooth, 판타지 - SF, Sad Song - Happy Song, etc). The Psychic must then provide a clue that is *conceptually* where the bullseye is located between those two binaries.\n\nFor example, if the 카드 this 라운드 is HOT-COLD and the bullseye is slightly to the \"cold\" side of the centre, the Psychic needs to give a clue somewhere in that region. Perhaps \"salad\"?\n\nAfter the Psychic gives their clue, their team discusses where they think the bullseye is located and 턴 the dial to that location on that spectrum. The closer to the center of the bullseye the team guess, the more 점수 they 점수!",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 20,
+          "gameId": 257527,
+          "name": " 트라프더블유오드스",
+          "englishName": " Trapwords",
+          "evidenceText": "게임명: 트라프더블유오드스, 트랩워드, Trapwords\n영문명: Trapwords\n메커니즘: 조립 보드, 팀 기반 게임, 의사소통 제한\n카테고리: 파티\n테마: 판타지, 탐험, 단어 게임, 파티 게임\n설명: The game is for 2 teams, divided into two approximately equivalent number of 플레이어 and takes about 30 minutes to play., The game is for 2 teams, divided into two approximately equivalent number of 플레이어 and takes about 30 minutes to play.\n\nIt could remind you of the classic word game known as Taboo, but this one has an interesting twist on gameplay – the opposing team is the one who chooses the words you cannot use. With you having no idea which words are \"traps\", it’s like dancing on a minefield, when you’re trying to describe your assigned word to the rest of the team.\n\nYou take the role of a group of adventurers crawling through a 판타지 dungeon full of traps and curses, with a Boss waiting for you at the end.\nYou have to successfully guess a word that one of your teammates is trying to describe to you. Sounds simple, but it is made fiendishly difficult by not knowing which words you can't say. Because both teams are simultaneously preparing secret traps for each other, words that you can't use. And further you get, the more trapwords you might expect.\n\nLet's see the example of one possible 턴 when you are trying to give clues for the word \"Axe\":\n\nYou: \"It is a thing that a dwarf can…\"\nOpponents team: \"A-ha, dwarf! Gotcha!\"\nYou: \"How did you know that? Was it obvious I will use that?\"\n\nOr when you would try another approach it could look like this, the successful 턴 of your team:\n\nYou: \"This thing is used by a man with a beard, in a checkered shirt....\"\nOne of your teammates: \"A coffee maker?\"\n[Everyone laughs]\nYou: \"He uses it for work in nature.\"\nAnother teammate: \"A chainsaw!\"\nYou: \"He makes smaller pieces from a big plant with it.\"\nAny of your teammate: \"An axe!\"\nYou: \"Yes! Very good!\"\n\nCould you avoid your opponent's trapwords when you don't know what you can't say?",
+          "grade": null,
+          "rationale": null
+        }
+      ]
+    },
+    {
+      "id": "Q-012",
+      "query": "보드게임을 처음 하는 초보자와도 부담 없이 시작할 수 있는 게임",
+      "judgementRubric": {
+        "relevant": "규칙·설명 부담이 낮고 처음 하는 사람이 빠르게 참여하며 숙련도 격차가 플레이를 크게 망치지 않는 게임",
+        "borderline": "중간 학습 부담이나 경험자의 도움이 필요하지만 초보자도 플레이할 수 있는 게임",
+        "irrelevant": "상당한 규칙 학습·사전 경험을 요구하거나 beginner-friendly 근거가 부족한 게임"
+      },
+      "candidates": [
+        {
+          "order": 1,
+          "gameId": 180263,
+          "name": " 스에 7th 크온트인엔트",
+          "englishName": " The 7th Continent",
+          "evidenceText": "게임명: 스에 7th 크온트인엔트, 일곱번째 대륙, The 7th Continent\n영문명: The 7th Continent\n메커니즘: 조립 보드, 플레이어별 고유 능력, 협력 게임, 이야기 만들기, 핸드 관리, 지역 이동, 솔로/솔로테어 게임, 시나리오 / 미션 / 캠페인 게임, 이야기 선택 / 단락, 지도 추가\n카테고리: 테마\n테마: 카드 게임, SF 공상 과학, 탐험, 모험\n설명: It's the early 20th century., It's the early 20th century. You have decided to sail back to the newly discovered seventh continent to attempt to lift the terrible curse that has struck you since your re턴 from the previous expedition.\n\nIn The 7th Continent, a 1인전 or 협력형 \"choose-your-own-adventure\" exploration 보드게임, you choose a character and begin your adventure on your own or with a team of other explorers. Inspired by the Fighting 판타지 book series, you will discover the extent of this wild new land through a variety of terrain and event 카드. In a land fraught with danger and wonders, you have to use every ounce of wit and cunning to survive, crafting tools, weapons, and shelter to ensure your survival.\n\nUnlike most 보드게임, it will take you many, MANY hours of exploring and searching the seventh continent until you eventually discover how to remove the curse(s)...or die trying.\n\nThe 7th Continent features an easy saving system so that you can stop playing at any time and resume your adventure later on, just like in a video game!",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 2,
+          "gameId": 288098,
+          "name": " 섀도우 레이더스",
+          "englishName": " Shadow Raiders",
+          "evidenceText": "게임명: 섀도우 레이더스\n영문명: Shadow Raiders\n메커니즘: 조립 보드, 플레이어별 고유 능력, 팀 기반 게임, 주사위 굴림, 플레이어 탈락\n카테고리: 파티\n테마: 카드 게임, 주사위, 모험, 블러핑, 파티 게임, 추리\n설명: Shadow Raiders is a survival 보드게임 in which three groups of characters — Shadows, Raiders and Citizens struggle against each other to survive., Shadow Raiders is a survival 보드게임 in which three groups of characters — Shadows, Raiders and Citizens struggle against each other to survive.\n\nYou belong to one of these groups and must conceal your identity from others since you don't know whom you can trust—at least not initially. Over time, though, someone might decipher who you are through your 액션 or through Hermit 카드, or you might even reveal yourself to use your special ability.\n\nThe key to 승리 is to identify your allies and enemies early because once your identity is revealed, your enemies will attack with impunity using their special abilities. This ancient battle comes to a head when someone completes their win condition. It is possible to be victorious even in death!",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 3,
+          "gameId": 311988,
+          "name": " 프로스트프언크: 스에 보드 게임",
+          "englishName": " Frostpunk: The Board Game",
+          "evidenceText": "게임명: 프로스트프언크: 스에 보드 게임, 프로스트펑크: 더 보드게임, Frostpunk: The Board Game\n영문명: Frostpunk: The Board Game\n메커니즘: 조립 보드, 플레이어별 고유 능력, 협력 게임, 솔로/솔로테어 게임, 시나리오 / 미션 / 캠페인 게임, 이벤트, 여러 종류의 일꾼 놓기, 큐브 타워\n카테고리: 전략, 테마\n테마: SF 공상 과학, 탐험, 경제, 도시 건설, 비디오 게임\n설명: In Frostpunk: The 보드게임, up to four 플레이어 will take on the role of leaders of a small colony of survivors in a post-apocalyptic world that was hit by a severe ice age., In Frostpunk: The 보드게임, up to four 플레이어 will take on the role of leaders of a small colony of survivors in a post-apocalyptic world that was hit by a severe ice age. Their duty is to effectively manage both its infrastructure and citizens. The core gameplay will be brutal, challenging, and complex, but easy to learn. The citizens won’t just be speechless pieces on the board. Society members will issue demands and react accordingly to the current mood, so every decision and 액션 bears consequences.\n\nThe 플레이어 will decide the fate of their people. Will you treat them like another 자원? Are you going to be an inspiring builder, a fearless explorer, or a bright scientist? Is your 규칙 going to be a sting of tyranny or an era of law and equality?\n\nThe game is based on a bestseller video game by 11bit studios, the creators of This War Of Mine. The original (digital) edition of Frostpunk is a highly successful strategy-survival-city-builder, a BAFTA-nominee that originally launched in 2018.\n\n—description from the publisher",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 4,
+          "gameId": 142325,
+          "name": " 코바야카와",
+          "englishName": " Kobayakawa",
+          "evidenceText": "게임명: 코바야카와\n영문명: Kobayakawa\n메커니즘: 베팅과 블러핑\n카테고리: 가족, 파티\n테마: 카드 게임, 추리, 숫자\n설명: Kobayakawa is a game of bluffing and deduction., Kobayakawa is a game of bluffing and deduction. In this stylish new game from Jun Sasaki, 구성품 are kept at a minimum - there are only 15 카드, 32 토큰 and the start 플레이어 marker.\n\nThe 규칙 are simple:\n\nAt the start 각 플레이어는 is given 4 토큰. In addition 8 토큰 are placed in the middle of the table. Spare 토큰 are set aside.\n\nThe deck is shuffled and 각 플레이어는 is dealt one 카드 face down, an additional 카드 is dealt face up next to the deck (this 카드 is called the Kobayakawa).\n\n각 플레이어는 takes a 턴 and either:\n\n- Draws a 카드 to their hand and dis카드 one of their 2 hand 카드 face up in front of them.\nOr\n- 턴 over the top 카드 of the deck to replace the current Kobayakawa.\n\n모든 플레이어 have taken their 턴, each must decide if they want to stay in and 'fight' by betting a 토큰.\n\nAll 플레이어 that decided to fight reveal their 카드. The 플레이어 that has the lowest value 카드 adds the value of the current Kobayakawa to their own 카드. The 플레이어 with the highest number (their own 카드; or their own 카드 + the Kobayakawa) wins the 라운드 and they take all the 토큰 that 플레이어 bet, plus a bonus 토큰 from the middle, they take the start 플레이어 토큰 for the next 라운드.\n\nOn the 7th 라운드 (when only 2 토큰 remain in the middle) the stakes and the bonus are doubled to 2 토큰.\n\nAfter this 7th 라운드 the game ends and 가장 높은 점수를 획득한 플레이어가 토큰 게임에서 최종 승리합니다.\n\nExample 라운드:\nKobayakawa: 8\n플레이어 A: 9\n플레이어 B: Pass\n플레이어 C: 15\n플레이어 D: 12\n\n플레이어 C has the highest 카드 value (15), but 플레이어 A is declared the 승리자 as the results of the lowest 카드 (9) and the Kobayakawa (8) is 17.",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 5,
+          "gameId": 51,
+          "name": " 리코치에트 로보트스",
+          "englishName": " Ricochet Robots",
+          "evidenceText": "게임명: 리코치에트 로보트스, 리코셰 로봇, Ricochet Robots\n영문명: Ricochet Robots\n메커니즘: 조립 보드, 격자 이동, 차례 순서: 능력치 기준, 실시간, 가변 게임 준비, 정사각형 격자\n카테고리: 추상 전략\n테마: 추상전략, 퍼즐, 실시간, 미로\n설명: Ricochet Robots is less of a game and more of a puzzle, which explains why there's such an odd number of solutions possible., Ricochet Robots is less of a game and more of a puzzle, which explains why there's such an odd number of solutions possible. There's a four-piece 모듈식 보드 that forms a large room with walls spread a라운드 the board. There are also color-coded targets on boards. Placed on top of the surface are four robots. The idea for each 턴/puzzle is to get the like-colored robot to a randomly selected target. The trick is that once a robot starts moving, it will continue to move until a wall or another robot stops it. Therefore, 플레이어 are seeking a sequence of moves for the robots that will enable them to move the required robot to the target in the fewest moves.",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 6,
+          "gameId": 36218,
+          "name": " 도미니언",
+          "englishName": " Dominion",
+          "evidenceText": "게임명: 도미니언, 도미니언, Dominion\n영문명: Dominion\n메커니즘: 핸드 관리, 공개 드래프팅, 덱·백·풀 빌딩, 직접 공격, 가변 게임 준비, 지연 구매\n카테고리: 전략\n테마: 카드 게임, 중세\n설명: \"You are a monarch, like your parents before you, a 규칙r of a small pleasant kingdom of rivers and evergreens., \"You are a monarch, like your parents before you, a 규칙r of a small pleasant kingdom of rivers and evergreens. Unlike your parents, however, you have hopes and dreams! You want a bigger and more pleasant kingdom, with more rivers and a wider variety of trees. You want a Dominion! In all directions lie fiefs, freeholds, and feodums. All are small bits of land, controlled by petty lords and verging on anarchy. You will bring civilization to these people, uniting them under your banner.\n\nBut wait! It must be something in the air; several other monarchs have had the exact same idea. You must race to get as much of the unclaimed land as possible, fending them off along the way. To do this you will hire minions, construct buildings, spruce up your castle, and fill the coffers of your treasury. Your parents wouldn't be proud, but your grandparents, on your mother's side, would be delighted.\"\n\n—description from the back of the box\n\nIn Dominion, 각 플레이어는 starts with an identical, very small deck of 카드.  In the center of the table is a selection of other 카드 the 플레이어 can \"buy\" as they can afford them.  Through their selection of 카드 to buy, and how they play their hands as they draw them, the 플레이어 construct their deck on the fly, striving for the most efficient path to the precious 승점 by game end.\n\nDominion is not a Collectible 카드게임 (CCG), but the play of the game is similar to the construction and play of a CCG deck. The game comes with 500 카드. You select 10 of the 25 Kingdom 카드 types to include in any given play—leading to immense variety.\n\n—user summary\n\nPart of the Dominion series.",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 7,
+          "gameId": 242302,
+          "name": " 스페이스 바세",
+          "englishName": " Space Base",
+          "evidenceText": "게임명: 스페이스 바세, 스페이스 베이스, Space Base\n영문명: Space Base\n메커니즘: 공개 드래프팅, 주사위 굴림, 무작위 생산\n카테고리: 가족\n테마: SF 공상 과학, 주사위, 우주 탐사\n설명: In Space Base, 플레이어 assume the roles of Commodores of a small fleet of ships., In Space Base, 플레이어 assume the roles of Commodores of a small fleet of ships. Ships begin docked at their stations and are then deployed to sectors as new ships are commissioned under your command. Use cargo vessels to engage in trade and commerce; mining vessels to build reoccurring base income; and carriers to spread your influence. Establish new colonies for a new Commodore in a sector to gain even more influence. Gain enough influence and you can be promoted to Admiral!\n\nSpace Base is a quick-to-learn, quick-to-play 주사위 game using the core \"I roll, everyone gets stuff\" mechanism seen in other games. It's also a 전략적 engine builder using a 플레이어 board (your space base) and tableaus of ship 카드 you can buy and add to your board. The 카드 you buy and the order you buy them in have interesting implications on your engine beyond just the ability on the 카드 you buy, making for a different type of engine construction than seen in similar games. 플레이어 can take their engine in a number of directions: long odds and explosive gains, low luck and steady income, big end-game combos to launch from last to first, or a mix-and-match approach. Ultimately, Space Base is a game you can just start playing and teach everyone how to play in the first 라운드 or two and has a satisfying blend of 주사위-chucking luck and challenging 전략적 choices.",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 8,
+          "gameId": 77130,
+          "name": " 시드 메이어스 시브일이자션: 스에 보드 게임",
+          "englishName": " Sid Meier's Civilization: The Board Game",
+          "evidenceText": "게임명: 시드 메이어스 시브일이자션: 스에 보드 게임, 시드마이어의 문명, Sid Meier's Civilization: The Board Game\n영문명: Sid Meier's Civilization: The Board Game\n메커니즘: 가위바위보, 거래, 조립 보드, 플레이어별 고유 능력, 핸드 관리, 공개 드래프팅, 덱·백·풀 빌딩, 격자 이동, 기술 트리 / 기술 트랙, 정사각형 격자\n카테고리: 전략\n테마: 문명, 탐험, 협상, 도시 건설, 비디오 게임\n설명: Please note: this entry covers the 2010 release of Sid Meier’s Civilization: The 보드게임 from FFG., Please note: this entry covers the 2010 release of Sid Meier’s Civilization: The 보드게임 from FFG. This game is unrelated to the similarly named 2002 Eagle Games Sid Meier's Civilization: The Boardgame.\n\nFrom Press Release:\n\nBefore you lies a vast bounty of land, ripe for the plucking. Your meager beginnings will influence the paths you must take. Lead your people well and they will take you to infinite heights of greatness. If civilization manages to endure the ages, your name will hang in every whisper of its legacy...\n\n판타지 Flight Games is excited to announce the upcoming release of Sid Meier’s Civilization: The 보드게임! Forge an empire to stand the test of time using innovative game mechanics with multiple paths to 승리.\n\nWill you lead the greatest army in the world to conquer your foes? Or will you be the first to journey to the stars, becoming the most technologically advanced civilization known to man? The choice is yours.\n\nDesigned by Kevin Wilson, Civilization: The 보드게임 is inspired by the legendary video game series created by Sid Meier. 플레이어 are tasked with guiding an entire civilization throughout the ages, taking ownership of your people’s technology, economy, culture, and military, as well as all the choices that go along with them. There are four different paths to 승리, and each is riddled with opposition.\n\nIn Civilization: The 보드게임, 2-4 플레이어 take on the roles of famous leaders in charge of historical civilizations, each with their own abilities. 플레이어 will be able to explore a module 게임 보드, build cities and buildings, fight battles, research powerful technology, and attract great people by advancing their culture. No matter what your play style is, there is a civilization for you!\n\nFans of Sid Meier’s classic video game franchise will find familiar footing in Civilization: The 보드게임. Staying true to the foundations of its video game predecessor while creating a new and unique way to play, Civilization: The 보드게임 captures the spirit and grandeur of carving out a magnificent empire from modest beginnings.\n\n플레이어 start off with a single city, one army figure, and one scout, and from these meager origins you must forge through the ages and become the greatest civilization in the world.\n\nThose unfamiliar with the video game series will find Civilization: The 보드게임 a great way to enter into the world of Civilization. The strategy and 전술al decisions involved in Civilization: The 보드게임 will appeal to strategy gamers and war gamers alike, and the ability to win through culture and technological advancement will give those who only wish to focus on their own empire a chance at 승리 as well.",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 9,
+          "gameId": 456619,
+          "name": " 브리트즈",
+          "englishName": " BLITZ",
+          "evidenceText": "게임명: 브리트즈\n영문명: BLITZ\n테마: 단어 게임\n설명: 각 플레이어는 unstacks a 카드 in front of him with a colorful symbol and a theme., 각 플레이어는 unstacks a 카드 in front of him with a colorful symbol and a theme. If the colored symbol is the same as the 카드 in front of another 플레이어, the first one who finds a word that respects the theme of the 카드 in front of his opponent wins the said 카드. Adding the prohibition of repeating a word already expressed a라운드 the table and a 주사위 that sometimes invites itself into the game to create new inter-sign duels and you have there a game of speed to tie your neurons. The waterfalls of answers as the 카드 won are removed that rediscover the old 카드 creating new duels from old 카드 displayed in front of everyone a라운드 the table will freeze or speed up everyone’s response times as it relaunches duels.\n\n•••\n\nChaque joueur dépile une carte devant lui avec un sympbole coloré et un thème. Si le symbole coloré est le même que la carte devant un autre joueur, le premier qui trouve un mot respectant le thème de la carte devant son adversaire gagne la dite carte. Ajouter à cela l'interdiction de répéter un mot déjà exprimé autour de la table et un dé qui s'invite parfois dans la partie pour créer de nouveaux duels inter-signe et vous avez là un jeu de rapidité à nouer vos neurones. Les cascades de réponses au fil du retrait des cartes gagnées qui redécouvrent les anciennes carte créant de nouveaux duels entre les gens autour de la table vont geler ou accélérer les temps de réponses de chacun.",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 10,
+          "gameId": 91872,
+          "name": " 던전 & 드래곤: 스에 레전드 오프 드리즈즈트 보드 게임",
+          "englishName": " Dungeons & Dragons: The Legend of Drizzt Board Game",
+          "evidenceText": "게임명: 던전 & 드래곤: 스에 레전드 오프 드리즈즈트 보드 게임, 던전 앤 드래곤: 드리즈트의 전설 보드게임, Dungeons & Dragons: The Legend of Drizzt Board Game\n영문명: Dungeons & Dragons: The Legend of Drizzt Board Game\n메커니즘: 조립 보드, 플레이어별 고유 능력, 협력 게임, 역할극, 주사위 굴림, 격자 이동, 솔로/솔로테어 게임, 시나리오 / 미션 / 캠페인 게임\n카테고리: 테마\n테마: 판타지, 탐험, 모험, 전투, 미니어처, 소설-기반\n설명: A 협력형 game of adventure for 1-5 플레이어 set in the world of Dungeons & Dragons., A 협력형 game of adventure for 1-5 플레이어 set in the world of Dungeons & Dragons.\n\nIt is named after the book series by the same name recounting the adventures of the dark elf Drizzt Do'Urden and his friends.\n\nDesigned for 1-5 플레이어, this boardgame features multiple 시나리오s, challenging quests, and 협력형 game play. 플레이어 explore the game world, which is built during the game by laying out 타일, using ready-made 플레이어 characters and encountering enemies with corresponding 미니어처. Encounters are generated by drawing 카드 and resolved using a D20 die. All 플레이어 win together, depending on the 시나리오, by escaping, saving others or overcoming a threat.\n\nIntegrates with:\n\nDungeon Command: Blood of Gruumsh\nDungeon Command: Curse of Undeath\nDungeon Command: Sting of Lolth\nDungeon Command: Tyranny of Goblins\nDungeon Command: Heart of Cormyr\n\nCan also integrate with:\n\nDungeons & Dragons: Castle Ravenloft 보드게임\nDungeons & Dragons: Wrath of Ashardalon 보드게임\nDungeons & Dragons: The Legend of Drizzt 보드게임\nDungeons & Dragons: Temple of Elemental Evil 보드게임\nDungeons & Dragons: Tomb of Annihilation 보드게임\nDungeons & Dragons: Waterdeep – Dungeon of the Mad Mage 보드게임\nDungeons & Dragons: Ghosts of Saltmarsh 보드게임",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 11,
+          "gameId": 358246,
+          "name": " 데드 바이 데이라이트: 보드게임",
+          "englishName": " Dead by Daylight: The Board Game",
+          "evidenceText": "게임명: 데드 바이 데이라이트: 보드게임\n영문명: Dead by Daylight: The Board Game\n메커니즘: 플레이어별 고유 능력, 팀 기반 게임, 동시 액션 선택, 주사위 굴림\n카테고리: 테마\n테마: 탐험, 공포, 비디오 게임\n설명: In Dead by Daylight: The 보드게임, a team of four 자원ful Survivors face off against a single supernatural Killer in a high-stakes game of cat-and-mouse., In Dead by Daylight: The 보드게임, a team of four 자원ful Survivors face off against a single supernatural Killer in a high-stakes game of cat-and-mouse.\n\nAs one of four Survivors, explore the trial g라운드, discover props, and utilize your unique perks as you work to uncover and repair generators. Repair four generators and open the exit games to escape and win! As a Killer, hunt down the survivors, wound them, and place them on sacrificial hooks to summon a sinister force. With enough sacrifices, you are able to appease The Entity and win!\n\nEach 턴, 플레이어 will plan their moves by secretly selecting paths on the board to move along. Each time a 플레이어 moves, they will reveal new features of the board, called props, which they can interact with to further their objectives or to hinder their opponents.\n\nSurvivors are able to utilize many different props to aid in their survival and navigation of the trial. Killers can make use of fewer props—instead, they interact with the Survivors using their attack or their unique power. Each Killer has a different power that will completely change the way the game plays.  Both Killers and Survivors have perks which grant them special abilities. Experienced 플레이어 can customize their characters with various perk configurations, offering even more replayability.\n\nThe basic game comes with 7 Survivors, 6 Killers, and 2 maps. The Collector's edition includes 17 Survivors, 16 Killers, 4 maps, and additional 미니어처 to create the ultimate Dead by Daylight experience.\n\n—description from the publisher",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 12,
+          "gameId": 446497,
+          "name": " 호트 스트르이크",
+          "englishName": " Hot Streak",
+          "evidenceText": "게임명: 호트 스트르이크, 핫 스트릭, Hot Streak\n영문명: Hot Streak\n메커니즘: 베팅과 블러핑, 공개 드래프팅\n카테고리: 파티\n테마: 파티 게임, 레이싱\n설명: Hot Streak 은(는) 다음 인원을 위한 보드게임입니다: hard luck gamblers who love to bet on and scream at the racers, who in this case happen to be mascots who may (or may not) keep running in the right direction., Hot Streak 은(는) 다음 인원을 위한 보드게임입니다: hard luck gamblers who love to bet on and scream at the racers, who in this case happen to be mascots who may (or may not) keep running in the right direction.\n\nAt the start of the game, set up the racing deck with one 카드 for each mascot and a number of random 카드 based on the 인원수. Reveal these 카드 to all 플레이어, after which 플레이어 draft a betting ticket from those on display, then in reverse order draft a second bet. For each bet, you can play it safe — or flip it to the risky side, which might pay out more - or cost you money if you lose. After betting, 각 플레이어는 chooses one of three 카드 in their hand to secretly add to the racing deck.\n\nShuffle the deck, burn three 카드, then reveal 카드 one by one from the deck, moving the mascots along the track, with them sometimes swerving into another lane and knocking over another racer, sometimes 턴ing a라운드, sometimes all moving at once, and sometimes just going backwards! If a racer runs off the track or would be knocked over while already fallen, they're disqualified. If needed, shuffle all 카드 in the deck, burn three 카드 again, and keep racing until all four spots on the box podium are filled. Pay out bets based on these results.\n\nFor races #2-3, first deal 각 플레이어는 a random 카드 from the deck, then place bets again, then have 각 플레이어는 contribute a 카드 from their hand to the deck. After race #3, everyone tallies their money.",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 13,
+          "gameId": 59946,
+          "name": " 던전 & 드래곤: 캐슬 라브엔로프트 보드 게임",
+          "englishName": " Dungeons & Dragons: Castle Ravenloft Board Game",
+          "evidenceText": "게임명: 던전 & 드래곤: 캐슬 라브엔로프트 보드 게임, 던전 앤 드래곤: 레이븐로프트 성 보드게임, Dungeons & Dragons: Castle Ravenloft Board Game\n영문명: Dungeons & Dragons: Castle Ravenloft Board Game\n메커니즘: 조립 보드, 플레이어별 고유 능력, 협력 게임, 역할극, 주사위 굴림, 격자 이동, 솔로/솔로테어 게임, 시나리오 / 미션 / 캠페인 게임\n카테고리: 테마\n테마: 판타지, 탐험, 모험, 공포, 전투, 미니어처\n설명: Castle Ravenloft Boardgame by Bill Slavicsek, Mike Mearls and Peter Lee The master of Ravenloft is having guests for dinner – and you are invited!, Castle Ravenloft Boardgame by Bill Slavicsek, Mike Mearls and Peter Lee\nThe master of Ravenloft is having guests for dinner – and you are invited!\nEvil lurks in the towers and dungeons of Castle Ravenloft, and only heroes of exceptional bravery can survive the horrors within. Designed for 1-5 플레이어, this boardgame features multiple 시나리오s, challenging quests, and 협력형 gameplay.\n\n각 플레이어는 selects a hero; a ranger, rogue, warrior, cleric, or wizard. On their 턴, 각 플레이어는 can explore further into the dungeon (턴 over new 타일), move through the already explored parts of the dungeon, and fight monsters. When a new dungeon 타일 is revealed, there is typically an encounter of some sort, and new monsters to fight are added. Slain monsters reward the 플레이어 with treasure, and experience 점수, allowing them to level up and increase their skills during play. 플레이어 must cooperate to stay alive, slay the monsters, and achieve the goal of their quest. Each 시나리오 has a different goal - from retrieving a relic, to slaying a vampire lord.\n\nIntegrates with:\n\nDungeon Command: Blood of Gruumsh\nDungeon Command: Curse of Undeath\nDungeon Command: Sting of Lolth\nDungeon Command: Tyranny of Goblins\nDungeon Command: Heart of Cormyr\n\nCan also integrate with:\n\nDungeons & Dragons: Castle Ravenloft 보드게임\nDungeons & Dragons: Wrath of Ashardalon 보드게임\nDungeons & Dragons: The Legend of Drizzt 보드게임\nDungeons & Dragons: Temple of Elemental Evil 보드게임\nDungeons & Dragons: Tomb of Annihilation 보드게임\nDungeons & Dragons: Waterdeep – Dungeon of the Mad Mage 보드게임\nDungeons & Dragons: Ghosts of Saltmarsh 보드게임",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 14,
+          "gameId": 338960,
+          "name": " 스라이 스에 스프어에: 스에 보드 게임",
+          "englishName": " Slay the Spire: The Board Game",
+          "evidenceText": "게임명: 스라이 스에 스프어에: 스에 보드 게임, 슬레이 더 스파이어: 보드게임, Slay the Spire: The Board Game\n영문명: Slay the Spire: The Board Game\n메커니즘: 동시 액션 선택, 협력 게임, 핸드 관리, 주사위 굴림, 덱·백·풀 빌딩, 솔로/솔로테어 게임\n카테고리: 전략\n테마: 카드 게임, 판타지, 모험, 전투, 비디오 게임\n설명: Slay the Spire: The 보드게임 is a 협력erative deck-building, dungeon-crawling adventure., Slay the Spire: The 보드게임 is a 협력erative deck-building, dungeon-crawling adventure. Craft a unique deck, encounter bizarre creatures, discover relics of immense power, and finally become strong enough to slay the Spire!\n\n각 플레이어는 starts with a character with unique abilities and a simple deck of 카드 that they can improve by adding and removing 카드 during the game. Slay the Spire is also a rogue-like. That means that when you die (and you will die!), start over from the beginning. Take the lessons you learned and try again!\n\nThe game is divided into Acts. 게임이 종료되면 an Act you can continue, stop and end the adventure there, or save and continue another time!\n\nIf 플레이어 패배 the final Boss, they win the game! Which Boss you consider to be final depends on how many Acts you want to play. You can stop playing 게임이 종료되면 any Act! When a 플레이어’s HP is reduced to 0, they are dead and the party loses the game.",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 15,
+          "gameId": 17223,
+          "name": " 월드 오프 우아크라프트: 스에 브오르드그암에",
+          "englishName": " World of Warcraft: The Boardgame",
+          "evidenceText": "게임명: 월드 오프 우아크라프트: 스에 브오르드그암에, 월드 오브 워크래프트: 보드 게임, World of Warcraft: The Boardgame\n영문명: World of Warcraft: The Boardgame\n메커니즘: 플레이어별 고유 능력, 팀 기반 게임, 핸드 관리, 지역 이동, 주사위 굴림\n카테고리: 테마\n테마: 판타지, 모험, 전투, 미니어처, 비디오 게임\n설명: Take on the role of a chivalrous paladin or a wise shaman, a holy priest or a vile warlock, a mighty mage or a crafty rogue., Take on the role of a chivalrous paladin or a wise shaman, a holy priest or a vile warlock, a mighty mage or a crafty rogue. Play as a savage orc, a mighty tauren, a tribal troll, or one of the Forsaken undead; become an ingenious gnome, a doughty dwarf, a mysterious Night Elf, or a noble human.\n\nBased on the popular World of Warcraft Massively Multi플레이어 Online Game from Blizzard Entertainment, World of Warcraft: the 보드게임 invites the 플레이어 to choose from 16 characters, drawn from the eight races and nine character classes of the Warcraft universe, and take up arms for the glory of the Horde ... or the Alliance. Travel across Lordaeron, vanquish monsters, gain experience and power, and earn honor for your f액션.\n\nWorld of Warcraft: the 보드게임 is a team-based 판타지 adventure. The Horde and the Alliance f액션 must compete to be the first to 패배 the invincible Overlord – be it the lich Kel'Thuzad, the dragon Nefarian, or the demon Kazzak – or, failing that, to be the last f액션 standing when it comes to all-out war!\n\n—description from the publisher",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 16,
+          "gameId": 103343,
+          "name": " 아 게임 오프 스르온에스: 스에 보드 게임 (2판)",
+          "englishName": " A Game of Thrones: The Board Game (Second Edition)",
+          "evidenceText": "게임명: 아 게임 오프 스르온에스: 스에 보드 게임 (2판), 왕좌의 게임 (2판), 왕좌의 게임: 보드 게임, A Game of Thrones: The Board Game (Second Edition)\n영문명: A Game of Thrones: The Board Game (Second Edition)\n메커니즘: 경매 / 입찰, 플레이어별 고유 능력, 동시 액션 선택, 핸드 관리, 지역 이동, 플레이어 탈락, 차례 순서: 경매, 명령 카운터, 우위 토큰, 이벤트, 카드 플레이 충돌 해결, 즉시 종료, 수입, 협상, 동맹, 경매: 비공개 입찰\n카테고리: 전략\n테마: 정치, 판타지, 워게임, 블러핑, 협상, 소설-기반\n설명: Game description from the publisher:, Game description from the publisher:\n\nKing Robert Baratheon is dead, and the lands of Westeros brace for battle.\n\nIn the second edition of A Game of Thrones: The 보드게임, three to six 플레이어 take on the roles of the great Houses of the Seven Kingdoms of Westeros, as they vie for control of the Iron Throne through the use of diplomacy and warfare. Based on the best-selling A Song of Ice and Fire series of 판타지 novels by George R.R. Martin, A Game of Thrones is an epic 보드게임 in which it will take more than military might to win. Will you take power through force, use honeyed words to coerce your way onto the throne, or rally the townsfolk to your side? Through 전략적 planning, masterful diplomacy, and clever 카드 play, spread your influence over Westeros!\n\nTo begin the game, 각 플레이어는 receives an army of Footman, Knight, Siege Engine, and Ship units, as well as a set of Order 토큰 and other necessary 구성품. 각 플레이어는 also receives a deck of unique House 카드, which are used as leaders in battles against rival Houses.\n\nEach 라운드 in the game is made up of three phases: the Westeros Phase, the Planning Phase, and the 액션 Phase. The Westeros Phase represents special events and day-to-day activities in Westeros. There are three different Westeros Decks, and each denotes a different global 액션, potentially affecting all 플레이어.\n\nThe Planning Phase is perhaps the most important. Here you secretly assign orders to all of your units by placing one order 토큰 face down on each area you control that contains at least one unit (Knight, Footman, Ship, or Siege Engine). This portion of the game emphasizes diplomacy and deduction. Can you trust the alliance that you made? Will you betray your ally and march upon him? 플레이어 may make promises to each other (for aid or peace, for example), but these promises are never binding. The result is tense and compelling negotiations, often ending in backstabbing worthy of Westeros!\n\nDuring the 액션 Phase, the orders are resolved and battle is entered! When armies meet in combat, they secretly choose one of their House 카드 to add strength to the battle. Finally, the Houses can consolidate their power in the areas they control and use that power in future 턴 to influence their position in the court of the Iron Throne and to stand against the wildling Hordes.\n\nIn addition to featuring updated graphics and a clarified 규칙et, this second edition of A Game of Thrones includes elements from the A Clash of Kings and A Storm of Swords 확장판, including ports, garrisons, Wildling 카드, and Siege engines, while introducing welcome new innovations like 플레이어 screens and Tides of Battle 카드.\n\nTides of Battle 카드 are an optional mechanism that brings an element of unpredictability to combat, representing erratic shifts in the momentum of war due to factors such as weather, morale, and 전술al opportunity. During each combat, both 플레이어 draw one Tides of Battle 카드 from a communal deck, and its value modifies the strength of his chosen House 카드. What's more, such a 카드 may also contain icons that can affect the outcome of the battle...all of which delivers a new level of intensity to your military engagements.\n\nExpanded by:\n\nA Game of Thrones: The 보드게임 (Second Edition) – A Dance with Dragons (2012)\nA Game of Thrones: The 보드게임 (Second Edition) – A Feast for Crows (2013)\nA Game of Thrones: The 보드게임 (Second Edition) – Mother of Dragons (2018)\n\nReimplements:\n\nA Game of Thrones (2003)\nA Game of Thrones: A Clash of Kings 확장판 (2004)\nA Game of Thrones: A Storm of Swords 확장판 (2006)",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 17,
+          "gameId": 124361,
+          "name": " 콘코디아",
+          "englishName": " Concordia",
+          "evidenceText": "게임명: 콘코디아, 콩코르디아, 콘코디아, Concordia\n영문명: Concordia\n메커니즘: 셋 컬렉션, 핸드 관리, 공개 드래프팅, 지점 간 이동, 네트워크 및 경로 건설, 덱·백·풀 빌딩, 액션 회수, 우위 토큰, 게임 종료 보너스, 가변 게임 준비, 투자, 경매: 네덜란드식, 이동 포인트, 비공개 승점\n카테고리: 전략\n테마: 항해, 경제, 고대\n설명: Two thousand years ago, the Roman Empire 규칙d the lands a라운드 the Mediterranean Sea., Two thousand years ago, the Roman Empire 규칙d the lands a라운드 the Mediterranean Sea. With peace at the borders, harmony inside the provinces, uniform law, and a common currency, the economy thrived and gave rise to mighty Roman dynasties as they expanded throughout the numerous cities. Guide one of these dynasties and send colonists to the remote realms of the Empire; develop your trade network; and appease the ancient gods for their favor — all to gain the chance to emerge victorious!\n\nConcordia is a peaceful, strategy game of economic development in Roman times for 2-5 플레이어 aged 13 and up. Instead of looking to the luck of 주사위 or 카드, 플레이어 must rely on their 전략적 abilities. Be sure to watch your rivals to determine which goals they are pursuing and where you can outpace them! In the game, colonists are sent out from Rome to settle down in cities that produce bricks, food, tools, wine, and cloth. 각 플레이어는 starts with an identical set of playing 카드 and acquires more 카드 during the game. These 카드 serve two purposes:\n\nThey allow a 플레이어 to choose 액션 during the game.\nThey are worth 승점 (VPs) 게임이 종료되면 the game.\n\nConcordia 은(는) 깊은 전략성이 돋보이는 보드게임입니다 that requires advanced planning and consideration of your opponent's moves. Every game is different, not only because of the sequence of new 카드 on sale but also due to the modular layout of cities. (One side of the 게임 보드 shows the entire Roman Empire with 30 cities for 3-5 플레이어, while the other shows Roman Italy with 25 cities for 2-4 플레이어.) When all 카드 have been sold or after the first 플레이어 builds their 15th house, the game ends. 가장 높은 점수를 획득한 플레이어가 VPs from the gods (Jupiter, Sa턴us, Mercurius, Minerva, Vesta, etc.) 게임에서 최종 승리합니다.",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 18,
+          "gameId": 203430,
+          "name": " 후지 플러시",
+          "englishName": " Fuji Flush",
+          "evidenceText": "게임명: 후지 플러시\n영문명: Fuji Flush\n메커니즘: 핸드 관리, 직접 공격\n카테고리: 가족\n테마: 카드 게임, 숫자\n설명: Be the first 플레이어 to get rid of all of your 카드!, Be the first 플레이어 to get rid of all of your 카드!\n\nJoin forces with fellow 플레이어 to beat 카드 played by other 플레이어...or independently play the highest 카드 to outdo all your opponents together, flushing their 카드 down the drain!\n\nFuji Flush is a fast, fun, easy-to-learn 카드게임 that will have you shouting as your 카드 are sent down the drain!\n\nFuji Flush is a 카드게임, which consists of 카드 numbered 2 through 20, with higher numbers being rarer. 각 플레이어는 holds six 카드 at the beginning. In clockwise order, 플레이어 play one 카드 each. If it is higher than another 카드 currently on the table, the lower 카드 or 카드 are dis카드ed and the 플레이어 who had played the lower 카드 must draw a new 카드. However, if two or more 플레이어 play the same number, the 카드 values are added together.  When it is a 플레이어's 턴 and their 카드 is still in front of them, they can dis카드 it without redrawing. First 플레이어(s) to get rid of their 카드 wins!\n\nFuji Flush supports from 3 to 8 플레이어!  A great game for large 인원수s!",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 19,
+          "gameId": 188920,
+          "name": " 스이스 워 오프 름인에: 스에 보드 게임",
+          "englishName": " This War of Mine: The Board Game",
+          "evidenceText": "게임명: 스이스 워 오프 름인에: 스에 보드 게임, 디스 워 오브 마인: 보드 게임, This War of Mine: The Board Game\n영문명: This War of Mine: The Board Game\n메커니즘: 액션 포인트, 플레이어별 고유 능력, 협력 게임, 이야기 만들기, 역할극, 시뮬레이션, 주사위 굴림, 일꾼 놓기, 운 시험하기, 격자 이동, 솔로/솔로테어 게임, 시나리오 / 미션 / 캠페인 게임, 이벤트, 이야기 선택 / 단락\n카테고리: 테마\n테마: 탐험, 모험, 근대 전쟁, 비디오 게임, 성인\n설명: This War Of Mine: The 보드게임 is the tabletop adaptation of the award-winning video game that pictures the drama of civilians trapped in a war-torn city., This War Of Mine: The 보드게임 is the tabletop adaptation of the award-winning video game that pictures the drama of civilians trapped in a war-torn city. You will enter this experience as a group of civilians trapped in a besieged and conflict-ridden city, enduring many hardships that often test the essence of humanity. During your struggle as the survivors, you will experience dramas connected with making extremely difficult decisions and choices and have to face the consequences of your 액션 sooner or later.\n\nTWOM: The 보드게임 features a multi플레이어 experience for up to 6 플레이어, as well as a 1인전 variant. You will be able to personify one of the well-known characters from video game and face hundreds of new challenges and difficult choices. The boardgame significantly broadens the original game’s universe and emphasizes the depth of plot, yet its main focus will be on human inter액션 driven by survival instinct and group decision-making.  TWOM: The 보드게임 is an instant play game, with no need for reading the manual before starting the adventure.\n\nDuring day time you will take shelter in a ruined tenement house, which you will care about and manage by: removing rubble, searching through various rooms (often behind barricaded doors), you will build beds, improvised workshops, stoves, tools, water filters, small animal traps, you will cultivate an improvised vegetable garden, fix the tenements’ shelled facilities, reinforce the security of your shelter and should winter come, you’ll try to keep it warm.\n\nUpon nightfall your main duties will consist of guarding your shelter and what little possessions you can accumulate against bandits and raiders. Those in your group fit for such a task will use the cover of the night to carefully explore dozens of the ever-changing locations scattered throughout the dangerous city in search of all the things that a person needs to survive (materials, food, meds, equipment, etc.). On your way you will meet tens of characters, each with a unique story (residents of the locations you visit, thieves, bandits, soldiers, war victims, refugees, neighbors, traders and members of local communities), each encounter is a potential, unique adventure. To guide you through all these events you will have the special SCRIPTS mechanism, responsible for implementing the deep and complex story and a coherent plot (each game will be unique and different than the previous).\n\nYour goal is to survive until the cessation of war hostilities. However, survival itself will often prove not to be enough. The price each of you will decide to pay, might be too high in the final outcome. So the goal is really to survive in a way that will let you live on with the decisions you made. The EPILOGUES mechanism will kick in here.",
+          "grade": null,
+          "rationale": null
+        },
+        {
+          "order": 20,
+          "gameId": 416851,
+          "name": " 캐슬 크옴보",
+          "englishName": " Castle Combo",
+          "evidenceText": "게임명: 캐슬 크옴보, 캐슬 콤보, Castle Combo\n영문명: Castle Combo\n메커니즘: 타일 놓기, 셋 컬렉션, 공개 드래프팅, 게임 종료 보너스, 다용도 카드, 태그\n카테고리: 가족\n테마: 카드 게임, 중세\n설명: Castle Combo is a tableau-building game that combines simplicity with deep, engaging gameplay, offering highly satisfying experiences., Castle Combo is a tableau-building game that combines simplicity with deep, engaging gameplay, offering highly satisfying experiences.\n\n각 플레이어는 will spend coins to draft 9 카드 from 2 open markets on the table (the lower and upper city), creating along the game a 3x3 square of people interacting with each other to trigger instant effects and end-of-game bonuses.\n\nEach 턴, you add a character to your tableau — a seemingly straightforward 액션 that packs a punch regarding 전략적 decisions. You'll need to carefully 자신의 개인 자원과 구역을 관리합니다: Keys to influence the Messenger pawn at critical moments, as it controls which characters are available for recruitment from two different areas – peasants and nobles.\n\nBalancing your Gold reserves is equally important, ensuring you can afford the characters that best suit your strategy throughout the game. Selecting the right characters is crucial to maximising their immediate effects and the 점수 they will contribute at the game's end. Finally, carefully arranging these characters on your 3x3 board is key to unlocking their full potential.\n\nAfter everyone has played 9 턴 (i.e., everyone has 9 characters in front of them), 가장 높은 점수를 획득한 플레이어가 점수 in their tableau 게임에서 최종 승리합니다.",
+          "grade": null,
+          "rationale": null
+        }
+      ]
+    }
+  ]
+}

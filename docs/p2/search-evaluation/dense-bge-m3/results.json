@@ -21,45 +21,51 @@
     "modelArtifactManifestSha256": "82bc00be0afb7daa72f89b3e7a7f14552b59466550a9eafa2f965b59e65cb708",
     "corpusRows": 1000
   },
+  "runtime": {
+    "python": "3.14.6",
+    "sentenceTransformers": "6.0.0",
+    "torch": "2.13.0",
+    "numpy": "2.5.2",
+    "device": "mps:0"
+  },
   "topK": 20,
   "queries": [
     {
       "id": "Q-010",
       "query": "가볍게 웃으면서 즐길 수 있는 게임",
-      "hardFilterViolationGameIds": [],
       "ranked": [
         {
           "rank": 1,
           "gameId": 46213,
-          "score": 0.5630941390991211,
+          "score": 0.5630943179130554,
           "name": " 트엘에스트라션스",
           "englishName": " Telestrations"
         },
         {
           "rank": 2,
           "gameId": 12942,
-          "score": 0.5616682767868042,
+          "score": 0.5616687536239624,
           "name": " 노 스앤크스!",
           "englishName": " No Thanks!"
         },
         {
           "rank": 3,
           "gameId": 2536,
-          "score": 0.5595581531524658,
+          "score": 0.5595579147338867,
           "name": " 바방크",
           "englishName": " Vabanque"
         },
         {
           "rank": 4,
           "gameId": 117959,
-          "score": 0.5526355504989624,
+          "score": 0.5526360869407654,
           "name": " 라스 베가스",
           "englishName": " Las Vegas"
         },
         {
           "rank": 5,
           "gameId": 244522,
-          "score": 0.5523157715797424,
+          "score": 0.5523157119750977,
           "name": " 스아트스 프레트트이 크레브어!",
           "englishName": " That's Pretty Clever!"
         },
@@ -73,7 +79,7 @@
         {
           "rank": 7,
           "gameId": 142379,
-          "score": 0.5473515391349792,
+          "score": 0.5473516583442688,
           "name": " 이스케이프 프엘앤",
           "englishName": " Escape Plan"
         },
@@ -87,63 +93,63 @@
         {
           "rank": 9,
           "gameId": 420087,
-          "score": 0.5435190796852112,
+          "score": 0.5435190200805664,
           "name": " 프리프 7",
           "englishName": " Flip 7"
         },
         {
           "rank": 10,
           "gameId": 395846,
-          "score": 0.5434386730194092,
+          "score": 0.5434386134147644,
           "name": " 모조",
           "englishName": " Mojo"
         },
         {
           "rank": 11,
           "gameId": 203430,
-          "score": 0.5432089567184448,
+          "score": 0.5432096123695374,
           "name": " 후지 플러시",
           "englishName": " Fuji Flush"
         },
         {
           "rank": 12,
           "gameId": 406660,
-          "score": 0.5423700213432312,
+          "score": 0.5423702001571655,
           "name": " 블루, 샌드, 씨사이드",
           "englishName": " Seaside"
         },
         {
           "rank": 13,
           "gameId": 1382,
-          "score": 0.5413667559623718,
+          "score": 0.5413669943809509,
           "name": " 우인느어스 크어크레",
           "englishName": " Winner's Circle"
         },
         {
           "rank": 14,
           "gameId": 304051,
-          "score": 0.541090726852417,
+          "score": 0.5410906076431274,
           "name": " 크르이쳐 크옴프오트스",
           "englishName": " Creature Comforts"
         },
         {
           "rank": 15,
           "gameId": 193214,
-          "score": 0.5404228568077087,
+          "score": 0.5404232144355774,
           "name": " 엠이프레 크어쿠스",
           "englishName": " Meeple Circus"
         },
         {
           "rank": 16,
           "gameId": 284108,
-          "score": 0.5381322503089905,
+          "score": 0.5381326079368591,
           "name": " 피크쳐스",
           "englishName": " Pictures"
         },
         {
           "rank": 17,
           "gameId": 269210,
-          "score": 0.5376018285751343,
+          "score": 0.5376017093658447,
           "name": " 트위세 아스 크레브어!",
           "englishName": " Twice as Clever!"
         },
@@ -157,56 +163,56 @@
         {
           "rank": 19,
           "gameId": 237792,
-          "score": 0.5367210507392883,
+          "score": 0.5367204546928406,
           "name": " 루미큐브 트위스트",
           "englishName": " Rummikub Twist"
         },
         {
           "rank": 20,
           "gameId": 16747,
-          "score": 0.5366199612617493,
+          "score": 0.5366193652153015,
           "name": " 트엄브르인 다이스",
           "englishName": " Tumblin' Dice"
         }
-      ]
+      ],
+      "hardFilterViolationGameIds": []
     },
     {
       "id": "Q-011",
       "query": "상대의 반응을 살피며 서로 눈치를 보는 재미가 있는 게임",
-      "hardFilterViolationGameIds": [],
       "ranked": [
         {
           "rank": 1,
           "gameId": 262543,
-          "score": 0.6223704218864441,
+          "score": 0.6223710775375366,
           "name": " 와브엘엔그스",
           "englishName": " Wavelength"
         },
         {
           "rank": 2,
           "gameId": 257743,
-          "score": 0.6198409795761108,
+          "score": 0.6198413372039795,
           "name": " 사이 Whaaat?!",
           "englishName": " Say Whaaat?!"
         },
         {
           "rank": 3,
           "gameId": 347889,
-          "score": 0.6096507906913757,
+          "score": 0.6096506118774414,
           "name": " 캐치 스케치",
           "englishName": " Catch Sketch"
         },
         {
           "rank": 4,
           "gameId": 254640,
-          "score": 0.6015800833702087,
+          "score": 0.6015802621841431,
           "name": " 주스트 온에",
           "englishName": " Just One"
         },
         {
           "rank": 5,
           "gameId": 46213,
-          "score": 0.6008702516555786,
+          "score": 0.6008703112602234,
           "name": " 트엘에스트라션스",
           "englishName": " Telestrations"
         },
@@ -220,35 +226,35 @@
         {
           "rank": 7,
           "gameId": 171,
-          "score": 0.589013397693634,
+          "score": 0.5890132784843445,
           "name": " 치에스스",
           "englishName": " Chess"
         },
         {
           "rank": 8,
           "gameId": 2536,
-          "score": 0.5862746238708496,
+          "score": 0.5862740278244019,
           "name": " 바방크",
           "englishName": " Vabanque"
         },
         {
           "rank": 9,
           "gameId": 92415,
-          "score": 0.5814849734306335,
+          "score": 0.5814846754074097,
           "name": " 스크얼엘",
           "englishName": " Skull"
         },
         {
           "rank": 10,
           "gameId": 3955,
-          "score": 0.5811165571212769,
+          "score": 0.5811168551445007,
           "name": " 브앤그!",
           "englishName": " BANG!"
         },
         {
           "rank": 11,
           "gameId": 257527,
-          "score": 0.5804618000984192,
+          "score": 0.5804614424705505,
           "name": " 트라프더블유오드스",
           "englishName": " Trapwords"
         },
@@ -262,84 +268,84 @@
         {
           "rank": 13,
           "gameId": 329839,
-          "score": 0.5779157876968384,
+          "score": 0.5779159665107727,
           "name": " 소 크로브어!",
           "englishName": " So Clover!"
         },
         {
           "rank": 14,
           "gameId": 291453,
-          "score": 0.5762727856636047,
+          "score": 0.5762732625007629,
           "name": " 스크아우트",
           "englishName": " SCOUT"
         },
         {
           "rank": 15,
           "gameId": 102181,
-          "score": 0.5761323571205139,
+          "score": 0.5761321783065796,
           "name": " 덤불 속",
           "englishName": " In a Grove"
         },
         {
           "rank": 16,
           "gameId": 134352,
-          "score": 0.5760361552238464,
+          "score": 0.5760360956192017,
           "name": " 트워 르우름스 앤드 아 브우름",
           "englishName": " Two Rooms and a Boom"
         },
         {
           "rank": 17,
           "gameId": 411567,
-          "score": 0.574190080165863,
+          "score": 0.5741902589797974,
           "name": " 스에 그앤그",
           "englishName": " The Gang"
         },
         {
           "rank": 18,
           "gameId": 163930,
-          "score": 0.5740957260131836,
+          "score": 0.5740960240364075,
           "name": " 아브라카다...왓?",
           "englishName": " Abracada...What?"
         },
         {
           "rank": 19,
           "gameId": 421762,
-          "score": 0.5739936828613281,
+          "score": 0.5739938616752625,
           "name": " 에메랄드 스컬",
           "englishName": " Emerald Skulls"
         },
         {
           "rank": 20,
           "gameId": 284108,
-          "score": 0.5736613869667053,
+          "score": 0.5736619234085083,
           "name": " 피크쳐스",
           "englishName": " Pictures"
         }
-      ]
+      ],
+      "hardFilterViolationGameIds": []
     },
     {
       "id": "Q-012",
       "query": "보드게임을 처음 하는 초보자와도 부담 없이 시작할 수 있는 게임",
-      "hardFilterViolationGameIds": [],
       "ranked": [
         {
           "rank": 1,
           "gameId": 446497,
-          "score": 0.5521695613861084,
+          "score": 0.552169919013977,
           "name": " 호트 스트르이크",
           "englishName": " Hot Streak"
         },
         {
           "rank": 2,
           "gameId": 416851,
-          "score": 0.5512658357620239,
+          "score": 0.5512663125991821,
           "name": " 캐슬 크옴보",
           "englishName": " Castle Combo"
         },
         {
           "rank": 3,
           "gameId": 36218,
-          "score": 0.5510041117668152,
+          "score": 0.5510034561157227,
           "name": " 도미니언",
           "englishName": " Dominion"
         },
@@ -353,28 +359,28 @@
         {
           "rank": 5,
           "gameId": 338960,
-          "score": 0.5389853119850159,
+          "score": 0.5389850735664368,
           "name": " 스라이 스에 스프어에: 스에 보드 게임",
           "englishName": " Slay the Spire: The Board Game"
         },
         {
           "rank": 6,
           "gameId": 59946,
-          "score": 0.5388458371162415,
+          "score": 0.5388457179069519,
           "name": " 던전 & 드래곤: 캐슬 라브엔로프트 보드 게임",
           "englishName": " Dungeons & Dragons: Castle Ravenloft Board Game"
         },
         {
           "rank": 7,
           "gameId": 91872,
-          "score": 0.5362113118171692,
+          "score": 0.536211371421814,
           "name": " 던전 & 드래곤: 스에 레전드 오프 드리즈즈트 보드 게임",
           "englishName": " Dungeons & Dragons: The Legend of Drizzt Board Game"
         },
         {
           "rank": 8,
           "gameId": 358246,
-          "score": 0.5354118347167969,
+          "score": 0.5354117751121521,
           "name": " 데드 바이 데이라이트: 보드게임",
           "englishName": " Dead by Daylight: The Board Game"
         },
@@ -388,88 +394,82 @@
         {
           "rank": 10,
           "gameId": 242302,
-          "score": 0.5348743796348572,
+          "score": 0.534874439239502,
           "name": " 스페이스 바세",
           "englishName": " Space Base"
         },
         {
           "rank": 11,
           "gameId": 456619,
-          "score": 0.534792423248291,
+          "score": 0.5347923636436462,
           "name": " 브리트즈",
           "englishName": " BLITZ"
         },
         {
           "rank": 12,
           "gameId": 288098,
-          "score": 0.533047616481781,
+          "score": 0.5330471992492676,
           "name": " 섀도우 레이더스",
           "englishName": " Shadow Raiders"
         },
         {
           "rank": 13,
           "gameId": 17223,
-          "score": 0.5321334600448608,
+          "score": 0.5321336388587952,
           "name": " 월드 오프 우아크라프트: 스에 브오르드그암에",
           "englishName": " World of Warcraft: The Boardgame"
         },
         {
           "rank": 14,
           "gameId": 203430,
-          "score": 0.5320090651512146,
+          "score": 0.5320090055465698,
           "name": " 후지 플러시",
           "englishName": " Fuji Flush"
         },
         {
           "rank": 15,
           "gameId": 180263,
-          "score": 0.5317215323448181,
+          "score": 0.5317211747169495,
           "name": " 스에 7th 크온트인엔트",
           "englishName": " The 7th Continent"
         },
         {
           "rank": 16,
           "gameId": 103343,
-          "score": 0.5314395427703857,
+          "score": 0.5314397215843201,
           "name": " 아 게임 오프 스르온에스: 스에 보드 게임 (2판)",
           "englishName": " A Game of Thrones: The Board Game (Second Edition)"
         },
         {
           "rank": 17,
           "gameId": 142325,
-          "score": 0.5314119458198547,
+          "score": 0.5314120650291443,
           "name": " 코바야카와",
           "englishName": " Kobayakawa"
         },
         {
           "rank": 18,
           "gameId": 77130,
-          "score": 0.530845582485199,
+          "score": 0.5308454632759094,
           "name": " 시드 메이어스 시브일이자션: 스에 보드 게임",
           "englishName": " Sid Meier's Civilization: The Board Game"
         },
         {
           "rank": 19,
           "gameId": 311988,
-          "score": 0.5304674506187439,
+          "score": 0.5304670929908752,
           "name": " 프로스트프언크: 스에 보드 게임",
           "englishName": " Frostpunk: The Board Game"
         },
         {
           "rank": 20,
           "gameId": 124361,
-          "score": 0.5284669399261475,
+          "score": 0.5284667611122131,
           "name": " 콘코디아",
           "englishName": " Concordia"
         }
-      ]
+      ],
+      "hardFilterViolationGameIds": []
     }
-  ],
-  "runtime": {
-    "python": "3.14.6",
-    "sentenceTransformers": "6.0.0",
-    "torch": "2.13.0",
-    "numpy": "2.5.2",
-    "device": "not-captured"
-  }
+  ]
 }

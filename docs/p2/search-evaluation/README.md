@@ -89,6 +89,8 @@ Catalog Dataset Release 승인과 Search/Embedding Execution 승인은 분리합
 - 출력: query별 Top 20, provenance가 있는 candidate pool, model·score를 숨긴 blind judgement export
 - provenance: 승인된 입력·모델 artifact manifest checksum, source Git SHA, Python·`sentence-transformers`·PyTorch·NumPy·device를 함께 기록한다.
 - 경계: Q-010~Q-012는 사람 판정 전 `unjudged`이며, 이 결과는 quality-ready·finalist·production model 승인으로 해석하지 않는다.
+- gold 준비: 후보 설명을 붙인 독립 사람 판정 packet은 다음 명령으로 생성한다. packet의 `grade`는 두 사람이 독립적으로 0·1·2를 채운 뒤 불일치 시 제3 판정으로 합의해야 하며, 빈 packet은 gold qrels가 아니다.
+- 현재 packet: [`dense-bge-m3/gold-judgement-packet.json`](dense-bge-m3/gold-judgement-packet.json)은 3개 query·60개 후보의 설명만 포함하며 아직 gold qrels가 아니다.
 - 현재 #866 결과가 없으므로 Hybrid/RRF와 최종 검색 방식 선택은 `deferred`다.
 
 실행 manifest와 모든 입력·출력 checksum은 [`dense-bge-m3/manifest.json`](dense-bge-m3/manifest.json)에 보존한다. 승인된 로컬 모델 snapshot과 고정된 [`model-artifact-manifest.json`](dense-bge-m3/model-artifact-manifest.json)을 준비한 뒤 다음 명령으로 재실행할 수 있다. 모델 파일과 manifest가 승인 snapshot과 다르면 실행을 거부한다.
@@ -113,6 +115,11 @@ node scripts/search-evaluation/dense-bge-m3-execution.mjs \
   --check \
   --manifest docs/p2/search-evaluation/dense-bge-m3/manifest.json
 node --test scripts/search-evaluation/dense-bge-m3-execution.test.mjs
+
+node scripts/search-evaluation/build-gold-judgement-packet.mjs \
+  --blind docs/p2/search-evaluation/dense-bge-m3/blind-judgement.json \
+  --search-text docs/p2/search-evaluation/dense-bge-m3/search-text-top1000.json \
+  --out /tmp/search-04-bge-m3-gold-judgement-packet.json
 ```
 
 ### 구조 검증

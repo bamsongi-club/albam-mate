@@ -19,9 +19,9 @@
       "sentenceTransformers": "6.0.0",
       "torch": "2.13.0",
       "numpy": "2.5.2",
-      "device": "not-captured"
+      "device": "mps:0"
     },
-    "resultNote": "2026-08-19 local BGE-M3 result; runtime package versions are recorded, historical device selection was not captured, so this manifest is evidence-only and quality remains unjudged."
+    "resultNote": "2026-08-19 local BGE-M3 rerun; approved input/model and package versions are pinned, device mps:0 was captured, and quality remains unjudged until independent human gold qrels are approved."
   },
   "model": {
     "provider": "local",
@@ -64,13 +64,13 @@
   "outputs": {
     "results": {
       "path": "results.json",
-      "sha256": "7a18e0f7428dc91d69068c94d681a5db58391267547f618ec7dbe6300dfca7c6",
+      "sha256": "6e66436f07c092fc760c4cf1de7ba02b6621ea27766de21599e92d0616c84f32",
       "rows": 3,
       "topK": 20
     },
     "candidatePool": {
       "path": "candidate-pool.json",
-      "sha256": "60f4aefa846e7b3eda87519fa5a566b30c7a0ece918286ee16b47d4e61b56184",
+      "sha256": "684b2dc7e5f97d58bc94c73b5f67b56acc2791923746fc5ec4dc4c4d997a173a",
       "rows": 3
     },
     "blindJudgement": {
