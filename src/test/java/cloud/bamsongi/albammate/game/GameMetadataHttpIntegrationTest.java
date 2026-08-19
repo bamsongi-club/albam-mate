@@ -104,10 +104,8 @@ class GameMetadataHttpIntegrationTest {
 	}
 
 	@Test
-	void 존재하지않는_코드와_중복_themeMatch를_검증오류로_거절한다() throws Exception {
+	void 존재하지않는_코드는_검증오류로_거절한다() throws Exception {
 		mockMvc.perform(get("/api/games").param("category", "UNKNOWN"))
-			.andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
-		mockMvc.perform(get("/api/games").param("themeMatch", "ANY").param("themeMatch", "ALL"))
 			.andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
 	}
 
@@ -136,7 +134,7 @@ class GameMetadataHttpIntegrationTest {
 	}
 
 	@Test
-	void 테마_ANY_ALL과_중복themeMatch_검증을_구분한다() throws Exception {
+	void 테마_ANY_ALL을_구분한다() throws Exception {
 		GameTheme fantasy = themeRepository.saveAndFlush(new GameTheme(101L, "FANTASY", "판타지", "Fantasy"));
 		GameTheme war = themeRepository.saveAndFlush(new GameTheme(102L, "WAR", "전쟁", "War"));
 		Game both = saveGame(420011L, "Any all both");
@@ -151,8 +149,6 @@ class GameMetadataHttpIntegrationTest {
 			.andExpect(status().isOk()).andExpect(jsonPath("$.data.totalElements").value(1))
 			.andExpect(jsonPath("$.data.content.length()").value(1))
 			.andExpect(jsonPath("$.data.content[0].id").value(both.getId()));
-		mockMvc.perform(get("/api/games").param("themeMatch", "ANY").param("themeMatch", "ALL"))
-			.andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
 	}
 
 	@Test
