@@ -2,24 +2,25 @@ package cloud.bamsongi.albammate.room.service.command;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Objects;
 
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.lang.Nullable;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
-import lombok.AccessLevel;
+import cloud.bamsongi.albammate.room.service.RoomOptimisticLockRetrier.BoundedFullJitter;
+import cloud.bamsongi.albammate.room.service.RoomOptimisticLockRetrier.RetryDelay;
 import lombok.NonNull;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /** PART-04 대기 활성화의 두 충돌 원인을 하나의 세 번 예산으로 조정한다. */
 @Service
 @Slf4j
-@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
 class RoomWaitlistRegistrationCoordinator {
 
 	private static final int MAX_ATTEMPTS = 3;
@@ -32,15 +33,25 @@ class RoomWaitlistRegistrationCoordinator {
 
 	@NonNull private final Clock clock;
 	@NonNull private final RoomWaitlistRegistrationExecutor executor;
+	private final BoundedFullJitter boundedFullJitter;
+
+	RoomWaitlistRegistrationCoordinator(
+		Clock clock, RoomWaitlistRegistrationExecutor executor, @Nullable BoundedFullJitter boundedFullJitter) {
+		this.clock = Objects.requireNonNull(clock, "clock");
+		this.executor = Objects.requireNonNull(executor, "executor");
+		this.boundedFullJitter = boundedFullJitter == null ? new BoundedFullJitter() : boundedFullJitter;
+	}
 
 	RoomWaitlistCommandService.RegistrationResult register(long currentUserId, long roomId) {
 		Instant requestTime = Instant.now(clock);
+		long requestSeed = boundedFullJitter.nextRequestSeed();
 		RuntimeException lastRetryableFailure = null;
 		for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
 			try {
 				return executor.register(currentUserId, roomId, requestTime);
 			} catch (ObjectOptimisticLockingFailureException exception) {
 				lastRetryableFailure = exception;
+				waitBeforeRetry(attempt, roomId, requestSeed);
 			} catch (DataIntegrityViolationException exception) {
 				if (!isWaitingQueueOrderConflict(exception)) {
 					logUnexpectedIntegrityFailure(roomId, attempt);
@@ -48,6 +59,7 @@ class RoomWaitlistRegistrationCoordinator {
 				}
 				lastRetryableFailure = exception;
 				if (attempt < MAX_ATTEMPTS) {
+					waitBeforeRetry(attempt, roomId, requestSeed);
 					logWaitingQueueOrderRetry(roomId, attempt + 1);
 				}
 			} catch (DataAccessException exception) {
@@ -61,6 +73,24 @@ class RoomWaitlistRegistrationCoordinator {
 		}
 		logWaitingQueueOrderConflictExhausted(roomId, MAX_ATTEMPTS);
 		throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, lastRetryableFailure);
+	}
+
+	private void waitBeforeRetry(int attempt, long roomId, long requestSeed) {
+		if (attempt >= MAX_ATTEMPTS) {
+			return;
+		}
+		int nextAttempt = attempt + 1;
+		RetryDelay retryDelay = boundedFullJitter.calculate(
+			requestSeed, "room_waitlist_registration_retry", roomId, nextAttempt);
+		boundedFullJitter.waitBeforeRetry(retryDelay);
+		log.trace("event={} roomId={} attempt={} requestSeed={} jitterSeed={} maxDelayMillis={} delayMillis={}",
+			"room_waitlist_registration_retry",
+			roomId,
+			nextAttempt,
+			retryDelay.requestSeed(),
+			retryDelay.seed(),
+			retryDelay.maxDelayMillis(),
+			retryDelay.delayMillis());
 	}
 
 	private boolean isWaitingQueueOrderConflict(DataIntegrityViolationException exception) {

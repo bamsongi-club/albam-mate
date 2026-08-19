@@ -14,6 +14,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -33,6 +34,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.AppenderBase;
 import ch.qos.logback.core.read.ListAppender;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
@@ -112,6 +114,7 @@ final class RoomConcurrencyBaselineSupport {
 		throws Exception {
 		resetPostgresStatistics();
 		RetryLogCapture retryLogCapture = RetryLogCapture.attach();
+		RetryTraceCapture retryTraceCapture = RetryTraceCapture.attach();
 		ExecutorService executor = Executors.newFixedThreadPool(commands.size());
 		CountDownLatch ready = new CountDownLatch(commands.size());
 		CountDownLatch start = new CountDownLatch(1);
@@ -130,11 +133,12 @@ final class RoomConcurrencyBaselineSupport {
 			String rawRecord = formatRawRecord(scenario, concurrencyLevel, requests, postgresCost);
 			LoggerFactory.getLogger(RoomConcurrencyBaselineSupport.class).info(rawRecord);
 			RoundMeasurement measurement = new RoundMeasurement(
-				requests, postgresCost, rawRecord, retryLogCapture.retryLogRecords());
+				requests, postgresCost, rawRecord, retryLogCapture.retryLogRecords(), retryTraceCapture.retryTraces());
 			collectedRounds.add(new CollectedRound(scenario, concurrencyLevel, measurement));
 			return measurement;
 		} finally {
 			start.countDown();
+			retryTraceCapture.detach();
 			retryLogCapture.detach();
 			shutdown(executor);
 		}
@@ -609,7 +613,8 @@ final class RoomConcurrencyBaselineSupport {
 		List<RequestMeasurement> requests,
 		PostgresCost postgresCost,
 		String rawRecord,
-		List<RetryLogRecord> retryLogRecords) {
+		List<RetryLogRecord> retryLogRecords,
+		List<RetryTrace> retryTraces) {
 
 		int totalRequestCount() {
 			return requests.size();
@@ -762,6 +767,118 @@ final class RoomConcurrencyBaselineSupport {
 		}
 	}
 
+	/** 두 bounded-jitter logger의 TRACE tuple을 시나리오 원자료에 붙이기 위한 공통 capture다. */
+	record RetryTrace(
+		String logger,
+		String event,
+		long roomId,
+		int attempt,
+		long requestSeed,
+		long derivedSeed,
+		long maxDelayMillis,
+		long delayMillis) {
+
+		boolean hasValidSeedRelationship() {
+			return derivedSeed == requestSeed * 31 + attempt;
+		}
+
+		boolean hasValidDelayBounds() {
+			return delayMillis >= 0 && delayMillis <= maxDelayMillis;
+		}
+	}
+
+	static final class RetryTraceCapture {
+
+		private static final String RETRIER_LOGGER = RoomOptimisticLockRetrier.class.getName();
+		private static final String WAITLIST_REGISTRATION_LOGGER = "cloud.bamsongi.albammate.room.service.command.RoomWaitlistRegistrationCoordinator";
+		private static final java.util.regex.Pattern TRACE_LOG_PATTERN = java.util.regex.Pattern.compile(
+			"^event=(\\S+) roomId=(\\d+) attempt=(\\d+) requestSeed=(-?\\d+) jitterSeed=(-?\\d+) "
+				+ "maxDelayMillis=(\\d+) delayMillis=(\\d+)$");
+
+		private final Logger retrierLogger;
+		private final Level previousRetrierLevel;
+		private final Logger waitlistRegistrationLogger;
+		private final Level previousWaitlistRegistrationLevel;
+		private final RetryTraceAppender appender;
+
+		private RetryTraceCapture(
+			Logger retrierLogger,
+			Level previousRetrierLevel,
+			Logger waitlistRegistrationLogger,
+			Level previousWaitlistRegistrationLevel,
+			RetryTraceAppender appender) {
+			this.retrierLogger = retrierLogger;
+			this.previousRetrierLevel = previousRetrierLevel;
+			this.waitlistRegistrationLogger = waitlistRegistrationLogger;
+			this.previousWaitlistRegistrationLevel = previousWaitlistRegistrationLevel;
+			this.appender = appender;
+		}
+
+		static RetryTraceCapture attach() {
+			Logger retrierLogger = (Logger)LoggerFactory.getLogger(RETRIER_LOGGER);
+			Logger waitlistRegistrationLogger = (Logger)LoggerFactory.getLogger(WAITLIST_REGISTRATION_LOGGER);
+			Level previousRetrierLevel = retrierLogger.getLevel();
+			Level previousWaitlistRegistrationLevel = waitlistRegistrationLogger.getLevel();
+			RetryTraceAppender appender = new RetryTraceAppender();
+			appender.start();
+			retrierLogger.setLevel(Level.TRACE);
+			waitlistRegistrationLogger.setLevel(Level.TRACE);
+			retrierLogger.addAppender(appender);
+			waitlistRegistrationLogger.addAppender(appender);
+			return new RetryTraceCapture(
+				retrierLogger,
+				previousRetrierLevel,
+				waitlistRegistrationLogger,
+				previousWaitlistRegistrationLevel,
+				appender);
+		}
+
+		List<RetryTrace> retryTraces() {
+			return appender.events().stream()
+				.filter(event -> event.getLevel() == Level.TRACE)
+				.map(RetryTraceCapture::parse)
+				.toList();
+		}
+
+		void detach() {
+			retrierLogger.detachAppender(appender);
+			waitlistRegistrationLogger.detachAppender(appender);
+			retrierLogger.setLevel(previousRetrierLevel);
+			waitlistRegistrationLogger.setLevel(previousWaitlistRegistrationLevel);
+			appender.stop();
+		}
+
+		private static RetryTrace parse(ILoggingEvent event) {
+			java.util.regex.Matcher matcher = TRACE_LOG_PATTERN.matcher(event.getFormattedMessage());
+			if (!matcher.matches()) {
+				throw new AssertionError("bounded-jitter TRACE 형식이 계약과 다릅니다: " + event.getFormattedMessage());
+			}
+			return new RetryTrace(
+				event.getLoggerName(),
+				matcher.group(1),
+				Long.parseLong(matcher.group(2)),
+				Integer.parseInt(matcher.group(3)),
+				Long.parseLong(matcher.group(4)),
+				Long.parseLong(matcher.group(5)),
+				Long.parseLong(matcher.group(6)),
+				Long.parseLong(matcher.group(7)));
+		}
+	}
+
+	private static final class RetryTraceAppender extends AppenderBase<ILoggingEvent> {
+
+		private final List<ILoggingEvent> events = new CopyOnWriteArrayList<>();
+
+		@Override
+		protected void append(ILoggingEvent event) {
+			events.add(event);
+		}
+
+		private List<ILoggingEvent> events() {
+			return List.copyOf(events);
+		}
+	}
+
 	record RoomInvariant(
 		int activeParticipantCount,
 		int activeParticipationCount,
@@ -866,6 +983,7 @@ final class RoomConcurrencyBaselineSupport {
 
 		private List<RetryLogRecord> retryLogRecords() {
 			return appender.list.stream()
+				.filter(event -> event.getLevel() != Level.TRACE)
 				.map(RetryLogCapture::parse)
 				.toList();
 		}

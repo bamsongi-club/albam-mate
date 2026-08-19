@@ -8,7 +8,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.IntConsumer;
@@ -78,6 +80,100 @@ class RoomOptimisticLockRetrierTest {
 
 		assertSame(expected, actual);
 		assertEquals(1, attempts.get());
+	}
+
+	@Test
+	void B_retry별_bounded_full_jitter는_범위와_재현성을_지킨다() {
+		List<Long> requestedBounds = new ArrayList<>();
+		List<Long> sleptMillis = new ArrayList<>();
+		List<Long> requestSeeds = new ArrayList<>();
+		RoomOptimisticLockRetrier.BoundedFullJitter jitter = new RoomOptimisticLockRetrier.BoundedFullJitter(
+			(seed, maxDelayMillis) -> {
+				requestedBounds.add(maxDelayMillis);
+				return Math.floorMod(seed, maxDelayMillis + 1);
+			},
+			sleptMillis::add,
+			() -> {
+				long requestSeed = 100L + requestSeeds.size();
+				requestSeeds.add(requestSeed);
+				return requestSeed;
+			});
+		RoomOptimisticLockRetrier candidate = new RoomOptimisticLockRetrier(jitter);
+		AtomicInteger attempts = new AtomicInteger();
+
+		candidate.execute(() -> {
+			if (attempts.incrementAndGet() < 3) {
+				throw new OptimisticLockException("충돌");
+			}
+			return "success";
+		}, "room_participation_retry", 7L);
+
+		assertEquals(List.of(5L, 10L), requestedBounds);
+		assertEquals(List.of(100L), requestSeeds);
+		assertEquals(2, sleptMillis.size());
+		assertTrue(sleptMillis.get(0) >= 0 && sleptMillis.get(0) <= 5);
+		assertTrue(sleptMillis.get(1) >= 0 && sleptMillis.get(1) <= 10);
+		assertEquals(
+			jitter.calculate("room_participation_retry", 7L, 2),
+			jitter.calculate("room_participation_retry", 7L, 2));
+	}
+
+	@Test
+	void B_업무_예외와_예상_밖_기술_예외에는_지연을_적용하지_않는다() {
+		List<Long> sleptMillis = new ArrayList<>();
+		RoomOptimisticLockRetrier candidate = new RoomOptimisticLockRetrier(
+			new RoomOptimisticLockRetrier.BoundedFullJitter(
+				(seed, maxDelayMillis) -> maxDelayMillis,
+				sleptMillis::add));
+
+		assertThrows(BusinessException.class, () -> candidate.execute(
+			() -> {
+				throw new BusinessException(ErrorCode.ROOM_NOT_FOUND);
+			},
+			"room_participation_retry", 7L));
+		assertThrows(IllegalStateException.class, () -> candidate.execute(
+			() -> {
+				throw new IllegalStateException("technical");
+			},
+			"room_participation_retry", 7L));
+
+		assertTrue(sleptMillis.isEmpty());
+	}
+
+	@Test
+	void B_같은_ROOM도_요청마다_새로운_seed를_받는다() {
+		List<Long> requestSeeds = new ArrayList<>();
+		List<Long> jitterSeeds = new ArrayList<>();
+		RoomOptimisticLockRetrier.BoundedFullJitter jitter = new RoomOptimisticLockRetrier.BoundedFullJitter(
+			(seed, maxDelayMillis) -> {
+				jitterSeeds.add(seed);
+				return 0L;
+			},
+			ignoredDelay -> {},
+			() -> {
+				long requestSeed = 200L + requestSeeds.size();
+				requestSeeds.add(requestSeed);
+				return requestSeed;
+			});
+		RoomOptimisticLockRetrier candidate = new RoomOptimisticLockRetrier(jitter);
+
+		AtomicInteger firstAttempts = new AtomicInteger();
+		assertEquals("first", candidate.execute(() -> {
+			if (firstAttempts.incrementAndGet() == 1) {
+				throw new OptimisticLockException("첫 번째 요청 충돌");
+			}
+			return "first";
+		}, "room_participation_retry", 7L));
+		AtomicInteger secondAttempts = new AtomicInteger();
+		assertEquals("second", candidate.execute(() -> {
+			if (secondAttempts.incrementAndGet() == 1) {
+				throw new OptimisticLockException("두 번째 요청 충돌");
+			}
+			return "second";
+		}, "room_participation_retry", 7L));
+
+		assertEquals(List.of(200L, 201L), requestSeeds);
+		assertEquals(List.of(6_202L, 6_233L), jitterSeeds);
 	}
 
 	@Test

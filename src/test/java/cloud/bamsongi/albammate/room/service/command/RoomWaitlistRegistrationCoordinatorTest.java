@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.room.service.command;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -13,6 +14,7 @@ import java.sql.SQLException;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
 
 import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.Test;
@@ -30,6 +32,7 @@ import ch.qos.logback.core.read.ListAppender;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.room.entity.Room;
+import cloud.bamsongi.albammate.room.service.RoomOptimisticLockRetrier.BoundedFullJitter;
 
 @ExtendWith(MockitoExtension.class)
 class RoomWaitlistRegistrationCoordinatorTest {
@@ -43,7 +46,7 @@ class RoomWaitlistRegistrationCoordinatorTest {
 	@Test
 	void T1_직렬화_실패는_재시도하지_않고_정제_오류를_한번만_남긴다() {
 		RoomWaitlistRegistrationCoordinator coordinator = new RoomWaitlistRegistrationCoordinator(
-			Clock.fixed(REQUEST_TIME, ZoneOffset.UTC), executor);
+			Clock.fixed(REQUEST_TIME, ZoneOffset.UTC), executor, new BoundedFullJitter());
 		String sensitiveMessage = "SQL=insert constraint=unexpected session-token actorUserId=7";
 		CannotSerializeTransactionException databaseFailure = new CannotSerializeTransactionException(sensitiveMessage);
 		when(executor.register(eq(7L), eq(1L), any(Instant.class)))
@@ -69,7 +72,7 @@ class RoomWaitlistRegistrationCoordinatorTest {
 	@Test
 	void T2_비대상_무결성_위반은_기존_정제_오류를_유지한다() {
 		RoomWaitlistRegistrationCoordinator coordinator = new RoomWaitlistRegistrationCoordinator(
-			Clock.fixed(REQUEST_TIME, ZoneOffset.UTC), executor);
+			Clock.fixed(REQUEST_TIME, ZoneOffset.UTC), executor, new BoundedFullJitter());
 		DataIntegrityViolationException integrityFailure = waitingQueueOrderConflict(
 			"other_constraint", "constraint=other_constraint SQL=session-token actorUserId=7");
 		when(executor.register(eq(7L), eq(1L), any(Instant.class)))
@@ -93,7 +96,7 @@ class RoomWaitlistRegistrationCoordinatorTest {
 		}
 
 		RoomWaitlistRegistrationCoordinator identifierlessCoordinator = new RoomWaitlistRegistrationCoordinator(
-			Clock.fixed(REQUEST_TIME, ZoneOffset.UTC), executor);
+			Clock.fixed(REQUEST_TIME, ZoneOffset.UTC), executor, new BoundedFullJitter());
 		DataIntegrityViolationException identifierlessFailure = new DataIntegrityViolationException(
 			"SQL=session-token actorUserId=8");
 		when(executor.register(eq(8L), eq(1L), any(Instant.class)))
@@ -119,7 +122,7 @@ class RoomWaitlistRegistrationCoordinatorTest {
 	@Test
 	void T3_대상_대기_순번_충돌은_ROOM_충돌과_세번_예산과_기존_로그_계약을_공유한다() {
 		RoomWaitlistRegistrationCoordinator coordinator = new RoomWaitlistRegistrationCoordinator(
-			Clock.fixed(REQUEST_TIME, ZoneOffset.UTC), executor);
+			Clock.fixed(REQUEST_TIME, ZoneOffset.UTC), executor, new BoundedFullJitter());
 		when(executor.register(eq(7L), eq(1L), any(Instant.class)))
 			.thenThrow(new ObjectOptimisticLockingFailureException(Room.class, 1L))
 			.thenThrow(waitingQueueOrderConflict("SQL=session-token actorUserId=7"));
@@ -146,7 +149,7 @@ class RoomWaitlistRegistrationCoordinatorTest {
 		}
 
 		RoomWaitlistRegistrationCoordinator pureUniqueCoordinator = new RoomWaitlistRegistrationCoordinator(
-			Clock.fixed(REQUEST_TIME, ZoneOffset.UTC), executor);
+			Clock.fixed(REQUEST_TIME, ZoneOffset.UTC), executor, new BoundedFullJitter());
 		when(executor.register(eq(8L), eq(1L), any(Instant.class)))
 			.thenThrow(waitingQueueOrderConflict("SQL=session-token actorUserId=8"));
 		ListAppender<ILoggingEvent> pureUniqueAppender = attachLogAppender();
@@ -185,7 +188,7 @@ class RoomWaitlistRegistrationCoordinatorTest {
 	@Test
 	void T4_ROOM_낙관_락은_세번_후_409로_끝나고_일반_DB_오류를_기록하지_않는다() {
 		RoomWaitlistRegistrationCoordinator coordinator = new RoomWaitlistRegistrationCoordinator(
-			Clock.fixed(REQUEST_TIME, ZoneOffset.UTC), executor);
+			Clock.fixed(REQUEST_TIME, ZoneOffset.UTC), executor, new BoundedFullJitter());
 		when(executor.register(eq(7L), eq(1L), any(Instant.class)))
 			.thenThrow(new ObjectOptimisticLockingFailureException(Room.class, 1L));
 		ListAppender<ILoggingEvent> appender = attachLogAppender();
@@ -198,6 +201,28 @@ class RoomWaitlistRegistrationCoordinatorTest {
 		} finally {
 			detachLogAppender(appender);
 		}
+	}
+
+	@Test
+	void B_대기_등록_재시도도_같은_bounded_full_jitter_범위를_사용한다() {
+		List<Long> requestedBounds = new java.util.ArrayList<>();
+		List<Long> sleptMillis = new java.util.ArrayList<>();
+		BoundedFullJitter jitter = new BoundedFullJitter(
+			(seed, maxDelayMillis) -> {
+				requestedBounds.add(maxDelayMillis);
+				return maxDelayMillis;
+			},
+			sleptMillis::add);
+		RoomWaitlistRegistrationCoordinator coordinator = new RoomWaitlistRegistrationCoordinator(
+			Clock.fixed(REQUEST_TIME, ZoneOffset.UTC), executor, jitter);
+		when(executor.register(eq(7L), eq(1L), any(Instant.class)))
+			.thenThrow(new ObjectOptimisticLockingFailureException(Room.class, 1L))
+			.thenThrow(new ObjectOptimisticLockingFailureException(Room.class, 1L))
+			.thenReturn(null);
+
+		assertNull(coordinator.register(7L, 1L));
+		assertEquals(List.of(5L, 10L), requestedBounds);
+		assertEquals(List.of(5L, 10L), sleptMillis);
 	}
 
 	private DataIntegrityViolationException waitingQueueOrderConflict(String message) {

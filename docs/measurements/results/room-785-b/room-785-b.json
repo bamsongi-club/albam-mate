@@ -1,0 +1,1642 @@
+{
+  "reportName": "room-785-b",
+  "candidate": "B",
+  "lockBaseSha": "49b960a1f7537574b39d67ff22df8890a3891ef6",
+  "candidateImplementationSourceSha": "433d835eadff1da25d9a83d3d0ee2dc8cd748480",
+  "measurementExecutionGitHead": "22022ed73984ec0e215ed14638a3818f6fb15138",
+  "worktreeState": "measurement captured at clean HEAD 22022ed73984ec0e215ed14638a3818f6fb15138; artifact finalized afterward",
+  "comparisonStatus": "VALID",
+  "comparisonInvalidReasons": [],
+  "capturedAt": "2026-08-19T15:36:21.395Z",
+  "postgresImage": "postgres:18.4",
+  "javaVersion": "21.0.11",
+  "operatingSystem": "Windows 11 10.0",
+  "cpuCount": 24,
+  "configuration": {
+    "spring.task.scheduling.enabled": false,
+    "app.notification.relay.enabled": false,
+    "app.chat.retention.enabled": false,
+    "shared_preload_libraries": "pg_stat_statements"
+  },
+  "fixtureSeed": "ROOM-LOCK-01-20260817",
+  "fixedTime": "2026-08-17T00:00:00Z",
+  "concurrency": 2,
+  "concurrencyGate": "RoomReadGate: same ROOM version, then commit-order gate",
+  "retryBudget": "initial attempt plus retry 2 (0-5ms) and retry 3 (0-10ms)",
+  "reproductionCommand": ".\\gradlew.bat postgresTest --tests \"cloud.bamsongi.albammate.room.measurement.RoomLockStrategyComparisonPostgresTest.*\" --rerun --no-daemon --stacktrace",
+  "workflowAssertions": {
+    "T1": [
+      "last-seat direct participation in both commit orders",
+      "waitlist registration",
+      "participation cancellation",
+      "FIFO automatic promotion"
+    ],
+    "T2": [
+      "waitlist registration precondition boundary, rejected before write in both orders",
+      "new waitlist registrations contend in both commit orders, FIFO follows commit order",
+      "waitlist reactivation contends with another registration in both commit orders",
+      "waitlist cancellation and promotion both orders, both commands reach write",
+      "two participation cancellations both orders",
+      "start correction with direct participation, waitlist registration, waitlist cancellation and participation cancellation, both orders"
+    ],
+    "T3": [
+      "optimistic retry exhaustion with bounded jitter trace",
+      "business 409 without retry",
+      "controlled technical 500 with rollback",
+      "PostgreSQL row-lock timeout 55P03 without retry",
+      "PostgreSQL deadlock 40P01 with one survivor"
+    ]
+  },
+  "scenarios": {
+    "T1": [
+      {
+        "candidate": "B",
+        "scenario": "T1",
+        "requestCount": 4,
+        "success": 2,
+        "businessFailure": 2,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 2,
+        "retry0": 2,
+        "retry1": 2,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          17203000,
+          51013400,
+          52161300,
+          31510100
+        ],
+        "calls": 32,
+        "totalExecMs": 2.6799850000000003,
+        "rows": 16,
+        "sharedBlksHit": 199,
+        "sharedBlksRead": 4,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T1 requestCount=4 success=2 businessFailure=2 concurrencyFailure=0 technicalFailure=0 conflictCount=2 retry0=2 retry1=2 retry2=0 exhausted=0 responseNanos=[17203000,51013400,52161300,31510100] calls=32 totalExecMs=2.6799850000000003 rows=16 sharedBlksHit=199 sharedBlksRead=4 retryRequestCount=2 retryTupleCount=2 retryTuples=[[logger=cloud.bamsongi.albammate.room.service.RoomOptimisticLockRetrier,event=room_participation_retry,roomId=1,requestSeed=-2323109044994929345,derivedSeed=1770595899995396771,attempt=2,maxDelayMillis=5,delayMillis=4,scenario=T1],[logger=cloud.bamsongi.albammate.room.service.RoomOptimisticLockRetrier,event=room_participation_retry,roomId=2,requestSeed=-7307274452546990977,derivedSeed=-5164579144442100893,attempt=2,maxDelayMillis=5,delayMillis=5,scenario=T1]]"
+      }
+    ],
+    "T2": [
+      {
+        "candidate": "B",
+        "scenario": "T2-waitlist-new-promotion",
+        "requestCount": 2,
+        "success": 2,
+        "businessFailure": 0,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          46893600,
+          102594900
+        ],
+        "calls": 16,
+        "totalExecMs": 1.417873,
+        "rows": 13,
+        "sharedBlksHit": 89,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-waitlist-new-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[46893600,102594900] calls=16 totalExecMs=1.417873 rows=13 sharedBlksHit=89 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T2-waitlist-new-cancel-first-promotion",
+        "requestCount": 2,
+        "success": 1,
+        "businessFailure": 1,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          101570800,
+          96954600
+        ],
+        "calls": 18,
+        "totalExecMs": 1.812397,
+        "rows": 14,
+        "sharedBlksHit": 181,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-waitlist-new-cancel-first-promotion requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[101570800,96954600] calls=18 totalExecMs=1.812397 rows=14 sharedBlksHit=181 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T2-waitlist-reactivation-promotion",
+        "requestCount": 2,
+        "success": 2,
+        "businessFailure": 0,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          27500500,
+          52294200
+        ],
+        "calls": 21,
+        "totalExecMs": 0.894979,
+        "rows": 12,
+        "sharedBlksHit": 69,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-waitlist-reactivation-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[27500500,52294200] calls=21 totalExecMs=0.894979 rows=12 sharedBlksHit=69 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T2-waitlist-reactivation-cancel-first-promotion",
+        "requestCount": 2,
+        "success": 2,
+        "businessFailure": 0,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          71827600,
+          18516300
+        ],
+        "calls": 21,
+        "totalExecMs": 0.9341420000000001,
+        "rows": 13,
+        "sharedBlksHit": 57,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-waitlist-reactivation-cancel-first-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[71827600,18516300] calls=21 totalExecMs=0.9341420000000001 rows=13 sharedBlksHit=57 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T2-start-direct-participation-first",
+        "requestCount": 2,
+        "success": 1,
+        "businessFailure": 1,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          18424100,
+          23556700
+        ],
+        "calls": 7,
+        "totalExecMs": 0.25389100000000003,
+        "rows": 3,
+        "sharedBlksHit": 15,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-direct-participation-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[18424100,23556700] calls=7 totalExecMs=0.25389100000000003 rows=3 sharedBlksHit=15 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T2-start-correction-first",
+        "requestCount": 2,
+        "success": 1,
+        "businessFailure": 1,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          34391900,
+          10761700
+        ],
+        "calls": 7,
+        "totalExecMs": 0.21851800000000002,
+        "rows": 3,
+        "sharedBlksHit": 16,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[34391900,10761700] calls=7 totalExecMs=0.21851800000000002 rows=3 sharedBlksHit=16 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T2-start-waitlist-new-registration-first",
+        "requestCount": 2,
+        "success": 1,
+        "businessFailure": 1,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          19238400,
+          29721600
+        ],
+        "calls": 7,
+        "totalExecMs": 0.244305,
+        "rows": 3,
+        "sharedBlksHit": 15,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-new-registration-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[19238400,29721600] calls=7 totalExecMs=0.244305 rows=3 sharedBlksHit=15 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T2-start-waitlist-new-correction-first",
+        "requestCount": 2,
+        "success": 1,
+        "businessFailure": 1,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          34843100,
+          12825700
+        ],
+        "calls": 7,
+        "totalExecMs": 0.19846599999999998,
+        "rows": 3,
+        "sharedBlksHit": 14,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-new-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[34843100,12825700] calls=7 totalExecMs=0.19846599999999998 rows=3 sharedBlksHit=14 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T2-start-waitlist-reactivation-registration-first",
+        "requestCount": 2,
+        "success": 1,
+        "businessFailure": 1,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          5975200,
+          9838200
+        ],
+        "calls": 7,
+        "totalExecMs": 0.144504,
+        "rows": 4,
+        "sharedBlksHit": 17,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-reactivation-registration-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[5975200,9838200] calls=7 totalExecMs=0.144504 rows=4 sharedBlksHit=17 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T2-start-waitlist-reactivation-correction-first",
+        "requestCount": 2,
+        "success": 1,
+        "businessFailure": 1,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          30864500,
+          25450900
+        ],
+        "calls": 7,
+        "totalExecMs": 0.225845,
+        "rows": 4,
+        "sharedBlksHit": 17,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-reactivation-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[30864500,25450900] calls=7 totalExecMs=0.225845 rows=4 sharedBlksHit=17 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T2-start-waitlist-cancel-first",
+        "requestCount": 2,
+        "success": 1,
+        "businessFailure": 1,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          7614500,
+          10415200
+        ],
+        "calls": 6,
+        "totalExecMs": 0.20568999999999998,
+        "rows": 5,
+        "sharedBlksHit": 21,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-cancel-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[7614500,10415200] calls=6 totalExecMs=0.20568999999999998 rows=5 sharedBlksHit=21 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T2-start-waitlist-correction-first",
+        "requestCount": 2,
+        "success": 2,
+        "businessFailure": 0,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          12867500,
+          8204600
+        ],
+        "calls": 7,
+        "totalExecMs": 0.23696499999999998,
+        "rows": 5,
+        "sharedBlksHit": 24,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-correction-first requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[12867500,8204600] calls=7 totalExecMs=0.23696499999999998 rows=5 sharedBlksHit=24 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T2-start-participation-cancel-first",
+        "requestCount": 2,
+        "success": 1,
+        "businessFailure": 1,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          13366200,
+          17872200
+        ],
+        "calls": 6,
+        "totalExecMs": 0.293699,
+        "rows": 4,
+        "sharedBlksHit": 15,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-participation-cancel-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[13366200,17872200] calls=6 totalExecMs=0.293699 rows=4 sharedBlksHit=15 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T2-start-participation-correction-first",
+        "requestCount": 2,
+        "success": 1,
+        "businessFailure": 1,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          7595800,
+          4854000
+        ],
+        "calls": 6,
+        "totalExecMs": 0.134735,
+        "rows": 4,
+        "sharedBlksHit": 15,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-participation-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[7595800,4854000] calls=6 totalExecMs=0.134735 rows=4 sharedBlksHit=15 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T2-waitlist-new-promotion",
+        "requestCount": 2,
+        "success": 2,
+        "businessFailure": 0,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          33823500,
+          53484700
+        ],
+        "calls": 14,
+        "totalExecMs": 0.8942519999999999,
+        "rows": 10,
+        "sharedBlksHit": 53,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-waitlist-new-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[33823500,53484700] calls=14 totalExecMs=0.8942519999999999 rows=10 sharedBlksHit=53 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T2-waitlist-new-cancel-first-promotion",
+        "requestCount": 2,
+        "success": 1,
+        "businessFailure": 1,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          51004000,
+          48000700
+        ],
+        "calls": 17,
+        "totalExecMs": 1.144636,
+        "rows": 13,
+        "sharedBlksHit": 77,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-waitlist-new-cancel-first-promotion requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[51004000,48000700] calls=17 totalExecMs=1.144636 rows=13 sharedBlksHit=77 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T2-waitlist-reactivation-promotion",
+        "requestCount": 2,
+        "success": 2,
+        "businessFailure": 0,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          35583700,
+          89413200
+        ],
+        "calls": 21,
+        "totalExecMs": 0.8864669999999999,
+        "rows": 12,
+        "sharedBlksHit": 56,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-waitlist-reactivation-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[35583700,89413200] calls=21 totalExecMs=0.8864669999999999 rows=12 sharedBlksHit=56 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T2-waitlist-reactivation-cancel-first-promotion",
+        "requestCount": 2,
+        "success": 2,
+        "businessFailure": 0,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          87114800,
+          38287800
+        ],
+        "calls": 21,
+        "totalExecMs": 1.042061,
+        "rows": 13,
+        "sharedBlksHit": 57,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-waitlist-reactivation-cancel-first-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[87114800,38287800] calls=21 totalExecMs=1.042061 rows=13 sharedBlksHit=57 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T2-start-direct-participation-first",
+        "requestCount": 2,
+        "success": 1,
+        "businessFailure": 1,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          5759100,
+          7452500
+        ],
+        "calls": 7,
+        "totalExecMs": 0.133295,
+        "rows": 3,
+        "sharedBlksHit": 16,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-direct-participation-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[5759100,7452500] calls=7 totalExecMs=0.133295 rows=3 sharedBlksHit=16 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T2-start-correction-first",
+        "requestCount": 2,
+        "success": 1,
+        "businessFailure": 1,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          7250200,
+          3646200
+        ],
+        "calls": 7,
+        "totalExecMs": 0.129814,
+        "rows": 3,
+        "sharedBlksHit": 15,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[7250200,3646200] calls=7 totalExecMs=0.129814 rows=3 sharedBlksHit=15 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T2-start-waitlist-new-registration-first",
+        "requestCount": 2,
+        "success": 1,
+        "businessFailure": 1,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          4410200,
+          7649400
+        ],
+        "calls": 7,
+        "totalExecMs": 0.097414,
+        "rows": 3,
+        "sharedBlksHit": 15,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-new-registration-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[4410200,7649400] calls=7 totalExecMs=0.097414 rows=3 sharedBlksHit=15 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T2-start-waitlist-new-correction-first",
+        "requestCount": 2,
+        "success": 1,
+        "businessFailure": 1,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          8487100,
+          5610900
+        ],
+        "calls": 7,
+        "totalExecMs": 0.12062600000000001,
+        "rows": 3,
+        "sharedBlksHit": 14,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-new-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[8487100,5610900] calls=7 totalExecMs=0.12062600000000001 rows=3 sharedBlksHit=14 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T2-start-waitlist-reactivation-registration-first",
+        "requestCount": 2,
+        "success": 1,
+        "businessFailure": 1,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          4566900,
+          7367900
+        ],
+        "calls": 7,
+        "totalExecMs": 0.116123,
+        "rows": 4,
+        "sharedBlksHit": 17,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-reactivation-registration-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[4566900,7367900] calls=7 totalExecMs=0.116123 rows=4 sharedBlksHit=17 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T2-start-waitlist-reactivation-correction-first",
+        "requestCount": 2,
+        "success": 1,
+        "businessFailure": 1,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          34328000,
+          14279200
+        ],
+        "calls": 7,
+        "totalExecMs": 0.305263,
+        "rows": 4,
+        "sharedBlksHit": 17,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-reactivation-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[34328000,14279200] calls=7 totalExecMs=0.305263 rows=4 sharedBlksHit=17 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T2-start-waitlist-cancel-first",
+        "requestCount": 2,
+        "success": 1,
+        "businessFailure": 1,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          4236300,
+          6315400
+        ],
+        "calls": 6,
+        "totalExecMs": 0.15022,
+        "rows": 5,
+        "sharedBlksHit": 21,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-cancel-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[4236300,6315400] calls=6 totalExecMs=0.15022 rows=5 sharedBlksHit=21 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T2-start-waitlist-correction-first",
+        "requestCount": 2,
+        "success": 2,
+        "businessFailure": 0,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          7468600,
+          5139500
+        ],
+        "calls": 7,
+        "totalExecMs": 0.15708000000000003,
+        "rows": 5,
+        "sharedBlksHit": 24,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-correction-first requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[7468600,5139500] calls=7 totalExecMs=0.15708000000000003 rows=5 sharedBlksHit=24 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T2-start-participation-cancel-first",
+        "requestCount": 2,
+        "success": 1,
+        "businessFailure": 1,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          3714300,
+          6166400
+        ],
+        "calls": 6,
+        "totalExecMs": 0.098817,
+        "rows": 4,
+        "sharedBlksHit": 14,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-participation-cancel-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[3714300,6166400] calls=6 totalExecMs=0.098817 rows=4 sharedBlksHit=14 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T2-start-participation-correction-first",
+        "requestCount": 2,
+        "success": 1,
+        "businessFailure": 1,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          10922400,
+          3673100
+        ],
+        "calls": 6,
+        "totalExecMs": 0.127256,
+        "rows": 4,
+        "sharedBlksHit": 15,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-participation-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[10922400,3673100] calls=6 totalExecMs=0.127256 rows=4 sharedBlksHit=15 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T2-waitlist-new-promotion",
+        "requestCount": 2,
+        "success": 2,
+        "businessFailure": 0,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          8128500,
+          30292200
+        ],
+        "calls": 14,
+        "totalExecMs": 0.8384029999999999,
+        "rows": 10,
+        "sharedBlksHit": 51,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-waitlist-new-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[8128500,30292200] calls=14 totalExecMs=0.8384029999999999 rows=10 sharedBlksHit=51 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T2-waitlist-new-cancel-first-promotion",
+        "requestCount": 2,
+        "success": 1,
+        "businessFailure": 1,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          28203000,
+          26313600
+        ],
+        "calls": 17,
+        "totalExecMs": 0.8386929999999999,
+        "rows": 13,
+        "sharedBlksHit": 77,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-waitlist-new-cancel-first-promotion requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[28203000,26313600] calls=17 totalExecMs=0.8386929999999999 rows=13 sharedBlksHit=77 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T2-waitlist-reactivation-promotion",
+        "requestCount": 2,
+        "success": 2,
+        "businessFailure": 0,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          35588900,
+          82181700
+        ],
+        "calls": 21,
+        "totalExecMs": 1.056537,
+        "rows": 12,
+        "sharedBlksHit": 56,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-waitlist-reactivation-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[35588900,82181700] calls=21 totalExecMs=1.056537 rows=12 sharedBlksHit=56 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T2-waitlist-reactivation-cancel-first-promotion",
+        "requestCount": 2,
+        "success": 2,
+        "businessFailure": 0,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          60270600,
+          15954700
+        ],
+        "calls": 21,
+        "totalExecMs": 0.809099,
+        "rows": 13,
+        "sharedBlksHit": 57,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-waitlist-reactivation-cancel-first-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[60270600,15954700] calls=21 totalExecMs=0.809099 rows=13 sharedBlksHit=57 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T2-start-direct-participation-first",
+        "requestCount": 2,
+        "success": 1,
+        "businessFailure": 1,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          10233000,
+          12663300
+        ],
+        "calls": 7,
+        "totalExecMs": 0.21135500000000002,
+        "rows": 3,
+        "sharedBlksHit": 16,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-direct-participation-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[10233000,12663300] calls=7 totalExecMs=0.21135500000000002 rows=3 sharedBlksHit=16 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T2-start-correction-first",
+        "requestCount": 2,
+        "success": 1,
+        "businessFailure": 1,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          10950200,
+          5055200
+        ],
+        "calls": 7,
+        "totalExecMs": 0.202735,
+        "rows": 3,
+        "sharedBlksHit": 16,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[10950200,5055200] calls=7 totalExecMs=0.202735 rows=3 sharedBlksHit=16 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T2-start-waitlist-new-registration-first",
+        "requestCount": 2,
+        "success": 1,
+        "businessFailure": 1,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          6708100,
+          14075500
+        ],
+        "calls": 7,
+        "totalExecMs": 0.130546,
+        "rows": 3,
+        "sharedBlksHit": 14,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-new-registration-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[6708100,14075500] calls=7 totalExecMs=0.130546 rows=3 sharedBlksHit=14 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T2-start-waitlist-new-correction-first",
+        "requestCount": 2,
+        "success": 1,
+        "businessFailure": 1,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          29582000,
+          12993500
+        ],
+        "calls": 7,
+        "totalExecMs": 0.35455,
+        "rows": 3,
+        "sharedBlksHit": 14,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-new-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[29582000,12993500] calls=7 totalExecMs=0.35455 rows=3 sharedBlksHit=14 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T2-start-waitlist-reactivation-registration-first",
+        "requestCount": 2,
+        "success": 1,
+        "businessFailure": 1,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          11930100,
+          31213400
+        ],
+        "calls": 7,
+        "totalExecMs": 0.31264800000000004,
+        "rows": 4,
+        "sharedBlksHit": 17,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-reactivation-registration-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[11930100,31213400] calls=7 totalExecMs=0.31264800000000004 rows=4 sharedBlksHit=17 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T2-start-waitlist-reactivation-correction-first",
+        "requestCount": 2,
+        "success": 1,
+        "businessFailure": 1,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          13186000,
+          8374500
+        ],
+        "calls": 7,
+        "totalExecMs": 0.265015,
+        "rows": 4,
+        "sharedBlksHit": 16,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-reactivation-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[13186000,8374500] calls=7 totalExecMs=0.265015 rows=4 sharedBlksHit=16 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T2-start-waitlist-cancel-first",
+        "requestCount": 2,
+        "success": 1,
+        "businessFailure": 1,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          8187300,
+          11378900
+        ],
+        "calls": 6,
+        "totalExecMs": 0.271482,
+        "rows": 5,
+        "sharedBlksHit": 21,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-cancel-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[8187300,11378900] calls=6 totalExecMs=0.271482 rows=5 sharedBlksHit=21 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T2-start-waitlist-correction-first",
+        "requestCount": 2,
+        "success": 2,
+        "businessFailure": 0,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          28063700,
+          23410600
+        ],
+        "calls": 7,
+        "totalExecMs": 0.41879500000000003,
+        "rows": 5,
+        "sharedBlksHit": 24,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-correction-first requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[28063700,23410600] calls=7 totalExecMs=0.41879500000000003 rows=5 sharedBlksHit=24 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T2-start-participation-cancel-first",
+        "requestCount": 2,
+        "success": 1,
+        "businessFailure": 1,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          6615400,
+          9750800
+        ],
+        "calls": 6,
+        "totalExecMs": 0.354437,
+        "rows": 4,
+        "sharedBlksHit": 15,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-participation-cancel-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[6615400,9750800] calls=6 totalExecMs=0.354437 rows=4 sharedBlksHit=15 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T2-start-participation-correction-first",
+        "requestCount": 2,
+        "success": 1,
+        "businessFailure": 1,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          13174700,
+          4850400
+        ],
+        "calls": 6,
+        "totalExecMs": 0.495586,
+        "rows": 4,
+        "sharedBlksHit": 15,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-participation-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[13174700,4850400] calls=6 totalExecMs=0.495586 rows=4 sharedBlksHit=15 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T2-due-room-order",
+        "requestCount": 0,
+        "success": 0,
+        "businessFailure": 0,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 0,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [],
+        "calls": 1,
+        "totalExecMs": 0.024722,
+        "rows": 2,
+        "sharedBlksHit": 2,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-due-room-order requestCount=0 success=0 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=0 retry1=0 retry2=0 exhausted=0 responseNanos=[] calls=1 totalExecMs=0.024722 rows=2 sharedBlksHit=2 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T2-lock",
+        "requestCount": 2,
+        "success": 1,
+        "businessFailure": 1,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 1,
+        "retry0": 1,
+        "retry1": 1,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          40707300,
+          53463700
+        ],
+        "calls": 16,
+        "totalExecMs": 38.441762,
+        "rows": 8,
+        "sharedBlksHit": 152,
+        "sharedBlksRead": 4,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-lock requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=1 retry0=1 retry1=1 retry2=0 exhausted=0 responseNanos=[40707300,53463700] calls=16 totalExecMs=38.441762 rows=8 sharedBlksHit=152 sharedBlksRead=4 retryRequestCount=1 retryTupleCount=1 retryTuples=[[logger=cloud.bamsongi.albammate.room.service.RoomOptimisticLockRetrier,event=room_participation_retry,roomId=3,requestSeed=7907062479349078146,derivedSeed=5311263901597251520,attempt=2,maxDelayMillis=5,delayMillis=1,scenario=T2-lock]]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T2-rollback",
+        "requestCount": 1,
+        "success": 0,
+        "businessFailure": 0,
+        "concurrencyFailure": 0,
+        "technicalFailure": 1,
+        "conflictCount": 0,
+        "retry0": 1,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          6363800
+        ],
+        "calls": 4,
+        "totalExecMs": 0.136018,
+        "rows": 2,
+        "sharedBlksHit": 11,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-rollback requestCount=1 success=0 businessFailure=0 concurrencyFailure=0 technicalFailure=1 conflictCount=0 retry0=1 retry1=0 retry2=0 exhausted=0 responseNanos=[6363800] calls=4 totalExecMs=0.136018 rows=2 sharedBlksHit=11 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      }
+    ],
+    "T3": [
+      {
+        "candidate": "B",
+        "scenario": "T3-optimistic-exhausted",
+        "requestCount": 1,
+        "success": 0,
+        "businessFailure": 0,
+        "concurrencyFailure": 1,
+        "technicalFailure": 0,
+        "conflictCount": 3,
+        "retry0": 0,
+        "retry1": 0,
+        "retry2": 1,
+        "exhausted": 1,
+        "responseNanos": [
+          382235400
+        ],
+        "calls": 13,
+        "totalExecMs": 1.030525,
+        "rows": 6,
+        "sharedBlksHit": 53,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T3-optimistic-exhausted requestCount=1 success=0 businessFailure=0 concurrencyFailure=1 technicalFailure=0 conflictCount=3 retry0=0 retry1=0 retry2=1 exhausted=1 responseNanos=[382235400] calls=13 totalExecMs=1.030525 rows=6 sharedBlksHit=53 sharedBlksRead=0 retryRequestCount=1 retryTupleCount=2 retryTuples=[[logger=cloud.bamsongi.albammate.room.service.RoomOptimisticLockRetrier,event=room_participation_retry,roomId=1,requestSeed=-6996627308767992339,derivedSeed=4465482312706856885,attempt=2,maxDelayMillis=5,delayMillis=1,scenario=T3-optimistic-exhausted],[logger=cloud.bamsongi.albammate.room.service.RoomOptimisticLockRetrier,event=room_participation_retry,roomId=1,requestSeed=-6996627308767992339,derivedSeed=4465482312706856886,attempt=3,maxDelayMillis=10,delayMillis=3,scenario=T3-optimistic-exhausted]]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T3-unexpected-technical",
+        "requestCount": 1,
+        "success": 0,
+        "businessFailure": 0,
+        "concurrencyFailure": 0,
+        "technicalFailure": 1,
+        "conflictCount": 0,
+        "retry0": 1,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          33736600
+        ],
+        "calls": 4,
+        "totalExecMs": 0.23037600000000003,
+        "rows": 2,
+        "sharedBlksHit": 11,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T3-unexpected-technical requestCount=1 success=0 businessFailure=0 concurrencyFailure=0 technicalFailure=1 conflictCount=0 retry0=1 retry1=0 retry2=0 exhausted=0 responseNanos=[33736600] calls=4 totalExecMs=0.23037600000000003 rows=2 sharedBlksHit=11 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T3-lock-timeout",
+        "requestCount": 1,
+        "success": 0,
+        "businessFailure": 0,
+        "concurrencyFailure": 0,
+        "technicalFailure": 1,
+        "conflictCount": 0,
+        "retry0": 1,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          130560200
+        ],
+        "calls": 5,
+        "totalExecMs": 0.060646,
+        "rows": 1,
+        "sharedBlksHit": 3,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T3-lock-timeout requestCount=1 success=0 businessFailure=0 concurrencyFailure=0 technicalFailure=1 conflictCount=0 retry0=1 retry1=0 retry2=0 exhausted=0 responseNanos=[130560200] calls=5 totalExecMs=0.060646 rows=1 sharedBlksHit=3 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      },
+      {
+        "candidate": "B",
+        "scenario": "T3-deadlock",
+        "requestCount": 2,
+        "success": 1,
+        "businessFailure": 0,
+        "concurrencyFailure": 0,
+        "technicalFailure": 1,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          1027436400,
+          1013529200
+        ],
+        "calls": 14,
+        "totalExecMs": 1001.168321,
+        "rows": 10,
+        "sharedBlksHit": 55,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T3-deadlock requestCount=2 success=1 businessFailure=0 concurrencyFailure=0 technicalFailure=1 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[1027436400,1013529200] calls=14 totalExecMs=1001.168321 rows=10 sharedBlksHit=55 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+      }
+    ]
+  },
+  "artifactSha256": "73494CC53B0B6C19B63A85F1FF3F6E1935FE9C019C2241D1EC97080726A599E6",
+  "scenarioSetDigest": "ECD025F2CC7B4A565AF32FBF851190D0FE744C4DF743E571EFF6AA71E8B5D992",
+  "t2RoundRepetitions": 3,
+  "metricFields": [
+    "candidate",
+    "scenario",
+    "requestCount",
+    "success",
+    "businessFailure",
+    "concurrencyFailure",
+    "technicalFailure",
+    "conflictCount",
+    "retry0",
+    "retry1",
+    "retry2",
+    "exhausted",
+    "responseNanos",
+    "calls",
+    "totalExecMs",
+    "rows",
+    "sharedBlksHit",
+    "sharedBlksRead"
+  ],
+  "retryEvidence": {
+    "T1": [
+      {
+        "scenario": "T1",
+        "retryRequestCount": 2,
+        "retryTupleCount": 2,
+        "tuples": [
+          {
+            "logger": "cloud.bamsongi.albammate.room.service.RoomOptimisticLockRetrier",
+            "event": "room_participation_retry",
+            "roomId": 1,
+            "requestSeed": -2323109044994929345,
+            "derivedSeed": 1770595899995396771,
+            "attempt": 2,
+            "maxDelayMillis": 5,
+            "delayMillis": 4,
+            "scenario": "T1"
+          },
+          {
+            "logger": "cloud.bamsongi.albammate.room.service.RoomOptimisticLockRetrier",
+            "event": "room_participation_retry",
+            "roomId": 2,
+            "requestSeed": -7307274452546990977,
+            "derivedSeed": -5164579144442100893,
+            "attempt": 2,
+            "maxDelayMillis": 5,
+            "delayMillis": 5,
+            "scenario": "T1"
+          }
+        ]
+      }
+    ],
+    "T2": [
+      {
+        "scenario": "T2-waitlist-new-promotion",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T2-waitlist-new-cancel-first-promotion",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T2-waitlist-reactivation-promotion",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T2-waitlist-reactivation-cancel-first-promotion",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T2-start-direct-participation-first",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T2-start-correction-first",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T2-start-waitlist-new-registration-first",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T2-start-waitlist-new-correction-first",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T2-start-waitlist-reactivation-registration-first",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T2-start-waitlist-reactivation-correction-first",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T2-start-waitlist-cancel-first",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T2-start-waitlist-correction-first",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T2-start-participation-cancel-first",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T2-start-participation-correction-first",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T2-waitlist-new-promotion",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T2-waitlist-new-cancel-first-promotion",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T2-waitlist-reactivation-promotion",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T2-waitlist-reactivation-cancel-first-promotion",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T2-start-direct-participation-first",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T2-start-correction-first",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T2-start-waitlist-new-registration-first",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T2-start-waitlist-new-correction-first",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T2-start-waitlist-reactivation-registration-first",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T2-start-waitlist-reactivation-correction-first",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T2-start-waitlist-cancel-first",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T2-start-waitlist-correction-first",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T2-start-participation-cancel-first",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T2-start-participation-correction-first",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T2-waitlist-new-promotion",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T2-waitlist-new-cancel-first-promotion",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T2-waitlist-reactivation-promotion",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T2-waitlist-reactivation-cancel-first-promotion",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T2-start-direct-participation-first",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T2-start-correction-first",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T2-start-waitlist-new-registration-first",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T2-start-waitlist-new-correction-first",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T2-start-waitlist-reactivation-registration-first",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T2-start-waitlist-reactivation-correction-first",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T2-start-waitlist-cancel-first",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T2-start-waitlist-correction-first",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T2-start-participation-cancel-first",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T2-start-participation-correction-first",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T2-due-room-order",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T2-lock",
+        "retryRequestCount": 1,
+        "retryTupleCount": 1,
+        "tuples": [
+          {
+            "logger": "cloud.bamsongi.albammate.room.service.RoomOptimisticLockRetrier",
+            "event": "room_participation_retry",
+            "roomId": 3,
+            "requestSeed": 7907062479349078146,
+            "derivedSeed": 5311263901597251520,
+            "attempt": 2,
+            "maxDelayMillis": 5,
+            "delayMillis": 1,
+            "scenario": "T2-lock"
+          }
+        ]
+      },
+      {
+        "scenario": "T2-rollback",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      }
+    ],
+    "T3": [
+      {
+        "scenario": "T3-optimistic-exhausted",
+        "retryRequestCount": 1,
+        "retryTupleCount": 2,
+        "tuples": [
+          {
+            "logger": "cloud.bamsongi.albammate.room.service.RoomOptimisticLockRetrier",
+            "event": "room_participation_retry",
+            "roomId": 1,
+            "requestSeed": -6996627308767992339,
+            "derivedSeed": 4465482312706856885,
+            "attempt": 2,
+            "maxDelayMillis": 5,
+            "delayMillis": 1,
+            "scenario": "T3-optimistic-exhausted"
+          },
+          {
+            "logger": "cloud.bamsongi.albammate.room.service.RoomOptimisticLockRetrier",
+            "event": "room_participation_retry",
+            "roomId": 1,
+            "requestSeed": -6996627308767992339,
+            "derivedSeed": 4465482312706856886,
+            "attempt": 3,
+            "maxDelayMillis": 10,
+            "delayMillis": 3,
+            "scenario": "T3-optimistic-exhausted"
+          }
+        ]
+      },
+      {
+        "scenario": "T3-unexpected-technical",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T3-lock-timeout",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      },
+      {
+        "scenario": "T3-deadlock",
+        "retryRequestCount": 0,
+        "retryTupleCount": 0,
+        "tuples": []
+      }
+    ]
+  }
+}
