@@ -32,7 +32,7 @@ public class AssistantConsentService implements AssistantConsentGate {
 	@Transactional(readOnly = true)
 	public AssistantConsentResponse getConsent(long userId) {
 		return consentRepository.findById(userId)
-			.map(AssistantConsentResponse::from)
+			.map(this::toCurrentPolicyResponse)
 			.orElseGet(() -> AssistantConsentResponse.notGranted(
 				properties.getConsentVersion(),
 				properties.responsePolicyVersion(),
@@ -52,7 +52,7 @@ public class AssistantConsentService implements AssistantConsentGate {
 	@Transactional(readOnly = true)
 	public boolean isGranted(long userId) {
 		return consentRepository.findById(userId)
-			.map(consent -> consent.getStatus() == AssistantConsentStatus.GRANTED)
+			.map(this::isCurrentGrant)
 			.orElse(false);
 	}
 
@@ -85,6 +85,24 @@ public class AssistantConsentService implements AssistantConsentGate {
 		return AssistantConsentResponse.from(consentRepository.saveAndFlush(consent));
 	}
 
+	private AssistantConsentResponse toCurrentPolicyResponse(AssistantConsent consent) {
+		return AssistantConsentResponse.fromCurrentPolicy(
+			consent,
+			properties.getConsentVersion(),
+			properties.responsePolicyVersion(),
+			properties.responsePolicyUrl(),
+			isCurrentGrant(consent));
+	}
+
+	private boolean isCurrentGrant(AssistantConsent consent) {
+		return consent.getStatus() == AssistantConsentStatus.GRANTED
+			&& AssistantConsent.PROVIDER.equals(consent.getProvider())
+			&& properties.getConsentVersion().equals(consent.getConsentVersion())
+			&& properties.responsePolicyVersion().equals(consent.getPolicyVersion())
+			&& properties.responsePolicyUrl().equals(consent.getPolicyUrl())
+			&& !consent.isStore();
+	}
+
 	private AssistantConsentResponse revoke(long userId) {
 		Instant now = clock.instant();
 		AssistantConsent consent = consentRepository.findByUserIdForUpdate(userId)
@@ -95,7 +113,7 @@ public class AssistantConsentService implements AssistantConsentGate {
 				properties.responsePolicyUrl(),
 				now));
 		consent.revoke(now);
-		AssistantConsentResponse response = AssistantConsentResponse.from(consentRepository.saveAndFlush(consent));
+		AssistantConsentResponse response = toCurrentPolicyResponse(consentRepository.saveAndFlush(consent));
 		eventPublisher.publishEvent(new AssistantConsentRevokedEvent(userId, now));
 		return response;
 	}

@@ -20,9 +20,9 @@ import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.test.web.servlet.MockMvc;
 
 import cloud.bamsongi.albammate.assistant.contract.AssistantConsentGate;
-import cloud.bamsongi.albammate.assistant.contract.AssistantIntentExtractor;
 import cloud.bamsongi.albammate.assistant.contract.AssistantIntentRequest;
-import cloud.bamsongi.albammate.assistant.contract.AssistantIntentStatus;
+import cloud.bamsongi.albammate.assistant.service.AssistantConsentProperties;
+import cloud.bamsongi.albammate.assistant.service.AssistantIntentOrchestrationService;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.global.security.currentuser.CurrentUserPrincipal;
@@ -47,9 +47,11 @@ class AssistantConsentHttpIntegrationTest {
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
 	@Autowired
-	private AssistantIntentExtractor assistantIntentExtractor;
+	private AssistantIntentOrchestrationService assistantIntentOrchestrationService;
 	@Autowired
 	private AssistantConsentGate assistantConsentGate;
+	@Autowired
+	private AssistantConsentProperties assistantConsentProperties;
 
 	@Test
 	void T1_비로그인_조회는_401이고_동의가_없는_인증_사용자는_NOT_GRANTED를_받는다() throws Exception {
@@ -108,19 +110,28 @@ class AssistantConsentHttpIntegrationTest {
 	void T3_REVOKE는_활성_여부와_무관하게_철회되고_동의_없는_provider_진입은_fail_closed다() throws Exception {
 		User user = userRepository.saveAndFlush(User.create("assistant-t3@example.com", "{bcrypt}hash", "T3 사용자"));
 
+		mockMvc.perform(consentPut("{\"decision\":\"GRANT\",\"consentVersion\":\"AI-01-CONSENT-V1\"}")
+			.with(authenticationFor(user.getId()))
+			.with(csrf()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.status").value("GRANTED"));
+
 		mockMvc.perform(consentPut("{\"decision\":\"REVOKE\"}")
 			.with(authenticationFor(user.getId()))
 			.with(csrf()))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.status").value("REVOKED"))
+			.andExpect(jsonPath("$.data.grantedAt").isEmpty())
 			.andExpect(jsonPath("$.data.revokedAt").isNotEmpty());
 
 		assertEquals("REVOKED", jdbcTemplate.queryForObject(
 			"select status from assistant_consents where user_id = ?", String.class, user.getId()));
-		assertEquals(
-			AssistantIntentStatus.CONSENT_REQUIRED,
-			assistantIntentExtractor.extract(AssistantIntentRequest.withoutConsent(
-				Long.toString(user.getId()), "협력 게임 추천", java.util.List.of())).status());
+		BusinessException providerEntry = assertThrows(
+			BusinessException.class,
+			() -> assistantIntentOrchestrationService.extract(
+				user.getId(),
+				AssistantIntentRequest.forUser(Long.toString(user.getId()), "협력 게임 추천", java.util.List.of())));
+		assertEquals(ErrorCode.ASSISTANT_CONSENT_REQUIRED, providerEntry.getErrorCode());
 		assertFalse(assistantConsentGate.isGranted(user.getId()));
 		BusinessException exception = assertThrows(
 			BusinessException.class,
@@ -128,6 +139,41 @@ class AssistantConsentHttpIntegrationTest {
 		assertEquals(ErrorCode.ASSISTANT_CONSENT_REQUIRED, exception.getErrorCode());
 		assertFalse(jdbcTemplate.queryForObject(
 			"select store from assistant_consents where user_id = ?", Boolean.class, user.getId()));
+	}
+
+	@Test
+	void T4_현재_동의문이_바뀌면_기존_GRANT는_무효화되고_조회는_현재_정책을_반환한다() throws Exception {
+		User user = userRepository.saveAndFlush(User.create("assistant-t4@example.com", "{bcrypt}hash", "T4 사용자"));
+		mockMvc.perform(consentPut("{\"decision\":\"GRANT\",\"consentVersion\":\"AI-01-CONSENT-V1\"}")
+			.with(authenticationFor(user.getId()))
+			.with(csrf()))
+			.andExpect(status().isOk());
+
+		String originalConsentVersion = assistantConsentProperties.getConsentVersion();
+		String originalPolicyVersion = assistantConsentProperties.getPolicyVersion();
+		String originalPolicyUrl = assistantConsentProperties.getPolicyUrl();
+		try {
+			assistantConsentProperties.setConsentVersion("AI-01-CONSENT-V2");
+			assistantConsentProperties.setPolicyVersion("OPENAI-POLICY-2026-09");
+			assistantConsentProperties.setPolicyUrl("https://openai.com/policies/api-data-usage-policies-v2");
+
+			mockMvc.perform(get("/api/assistant/consent").with(authenticationFor(user.getId())))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.data.status").value("NOT_GRANTED"))
+				.andExpect(jsonPath("$.data.consentVersion").value("AI-01-CONSENT-V2"))
+				.andExpect(jsonPath("$.data.policyVersion").value("OPENAI-POLICY-2026-09"))
+				.andExpect(jsonPath("$.data.policyUrl")
+					.value("https://openai.com/policies/api-data-usage-policies-v2"));
+			assertFalse(assistantConsentGate.isGranted(user.getId()));
+			BusinessException exception = assertThrows(
+				BusinessException.class,
+				() -> assistantConsentGate.requireGranted(user.getId()));
+			assertEquals(ErrorCode.ASSISTANT_CONSENT_REQUIRED, exception.getErrorCode());
+		} finally {
+			assistantConsentProperties.setConsentVersion(originalConsentVersion);
+			assistantConsentProperties.setPolicyVersion(originalPolicyVersion);
+			assistantConsentProperties.setPolicyUrl(originalPolicyUrl);
+		}
 	}
 
 	private int countConsentRows(long userId) {

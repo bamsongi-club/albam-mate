@@ -23,8 +23,31 @@ public record AssistantConsentResponse(
 			consent.getPolicyVersion(),
 			consent.getPolicyUrl(),
 			consent.isStore(),
-			consent.getGrantedAt(),
+			consent.getStatus() == cloud.bamsongi.albammate.assistant.entity.AssistantConsentStatus.GRANTED
+				? consent.getGrantedAt()
+				: null,
 			consent.getRevokedAt());
+	}
+
+	public static AssistantConsentResponse fromCurrentPolicy(
+		AssistantConsent consent,
+		String consentVersion,
+		String policyVersion,
+		String policyUrl,
+		boolean grantIsCurrent) {
+		AssistantConsentStatus status = toResponseStatus(consent.getStatus());
+		if (status == AssistantConsentStatus.GRANTED && !grantIsCurrent) {
+			status = AssistantConsentStatus.NOT_GRANTED;
+		}
+		return new AssistantConsentResponse(
+			status,
+			consent.getProvider(),
+			consentVersion,
+			policyVersion,
+			policyUrl,
+			status == AssistantConsentStatus.GRANTED && consent.isStore(),
+			status == AssistantConsentStatus.GRANTED ? consent.getGrantedAt() : null,
+			status == AssistantConsentStatus.REVOKED ? consent.getRevokedAt() : null);
 	}
 
 	private static AssistantConsentStatus toResponseStatus(
