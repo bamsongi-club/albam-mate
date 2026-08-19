@@ -245,6 +245,10 @@ function validateScenario(result, label, serverContainerIds) {
     if (!isPlainObject(sample)) {
       fail(`${label} samples[${index}]가 object가 아닙니다.`);
     }
+    const run = nonnegativeInteger(sample.run, `${label} samples[${index}].run`);
+    if (run !== index + 1) {
+      fail(`${label} samples.run은 1부터 20까지 입력 순서대로 정확히 한 번씩이어야 합니다.`);
+    }
     if (sample.status !== 200) {
       fail(`${label} samples[${index}]는 HTTP 200이어야 합니다: ${sample.status ?? "missing"}`);
     }
@@ -326,14 +330,36 @@ function explainTargetSql(input, label) {
   return matched[1].trim();
 }
 
-function validateExplainTarget(input, output, postgresLog, expectedSql, expectedDurationMs, variantKey, scenario, label) {
+function postgresStatementDurations(postgresLog) {
+  return postgresLog.split(/\r?\n/u).flatMap((line) => {
+    const matched = /duration:\s*([0-9]+(?:\.[0-9]+)?)\s+ms\s+(?:(?:execute|statement)(?:\s+[^:]+)?)\s*:\s*(.+)$/iu.exec(line);
+    if (!matched || matched[2].trim() === "") {
+      return [];
+    }
+    return [{ durationMs: Number(matched[1]), sql: matched[2].trim() }];
+  });
+}
+
+export function validateExplainTarget(
+  input,
+  output,
+  postgresLog,
+  expectedSql,
+  expectedDurationMs,
+  variantKey,
+  scenario,
+  label,
+  { requireSlowest = false } = {},
+) {
   const source = /^-- source=(.+)$/mu.exec(input)?.[1];
   if (!source?.endsWith(`/${variantKey}/${scenario}.postgres.log`)) {
     fail(`${label} EXPLAIN source가 scenario capture와 다릅니다.`);
   }
   const capturedDuration = /^-- captured_execute_duration_ms=([^\r\n]+)$/mu.exec(input)?.[1];
+  const capturedDurationMs = Number(capturedDuration);
   if (capturedDuration === undefined
-    || Math.abs(Number(capturedDuration) - expectedDurationMs) > 0.001) {
+    || !Number.isFinite(capturedDurationMs)
+    || Math.abs(capturedDurationMs - expectedDurationMs) > 0.001) {
     fail(`${label} EXPLAIN duration이 selection-summary와 다릅니다.`);
   }
   const targetSql = explainTargetSql(input, label);
@@ -344,18 +370,72 @@ function validateExplainTarget(input, output, postgresLog, expectedSql, expected
   if (outputFingerprint !== sourceSqlSha256(targetSql)) {
     fail(`${label} EXPLAIN output의 source SQL SHA-256이 입력 SQL과 다릅니다.`);
   }
-  if (!postgresLog.includes(expectedSql)) {
-    fail(`${label} 선택 SQL이 postgres capture에 없습니다.`);
+  const statementDurations = postgresStatementDurations(postgresLog);
+  const matchingDurations = statementDurations.filter(
+    (entry) => normalizeSql(entry.sql) === normalizeSql(expectedSql),
+  );
+  if (!matchingDurations.some((entry) => Math.abs(entry.durationMs - expectedDurationMs) <= 0.001)) {
+    fail(`${label} 선택 SQL의 실제 PostgreSQL statement duration이 selection-summary와 다릅니다.`);
+  }
+  if (requireSlowest) {
+    if (statementDurations.length === 0) {
+      fail(`${label} PostgreSQL statement-duration capture가 없습니다.`);
+    }
+    const actualSlowestDurationMs = Math.max(...statementDurations.map((entry) => entry.durationMs));
+    if (Math.abs(actualSlowestDurationMs - expectedDurationMs) > 0.001) {
+      fail(`${label} slowest SQL/duration이 실제 PostgreSQL log의 최대 statement와 다릅니다.`);
+    }
   }
 }
 
-export function containsGamesExactCount(sql) {
-  const normalized = sql
+function sanitizeSqlForShape(sql) {
+  return sql
     .replace(/--[^\r\n]*/gu, " ")
     .replace(/\/\*[\s\S]*?\*\//gu, " ")
-    .replace(/\s*::\s*(?:"?[\w$]+"?\s*\.\s*)?"?[\w$]+"?(?:\s*\([^)]*\))?/giu, " ")
-    .replace(/\s+/gu, " ");
-  return /\bselect\s+count\s*\([^)]*\)\s+from\s+(?:(?:"?[\w$]+"?)\s*\.\s*)?"?games"?(?=\s|[),;]|$)/iu.test(normalized);
+    .replace(/'(?:''|[^'])*'/gu, " ")
+    .replace(/\s+/gu, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function topLevelKeywordIndex(sql, keyword, start = 0) {
+  const isWordCharacter = (character) => character !== undefined && /[a-z0-9_$]/iu.test(character);
+  let depth = 0;
+  for (let index = start; index < sql.length; index += 1) {
+    const character = sql[index];
+    if (character === "(") {
+      depth += 1;
+      continue;
+    }
+    if (character === ")") {
+      depth = Math.max(0, depth - 1);
+      continue;
+    }
+    if (depth === 0 && sql.startsWith(keyword, index)
+      && !isWordCharacter(sql[index - 1])
+      && !isWordCharacter(sql[index + keyword.length])) {
+      return index;
+    }
+  }
+  return -1;
+}
+
+export function containsGamesExactCount(sql) {
+  const normalized = sanitizeSqlForShape(sql);
+  const selectIndex = topLevelKeywordIndex(normalized, "select");
+  const fromIndex = selectIndex < 0 ? -1 : topLevelKeywordIndex(normalized, "from", selectIndex + "select".length);
+  if (selectIndex < 0 || fromIndex < 0) {
+    return false;
+  }
+  const selectList = normalized.slice(selectIndex + "select".length, fromIndex);
+  if (!/\bcount\s*\(\s*(?:\*|1)\s*\)/iu.test(selectList)) {
+    return false;
+  }
+  const identifier = '(?:"[^\"]+"|[a-z_][\\w$]*)';
+  return new RegExp(
+    `^\\s*(?:${identifier}\\s*\\.\\s*)?"?games"?(?=\\s|$|[,);])`,
+    "iu",
+  ).test(normalized.slice(fromIndex + "from".length));
 }
 
 function escapeRegExp(value) {
@@ -496,6 +576,7 @@ export function validateEvidenceRoot(evidenceRoot, artifactSpecs) {
         variantKey,
         scenario,
         `${variant} ${scenario} slowest`,
+        { requireSlowest: true },
       );
       if (!/EXPLAIN\s*\(/iu.test(slowestInput)
         || !/QUERY PLAN/iu.test(slowestOutput)
@@ -629,6 +710,20 @@ function validateSpec(spec) {
   nonEmptyString(spec.path, `${spec.variant} round ${spec.round} path`);
 }
 
+function validateOutputPaths(options) {
+  const outputPath = path.resolve(nonEmptyString(options.output, "--output"));
+  const markdownOutputPath = path.resolve(nonEmptyString(options.markdownOutput, "--markdown-output"));
+  if (outputPath === markdownOutputPath) {
+    fail(`--output과 --markdown-output은 서로 다른 경로여야 합니다: ${outputPath}`);
+  }
+  for (const spec of options.artifactSpecs) {
+    const artifactPath = path.resolve(spec.path);
+    if (artifactPath === outputPath || artifactPath === markdownOutputPath) {
+      fail(`출력 경로가 입력 artifact와 충돌합니다: ${artifactPath}`);
+    }
+  }
+}
+
 function canonicalVariantArtifacts(specs) {
   if (!Array.isArray(specs)) {
     fail("artifact spec 목록이 array가 아닙니다.");
@@ -722,6 +817,14 @@ export function compareVariants(inputSpecs) {
     }
     if (!equivalent(artifact.fixture, fixture)) {
       fail(`fixture fingerprint가 모든 16 artifact에서 같아야 합니다: ${artifact.path}`);
+    }
+  }
+  for (const variant of VARIANTS) {
+    const expectedServerCommit = validatedByVariant[variant][0].serverCommit;
+    for (const artifact of validatedByVariant[variant].slice(1)) {
+      if (artifact.serverCommit !== expectedServerCommit) {
+        fail(`${variant} 네 round의 serverCommit이 같아야 합니다: ${artifact.path}`);
+      }
     }
   }
 
@@ -883,6 +986,7 @@ function writeText(filePath, text) {
 
 function main() {
   const options = parseArgs(process.argv.slice(2));
+  validateOutputPaths(options);
   const artifacts = options.artifactSpecs.map(readArtifact);
   const evidence = validateEvidenceRoot(options.evidenceRoot, artifacts);
   const result = compareVariants(artifacts);

@@ -55,7 +55,7 @@
 
 Run:
 
-~~~
+~~~bash
 find docs/adr -type f -name '[0-9][0-9][0-9][0-9]-*.md' -print \
   | sed -E 's#^.*/([0-9]{4})-.*#\1 #' \
   | sort -n \
@@ -100,7 +100,7 @@ README 표에 번호 순서로 아래 한 행을 넣는다.
 
 Run:
 
-~~~
+~~~bash
 node scripts/docs/check-doc-links.mjs
 ~~~
 
@@ -108,7 +108,7 @@ Expected: ADR 제목·상태·링크가 유효하고 미검증을 구현 완료�
 
 - [ ] **Step 5: ADR만 커밋한다.**
 
-~~~
+~~~bash
 git add docs/adr/game/0081-game-list-relation-filter-performance-selection.md docs/adr/game/README.md
 git commit -m 'docs: 게임 목록 relation 성능 선택 ADR 추가'
 ~~~
@@ -127,7 +127,7 @@ git commit -m 'docs: 게임 목록 relation 성능 선택 ADR 추가'
 
 Run:
 
-~~~
+~~~bash
 node .agents/skills/issue-writer/scripts/validate-template-registry.mjs
 gh issue list --repo bamsongi-club/albam-mate --state all --limit 1000 \
   --search 'relation complex 게임 목록 in:title' \
@@ -194,7 +194,7 @@ test('같은 relation·complex 합계면 V1, V2, V3 순으로 선택한다', () 
 
 Run:
 
-~~~
+~~~bash
 node --test scripts/measurements/game-list-variant-comparison.test.mjs
 ~~~
 
@@ -224,7 +224,7 @@ function passesVariant(candidate, control) {
 }
 ~~~
 
-성공 artifact는 status success, warmUpRuns 5, measuredRuns 20, scenario success, 20개의 200 sample을 가져야 한다. 16개 artifact의 runnerFileSha256, dataset.fixtureId, dataset.fixtureManifestSha256, dataset.bggIdSetSha256, dataset.metadata는 같아야 한다. serverCommit과 container ID는 variant별로 달라도 된다.
+성공 artifact는 status success, warmUpRuns 5, measuredRuns 20, scenario success, 20개의 200 sample을 가져야 한다. 각 scenario의 `sample.run`은 1부터 20까지 입력 순서대로 정확히 한 번씩이어야 한다. 16개 artifact의 runnerFileSha256, dataset.fixtureId, dataset.fixtureManifestSha256, dataset.bggIdSetSha256, dataset.metadata는 같아야 한다. serverCommit은 같은 variant의 네 round에서 같아야 하며, variant 간에는 달라도 된다.
 
 - [ ] **Step 4: JSON과 Markdown 결과를 작성한다.**
 
@@ -234,7 +234,7 @@ function passesVariant(candidate, control) {
 
 Run:
 
-~~~
+~~~bash
 node --test scripts/measurements/game-list-variant-comparison.test.mjs
 node --test scripts/measurements/game-list-baseline.test.mjs
 ~~~
@@ -245,7 +245,7 @@ Expected: valid/reject/tie 및 기존 fixture/provenance runner 계약이 모두
 
 baseline 문서에는 16 artifact 입력 명령과 4-round order를 추가한다. 대표 실행은 아래 형식을 쓴다.
 
-~~~
+~~~bash
 measurement_root="${ALBAM_MATE_GAME_LIST_EVIDENCE_ROOT:?set local game-list-867 evidence root}"
 
 node scripts/measurements/game-list-variant-comparison.mjs \
@@ -296,7 +296,7 @@ GameListFilterPostgresTest에는 같은 조합을 size 1, page 0/1/2로 실행�
 
 Run:
 
-~~~
+~~~bash
 ./gradlew test --tests cloud.bamsongi.albammate.game.GameMatchModeHttpIntegrationTest --rerun --fail-fast
 ./gradlew postgresTest --tests cloud.bamsongi.albammate.game.GameListFilterPostgresTest --rerun --fail-fast
 ~~~
@@ -328,7 +328,7 @@ mechanism도 같은 game-ID subquery를 쓰되 isPublic true 조건과 countDist
 
 Run:
 
-~~~
+~~~bash
 ./gradlew test --tests cloud.bamsongi.albammate.game.GameMatchModeHttpIntegrationTest --rerun --fail-fast
 ./gradlew postgresTest --tests cloud.bamsongi.albammate.game.GameListFilterPostgresTest --rerun --fail-fast
 ./gradlew conventionCheck
@@ -338,7 +338,7 @@ Expected: ANY/ALL·AND·Slice boundary tests와 Checkstyle이 PASS.
 
 - [ ] **Step 5: V1을 독립 commit으로 보존한다.**
 
-~~~
+~~~bash
 git add src/main/java/cloud/bamsongi/albammate/game/repository/GameListSpecification.java \
   src/test/java/cloud/bamsongi/albammate/game/GameMatchModeHttpIntegrationTest.java \
   src/postgresTest/java/cloud/bamsongi/albammate/game/GameListFilterPostgresTest.java
@@ -392,7 +392,7 @@ ERD의 GAME_THEME_RELATIONS 문장은 single theme_id index가 아니라 (theme_
 
 Run:
 
-~~~
+~~~bash
 ./gradlew postgresTest --tests cloud.bamsongi.albammate.game.GameThemeRelationIndexPostgresTest --rerun --fail-fast
 ./gradlew postgresTest --tests cloud.bamsongi.albammate.SchemaValidationPostgresTest --rerun --fail-fast
 node scripts/docs/check-doc-links.mjs
@@ -402,7 +402,7 @@ Expected: Testcontainers에 새 forward migration이 적용되고 old index가 �
 
 - [ ] **Step 4: V2를 독립 commit으로 보존한다.**
 
-~~~
+~~~bash
 git add src/main/resources/db/vendor-migration/postgresql/V33__replace_game_theme_relation_theme_index.sql \
   src/postgresTest/java/cloud/bamsongi/albammate/game/GameThemeRelationIndexPostgresTest.java \
   docs/ERD.md
@@ -423,7 +423,7 @@ git commit -m 'feat: 게임 테마 관계 역방향 인덱스 교체'
 
 V0는 Slice commit, V1은 Task 4 commit, V2는 Task 5 commit, V3는 V1+V2만 합친 clean commit이다. 각 worktree에서 runner path가 clean이고 server commit이 40자리인지 확인한다.
 
-~~~
+~~~bash
 git status --porcelain -- scripts/measurements/game-list-baseline.mjs
 git rev-parse HEAD
 ~~~
@@ -436,7 +436,7 @@ V2/V3 migration은 해당 candidate DB에만 적용한다. V0/V1 batch에 V2 ind
 
 각 기동 variant에서 app1/app2/proxy ID를 읽고 다음을 실행한다.
 
-~~~
+~~~bash
 app1_container="$(docker compose ps -q spring-1)"
 app2_container="$(docker compose ps -q spring-2)"
 proxy_container="$(docker compose ps -q proxy)"
@@ -473,7 +473,7 @@ report에는 planning/execution time, shared hit/read, scan 종류, rows estimat
 
 Run:
 
-~~~
+~~~bash
 node --test scripts/measurements/game-list-baseline.test.mjs
 ~~~
 
@@ -518,7 +518,7 @@ ADR-0081의 승인된 결정 본문은 수정하지 않는다. 검증 절에는 
 
 - [ ] **Step 5: 결과 문서만 커밋한다.**
 
-~~~
+~~~bash
 git add docs/measurements/results/game-list-740 \
   docs/measurements/game-list-740-baseline.md \
   docs/adr/game/0081-game-list-relation-filter-performance-selection.md
@@ -543,7 +543,7 @@ selectedVariant V1이면 V1 query shape files만, V2면 migration/index/ERD/test
 
 Run:
 
-~~~
+~~~bash
 ./gradlew test --tests cloud.bamsongi.albammate.game.GameMatchModeHttpIntegrationTest --rerun --fail-fast
 ./gradlew postgresTest --tests cloud.bamsongi.albammate.game.GameListFilterPostgresTest --rerun --fail-fast
 ./gradlew postgresTest --tests cloud.bamsongi.albammate.game.GameThemeRelationIndexPostgresTest --rerun --fail-fast
@@ -557,7 +557,7 @@ If V1 is selected, omit the index-only test. If V2 is selected, omit only V1-spe
 
 Run:
 
-~~~
+~~~bash
 git diff --check origin/develop...HEAD
 git diff --stat origin/develop...HEAD
 git status --short
@@ -567,7 +567,7 @@ Expected: selected candidate, its tests, ADR/result evidence, required ERD/migra
 
 - [ ] **Step 4: 코드와 evidence를 분리해 커밋한다.**
 
-~~~
+~~~bash
 case "$selected_variant" in
   V1)
     git add src/main/java/cloud/bamsongi/albammate/game/repository/GameListSpecification.java \

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -10,6 +11,7 @@ import {
   REQUIRED_SCENARIOS,
   containsGamesExactCount,
   compareVariants,
+  validateExplainTarget,
   validateEvidenceRoot,
 } from "./game-list-variant-comparison.mjs";
 
@@ -148,6 +150,17 @@ function measuredSpecs(httpRoot = measuredHttpRoot) {
   );
 }
 
+function setServerCommit(candidate, serverCommit) {
+  candidate.serverCommit = serverCommit;
+  candidate.serverContainers.forEach((container) => {
+    container.imageRevision = serverCommit;
+  });
+  candidate.endProvenance.server.commit = serverCommit;
+  candidate.endProvenance.server.containers.forEach((container) => {
+    container.imageRevision = serverCommit;
+  });
+}
+
 test("각 variant의 네 artifact와 같은 fixture fingerprint가 없으면 비교를 거절한다", () => {
   const missingRoundArtifacts = validSpecs().filter(
     (candidate) => !(candidate.variant === "V2" && candidate.round === 4),
@@ -245,14 +258,73 @@ test("runner SHA와 모든 200 sample이 같지 않으면 성공 비교를 만�
   upstreamContainerMismatch.find((candidate) => candidate.variant === "V2" && candidate.round === 1)
     .artifact.results[0].samples[0].upstreamContainerId = "stale-container";
   assert.throws(() => compareVariants(upstreamContainerMismatch), /upstream container/u);
+
+  const sampleRunMismatch = validSpecs();
+  sampleRunMismatch.find((candidate) => candidate.variant === "V1" && candidate.round === 2)
+    .artifact.results[0].samples[1].run = 1;
+  assert.throws(() => compareVariants(sampleRunMismatch), /samples\.run/u);
+
+  const variantServerCommitMismatch = validSpecs();
+  setServerCommit(
+    variantServerCommitMismatch.find((candidate) => candidate.variant === "V1" && candidate.round === 2).artifact,
+    "1".repeat(40),
+  );
+  assert.throws(() => compareVariants(variantServerCommitMismatch), /V1.*serverCommit/u);
 });
 
 test("qualified games exact count를 검증한다", () => {
   assert.equal(containsGamesExactCount("select count(*) from games"), true);
+  assert.equal(containsGamesExactCount("select (count(*)) from games"), true);
+  assert.equal(containsGamesExactCount("select count(*) + 0 from games"), true);
+  assert.equal(containsGamesExactCount("select coalesce(count(*), 0) from games"), true);
+  assert.equal(containsGamesExactCount("select count(1) from public.games"), true);
   assert.equal(containsGamesExactCount("select count(*) from public.games"), true);
   assert.equal(containsGamesExactCount('select count(*) from "public"."games"'), true);
   assert.equal(containsGamesExactCount("select count(*)::bigint from public.games"), true);
   assert.equal(containsGamesExactCount("select count(*) from game_themes"), false);
+  assert.equal(containsGamesExactCount("select 'count(*) from games'"), false);
+});
+
+test("slowest EXPLAIN은 실제 PostgreSQL statement duration 최대값과 일치해야 한다", () => {
+  const sql = "select count(*) from games";
+  const input = [
+    "-- source=/tmp/v0/base.postgres.log",
+    "-- captured_execute_duration_ms=12.5",
+    `EXPLAIN (ANALYZE) ${sql};`,
+  ].join("\n");
+  const output = [
+    `-- source_sql_sha256=${createHash("sha256").update(sql, "utf8").digest("hex")}`,
+    "QUERY PLAN",
+    "Execution Time: 12.500 ms",
+  ].join("\n");
+  const log = [
+    `2026-08-19 app LOG:  duration: 12.500 ms  execute <unnamed>: ${sql}`,
+    "2026-08-19 app LOG:  duration: 4.000 ms  execute <unnamed>: select 1",
+  ].join("\n");
+
+  assert.doesNotThrow(() => validateExplainTarget(
+    input,
+    output,
+    log,
+    sql,
+    12.5,
+    "v0",
+    "base",
+    "V0 base slowest",
+    { requireSlowest: true },
+  ));
+
+  assert.throws(() => validateExplainTarget(
+    input,
+    output,
+    log.replace("duration: 4.000", "duration: 13.000"),
+    sql,
+    12.5,
+    "v0",
+    "base",
+    "V0 base slowest",
+    { requireSlowest: true },
+  ), /slowest SQL\/duration/u);
 });
 
 test("로컬 evidence의 EXPLAIN provenance와 exact count gate를 검증한다", { skip: !evidenceRoot || !measuredHttpRoot }, () => {
@@ -298,6 +370,20 @@ test("CLI는 JSON과 Markdown 결과에 선정 후보와 measurement batch를 �
     }
     const outputPath = path.join(root, "comparison.json");
     const markdownPath = path.join(root, "comparison.md");
+    const artifactOutputPath = measuredSpecs()[0].path;
+    assert.throws(
+      () => execFileSync(process.execPath, [
+        comparisonPath,
+        ...args,
+        "--evidence-root",
+        evidenceRoot,
+        "--output",
+        artifactOutputPath,
+        "--markdown-output",
+        markdownPath,
+      ], { stdio: "pipe" }),
+      (error) => error.status === 1 && String(error.stderr).includes("입력 artifact와 충돌"),
+    );
     assert.throws(
       () => execFileSync(process.execPath, [
         comparisonPath,
