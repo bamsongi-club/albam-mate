@@ -23,7 +23,10 @@ public final class AiProviderIntentExtractor implements AssistantIntentExtractor
 	private static final String REFERENCE_ZONE = "Asia/Seoul";
 	private static final Pattern EMAIL = Pattern.compile("[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}",
 		Pattern.CASE_INSENSITIVE);
-	private static final Pattern PHONE = Pattern.compile("(?<!\\d)01[016789][ -]?\\d{3,4}[ -]?\\d{4}(?!\\d)");
+	private static final Pattern PHONE = Pattern.compile(
+		"(?<![\\d+])(?:01[016789][ -]?\\d{3,4}[ -]?\\d{4}"
+			+ "|(?:02|031|032|033|041|042|043|051|052|053|054|055|061|062|063|064|070)[ -]?\\d{3,4}[ -]?\\d{4}"
+			+ "|\\+82[ -]?0?1[016789][ -]?\\d{3,4}[ -]?\\d{4})(?!\\d)");
 	private static final Pattern LONG_NUMBER = Pattern.compile("(?<!\\d)\\d{6,}(?!\\d)");
 	private static final Pattern UUID = Pattern.compile(
 		"(?i)(?<![0-9a-f])[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![0-9a-f])");
