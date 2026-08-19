@@ -832,6 +832,13 @@ function renderBundle(values) {
   };
   const plan = createComparisonFixturePlan(input);
   const outputRoot = path.resolve(values.outputRoot || sourceBuildRoot);
+  if (process.env.ROOM_LOCK_COMPARISON_DEBUG === '1') {
+    process.stderr.write(JSON.stringify({
+      outputRoot,
+      runId: plan.options?.runId,
+      fixtureId: plan.fixtureId,
+    }) + '\n');
+  }
   const outputDirectory = path.join(outputRoot, plan.options.runId, plan.fixtureId);
   if (existsSync(outputDirectory)) {
     fail(`같은 comparison bundle이 이미 있습니다: ${outputDirectory}`);
