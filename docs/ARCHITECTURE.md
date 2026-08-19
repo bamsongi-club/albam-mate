@@ -190,7 +190,7 @@ MATCH 사용자 메시지 쓰기는 chat Command가 연 트랜잭션에서 `Matc
 
 ### P2 CHAT-06 입장·퇴장 시스템 메시지 흐름 (계획·미구현)
 
-> 이 절은 P2 `CHAT-06`의 승인된 목표 구조다. 아래 공개 계약과 listener는 아직 존재하지 않으며, 현재 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)로만 판정한다. 제품 규칙은 [CHAT-06 명세](p2/chat.md#chat-06-입장퇴장-시스템-메시지), 저장 계약은 [ERD](ERD.md#chat-06-입장퇴장-시스템-메시지-저장-계약), 선택 이유는 [ADR-0078](adr/chat/0078-chat-system-message-storage-and-read-time-composition.md)이 소유한다.
+> 이 절은 P2 `CHAT-06`의 승인된 목표 구조다. `room.contract.RoomParticipantChanged`·동기 listener·`CHAT_SYSTEM_MESSAGE_ACTIVATION` gate는 #869가 구현했다. `ChatMessageHistoryQueryService`·`ChatMessageDeliveryService`의 SYSTEM 조회·문장 조립·전송 가드는 아직 존재하지 않으며 #870이 소유한다. 현재 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)로만 판정한다. 제품 규칙은 [CHAT-06 명세](p2/chat.md#chat-06-입장퇴장-시스템-메시지), 저장 계약은 [ERD](ERD.md#chat-06-입장퇴장-시스템-메시지-저장-계약), 선택 이유는 [ADR-0078](adr/chat/0078-chat-system-message-storage-and-read-time-composition.md)이 소유한다.
 
 `room`은 참가·참가 취소가 참가 관계를 실제로 전이시킨 사실만 발행하고 안내 문구·메시지 저장을 알지 않는다. `chat`은 그 사실을 `CHAT_MESSAGES`의 `SYSTEM` 행으로 저장하고 조회 시점에 문장을 조립한다. 컴파일 의존은 기존과 같은 `chat → room.contract`만 생기며 `room → chat` 직접 의존은 만들지 않는다.
 
