@@ -762,6 +762,10 @@ final class RoomConcurrencyBaselineSupport {
 		boolean exhaustedAttempt() {
 			return level == Level.WARN;
 		}
+
+		boolean technicalFailure() {
+			return level == Level.ERROR;
+		}
 	}
 
 	record RoomInvariant(

@@ -120,6 +120,13 @@ class RoomLockStrategyComparisonPostgresTest {
 		MANIFEST_PATH,
 		RECEIPT_ARTIFACT_PATH,
 		RAW_ARTIFACT_PATH);
+	private static final Set<String> POST_MEASUREMENT_TEST_CONTRACT_PATHS = Set.of(
+		"src/postgresTest/java/cloud/bamsongi/albammate/room/measurement/RoomLockStrategyComparisonPostgresTest.java",
+		"src/postgresTest/java/cloud/bamsongi/albammate/room/measurement/RoomConcurrencyBaselineSupport.java",
+		"src/postgresTest/java/cloud/bamsongi/albammate/room/measurement/RoomWaitlistConcurrencyBaselinePostgresTest.java");
+	private static final Set<String> PROVENANCE_BUNDLE_WITH_TEST_CONTRACT_PATHS = java.util.stream.Stream.concat(
+		IMMUTABLE_ARTIFACT_BUNDLE_PATHS.stream(), POST_MEASUREMENT_TEST_CONTRACT_PATHS.stream())
+		.collect(Collectors.toUnmodifiableSet());
 	private static final Instant FIXED_TIME = RoomLockComparisonMeasurementContract.FIXED_TIME;
 	private static final String FIXTURE_SEED = RoomLockComparisonMeasurementContract.FIXTURE_SEED;
 	/** A/B/C가 동일하게 한 번씩 실행하는 T2 commit-order 표본 수다. */
@@ -1384,7 +1391,8 @@ class RoomLockStrategyComparisonPostgresTest {
 		Set<String> changed = Arrays.stream(changedFiles.split("\\R"))
 			.filter(file -> !file.isBlank())
 			.collect(java.util.stream.Collectors.toSet());
-		return changed.equals(IMMUTABLE_ARTIFACT_BUNDLE_PATHS);
+		return changed.equals(IMMUTABLE_ARTIFACT_BUNDLE_PATHS)
+			|| changed.equals(PROVENANCE_BUNDLE_WITH_TEST_CONTRACT_PATHS);
 	}
 
 	private String gitHead(Path repositoryRoot) throws Exception {

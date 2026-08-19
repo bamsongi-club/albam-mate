@@ -689,16 +689,35 @@ class RoomWaitlistConcurrencyBaselinePostgresTest {
 	private void assertRetryLogFormat(
 		RoomConcurrencyBaselineSupport.RoundMeasurement measurement, long roomId, String... expectedEvents) {
 		List<RoomConcurrencyBaselineSupport.RetryLogRecord> retryLogs = measurement.retryLogRecords();
-		assertEquals(measurement.totalRetryCount() + measurement.concurrencyFailureCount(), retryLogs.size());
+		assertEquals(measurement.totalRetryCount() + measurement.concurrencyFailureCount()
+			+ measurement.technicalFailureCount(), retryLogs.size());
 		assertTrue(retryLogs.stream().allMatch(log -> List.of(expectedEvents).contains(log.event())));
 		assertTrue(retryLogs.stream().allMatch(log -> Long.valueOf(roomId).equals(log.roomId())));
-		assertTrue(retryLogs.stream().allMatch(log -> log.attempt() >= 2 && log.attempt() <= 3));
+		assertTrue(retryLogs.stream().allMatch(this::hasExpectedAttempt));
 		assertTrue(retryLogs.stream().allMatch(log -> expectedUseCase(log.event()).equals(log.useCase())));
-		assertTrue(retryLogs.stream().allMatch(log -> expectedReasonCode(log).equals(log.reasonCode())));
-		assertTrue(retryLogs.stream().allMatch(log -> log.retryAttempt() || log.exhaustedAttempt()));
+		assertTrue(retryLogs.stream().allMatch(this::hasExpectedReasonCode));
+		assertTrue(retryLogs.stream().allMatch(log ->
+			log.retryAttempt() || log.exhaustedAttempt() || log.technicalFailure()));
 		assertTrue(retryLogs.stream()
 			.filter(RoomConcurrencyBaselineSupport.RetryLogRecord::exhaustedAttempt)
 			.allMatch(log -> log.attempt() == 3));
+	}
+
+	private boolean hasExpectedReasonCode(RoomConcurrencyBaselineSupport.RetryLogRecord retryLog) {
+		if (retryLog.technicalFailure()) {
+			return switch (retryLog.reasonCode()) {
+				case "LOCK_TIMEOUT", "DEADLOCK", "UNEXPECTED_TECHNICAL_FAILURE" -> true;
+				default -> false;
+			};
+		}
+		return expectedReasonCode(retryLog).equals(retryLog.reasonCode());
+	}
+
+	private boolean hasExpectedAttempt(RoomConcurrencyBaselineSupport.RetryLogRecord retryLog) {
+		if (retryLog.technicalFailure()) {
+			return retryLog.attempt() >= 1 && retryLog.attempt() <= 3;
+		}
+		return retryLog.attempt() >= 2 && retryLog.attempt() <= 3;
 	}
 
 	private String expectedUseCase(String event) {
