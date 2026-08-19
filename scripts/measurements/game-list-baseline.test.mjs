@@ -29,11 +29,13 @@ function startServer({
   responseSize = 24,
   measuredPageOverride = null,
   upstreamRole = "app1",
+  upstreamAddress = "172.28.0.11:8080",
 } = {}) {
   let gameRequests = 0;
   const server = createServer((request, response) => {
     response.setHeader("content-type", "application/json");
     response.setHeader("X-Albam-Mate-Upstream", upstreamRole);
+    response.setHeader("X-Albam-Mate-Upstream-Address", upstreamAddress);
 
     if (request.url?.startsWith("/api/game-themes")) {
       if (hangDiscoveryPath === "themes") {
@@ -131,6 +133,9 @@ function createDockerFixture({
         "com.docker.compose.service": "spring-1",
         "org.opencontainers.image.revision": app1Revision,
       },
+      networks: {
+        "albam-mate-771_default": { IPAddress: "172.28.0.11" },
+      },
     },
     "app2-container": {
       id: "2".repeat(64),
@@ -139,6 +144,20 @@ function createDockerFixture({
         "com.docker.compose.project": "albam-mate-771",
         "com.docker.compose.service": "spring-2",
         "org.opencontainers.image.revision": app2Revision,
+      },
+      networks: {
+        "albam-mate-771_default": { IPAddress: "172.28.0.12" },
+      },
+    },
+    "proxy-container": {
+      id: "3".repeat(64),
+      imageId: `sha256:${"3".repeat(64)}`,
+      labels: {
+        "com.docker.compose.project": "albam-mate-771",
+        "com.docker.compose.service": "proxy",
+      },
+      networks: {
+        "albam-mate-771_default": { IPAddress: "172.28.0.10" },
       },
     },
   };
@@ -155,6 +174,7 @@ const values = {
   "{{.Id}}": record.id,
   "{{.Image}}": record.imageId,
   "{{json .Config.Labels}}": JSON.stringify(record.labels),
+  "{{json .NetworkSettings.Networks}}": JSON.stringify(record.networks),
 };
 if (!(format in values)) {
   process.exit(2);
@@ -198,6 +218,8 @@ function runRunner(
       "app1=app1-container",
       "--server-container",
       "app2=app2-container",
+      "--proxy-container",
+      "proxy-container",
       ...(datasetSha === null ? [] : ["--dataset-sha256", datasetSha]),
       "--output-directory",
       outputDirectory,
@@ -239,6 +261,8 @@ test("성공 산출물은 serverCommit과 runnerCommit 및 최신 170,005 datase
         imageRevision: serverCommit,
         composeProject: "albam-mate-771",
         composeService: "spring-1",
+        networkNames: ["albam-mate-771_default"],
+        networkAddresses: ["172.28.0.11"],
       },
       {
         role: "app2",
@@ -247,8 +271,16 @@ test("성공 산출물은 serverCommit과 runnerCommit 및 최신 170,005 datase
         imageRevision: serverCommit,
         composeProject: "albam-mate-771",
         composeService: "spring-2",
+        networkNames: ["albam-mate-771_default"],
+        networkAddresses: ["172.28.0.12"],
       },
     ]);
+    assert.deepEqual(report.proxyContainer, {
+      containerId: "3".repeat(64),
+      composeProject: "albam-mate-771",
+      composeService: "proxy",
+      networkNames: ["albam-mate-771_default"],
+    });
     assert.equal(report.dataset.gameCount, 170005);
     assert.equal(report.dataset.sha256, datasetSha256);
     assert.equal(report.results.length, 6);
@@ -261,6 +293,8 @@ test("성공 산출물은 serverCommit과 runnerCommit 및 최신 170,005 datase
       contentLength: 24,
     });
     assert.equal(report.results[0].samples[0].upstreamRole, "app1");
+    assert.equal(report.results[0].samples[0].upstreamAddress, "172.28.0.11:8080");
+    assert.equal(report.results[0].samples[0].upstreamContainerId, "1".repeat(64));
     assert.deepEqual(report.discovered.upstreamRoles, {
       base: "app1",
       themes: "app1",
@@ -318,6 +352,23 @@ test("검증한 Spring 역할이 아닌 응답은 성공 산출물을 만들지 
     assert.equal(report.status, "failed");
     assert.deepEqual(report.results, []);
     assert.match(report.failure.message, /x-albam-mate-upstream=unknown/u);
+  } finally {
+    await server.close();
+    fs.rmSync(outputDirectory, { recursive: true, force: true });
+  }
+});
+
+test("응답 upstream 주소가 inspect한 역할 컨테이너와 다르면 성공 산출물을 만들지 않는다", async () => {
+  const server = await startServer({ upstreamAddress: "172.28.0.12:8080" });
+  const outputDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "game-list-740-upstream-address-"));
+  try {
+    const result = await runRunner(server.baseUrl, outputDirectory);
+
+    assert.notEqual(result.status, 0);
+    const report = readSingleReport(outputDirectory);
+    assert.equal(report.status, "failed");
+    assert.deepEqual(report.results, []);
+    assert.match(report.failure.message, /x-albam-mate-upstream-address=172\.28\.0\.12:8080/u);
   } finally {
     await server.close();
     fs.rmSync(outputDirectory, { recursive: true, force: true });
