@@ -1,10 +1,16 @@
 package cloud.bamsongi.albammate.chat;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
 import org.junit.jupiter.api.AfterEach;
@@ -86,6 +92,55 @@ class ChatRoomReadStatePostgresTest {
 			hostUserId,
 			chatRoomRepository.findByRoomId(room.getId()).orElseThrow().getId());
 		assertEquals(latestMessageId, persistedCursor);
+	}
+
+	/**
+	 * T1: 같은 (user_id, chat_room_id)에 행이 아직 없는 상태에서 두 트랜잭션이 동시에 최초 읽음 처리를
+	 * 요청하면(advanceCursor native MERGE의 concurrent insert 경합), ChatRoomReadService의 재시도가
+	 * 예외 없이 흡수하고 최종 커서가 두 값 중 큰 값으로 수렴하는지 검증한다(ADR-0079, issue #810 코멘트
+	 * https://github.com/bamsongi-club/albam-mate/issues/810#issuecomment-5338577229).
+	 */
+	@Test
+	void T1_동시_최초_읽음_처리_경합은_재시도로_예외_없이_성공하고_커서가_두_값_중_큰_값으로_수렴한다() throws Exception {
+		long hostUserId = insertUser("host");
+
+		int trialCount = 8;
+		for (int trial = 0; trial < trialCount; trial++) {
+			Room room = createChatRoom(hostUserId);
+			List<Long> messageIds = insertMessages(room.getId(), hostUserId, 5);
+			long lowerMessageId = messageIds.get(2);
+			long higherMessageId = messageIds.get(4);
+			long chatRoomInternalId = chatRoomRepository.findByRoomId(room.getId()).orElseThrow().getId();
+
+			CyclicBarrier barrier = new CyclicBarrier(2);
+			ExecutorService executor = Executors.newFixedThreadPool(2);
+			try {
+				Future<ChatRoomReadStateResponse> lowerFirst = executor.submit(
+					() -> awaitAndMarkRead(barrier, hostUserId, room.getId(), lowerMessageId));
+				Future<ChatRoomReadStateResponse> higherFirst = executor.submit(
+					() -> awaitAndMarkRead(barrier, hostUserId, room.getId(), higherMessageId));
+
+				assertDoesNotThrow(
+					() -> lowerFirst.get(10, TimeUnit.SECONDS), "동시 최초 삽입 경합이 재시도 없이 예외로 실패했습니다.");
+				assertDoesNotThrow(
+					() -> higherFirst.get(10, TimeUnit.SECONDS), "동시 최초 삽입 경합이 재시도 없이 예외로 실패했습니다.");
+			} finally {
+				executor.shutdownNow();
+			}
+
+			long persistedCursor = jdbcTemplate.queryForObject(
+				"select last_read_message_id from chat_room_read_states where user_id = ? and chat_room_id = ?",
+				Long.class,
+				hostUserId,
+				chatRoomInternalId);
+			assertEquals(higherMessageId, persistedCursor, "재시도 뒤 커서는 두 값 중 큰 값으로 수렴해야 합니다.");
+		}
+	}
+
+	private ChatRoomReadStateResponse awaitAndMarkRead(CyclicBarrier barrier, long userId, long roomId,
+		long upToMessageId) throws Exception {
+		barrier.await(10, TimeUnit.SECONDS);
+		return chatRoomReadService.markRead(userId, roomId, upToMessageId);
 	}
 
 	private List<Long> insertMessages(long roomId, long senderUserId, int count) {
