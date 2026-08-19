@@ -106,6 +106,9 @@ class MatchReportCleanupPostgresTest {
 		assertEquals("HATE_OR_DISCRIMINATION", jdbcTemplate.queryForObject(
 			"select reason from match_reports where id = ?", String.class, reportId));
 		assertTrue(jdbcTemplate.queryForObject(
+			"select reported_at > ? from match_reports where id = ?", Boolean.class,
+			Timestamp.from(FIXED_TIME.minusSeconds(60)), reportId));
+		assertTrue(jdbcTemplate.queryForObject(
 			"select purge_after > current_timestamp from match_reports where id = ?", Boolean.class, reportId));
 		assertTrue(jdbcTemplate.queryForObject(
 			"select purge_after = reported_at + interval '7 days' from match_reports where id = ?",
