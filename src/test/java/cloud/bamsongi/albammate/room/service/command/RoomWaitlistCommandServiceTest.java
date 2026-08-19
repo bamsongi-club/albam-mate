@@ -9,25 +9,20 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.time.Instant;
-import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
-import cloud.bamsongi.albammate.room.contract.RoomChangeEventRecorder;
-import cloud.bamsongi.albammate.room.entity.Participation;
+import cloud.bamsongi.albammate.room.dto.RoomParticipationResponse;
 import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.ParticipationStatus;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
-import cloud.bamsongi.albammate.room.repository.ParticipationRepository;
-import cloud.bamsongi.albammate.room.repository.RoomRepository;
-import cloud.bamsongi.albammate.room.repository.RoomWaitlistCandidateProjection;
-import cloud.bamsongi.albammate.room.repository.RoomWaitlistRepository;
+import cloud.bamsongi.albammate.room.service.RoomOptimisticLockRetrier;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import jakarta.persistence.OptimisticLockException;
 
 class RoomWaitlistCommandServiceTest {
 
@@ -93,72 +88,92 @@ class RoomWaitlistCommandServiceTest {
 	}
 
 	@Test
-	void T3_승격_rollback은_accepted가_아니라_failed로_기록한다() {
+	void T3_승격_재시도_최종_성공은_외부_요청당_accepted_한번만_기록한다() {
 		SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
 		Metrics.addRegistry(meterRegistry);
-		TransactionSynchronizationManager.initSynchronization();
 		try {
-			promotionExecutor(new RoomWaitlistMetrics(Metrics.globalRegistry)).cancelParticipation(11L, 7L,
-				REQUEST_TIME);
+			RoomParticipationCancelExecutor executor = mock(RoomParticipationCancelExecutor.class);
+			RoomParticipationResponse response = new RoomParticipationResponse(
+				7L, ParticipationStatus.CANCELED, RoomStatus.RECRUITING, 1, 2);
+			when(executor.cancelParticipation(eq(11L), eq(7L), eq(REQUEST_TIME), any(Runnable.class)))
+				.thenAnswer(invocation -> {
+					((Runnable)invocation.getArgument(3)).run();
+					throw new OptimisticLockException();
+				})
+				.thenAnswer(invocation -> {
+					((Runnable)invocation.getArgument(3)).run();
+					return response;
+				});
 
-			assertEquals(0.0, operationCount(meterRegistry, "promote", "accepted"));
-			TransactionSynchronizationManager.getSynchronizations().forEach(
-				synchronization -> synchronization.afterCompletion(TransactionSynchronization.STATUS_ROLLED_BACK));
-			assertEquals(1.0, operationCount(meterRegistry, "promote", "failed"));
+			assertEquals(response, promotionService(executor).cancelParticipation(11L, 7L));
+
+			assertEquals(1.0, operationCount(meterRegistry, "promote", "accepted"));
+			assertEquals(0.0, operationCount(meterRegistry, "promote", "failed"));
 		} finally {
-			TransactionSynchronizationManager.clearSynchronization();
 			Metrics.removeRegistry(meterRegistry);
 			meterRegistry.close();
 		}
 	}
 
 	@Test
-	void T3_승격_commit은_afterCompletion_뒤에만_accepted로_기록한다() {
+	void T3_승격_재시도_소진은_외부_요청당_failed_한번만_기록한다() {
 		SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
 		Metrics.addRegistry(meterRegistry);
-		TransactionSynchronizationManager.initSynchronization();
 		try {
-			promotionExecutor(new RoomWaitlistMetrics(Metrics.globalRegistry)).cancelParticipation(11L, 7L,
-				REQUEST_TIME);
+			RoomParticipationCancelExecutor executor = mock(RoomParticipationCancelExecutor.class);
+			when(executor.cancelParticipation(eq(11L), eq(7L), eq(REQUEST_TIME), any(Runnable.class)))
+				.thenAnswer(invocation -> {
+					((Runnable)invocation.getArgument(3)).run();
+					throw new OptimisticLockException();
+				})
+				.thenAnswer(invocation -> {
+					((Runnable)invocation.getArgument(3)).run();
+					throw new ObjectOptimisticLockingFailureException(Room.class, 7L);
+				})
+				.thenAnswer(invocation -> {
+					((Runnable)invocation.getArgument(3)).run();
+					throw new OptimisticLockException();
+				});
+
+			assertThrows(BusinessException.class, () -> promotionService(executor).cancelParticipation(11L, 7L));
 
 			assertEquals(0.0, operationCount(meterRegistry, "promote", "accepted"));
-			TransactionSynchronizationManager.getSynchronizations().forEach(
-				synchronization -> synchronization.afterCompletion(TransactionSynchronization.STATUS_COMMITTED));
-			assertEquals(1.0, operationCount(meterRegistry, "promote", "accepted"));
+			assertEquals(1.0, operationCount(meterRegistry, "promote", "failed"));
 		} finally {
-			TransactionSynchronizationManager.clearSynchronization();
 			Metrics.removeRegistry(meterRegistry);
 			meterRegistry.close();
 		}
 	}
 
-	private RoomParticipationCancelExecutor promotionExecutor(RoomWaitlistMetrics metrics) {
-		RoomRepository roomRepository = mock(RoomRepository.class);
-		ParticipationRepository participationRepository = mock(ParticipationRepository.class);
-		RoomWaitlistRepository waitlistRepository = mock(RoomWaitlistRepository.class);
-		Room room = mock(Room.class);
-		Participation leaving = mock(Participation.class);
-		RoomWaitlistCandidateProjection waiting = mock(RoomWaitlistCandidateProjection.class);
-		when(roomRepository.findById(7L)).thenReturn(Optional.of(room));
-		when(room.getHostUserId()).thenReturn(1L);
-		when(room.getId()).thenReturn(7L);
-		when(room.getStartAt()).thenReturn(REQUEST_TIME.plusSeconds(3600));
-		when(room.getStatus()).thenReturn(RoomStatus.RECRUITING);
-		when(room.getTotalParticipantCount()).thenReturn(2);
-		when(room.getRemainingRecruitmentSeats()).thenReturn(0);
-		when(leaving.getStatus()).thenReturn(ParticipationStatus.ACTIVE);
-		when(participationRepository.findByRoomIdAndUserId(7L, 11L)).thenReturn(Optional.of(leaving));
-		when(waiting.getUserId()).thenReturn(22L);
-		when(waiting.getQueueOrder()).thenReturn(1L);
-		when(waitlistRepository.findFirstWaitingByRoomId(7L)).thenReturn(Optional.of(waiting));
-		when(waitlistRepository.promoteWaiting(7L, 22L, 1L, REQUEST_TIME)).thenReturn(1);
-		when(participationRepository.findByRoomIdAndUserId(7L, 22L)).thenReturn(Optional.empty());
-		return new RoomParticipationCancelExecutor(
-			roomRepository,
-			participationRepository,
-			waitlistRepository,
-			mock(RoomChangeEventRecorder.class),
-			metrics);
+	@Test
+	void T3_승격_뒤_마지막_미승격_실패도_외부_요청_failed_한번으로_기록한다() {
+		SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+		Metrics.addRegistry(meterRegistry);
+		try {
+			RoomParticipationCancelExecutor executor = mock(RoomParticipationCancelExecutor.class);
+			when(executor.cancelParticipation(eq(11L), eq(7L), eq(REQUEST_TIME), any(Runnable.class)))
+				.thenAnswer(invocation -> {
+					((Runnable)invocation.getArgument(3)).run();
+					throw new OptimisticLockException();
+				})
+				.thenThrow(new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR));
+
+			assertThrows(BusinessException.class, () -> promotionService(executor).cancelParticipation(11L, 7L));
+
+			assertEquals(0.0, operationCount(meterRegistry, "promote", "accepted"));
+			assertEquals(1.0, operationCount(meterRegistry, "promote", "failed"));
+		} finally {
+			Metrics.removeRegistry(meterRegistry);
+			meterRegistry.close();
+		}
+	}
+
+	private RoomParticipationCancelService promotionService(RoomParticipationCancelExecutor executor) {
+		return new RoomParticipationCancelService(
+			executor,
+			new RoomCommandExecutionCoordinator(
+				java.time.Clock.fixed(REQUEST_TIME, java.time.ZoneOffset.UTC), new RoomOptimisticLockRetrier()),
+			new RoomWaitlistMetrics(Metrics.globalRegistry));
 	}
 
 	private double operationCount(SimpleMeterRegistry meterRegistry, String operation, String outcome) {

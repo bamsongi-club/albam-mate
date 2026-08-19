@@ -39,6 +39,8 @@ import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.repository.ParticipationRepository;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
 import cloud.bamsongi.albammate.room.service.command.RoomParticipationService;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 
 @SpringBootTest
 @Import(ChatMessageCommandServiceIntegrationTest.TestBeans.class)
@@ -62,6 +64,8 @@ class ChatMessageCommandServiceIntegrationTest {
 	private JdbcTemplate jdbcTemplate;
 	@Autowired
 	private TransactionTemplate transactionTemplate;
+	@Autowired
+	private MeterRegistry meterRegistry;
 	@Autowired
 	private RecordingChatRealtimePublisher realtimePublisher;
 
@@ -301,6 +305,30 @@ class ChatMessageCommandServiceIntegrationTest {
 
 		assertEquals(0, chatMessageRepository.count());
 		assertTrue(realtimePublisher.events().isEmpty());
+	}
+
+	@Test
+	void T2_채팅_rollback_only_통합은_미저장과_failed_한번_accepted_불변을_기록한다() {
+		long hostUserId = insertUser("rollback-metric-host");
+		Room room = createChatRoom(hostUserId);
+		double acceptedBefore = operationCount("accepted");
+		double failedBefore = operationCount("failed");
+
+		transactionTemplate.executeWithoutResult(status -> {
+			chatMessageCommandService.send(
+				hostUserId, room.getId(), new ChatMessageSendRequest("rollback-metric", "본문"));
+			status.setRollbackOnly();
+		});
+
+		assertEquals(0, chatMessageRepository.count());
+		assertEquals(acceptedBefore, operationCount("accepted"));
+		assertEquals(failedBefore + 1.0, operationCount("failed"));
+		assertTrue(realtimePublisher.events().isEmpty());
+	}
+
+	private double operationCount(String outcome) {
+		Counter counter = meterRegistry.find("chat.message.operations").tag("outcome", outcome).counter();
+		return counter == null ? 0.0 : counter.count();
 	}
 
 	private void assertValidationError(long userId, long roomId, ChatMessageSendRequest request) {

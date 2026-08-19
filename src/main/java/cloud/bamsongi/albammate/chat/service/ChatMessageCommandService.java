@@ -96,15 +96,19 @@ public class ChatMessageCommandService {
 		metrics.recordRejected();
 	}
 
-	/** 새 저장과 같은 멱등 결과 모두 실제 커밋 뒤에만 업무 성공으로 기록한다. */
+	/** 새 저장과 같은 멱등 결과 모두 transaction 최종 결과 뒤에 한 번만 기록한다. */
 	private void registerAcceptedAfterCommit() {
 		if (!TransactionSynchronizationManager.isSynchronizationActive()) {
 			return;
 		}
 		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
 			@Override
-			public void afterCommit() {
-				metrics.recordAccepted();
+			public void afterCompletion(int status) {
+				if (status == STATUS_COMMITTED) {
+					metrics.recordAccepted();
+					return;
+				}
+				metrics.recordFailed();
 			}
 		});
 	}

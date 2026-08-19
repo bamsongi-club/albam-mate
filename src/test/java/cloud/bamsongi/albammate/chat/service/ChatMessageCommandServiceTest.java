@@ -167,9 +167,64 @@ class ChatMessageCommandServiceTest {
 
 			assertEquals(0.0, meterRegistry.get("chat.message.operations").tag("outcome", "accepted").counter()
 				.count());
-			TransactionSynchronizationManager.getSynchronizations().forEach(TransactionSynchronization::afterCommit);
+			TransactionSynchronizationManager.getSynchronizations()
+				.forEach(
+					synchronization -> synchronization.afterCompletion(TransactionSynchronization.STATUS_COMMITTED));
 			assertEquals(1.0, meterRegistry.get("chat.message.operations").tag("outcome", "accepted").counter()
 				.count());
+		} finally {
+			TransactionSynchronizationManager.clearSynchronization();
+			Metrics.removeRegistry(meterRegistry);
+			meterRegistry.close();
+		}
+	}
+
+	@Test
+	void T2_채팅_저장_rollback은_accepted_대신_failed를_한번만_기록한다() {
+		SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+		Metrics.addRegistry(meterRegistry);
+		TransactionSynchronizationManager.initSynchronization();
+		ChatAccessGuard chatAccessGuard = mock(ChatAccessGuard.class);
+		when(chatAccessGuard.executeWithAccess(anyLong(), anyLong(), any()))
+			.thenAnswer(invocation -> ((Supplier<?>)invocation.getArgument(2)).get());
+		ChatRoom chatRoom = mock(ChatRoom.class);
+		when(chatRoom.getId()).thenReturn(3L);
+		ChatRoomRepository chatRoomRepository = mock(ChatRoomRepository.class);
+		when(chatRoomRepository.findByRoomIdForMessageAppend(ROOM_ID)).thenReturn(Optional.of(chatRoom));
+		ChatMessageRepository chatMessageRepository = mock(ChatMessageRepository.class);
+		when(chatMessageRepository.findByChatRoomIdAndSenderUserIdAndClientMessageId(3L, SENDER_USER_ID, "rollback"))
+			.thenReturn(Optional.empty());
+		ChatMessage saved = mock(ChatMessage.class);
+		when(saved.getId()).thenReturn(31L);
+		when(saved.getClientMessageId()).thenReturn("rollback");
+		when(saved.getContent()).thenReturn("내용");
+		when(saved.getCreatedAt()).thenReturn(Instant.parse("2026-08-04T00:00:00Z"));
+		when(chatMessageRepository.save(any(ChatMessage.class))).thenReturn(saved);
+		UserQuery userQuery = mock(UserQuery.class);
+		when(userQuery.findUserSummaryById(SENDER_USER_ID))
+			.thenReturn(Optional.of(new UserQuery.UserSummary("발신자", null)));
+		ChatMessageRateLimiter rateLimiter = mock(ChatMessageRateLimiter.class);
+		when(rateLimiter.reserve(SENDER_USER_ID, ROOM_ID))
+			.thenReturn(mock(ChatMessageRateLimiter.RateLimitReservation.class));
+		ChatMessageCommandService service = new ChatMessageCommandService(
+			chatAccessGuard,
+			chatRoomRepository,
+			chatMessageRepository,
+			userQuery,
+			rateLimiter,
+			mock(ApplicationEventPublisher.class),
+			Clock.fixed(Instant.parse("2026-08-04T00:00:00Z"), ZoneOffset.UTC),
+			new ChatMessageLimitProperties());
+
+		try {
+			service.send(SENDER_USER_ID, ROOM_ID, new ChatMessageSendRequest("rollback", "내용"));
+
+			TransactionSynchronizationManager.getSynchronizations()
+				.forEach(
+					synchronization -> synchronization.afterCompletion(TransactionSynchronization.STATUS_ROLLED_BACK));
+			assertEquals(0.0, meterRegistry.get("chat.message.operations").tag("outcome", "accepted").counter()
+				.count());
+			assertEquals(1.0, meterRegistry.get("chat.message.operations").tag("outcome", "failed").counter().count());
 		} finally {
 			TransactionSynchronizationManager.clearSynchronization();
 			Metrics.removeRegistry(meterRegistry);
