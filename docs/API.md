@@ -280,6 +280,8 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 | 47 | P2 | [MATCH-01](#match-01-차단-해제) · [정본](p2/matching.md#match-01-실시간-파티-매칭) · API 계약 준비 완료·구현 예정 | DELETE | `/api/matches/blocks/{blockId}` | Y | Y | 200 |
 | 48 | P2 | [MATCH-01](#match-01-신고-접수) · [정본](p2/matching.md#match-01-실시간-파티-매칭) · API 계약 준비 완료·구현 예정 | POST | `/api/matches/parties/{partyId}/reports` | Y | Y | 201·200 |
 | 49 | P2 | [MATCH-01](#match-01-성공-파티-나가기) · [정본](p2/matching.md#match-01-실시간-파티-매칭) · API 계약 준비 완료·구현 예정 | DELETE | `/api/matches/parties/{partyId}/participants/me` | Y | Y | 200 |
+| 50 | P2 | [CHAT-07](#chat-07-채팅방-읽음-처리) · [정본](p2/chat.md#chat-07-채팅-목록-마지막-메시지방별-미읽음-상태) · API 계약 준비 완료·구현 예정 | POST | `/api/rooms/{roomId}/chat/read` | Y | Y | 200 |
+| 51 | P2 | [CHAT-07](#chat-07-내-미읽음-채팅방-요약) · [정본](p2/chat.md#chat-07-채팅-목록-마지막-메시지방별-미읽음-상태) · API 계약 준비 완료·구현 예정 | GET | `/api/users/me/chat/unread-summary` | Y | N | 200 |
 
 `GET /api/games`, `GET /api/games/{gameId}`, `GET /api/rooms`, `GET /api/rooms/{roomId}`와 `GET /api/auth/social/providers`의 인증은 "선택"이다. 비로그인도 호출할 수 있고, 유효한 세션이 있으면 요청자 기준 값을 계산한다. 단, `GET /api/games`의 유효한 `playedFilter`는 로그인을 요구한다.
 
@@ -708,8 +710,13 @@ P0 프로필은 닉네임만 제공·수정한다. P1부터 프로필 이미지 
 | `myRole` | MyRole | Y | N | P0 | 제공 | `HOST` 또는 `JOINED` |
 | `participationStatus` | ParticipationStatus | Y | Y | P0 | 제공 | `myRole = JOINED`이면 항상 `ACTIVE`, `HOST`이면 `null` |
 | `chatAvailable` | boolean | Y | N | P1 | 제공 | 현재 요청자가 채팅 API에 접근할 수 있는지. `HOST` 또는 `ACTIVE` 참가자이고 응답 유효 상태가 `RECRUITING`·`CLOSED`일 때만 `true`. 프론트엔드의 직접 진입점은 모임 상세이며 내 모임 목록에서는 이 필드로 채팅 버튼을 표시하지 않는다 |
+| `lastMessagePreview` | string | Y | Y | P2 `CHAT-07` | 구현 예정 | 채팅방의 마지막 메시지 본문(`SYSTEM`이면 조립된 안내 문장). 메시지가 없거나 `chatAvailable = false`이면 `null` |
+| `lastMessageAt` | string(date-time) | Y | Y | P2 `CHAT-07` | 구현 예정 | 마지막 메시지의 저장 시각. 메시지가 없으면 `null` |
+| `unreadCount` | integer | Y | N | P2 `CHAT-07` | 구현 예정 | 요청자가 이 방에서 아직 읽지 않은 메시지 수. 본인이 보낸 `USER` 메시지와 본인이 대상인 `SYSTEM` 메시지는 세지 않는다. `chatAvailable = false`이면 `0` |
 
 `joinable`과 `waitlistable`은 `PublicRoomResponse`와 같은 요청자 기준 값이다. 내 모임은 주최·참가 ROOM만 반환하므로 두 값은 항상 `false`이고, 대기 중인 ROOM을 조회 대상에 추가하지 않는다. `chatAvailable`은 서버 접근 가능성의 계약 일치를 위한 값이며, 채팅 버튼은 모임 상세의 `myRole`·대상 ROOM 보정 뒤 저장 상태 기준으로 표시한다. 내 모임 목록에는 중복 채팅 진입을 표시하지 않으며, 직접 채팅 API를 호출해도 서버가 같은 관계·상태 규칙으로 거절한다.
+
+`lastMessagePreview`·`lastMessageAt`·`unreadCount`는 `CHAT-07`의 목표 계약이며 현재 제공 필드가 아니다. 계산 방식·저장 구조는 [CHAT-07 계약](#chat-07-채팅-목록-마지막-메시지방별-미읽음-상태-계약)이 소유한다.
 
 ### 4.11 RoomStatusResponse
 
@@ -2459,6 +2466,20 @@ Path variable·query parameter·body는 없다. `unreadCount`는 미확인 개�
 - 안내 문장·닉네임·사용자 ID는 로그와 metric label에 기록하지 않는다.
 - 이 계약이 적용되기 전에 만들어진 채팅방에는 안내를 소급 생성하지 않으므로, 기존 방의 이력에는 배포 이후 사건의 안내만 나타난다.
 
+### CHAT-07 채팅 목록 마지막 메시지·방별 미읽음 상태 계약
+
+> **도입 단계: P2** · **기능: CHAT-07** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+>
+> 이 절의 필드·엔드포인트는 승인된 목표 계약이며 현재 제공 기능이 아니다. 제품 상태는 [P2 기능 상태의 `CHAT-07`](p2/README.md#기능별-현재-상태)에서만 판정한다.
+
+제품 규칙은 [CHAT-07 명세](p2/chat.md#chat-07-채팅-목록-마지막-메시지방별-미읽음-상태), 저장·집계 방식의 선택 이유는 [ADR-0079](adr/chat/0079-chat-room-read-cursor-and-derived-unread-count.md)를 따른다.
+
+- 마지막 메시지·미읽음 개수는 [MyRoomListItem](#410-myroomlistitem)에 필드를 더해 제공한다. 새 목록 엔드포인트를 만들지 않는다.
+- 미읽음 개수는 저장된 counter가 아니라 조회 시점에 계산한 값이다. 서버가 몇 번을 다시 계산해도 같은 메시지 상태에서는 항상 같은 값을 반환한다.
+- `CHAT-06` `SYSTEM` 메시지는 마지막 메시지 미리보기와 미읽음 집계에 포함한다. 다만 안내 대상 본인(`subject`)에게는 자신의 입장·퇴장 안내를 미읽음으로 세지 않는다. 이 판정은 `CHAT-06`의 저장·응답 계약을 바꾸지 않는다.
+- 상단 채팅 아이콘의 미읽음 표시는 [`GET /api/users/me/chat/unread-summary`](#chat-07-내-미읽음-채팅방-요약)가 반환하는 "미읽음 메시지가 1건 이상인 방의 개수"를 사용한다. 방별 `unreadCount`의 총합이 아니다.
+- 이 기능은 새 실시간 채널을 만들지 않는다. 채팅 목록·상단 배지는 조회 시점 값이며, 화면이 열려 있는 동안의 서버 push는 이 계약의 범위가 아니다.
+
 ### CHAT-02 메시지 전송
 
 | 항목 | 값 |
@@ -2579,6 +2600,81 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 | 경로·커서 검증 실패 | 400 | `VALIDATION_ERROR` |
 | 허용되지 않은 `Origin` | 403 | `FORBIDDEN` |
 | Upgrade 전에 세션 상태 저장소를 확인할 수 없음 | 503 | `SERVICE_UNAVAILABLE` |
+
+### CHAT-07 채팅방 읽음 처리
+
+> **도입 단계: P2** · **기능: CHAT-07** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+
+| 항목 | 값 |
+|---|---|
+| Method / Path | `POST /api/rooms/{roomId}/chat/read` |
+| 인증 / CSRF | 필요 / 필요 |
+| 성공 | `200 OK`, `data`: `ChatRoomReadStateResponse` |
+
+#### Path Variables
+
+| 이름 | 타입 | 필수 | 검증 |
+|---|---|:---:|---|
+| `roomId` | integer | Y | 1 이상의 방 ID |
+
+#### Request Body — ChatRoomReadRequest
+
+~~~json
+{
+  "upToMessageId": 1042
+}
+~~~
+
+| 필드 | 타입 | 필수 | 검증 |
+|---|---|:---:|---|
+| `upToMessageId` | integer | Y | 1 이상. 요청자가 방금 확인한 화면상 최신 메시지의 `messageId` |
+
+`upToMessageId`가 그 방에 실제로 존재하는 메시지 ID를 넘는 값이면 `400 VALIDATION_ERROR`다. 이미 저장된 커서보다 작거나 같은 값으로 다시 호출해도 오류가 아니며, 커서는 후퇴하지 않고 현재 값을 그대로 반환한다. `CHAT_ROOM_READ_STATES`는 사용자×방 첫 호출에서 생성한다.
+
+#### Response Body — ChatRoomReadStateResponse
+
+| 필드 | 타입 | 필수 | nullable | 설명 |
+|---|---|:---:|:---:|---|
+| `roomId` | integer | Y | N | 대상 방 ID |
+| `lastReadMessageId` | integer | Y | N | 갱신 뒤(또는 이미 그 이상이라 변경 없음) 커서 값 |
+| `updatedAt` | string(date-time) | Y | N | 이번 요청이 커서를 실제로 전진시켰으면 그 시각, 변경이 없었으면 이전 갱신 시각 |
+
+#### 오류
+
+| 발생 조건 | HTTP | code |
+|---|---:|---|
+| 세션이 없거나 유효하지 않음 | 401 | `UNAUTHENTICATED` |
+| 방이 없음 | 404 | `ROOM_NOT_FOUND` |
+| 주최자·현재 `ACTIVE` 참가자가 아니거나 방이 `CANCELED`·`FINISHED`임 | 403 | `FORBIDDEN` |
+| 대상 ROOM 보정의 낙관 락 재시도 소진 | 409 | `ROOM_CONCURRENT_MODIFICATION` |
+| `upToMessageId`가 없거나 그 방의 메시지가 아님 | 400 | `VALIDATION_ERROR` |
+| 세션 상태 저장소를 확인할 수 없음 | 503 | `SERVICE_UNAVAILABLE` |
+| CSRF 토큰 오류 | 403 | `CSRF_TOKEN_INVALID` |
+
+### CHAT-07 내 미읽음 채팅방 요약
+
+> **도입 단계: P2** · **기능: CHAT-07** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+
+| 항목 | 값 |
+|---|---|
+| Method / Path | `GET /api/users/me/chat/unread-summary` |
+| 인증 / CSRF | 필요 / 불필요 |
+| 성공 | `200 OK`, `data`: `UnreadChatSummaryResponse` |
+
+상단 채팅 아이콘 배지 전용 경량 조회다. 채팅 목록 전체(`GET /api/users/me/rooms`)를 다시 불러오지 않고 배지 값만 갱신할 때 사용한다.
+
+#### Response Body — UnreadChatSummaryResponse
+
+| 필드 | 타입 | 필수 | nullable | 설명 |
+|---|---|:---:|:---:|---|
+| `unreadRoomCount` | integer | Y | N | 미읽음 메시지가 1건 이상인 채팅방 수. `chatAvailable = false`인 방은 세지 않는다 |
+
+#### 오류
+
+| 발생 조건 | HTTP | code |
+|---|---:|---|
+| 세션이 없거나 유효하지 않음 | 401 | `UNAUTHENTICATED` |
+| 세션 상태 저장소를 확인할 수 없음 | 503 | `SERVICE_UNAVAILABLE` |
 
 ## MATCH-01 실시간 파티 매칭 API
 

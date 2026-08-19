@@ -229,6 +229,38 @@ flowchart LR
 
 한 응답 안의 같은 대상 사용자 ID는 한 번만 조회한다. 공개 프로필 조회 실패나 미존재는 이력 조회를 실패시키지 않고 대체 표시명으로 수렴한다. 안내 문장·닉네임·사용자 ID는 로그와 metric label에 남기지 않는다.
 
+### P2 CHAT-07 채팅 목록 미읽음 집계 흐름 (계획·미구현)
+
+> 이 절은 P2 `CHAT-07`의 승인된 목표 구조다. 아래 공개 계약은 아직 존재하지 않으며, 현재 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)로만 판정한다. 제품 규칙은 [CHAT-07 명세](p2/chat.md#chat-07-채팅-목록-마지막-메시지방별-미읽음-상태), 저장 계약은 [ERD](ERD.md#chat-07-읽음-커서-저장-계약), 선택 이유는 [ADR-0079](adr/chat/0079-chat-room-read-cursor-and-derived-unread-count.md)가 소유한다.
+
+`CHAT-07`은 새 트랜잭션 이벤트 흐름을 만들지 않는다. `CHAT-06`처럼 참가·참가 취소를 계기로 안내를 저장하는 계약과 달리, 읽음 커서는 사용자 요청(채팅 목록 조회, 읽음 처리 API 호출)에만 반응하는 조회·갱신 계약이다.
+
+| 계약 | 방향 | 책임 |
+| --- | --- | --- |
+| `chat.contract.ChatRoomPreviewQuery` | `room`이 호출하고 `chat`이 구현 | 요청한 `chatRoomId` 집합과 조회자 사용자 ID로, 방마다 마지막 메시지 미리보기·시각과 파생 미읽음 개수를 배치로 반환한다. 방 개수만큼 반복 호출하지 않는다 |
+| `POST /api/rooms/{roomId}/chat/read` | `chat` controller가 처리 | 요청자가 확인한 최신 지점(`upToMessageId`)까지 `CHAT_ROOM_READ_STATES` 커서를 전진시킨다 |
+
+`ChatRoomPreviewQuery`는 기존 `chat → room.contract`(CHAT-06 listener) 방향과 반대로 `room → chat.contract` 방향의 새 의존을 추가한다. 두 방향은 서로 다른 목적의 별도 인터페이스이므로 컴파일 순환은 만들지 않지만, `room`과 `chat`이 서로를 참조하는 유일한 사례가 된다는 점은 [ADR-0079](adr/chat/0079-chat-room-read-cursor-and-derived-unread-count.md)의 감수 비용으로 기록한다.
+
+`MyRoomQueryService`(`room/service/query`)는 기존 `RoomRepository.findMyRoomsAt` 조회 뒤, 페이지에 담긴 방들의 `chatRoomId` 집합으로 `ChatRoomPreviewQuery`를 한 번 호출해 `MyRoomListItem`의 `lastMessagePreview`·`lastMessageAt`·`unreadCount` 필드를 채운다. `chat`은 이 호출 안에서 `CHAT_MESSAGES`와 `CHAT_ROOM_READ_STATES`를 조회자 기준으로 조인·집계해 응답을 만들며, 방 하나당 별도 질의를 반복하지 않는다.
+
+읽음 처리는 원인 트랜잭션이 없는 단순 명령이다. `POST /api/rooms/{roomId}/chat/read`는 기존 채팅 접근 판정([채팅 공통 계약](API.md#채팅-공통-계약))을 그대로 통과한 뒤 `CHAT_ROOM_READ_STATES`를 `GREATEST` UPSERT로 갱신하고, 갱신된 커서와 시각을 반환한다. 이 갱신은 메시지 저장·실시간 전달과 다른 트랜잭션이며 채팅방 append 잠금을 함께 얻지 않는다.
+
+미읽음 개수는 저장이 아니라 조회 시점 계산이므로, 기존 실시간 전달 경로(`ChatMessageDeliveryService`, `ChatConnectionRegistry`)는 변경하지 않는다. WebSocket이 같은 메시지를 중복·역순으로 전달해도 `ChatRoomPreviewQuery`가 다시 계산하는 값은 항상 같다. 채팅 목록·상단 배지를 위한 새 전역 WebSocket 채널은 만들지 않으며, 화면은 조회 시점 값을 보여준다.
+
+```mermaid
+flowchart LR
+    myRoomQuery["MyRoomQueryService<br/>room/service/query"] --> previewQuery["chat.contract<br/>ChatRoomPreviewQuery"]
+    previewQuery --> readStates["CHAT_ROOM_READ_STATES 조회"]
+    previewQuery --> lastMsg["CHAT_MESSAGES 배치 집계<br/>마지막 메시지·COUNT"]
+    readStates --> unreadCalc["파생 unreadCount"]
+    lastMsg --> unreadCalc
+    unreadCalc --> myRoomItem["MyRoomListItem<br/>lastMessagePreview·unreadCount"]
+
+    readController["POST /chat-rooms/id/read"] --> accessCheck["채팅 공통 접근 판정"]
+    accessCheck --> upsert["CHAT_ROOM_READ_STATES<br/>GREATEST UPSERT"]
+```
+
 ### 패키지 구조
 
 패키지는 파일 목록이 아니라 책임 경계로 관리한다. 다음 패턴 안에서 클래스나 하위 구현을 추가할 때는 이 문서를 갱신하지 않는다.
