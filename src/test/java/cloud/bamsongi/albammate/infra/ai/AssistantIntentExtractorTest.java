@@ -80,6 +80,11 @@ class AssistantIntentExtractorTest {
 
 		assertEquals(AssistantIntentStatus.SENSITIVE_INPUT_REJECTED, addressRejected.status());
 		assertEquals(1, provider.calls());
+		AssistantIntentExtraction roadOnlyAddressRejected = extractor.extract(AssistantIntentRequest.forUser(
+			"user-991", "테헤란로 123에서 보드게임 추천해줘", List.of()));
+
+		assertEquals(AssistantIntentStatus.SENSITIVE_INPUT_REJECTED, roadOnlyAddressRejected.status());
+		assertEquals(1, provider.calls());
 
 		for (String piiSentence : List.of(
 			"메일은 member@example.com이고 게임만 추천해줘",
