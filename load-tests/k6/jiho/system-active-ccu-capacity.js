@@ -2,7 +2,7 @@ import { check, sleep } from 'k6';
 import exec from 'k6/execution';
 import http from 'k6/http';
 import { Counter, Gauge, Rate, Trend } from 'k6/metrics';
-import { WebSocket } from 'k6/websockets';
+import { WebSocket } from 'k6/experimental/websockets';
 
 import {
   CHAT_MESSAGE_INTERVAL_SECONDS,

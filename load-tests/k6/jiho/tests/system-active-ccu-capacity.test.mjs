@@ -8,6 +8,7 @@ const script = await readFile(
 );
 
 test('T2 대표 혼합 스크립트는 네 활성 역할과 독립 쓰기 도착률을 함께 실행한다', () => {
+  assert.match(script, /from 'k6\/experimental\/websockets'/);
   for (const scenario of ['browsing', 'chat', 'waitlist', 'notification_panel', 'participation', 'recovery']) {
     assert.match(script, new RegExp(`\\b${scenario}:`));
   }
