@@ -173,7 +173,7 @@ class GameListFilterPostgresTest {
 		linkMechanism(themeAnyMechanismAll, hand);
 		linkMechanism(themeAnyMechanismAll, dice);
 
-		Logger sqlLogger = (Logger) org.slf4j.LoggerFactory.getLogger("org.hibernate.SQL");
+		Logger sqlLogger = (Logger)org.slf4j.LoggerFactory.getLogger("org.hibernate.SQL");
 		Level originalLevel = sqlLogger.getLevel();
 		ListAppender<ILoggingEvent> sqlEvents = new ListAppender<>();
 		sqlEvents.start();
@@ -207,10 +207,10 @@ class GameListFilterPostgresTest {
 			"select indexdef from pg_indexes where schemaname = 'public' and tablename = 'game_theme_relations'",
 			String.class);
 
-		assertTrue(indexDefinitions.stream().anyMatch(index ->
-			index.contains("ix_game_theme_relations_theme_id") && index.contains("(theme_id)")));
-		assertTrue(indexDefinitions.stream().noneMatch(index ->
-			index.contains("ix_game_theme_relations_theme_game") || index.contains("(theme_id, game_id)")));
+		assertTrue(indexDefinitions.stream()
+			.anyMatch(index -> index.contains("ix_game_theme_relations_theme_id") && index.contains("(theme_id)")));
+		assertTrue(indexDefinitions.stream().noneMatch(
+			index -> index.contains("ix_game_theme_relations_theme_game") || index.contains("(theme_id, game_id)")));
 	}
 
 	@Test

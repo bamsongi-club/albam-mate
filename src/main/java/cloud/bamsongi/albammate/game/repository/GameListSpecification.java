@@ -102,7 +102,8 @@ public final class GameListSpecification {
 		subquery.where(theme.get("code").in(themes));
 		if (themeMatch == ThemeMatch.ALL) {
 			subquery.groupBy(relation.get("game").get("id"));
-			subquery.having(criteriaBuilder.equal(criteriaBuilder.countDistinct(theme.get("code")), (long)themes.size()));
+			subquery
+				.having(criteriaBuilder.equal(criteriaBuilder.countDistinct(theme.get("code")), (long)themes.size()));
 		}
 		predicates.add(root.get("id").in(subquery));
 	}
