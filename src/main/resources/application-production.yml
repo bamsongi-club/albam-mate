@@ -110,6 +110,9 @@ logging:
       total-size-cap: 40MB
 
 app:
+  assistant:
+    enabled: ${ALBAM_MATE_ASSISTANT_ENABLED:false}
+    provider: fake
   monitoring:
     upstream-role: ${ALBAM_MATE_ROLE}
     dependency-health:
