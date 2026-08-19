@@ -14,6 +14,7 @@ on:
       - "scripts/game-catalog/extract-catalog-dataset-ids.mjs"
       - "scripts/game-catalog/extract-catalog-dataset-ids.test.mjs"
       - "docs/game-catalog/SEARCH_04_CATALOG_DATASET_RELEASE.md"
+      - "docs/game-catalog/catalog-dataset-release.json"
       - ".github/workflows/catalog-dataset-release.yml"
   push:
     branches: [develop, main]
@@ -28,6 +29,7 @@ on:
       - "scripts/game-catalog/extract-catalog-dataset-ids.mjs"
       - "scripts/game-catalog/extract-catalog-dataset-ids.test.mjs"
       - "docs/game-catalog/SEARCH_04_CATALOG_DATASET_RELEASE.md"
+      - "docs/game-catalog/catalog-dataset-release.json"
       - ".github/workflows/catalog-dataset-release.yml"
   workflow_dispatch:
 
