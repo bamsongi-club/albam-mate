@@ -109,6 +109,7 @@ class RoomWaitlistConcurrencyPostgresTest {
 
 	@AfterEach
 	void tearDown() {
+		queueOrderConflictGate.deactivate();
 		conditionalTransitionGate.deactivate();
 		jdbcTemplate.execute("truncate table room_waitlists, rooms, users restart identity cascade");
 	}
@@ -615,6 +616,11 @@ class RoomWaitlistConcurrencyPostgresTest {
 
 		int getIssuedDuplicateQueueOrderCount() {
 			return issuedDuplicateQueueOrderCount;
+		}
+
+		void deactivate() {
+			duplicateQueueOrder = null;
+			issuedDuplicateQueueOrderCount = 0;
 		}
 	}
 
