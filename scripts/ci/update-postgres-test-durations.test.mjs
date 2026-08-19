@@ -30,7 +30,7 @@ test("여러 JUnit 실행의 클래스별 중앙값을 manifest로 만든다", (
     );
   });
 
-  const manifest = buildDurationManifest(directories);
+  const manifest = buildDurationManifest(directories, ["example.AlphaPostgresTest"]);
 
   assert.equal(manifest.schemaVersion, 1);
   assert.deepEqual(manifest.sourceRuns, ["run-1", "run-2", "run-3"]);
@@ -59,5 +59,50 @@ test("일부 실행에서 누락된 testsuite를 거부한다", (context) => {
     '<testsuite name="example.AlphaPostgresTest" time="1.0"></testsuite>',
   );
 
-  assert.throws(() => buildDurationManifest([first, second, third]), /모든 실행에 존재하지 않는/);
+  assert.throws(
+    () => buildDurationManifest(
+      [first, second, third],
+      ["example.AlphaPostgresTest", "example.BravoPostgresTest"],
+    ),
+    /기존 regression testsuite가 누락됐습니다/,
+  );
+});
+
+test("같은 JUnit 결과 디렉터리를 세 번 입력하면 거부한다", (context) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "postgres-durations-duplicate-run-"));
+  context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  fs.writeFileSync(
+    path.join(root, "TEST-example.AlphaPostgresTest.xml"),
+    '<testsuite name="example.AlphaPostgresTest" time="1.0"></testsuite>',
+  );
+
+  assert.throws(
+    () => buildDurationManifest(
+      [root, root, root],
+      ["example.AlphaPostgresTest"],
+    ),
+    /서로 다른 실행 결과/,
+  );
+});
+
+test("기존 testsuite가 세 실행 모두에서 누락되면 거부한다", (context) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "postgres-durations-known-missing-"));
+  context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const directories = ["run-1", "run-2", "run-3"].map((name) => {
+    const directory = path.join(root, name);
+    fs.mkdirSync(directory);
+    fs.writeFileSync(
+      path.join(directory, "TEST-example.AlphaPostgresTest.xml"),
+      '<testsuite name="example.AlphaPostgresTest" time="1.0"></testsuite>',
+    );
+    return directory;
+  });
+
+  assert.throws(
+    () => buildDurationManifest(
+      directories,
+      ["example.AlphaPostgresTest", "example.BravoPostgresTest"],
+    ),
+    /기존 regression testsuite가 누락됐습니다: example\.BravoPostgresTest/,
+  );
 });

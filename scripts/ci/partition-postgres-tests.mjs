@@ -53,7 +53,27 @@ export function discoverPostgresTests(
   durationManifestPath = DEFAULT_DURATION_MANIFEST,
 ) {
   const durations = readDurationManifest(durationManifestPath);
-  const discovered = collectTestFiles(sourceDirectory).flatMap((filePath) => {
+  const discovered = discoverPostgresRegressionTests(sourceDirectory);
+
+  const knownRatios = discovered
+    .filter((postgresTest) => durations.has(postgresTest.className))
+    .map((postgresTest) => durations.get(postgresTest.className) / postgresTest.sourceBytes)
+    .sort((left, right) => left - right);
+  const fallbackMsPerByte = knownRatios.length === 0
+    ? 1
+    : knownRatios[Math.floor(knownRatios.length / 2)];
+
+  return discovered.map((postgresTest) => ({
+    ...postgresTest,
+    durationMs: durations.get(postgresTest.className),
+    weight: durations.get(postgresTest.className)
+      ?? Math.max(1, Math.round(postgresTest.sourceBytes * fallbackMsPerByte)),
+    weightSource: durations.has(postgresTest.className) ? "junit-median" : "source-size-fallback",
+  }));
+}
+
+export function discoverPostgresRegressionTests(sourceDirectory = DEFAULT_SOURCE_DIRECTORY) {
+  return collectTestFiles(sourceDirectory).flatMap((filePath) => {
     const source = fs.readFileSync(filePath, "utf8");
     const packageMatch = source.match(/^package\s+([\w.]+);/m);
     if (!packageMatch) {
@@ -69,24 +89,8 @@ export function discoverPostgresTests(
       className: qualifiedClassName,
       relativePath: path.relative(sourceDirectory, filePath).replaceAll("\\", "/"),
       sourceBytes: fs.statSync(filePath).size,
-      durationMs: durations.get(qualifiedClassName),
     }];
   });
-
-  const knownRatios = discovered
-    .filter((postgresTest) => postgresTest.durationMs !== undefined)
-    .map((postgresTest) => postgresTest.durationMs / postgresTest.sourceBytes)
-    .sort((left, right) => left - right);
-  const fallbackMsPerByte = knownRatios.length === 0
-    ? 1
-    : knownRatios[Math.floor(knownRatios.length / 2)];
-
-  return discovered.map((postgresTest) => ({
-    ...postgresTest,
-    weight: postgresTest.durationMs
-      ?? Math.max(1, Math.round(postgresTest.sourceBytes * fallbackMsPerByte)),
-    weightSource: postgresTest.durationMs === undefined ? "source-size-fallback" : "junit-median",
-  }));
 }
 
 export function partitionPostgresTests(tests, shardCount) {

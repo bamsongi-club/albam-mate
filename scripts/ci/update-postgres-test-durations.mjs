@@ -2,6 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
+import { discoverPostgresRegressionTests } from "./partition-postgres-tests.mjs";
+
 function collectXmlFiles(directory) {
   return fs
     .readdirSync(directory, { withFileTypes: true })
@@ -28,9 +30,25 @@ function readSuite(filePath) {
   return { name, durationMs: Math.max(1, Math.round(seconds * 1_000)) };
 }
 
-export function buildDurationManifest(resultDirectories) {
+function canonicalPath(directory) {
+  const resolved = fs.realpathSync(directory);
+  return process.platform === "win32" ? resolved.toLowerCase() : resolved;
+}
+
+export function buildDurationManifest(resultDirectories, expectedClassNames) {
   if (resultDirectories.length !== 3) {
     throw new Error("--results <JUnit 결과 디렉터리>가 정확히 3개 필요합니다.");
+  }
+  const canonicalDirectories = resultDirectories.map(canonicalPath);
+  if (new Set(canonicalDirectories).size !== canonicalDirectories.length) {
+    throw new Error("--results는 서로 다른 실행 결과 디렉터리여야 합니다.");
+  }
+  if (!Array.isArray(expectedClassNames) || expectedClassNames.length === 0) {
+    throw new Error("PostgreSQL regression testsuite inventory가 필요합니다.");
+  }
+  const expectedClasses = new Set(expectedClassNames);
+  if (expectedClasses.size !== expectedClassNames.length) {
+    throw new Error("PostgreSQL regression testsuite inventory에 중복이 있습니다.");
   }
   const samples = new Map();
   for (const directory of resultDirectories) {
@@ -47,6 +65,14 @@ export function buildDurationManifest(resultDirectories) {
       const durations = samples.get(suite.name) ?? [];
       durations.push(suite.durationMs);
       samples.set(suite.name, durations);
+    }
+    const missing = [...expectedClasses].filter((className) => !names.has(className));
+    if (missing.length > 0) {
+      throw new Error(`기존 regression testsuite가 누락됐습니다: ${missing.join(", ")}`);
+    }
+    const unknown = [...names].filter((className) => !expectedClasses.has(className));
+    if (unknown.length > 0) {
+      throw new Error(`regression inventory에 없는 testsuite가 있습니다: ${unknown.join(", ")}`);
     }
   }
 
@@ -88,7 +114,8 @@ function main() {
   if (!outputPath) {
     throw new Error("--output <duration manifest 경로>가 필요합니다.");
   }
-  const manifest = buildDurationManifest(resultDirectories);
+  const expectedClassNames = discoverPostgresRegressionTests().map(({ className }) => className);
+  const manifest = buildDurationManifest(resultDirectories, expectedClassNames);
   fs.writeFileSync(outputPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
 }
 
