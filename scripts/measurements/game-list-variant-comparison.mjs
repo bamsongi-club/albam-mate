@@ -301,7 +301,130 @@ function readEvidenceFile(root, relativePath, label) {
   return contents;
 }
 
-export function validateEvidenceRoot(evidenceRoot) {
+function normalizeSql(sql) {
+  return sql
+    .replace(/--[^\r\n]*/gu, " ")
+    .replace(/\/\*[\s\S]*?\*\//gu, " ")
+    .replace(/'(?:''|[^'])*'/gu, "?")
+    .replace(/\$\d+/gu, "?")
+    .replace(/;\s*$/u, "")
+    .replace(/\s+/gu, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function explainTargetSql(input, label) {
+  const matched = /EXPLAIN\s*\([^)]*\)\s*([\s\S]*?)\s*;?\s*$/iu.exec(input);
+  if (!matched) {
+    fail(`${label} EXPLAIN input에서 실행 SQL을 찾지 못했습니다.`);
+  }
+  return matched[1].trim();
+}
+
+function validateExplainTarget(input, postgresLog, expectedSql, expectedDurationMs, variantKey, scenario, label) {
+  const source = /^-- source=(.+)$/mu.exec(input)?.[1];
+  if (!source?.endsWith(`/${variantKey}/${scenario}.postgres.log`)) {
+    fail(`${label} EXPLAIN source가 scenario capture와 다릅니다.`);
+  }
+  const capturedDuration = /^-- captured_execute_duration_ms=([^\r\n]+)$/mu.exec(input)?.[1];
+  if (capturedDuration === undefined
+    || Math.abs(Number(capturedDuration) - expectedDurationMs) > 0.001) {
+    fail(`${label} EXPLAIN duration이 selection-summary와 다릅니다.`);
+  }
+  if (normalizeSql(explainTargetSql(input, label)) !== normalizeSql(expectedSql)) {
+    fail(`${label} EXPLAIN SQL이 selection-summary의 선택 SQL과 다릅니다.`);
+  }
+  if (!postgresLog.includes(expectedSql)) {
+    fail(`${label} 선택 SQL이 postgres capture에 없습니다.`);
+  }
+}
+
+export function containsGamesExactCount(sql) {
+  const normalized = sql
+    .replace(/--[^\r\n]*/gu, " ")
+    .replace(/\/\*[\s\S]*?\*\//gu, " ")
+    .replace(/\s+/gu, " ");
+  return /\bselect\s+count\s*\([^)]*\)\s+from\s+(?:(?:"?[\w$]+"?)\s*\.\s*)?"?games"?(?=\s|[),;]|$)/iu.test(normalized);
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+}
+
+function validateEvidenceProvenance(root, artifactSpecs) {
+  if (!Array.isArray(artifactSpecs)) {
+    fail("evidence provenance 검증에는 artifact spec 목록이 필요합니다.");
+  }
+  let manifest;
+  try {
+    manifest = JSON.parse(readEvidenceFile(root, "evidence-manifest.json", "evidence manifest"));
+  } catch (error) {
+    fail(`evidence-manifest.json을 읽을 수 없습니다: ${error.message}`);
+  }
+  if (manifest.schemaVersion !== 1 || !Array.isArray(manifest.captures)) {
+    fail("evidence-manifest.json schemaVersion/captures가 올바르지 않습니다.");
+  }
+  const captures = new Map();
+  for (const capture of manifest.captures) {
+    if (!isPlainObject(capture)) {
+      fail("evidence manifest capture가 object가 아닙니다.");
+    }
+    const key = `${capture.variant}:${capture.scenario}`;
+    if (captures.has(key)) {
+      fail(`evidence manifest capture가 중복되었습니다: ${key}`);
+    }
+    captures.set(key, capture);
+  }
+
+  for (const variant of VARIANTS) {
+    for (const scenario of REQUIRED_SCENARIOS) {
+      const key = `${variant}:${scenario}`;
+      const capture = captures.get(key);
+      if (!capture) {
+        fail(`evidence manifest에 ${key} capture가 없습니다.`);
+      }
+      const round = nonnegativeInteger(capture.round, `${key}.round`);
+      if (!ROUNDS.includes(round)) {
+        fail(`evidence manifest ${key}.round가 1~4가 아닙니다.`);
+      }
+      const artifactPath = path.resolve(root, nonEmptyString(capture.artifact, `${key}.artifact`));
+      const matchingSpec = artifactSpecs.find((spec) => path.resolve(spec.path) === artifactPath);
+      if (!matchingSpec || matchingSpec.variant !== variant || matchingSpec.round !== round) {
+        fail(`evidence manifest ${key} artifact가 CLI 비교 artifact와 일치하지 않습니다.`);
+      }
+      const artifact = matchingSpec.artifact;
+      const dataset = artifact.dataset;
+      if (capture.fixtureId !== dataset.fixtureId
+        || capture.fixtureManifestSha256 !== dataset.fixtureManifestSha256
+        || capture.bggIdSetSha256 !== dataset.bggIdSetSha256
+        || capture.runnerFileSha256 !== artifact.runnerFileSha256
+        || capture.serverCommit !== artifact.serverCommit) {
+        fail(`${key} evidence provenance이 비교 artifact와 다릅니다.`);
+      }
+      const upstreamRole = nonEmptyString(capture.upstreamRole, `${key}.upstreamRole`);
+      const upstreamContainerId = nonEmptyString(capture.upstreamContainerId, `${key}.upstreamContainerId`);
+      const serverContainer = artifact.serverContainers.find((container) => container.role === upstreamRole);
+      if (!serverContainer || serverContainer.containerId !== upstreamContainerId) {
+        fail(`${key} evidence upstream container이 비교 artifact와 다릅니다.`);
+      }
+      const headers = readEvidenceFile(root, `${variant.toLowerCase()}/${scenario}.headers`, `${key} headers`);
+      const headerRole = /^X-Albam-Mate-Upstream:\s*([^\r\n]+)$/mu.exec(headers)?.[1]?.trim();
+      if (headerRole !== upstreamRole) {
+        fail(`${key} evidence HTTP upstream role이 provenance와 다릅니다.`);
+      }
+      const postgresLog = readEvidenceFile(root, `${variant.toLowerCase()}/${scenario}.postgres.log`, `${key} postgres log`);
+      if (!new RegExp(`\\] ${escapeRegExp(upstreamRole)} (?:LOG|DETAIL):`, "u").test(postgresLog)) {
+        fail(`${key} postgres SQL capture의 upstream role이 provenance와 다릅니다.`);
+      }
+    }
+  }
+  if (captures.size !== VARIANTS.length * REQUIRED_SCENARIOS.length) {
+    fail(`evidence manifest capture는 정확히 ${VARIANTS.length * REQUIRED_SCENARIOS.length}개여야 합니다.`);
+  }
+  return captures.size;
+}
+
+export function validateEvidenceRoot(evidenceRoot, artifactSpecs) {
   const root = path.resolve(evidenceRoot);
   if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) {
     fail(`evidence root가 디렉터리가 아닙니다: ${root}`);
@@ -313,9 +436,11 @@ export function validateEvidenceRoot(evidenceRoot) {
     fail(`selection-summary.json을 읽을 수 없습니다: ${error.message}`);
   }
 
+  const provenanceCaptureCount = validateEvidenceProvenance(root, artifactSpecs);
   let sqlCaptureCount = 0;
   let slowestExplainCount = 0;
   let relationComplexContentPlanCount = 0;
+  let themeIndexCandidatePlanCount = 0;
   for (const variant of VARIANTS) {
     const variantKey = variant.toLowerCase();
     const variantSummary = selectionSummary[variantKey];
@@ -336,6 +461,9 @@ export function validateEvidenceRoot(evidenceRoot) {
       if (!postgresLog.includes(contentSql)) {
         fail(`${variant} ${scenario} SQL capture가 selection-summary contentSql과 다릅니다.`);
       }
+      const slowestSql = nonEmptyString(summary.slowestSql, `${variant} ${scenario}.slowestSql`);
+      const slowestDurationMs = finiteNonnegative(summary.slowestDurationMs, `${variant} ${scenario}.slowestDurationMs`);
+      const contentDurationMs = finiteNonnegative(summary.contentDurationMs, `${variant} ${scenario}.contentDurationMs`);
       sqlCaptureCount += 1;
 
       const slowestInput = readEvidenceFile(
@@ -347,6 +475,15 @@ export function validateEvidenceRoot(evidenceRoot) {
         root,
         `${variantKey}/explain-output/${scenario}-slowest.txt`,
         `${variant} ${scenario} slowest EXPLAIN output`,
+      );
+      validateExplainTarget(
+        slowestInput,
+        postgresLog,
+        slowestSql,
+        slowestDurationMs,
+        variantKey,
+        scenario,
+        `${variant} ${scenario} slowest`,
       );
       if (!/EXPLAIN\s*\(/iu.test(slowestInput)
         || !/QUERY PLAN/iu.test(slowestOutput)
@@ -366,16 +503,32 @@ export function validateEvidenceRoot(evidenceRoot) {
           `${variantKey}/explain-output/${scenario}-content.txt`,
           `${variant} ${scenario} content EXPLAIN output`,
         );
+        validateExplainTarget(
+          contentInput,
+          postgresLog,
+          contentSql,
+          contentDurationMs,
+          variantKey,
+          scenario,
+          `${variant} ${scenario} content`,
+        );
         if (!/EXPLAIN\s*\(/iu.test(contentInput)
           || !/QUERY PLAN/iu.test(contentOutput)
           || !/Execution Time:/iu.test(contentOutput)) {
           fail(`${variant} ${scenario} content EXPLAIN evidence가 올바르지 않습니다.`);
         }
         relationComplexContentPlanCount += 1;
+        const hasThemeCandidateIndex = /ix_game_theme_relations_theme_game/iu.test(contentOutput);
+        if ((variant === "V2" || variant === "V3") !== hasThemeCandidateIndex) {
+          fail(`${variant} ${scenario} content EXPLAIN의 theme 후보 index provenance가 올바르지 않습니다.`);
+        }
+        if (hasThemeCandidateIndex) {
+          themeIndexCandidatePlanCount += 1;
+        }
       }
 
       if (scenario === "base") {
-        if (/\bselect\s+count\s*\([^)]*\)[\s\S]*\bfrom\s+games\b/iu.test(postgresLog)) {
+        if (containsGamesExactCount(postgresLog)) {
           fail(`${variant} base SQL capture에 games exact count statement가 있습니다.`);
         }
         if (!/fetch first \$\d+ rows only/iu.test(contentSql)
@@ -387,9 +540,11 @@ export function validateEvidenceRoot(evidenceRoot) {
   }
   return {
     schemaVersion: 1,
+    provenanceCaptureCount,
     sqlCaptureCount,
     slowestExplainCount,
     relationComplexContentPlanCount,
+    themeIndexCandidatePlanCount,
     baseExactCountAbsent: true,
   };
 }
@@ -668,7 +823,7 @@ export function comparisonMarkdown(result) {
     `- runner file SHA-256: \`${result.runnerFileSha256}\``,
     `- 선정 후보: ${result.selectedVariant ?? "없음 — V0 유지"}`,
     ...(result.evidence ? [
-      `- SQL/EXPLAIN evidence gate: ${result.evidence.sqlCaptureCount} SQL capture, ${result.evidence.slowestExplainCount} slowest EXPLAIN, ${result.evidence.relationComplexContentPlanCount} relation·complex content plan, base exact count 부재=${result.evidence.baseExactCountAbsent ? "PASS" : "FAIL"}`,
+      `- SQL/EXPLAIN evidence gate: ${result.evidence.provenanceCaptureCount} provenance capture, ${result.evidence.sqlCaptureCount} SQL capture, ${result.evidence.slowestExplainCount} slowest EXPLAIN, ${result.evidence.relationComplexContentPlanCount} relation·complex content plan, ${result.evidence.themeIndexCandidatePlanCount} theme index candidate plan, base exact count 부재=${result.evidence.baseExactCountAbsent ? "PASS" : "FAIL"}`,
     ] : []),
     "",
     "## Scenario median (네 batch 가운데 두 p95의 산술평균)",
@@ -708,8 +863,9 @@ function writeText(filePath, text) {
 
 function main() {
   const options = parseArgs(process.argv.slice(2));
-  const evidence = validateEvidenceRoot(options.evidenceRoot);
-  const result = compareVariants(options.artifactSpecs.map(readArtifact));
+  const artifacts = options.artifactSpecs.map(readArtifact);
+  const evidence = validateEvidenceRoot(options.evidenceRoot, artifacts);
+  const result = compareVariants(artifacts);
   result.evidence = evidence;
   writeText(options.output, `${JSON.stringify(result, null, 2)}\n`);
   writeText(options.markdownOutput, comparisonMarkdown(result));

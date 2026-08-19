@@ -93,22 +93,23 @@ canonical games 지문은 목록 결과에 영향을 주는 name·alias·image·
 
 ```bash
 node scripts/measurements/game-list-variant-comparison.mjs \
-  --artifact V0:1:docs/measurements/results/game-list-740/v0-r1.json \
-  --artifact V0:2:docs/measurements/results/game-list-740/v0-r2.json \
-  --artifact V0:3:docs/measurements/results/game-list-740/v0-r3.json \
-  --artifact V0:4:docs/measurements/results/game-list-740/v0-r4.json \
-  --artifact V1:1:docs/measurements/results/game-list-740/v1-r1.json \
-  --artifact V1:2:docs/measurements/results/game-list-740/v1-r2.json \
-  --artifact V1:3:docs/measurements/results/game-list-740/v1-r3.json \
-  --artifact V1:4:docs/measurements/results/game-list-740/v1-r4.json \
-  --artifact V2:1:docs/measurements/results/game-list-740/v2-r1.json \
-  --artifact V2:2:docs/measurements/results/game-list-740/v2-r2.json \
-  --artifact V2:3:docs/measurements/results/game-list-740/v2-r3.json \
-  --artifact V2:4:docs/measurements/results/game-list-740/v2-r4.json \
-  --artifact V3:1:docs/measurements/results/game-list-740/v3-r1.json \
-  --artifact V3:2:docs/measurements/results/game-list-740/v3-r2.json \
-  --artifact V3:3:docs/measurements/results/game-list-740/v3-r3.json \
-  --artifact V3:4:docs/measurements/results/game-list-740/v3-r4.json \
+  --artifact V0:1:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v0-r1.json \
+  --artifact V0:2:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v0-r2.json \
+  --artifact V0:3:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v0-r3.json \
+  --artifact V0:4:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v0-r4.json \
+  --artifact V1:1:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v1-r1.json \
+  --artifact V1:2:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v1-r2.json \
+  --artifact V1:3:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v1-r3.json \
+  --artifact V1:4:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v1-r4.json \
+  --artifact V2:1:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v2-r1.json \
+  --artifact V2:2:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v2-r2.json \
+  --artifact V2:3:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v2-r3.json \
+  --artifact V2:4:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v2-r4.json \
+  --artifact V3:1:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v3-r1.json \
+  --artifact V3:2:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v3-r2.json \
+  --artifact V3:3:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v3-r3.json \
+  --artifact V3:4:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v3-r4.json \
+  --evidence-root docs/measurements/results/game-list-740/game-list-867-2026-08-19/sql-captures \
   --output docs/measurements/results/game-list-740/game-list-770-relation-variant-comparison-2026-08-19.json \
   --markdown-output docs/measurements/results/game-list-740/game-list-770-relation-variant-comparison-2026-08-19.md
 ```

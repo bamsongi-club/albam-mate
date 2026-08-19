@@ -25,6 +25,7 @@ import org.springframework.data.domain.SliceImpl;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor.SpecificationFluentQuery;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.annotation.Transactional;
@@ -92,6 +93,9 @@ class GameListFilterPostgresTest {
 
 	@Autowired
 	private GameCategoryRelationRepository gameCategoryRelationRepository;
+
+	@Autowired
+	private JdbcTemplate jdbcTemplate;
 
 	@Test
 	void PostgreSQL_게임목록은_count없이_Slice_경계와_고정정렬을_보존한다() {
@@ -195,6 +199,18 @@ class GameListFilterPostgresTest {
 			sqlLogger.detachAppender(sqlEvents);
 			sqlLogger.setLevel(originalLevel);
 		}
+	}
+
+	@Test
+	void T3_최종_V1은_탈락한_V2_V3_theme_index를_남기지_않고_기존_index를_보존한다() {
+		List<String> indexDefinitions = jdbcTemplate.queryForList(
+			"select indexdef from pg_indexes where schemaname = 'public' and tablename = 'game_theme_relations'",
+			String.class);
+
+		assertTrue(indexDefinitions.stream().anyMatch(index ->
+			index.contains("ix_game_theme_relations_theme_id") && index.contains("(theme_id)")));
+		assertTrue(indexDefinitions.stream().noneMatch(index ->
+			index.contains("ix_game_theme_relations_theme_game") || index.contains("(theme_id, game_id)")));
 	}
 
 	@Test

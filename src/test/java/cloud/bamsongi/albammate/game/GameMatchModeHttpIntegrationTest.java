@@ -184,6 +184,8 @@ class GameMatchModeHttpIntegrationTest {
 
 		mockMvc.perform(matchRequest("T5"))
 			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.page").value(0))
+			.andExpect(jsonPath("$.data.size").value(10))
 			.andExpect(jsonPath("$.data.totalElements").doesNotExist())
 			.andExpect(jsonPath("$.data.totalPages").doesNotExist())
 			.andExpect(jsonPath("$.data.content[0].id").value(both.getId()))
@@ -202,16 +204,28 @@ class GameMatchModeHttpIntegrationTest {
 			.andExpect(jsonPath("$.data.content[0].id").value(both.getId()));
 		mockMvc.perform(matchRequest("T5").param("size", "1").param("page", "0"))
 			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.page").value(0))
+			.andExpect(jsonPath("$.data.size").value(1))
 			.andExpect(jsonPath("$.data.content[0].id").value(both.getId()))
 			.andExpect(jsonPath("$.data.hasNext").value(true));
 		mockMvc.perform(matchRequest("T5").param("size", "1").param("page", "1"))
 			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.page").value(1))
+			.andExpect(jsonPath("$.data.size").value(1))
 			.andExpect(jsonPath("$.data.content[0].id").value(themeAnyMechanismAll.getId()))
 			.andExpect(jsonPath("$.data.hasNext").value(true));
 		mockMvc.perform(matchRequest("T5").param("size", "1").param("page", "2"))
 			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.page").value(2))
+			.andExpect(jsonPath("$.data.size").value(1))
 			.andExpect(jsonPath("$.data.content[0].id").value(themeAllMechanismAny.getId()))
 			.andExpect(jsonPath("$.data.hasNext").value(false));
+		mockMvc.perform(get("/api/games").param("playedFilter", "PLAYED_ONLY"))
+			.andExpect(status().isUnauthorized())
+			.andExpect(jsonPath("$.code").value("UNAUTHENTICATED"));
+		mockMvc.perform(get("/api/games").param("themeMatch", "ANY").param("themeMatch", "ALL"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
 	}
 
 	private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder matchRequest(String name) {

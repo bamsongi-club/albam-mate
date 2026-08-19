@@ -5,7 +5,7 @@
 - fixture manifest SHA-256: `58263d92f6f1f39f7cf3619f9f7666cf9d48c6f420b59606116a1e353f6000eb`
 - runner file SHA-256: `a96476d2d354a561e418853805b60fe3dbd425f9e3da93c338e7bb8ab6b8ac09`
 - 선정 후보: V1
-- SQL/EXPLAIN evidence gate: 24 SQL capture, 24 slowest EXPLAIN, 8 relation·complex content plan, base exact count 부재=PASS
+- SQL/EXPLAIN evidence gate: 24 provenance capture, 24 SQL capture, 24 slowest EXPLAIN, 8 relation·complex content plan, 4 theme index candidate plan, base exact count 부재=PASS
 
 ## Scenario median (네 batch 가운데 두 p95의 산술평균)
 

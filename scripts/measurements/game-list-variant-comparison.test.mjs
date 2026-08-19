@@ -8,12 +8,18 @@ import { fileURLToPath } from "node:url";
 
 import {
   REQUIRED_SCENARIOS,
+  containsGamesExactCount,
   compareVariants,
+  validateEvidenceRoot,
 } from "./game-list-variant-comparison.mjs";
 
 const comparisonPath = fileURLToPath(new URL("./game-list-variant-comparison.mjs", import.meta.url));
 const evidenceRoot = fileURLToPath(new URL(
   "../../docs/measurements/results/game-list-740/game-list-867-2026-08-19/sql-captures/",
+  import.meta.url,
+));
+const measuredHttpRoot = fileURLToPath(new URL(
+  "../../docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/",
   import.meta.url,
 ));
 const fixture = {
@@ -134,6 +140,20 @@ function validSpecs(byVariant = {}) {
   );
 }
 
+function measuredSpecs(httpRoot = measuredHttpRoot) {
+  return ["V0", "V1", "V2", "V3"].flatMap((variant) =>
+    [1, 2, 3, 4].map((round) => {
+      const pathName = path.join(httpRoot, `${variant.toLowerCase()}-r${round}.json`);
+      return {
+        variant,
+        round,
+        path: pathName,
+        artifact: JSON.parse(fs.readFileSync(pathName, "utf8")),
+      };
+    }),
+  );
+}
+
 test("각 variant의 네 artifact와 같은 fixture fingerprint가 없으면 비교를 거절한다", () => {
   const missingRoundArtifacts = validSpecs().filter(
     (candidate) => !(candidate.variant === "V2" && candidate.round === 4),
@@ -225,15 +245,39 @@ test("runner SHA와 모든 200 sample이 같지 않으면 성공 비교를 만�
   assert.throws(() => compareVariants(upstreamContainerMismatch), /upstream container/u);
 });
 
+test("EXPLAIN target·provenance와 qualified games exact count를 검증한다", () => {
+  assert.equal(containsGamesExactCount("select count(*) from games"), true);
+  assert.equal(containsGamesExactCount("select count(*) from public.games"), true);
+  assert.equal(containsGamesExactCount('select count(*) from "public"."games"'), true);
+  assert.equal(containsGamesExactCount("select count(*) from game_themes"), false);
+
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "game-list-evidence-"));
+  const copiedEvidenceRoot = path.join(root, "sql-captures");
+  const copiedHttpRoot = path.join(root, "http");
+  try {
+    fs.cpSync(evidenceRoot, copiedEvidenceRoot, { recursive: true });
+    fs.cpSync(measuredHttpRoot, copiedHttpRoot, { recursive: true });
+    const specs = measuredSpecs(copiedHttpRoot);
+    assert.doesNotThrow(() => validateEvidenceRoot(copiedEvidenceRoot, specs));
+
+    const slowestPath = path.join(copiedEvidenceRoot, "v0/explain-input/base-slowest.sql");
+    const slowestInput = fs.readFileSync(slowestPath, "utf8");
+    fs.writeFileSync(slowestPath, slowestInput.replace("from games", "from other_table"));
+    assert.throws(
+      () => validateEvidenceRoot(copiedEvidenceRoot, specs),
+      /slowest.*SQL/iu,
+    );
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("CLI는 JSON과 Markdown 결과에 선정 후보와 raw artifact를 함께 기록한다", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "game-list-variant-comparison-"));
   try {
-    const specs = validSpecs({ V1: p95({ "relation-theme-mechanism": 190, complex: 190 }) });
     const args = [];
-    for (const spec of specs) {
-      const artifactPath = path.join(root, spec.path);
-      fs.writeFileSync(artifactPath, `${JSON.stringify(spec.artifact, null, 2)}\n`);
-      args.push("--artifact", `${spec.variant}:${spec.round}:${artifactPath}`);
+    for (const spec of measuredSpecs()) {
+      args.push("--artifact", `${spec.variant}:${spec.round}:${spec.path}`);
     }
     const outputPath = path.join(root, "comparison.json");
     const markdownPath = path.join(root, "comparison.md");

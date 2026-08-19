@@ -1038,9 +1038,11 @@
   "selectedVariant": "V1",
   "evidence": {
     "schemaVersion": 1,
+    "provenanceCaptureCount": 24,
     "sqlCaptureCount": 24,
     "slowestExplainCount": 24,
     "relationComplexContentPlanCount": 8,
+    "themeIndexCandidatePlanCount": 4,
     "baseExactCountAbsent": true
   }
 }
