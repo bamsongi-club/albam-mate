@@ -203,7 +203,7 @@ MATCH 사용자 메시지 쓰기는 chat Command가 연 트랜잭션에서 `Matc
 
 listener는 안내를 저장하기 전에 같은 트랜잭션에서 `CHAT_SYSTEM_MESSAGE_ACTIVATION` 전역 gate를 읽고, 활성화 시각 이후의 사건만 저장한다. 이 비교는 판정 트랜잭션이 고정한 PostgreSQL 시각으로 하며, 이벤트가 전달한 애플리케이션 `Clock` 기준 `occurredAt`을 gate 비교에 쓰지 않는다([시계 도메인 경계](ERD.md#chat-06-혼합-버전-배포활성화rollback-순서)). 인스턴스별 설정으로 이 판정을 대신하지 않으므로 순차 배포 구간에도 모든 인스턴스가 같은 결론에 이른다. listener는 동기이며 원인 Executor의 트랜잭션에 참여한다. 별도 커밋·독립 트랜잭션·`AFTER_COMMIT` 지연 저장을 하지 않으므로 참가 전이와 안내는 함께 커밋되거나 함께 롤백된다. 저장 실패는 참가 요청 자체의 실패로 전파하며 재시도 큐·보정 스케줄러를 두지 않는다.
 
-잠금 순서는 기존 채팅 쓰기와 같은 `ROOMS → CHAT_ROOMS`다. 참가·참가 취소 Executor가 `ROOMS`를 갱신한 뒤 listener가 `CHAT_ROOMS`를 잠그고 `SYSTEM` 행을 append하므로, 사용자 메시지 저장 경로와 잠금 획득 순서가 같아 새로운 교착 조합을 만들지 않는다. 다만 참가·참가 취소가 이제 같은 방의 채팅방 append 잠금을 얻으므로, 메시지 전송과 새로 직렬화된다. 이는 방별 ID 순서를 지키기 위해 받아들이는 비용이며 관측 대상은 [CHAT-06 운영 측정](p2/chat.md#운영-측정)이 소유한다. 커밋 뒤 실시간 발행은 기존 `chat.contract.ChatRealtimePublisher`와 같은 `AFTER_COMMIT` 경로·같은 이벤트 타입을 사용하며 별도 채널을 만들지 않는다.
+잠금 순서는 기존 채팅 쓰기와 같은 `ROOMS → CHAT_ROOMS`다. 참가·참가 취소 Executor가 `ROOMS`를 갱신한 뒤 listener가 `CHAT_ROOMS`를 잠그고 `SYSTEM` 행을 append하므로, 사용자 메시지 저장 경로와 잠금 획득 순서가 같아 새로운 교착 조합을 만들지 않는다. 다만 참가·참가 취소가 이제 같은 방의 채팅방 append 잠금을 얻으므로, 메시지 전송과 새로 직렬화된다. 이는 방별 ID 순서를 지키기 위해 받아들이는 비용이며 관측 대상은 [CHAT-06 운영 측정](p2/chat.md#chat-06-운영-측정)이 소유한다. 커밋 뒤 실시간 발행은 기존 `chat.contract.ChatRealtimePublisher`와 같은 `AFTER_COMMIT` 경로·같은 이벤트 타입을 사용하며 별도 채널을 만들지 않는다.
 
 실시간 경로에서 응답을 조립하는 지점은 발행자가 아니다. `ChatMessageCommittedListener`는 `roomId`·`messageId` 신호만 발행하고, 그 신호를 받은 각 인스턴스의 `chat/websocket`이 PostgreSQL 행을 다시 읽어 응답을 만든다. 따라서 `SYSTEM` 행의 종류 구분·대상 프로필 조회·문장 조립은 이력 경로와 실시간 경로 **양쪽**에 있어야 한다.
 
