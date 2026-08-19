@@ -44,6 +44,8 @@ import cloud.bamsongi.albammate.chat.match.service.MatchChatMessageSendResult;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.global.exception.RateLimitExceededException;
+import cloud.bamsongi.albammate.infra.redis.RedisChatMessageRateLimiter;
+import cloud.bamsongi.albammate.infra.redis.RedisMatchChatMessageRateLimiter;
 
 /**
  * CHAT-T5 — MATCH 채팅 전송의 사용자 5건·Party 30건/10초 quota를 실제 PostgreSQL 트랜잭션과 Redis 원자 판정으로
@@ -82,6 +84,10 @@ class MatchChatMessageRateLimitPostgresTest {
 	@Autowired
 	private RedisConnectionFactory redisConnectionFactory;
 	@Autowired
+	private RedisChatMessageRateLimiter roomRateLimiter;
+	@Autowired
+	private RedisMatchChatMessageRateLimiter matchRateLimiter;
+	@Autowired
 	private RecordingMatchChatRealtimePublisher realtimePublisher;
 	@Autowired
 	private TransactionTemplate transactionTemplate;
@@ -102,6 +108,35 @@ class MatchChatMessageRateLimitPostgresTest {
 		jdbcTemplate.execute(
 			"truncate table match_chat_messages, match_chat_rooms, match_party_participants, match_parties, users "
 				+ "restart identity cascade");
+	}
+
+	@Test
+	void T5_같은_사용자의_ROOM과_MATCH_예약은_실제_Redis에서_count_TTL_reservation을_서로_변경하지_않는다() {
+		long userId = insertUser();
+		long partyId = insertActivePartyWithParticipants(userId);
+		long roomId = 701L;
+
+		var roomReservation = roomRateLimiter.reserve(userId, roomId);
+		var matchReservation = matchRateLimiter.reserve(userId, partyId);
+
+		assertEquals("1", redis().opsForValue().get(roomUserKey(userId)));
+		assertEquals("1", redis().opsForValue().get(userKey(userId)));
+		assertTrue(Boolean.TRUE.equals(redis().hasKey(roomUserReservationsKey(userId))));
+		assertTrue(Boolean.TRUE.equals(redis().hasKey(userReservationsKey(userId))));
+		assertNotNull(redis().getExpire(roomUserKey(userId), TimeUnit.MILLISECONDS));
+		assertNotNull(redis().getExpire(userKey(userId), TimeUnit.MILLISECONDS));
+
+		matchReservation.release();
+
+		assertEquals("1", redis().opsForValue().get(roomUserKey(userId)));
+		assertTrue(Boolean.TRUE.equals(redis().hasKey(roomUserReservationsKey(userId))));
+		assertFalse(Boolean.TRUE.equals(redis().hasKey(userKey(userId))));
+		assertFalse(Boolean.TRUE.equals(redis().hasKey(userReservationsKey(userId))));
+
+		roomReservation.release();
+
+		assertFalse(Boolean.TRUE.equals(redis().hasKey(roomUserKey(userId))));
+		assertFalse(Boolean.TRUE.equals(redis().hasKey(roomUserReservationsKey(userId))));
 	}
 
 	@Test
@@ -314,11 +349,23 @@ class MatchChatMessageRateLimitPostgresTest {
 	}
 
 	private String userKey(long userId) {
-		return RATE_LIMIT_PREFIX + ":user:" + userId;
+		return RATE_LIMIT_PREFIX + ":match:user:" + userId;
 	}
 
 	private String partyKey(long partyId) {
-		return RATE_LIMIT_PREFIX + ":party:" + partyId;
+		return RATE_LIMIT_PREFIX + ":match:party:" + partyId;
+	}
+
+	private String userReservationsKey(long userId) {
+		return userKey(userId) + ":reservations";
+	}
+
+	private String roomUserKey(long userId) {
+		return RATE_LIMIT_PREFIX + ":user:" + userId;
+	}
+
+	private String roomUserReservationsKey(long userId) {
+		return roomUserKey(userId) + ":reservations";
 	}
 
 	private StringRedisTemplate redis() {

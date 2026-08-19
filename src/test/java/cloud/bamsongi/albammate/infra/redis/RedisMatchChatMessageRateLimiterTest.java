@@ -50,8 +50,8 @@ class RedisMatchChatMessageRateLimiterTest {
 	}
 
 	@Test
-	void local_namespace는_ROOM과_같은_prefix를_쓰되_party_key로_분리된다() {
-		assertEquals("albam-mate:local:ratelimit", ReflectionTestUtils.getField(limiter, "keyPrefix"));
+	void T5_local_namespace는_ROOM과_사용자_Party_reservation_모두_분리한다() {
+		assertEquals("albam-mate:local:ratelimit:match", ReflectionTestUtils.getField(limiter, "keyPrefix"));
 	}
 
 	@Test
@@ -111,10 +111,10 @@ class RedisMatchChatMessageRateLimiterTest {
 		ArgumentCaptor<List> keysCaptor = ArgumentCaptor.forClass(List.class);
 		verify(redisTemplate).execute(any(RedisScript.class), keysCaptor.capture(), any(Object[].class));
 		List<?> keys = keysCaptor.getValue();
-		assertEquals("albam-mate:local:ratelimit:user:42", keys.get(0));
-		assertEquals("albam-mate:local:ratelimit:party:7", keys.get(1));
-		assertEquals("albam-mate:local:ratelimit:user:42:reservations", keys.get(2));
-		assertEquals("albam-mate:local:ratelimit:party:7:reservations", keys.get(3));
+		assertEquals("albam-mate:local:ratelimit:match:user:42", keys.get(0));
+		assertEquals("albam-mate:local:ratelimit:match:party:7", keys.get(1));
+		assertEquals("albam-mate:local:ratelimit:match:user:42:reservations", keys.get(2));
+		assertEquals("albam-mate:local:ratelimit:match:party:7:reservations", keys.get(3));
 	}
 
 	@SuppressWarnings({"unchecked", "rawtypes"})

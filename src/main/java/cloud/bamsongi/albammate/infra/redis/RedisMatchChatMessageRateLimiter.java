@@ -34,7 +34,7 @@ public class RedisMatchChatMessageRateLimiter implements MatchChatMessageRateLim
 		MatchChatMessageRateLimitProperties rateLimitProperties) {
 		redisTemplate = new StringRedisTemplate(redisConnectionFactory);
 		redisTemplate.afterPropertiesSet();
-		keyPrefix = RedisChatMessageRateLimiter.namespaceFor(environment);
+		keyPrefix = RedisChatMessageRateLimiter.namespaceFor(environment) + ":match";
 		this.rateLimitProperties = rateLimitProperties;
 	}
 
