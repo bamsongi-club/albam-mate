@@ -280,7 +280,7 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 | 47 | P2 | [MATCH-01](#match-01-차단-해제) · [정본](p2/matching.md#match-01-실시간-파티-매칭) · API 계약 준비 완료·구현 예정 | DELETE | `/api/matches/blocks/{blockId}` | Y | Y | 200 |
 | 48 | P2 | [MATCH-01](#match-01-신고-접수) · [정본](p2/matching.md#match-01-실시간-파티-매칭) · API 계약 준비 완료·구현 예정 | POST | `/api/matches/parties/{partyId}/reports` | Y | Y | 201·200 |
 | 49 | P2 | [MATCH-01](#match-01-성공-파티-나가기) · [정본](p2/matching.md#match-01-실시간-파티-매칭) · API 계약 준비 완료·구현 예정 | DELETE | `/api/matches/parties/{partyId}/participants/me` | Y | Y | 200 |
-| 50 | P2 | [CHAT-07](#chat-07-채팅방-읽음-처리) · [정본](p2/chat.md#chat-07-채팅-목록-마지막-메시지방별-미읽음-상태) · API 계약 준비 완료·구현 예정 | POST | `/api/rooms/{roomId}/chat/read` | Y | Y | 200 |
+| 50 | P2 | [CHAT-07](#chat-07-채팅방-읽음-처리) · [정본](p2/chat.md#chat-07-채팅-목록-마지막-메시지방별-미읽음-상태) · API 계약 준비 완료·제공 | POST | `/api/rooms/{roomId}/chat/read` | Y | Y | 200 |
 | 51 | P2 | [CHAT-07](#chat-07-내-미읽음-채팅방-요약) · [정본](p2/chat.md#chat-07-채팅-목록-마지막-메시지방별-미읽음-상태) · API 계약 준비 완료·구현 예정 | GET | `/api/users/me/chat/unread-summary` | Y | N | 200 |
 
 `GET /api/games`, `GET /api/games/{gameId}`, `GET /api/rooms`, `GET /api/rooms/{roomId}`와 `GET /api/auth/social/providers`의 인증은 "선택"이다. 비로그인도 호출할 수 있고, 유효한 세션이 있으면 요청자 기준 값을 계산한다. 단, `GET /api/games`의 유효한 `playedFilter`는 로그인을 요구한다.
@@ -710,13 +710,13 @@ P0 프로필은 닉네임만 제공·수정한다. P1부터 프로필 이미지 
 | `myRole` | MyRole | Y | N | P0 | 제공 | `HOST` 또는 `JOINED` |
 | `participationStatus` | ParticipationStatus | Y | Y | P0 | 제공 | `myRole = JOINED`이면 항상 `ACTIVE`, `HOST`이면 `null` |
 | `chatAvailable` | boolean | Y | N | P1 | 제공 | 현재 요청자가 채팅 API에 접근할 수 있는지. `HOST` 또는 `ACTIVE` 참가자이고 응답 유효 상태가 `RECRUITING`·`CLOSED`일 때만 `true`. 프론트엔드의 직접 진입점은 모임 상세이며 내 모임 목록에서는 이 필드로 채팅 버튼을 표시하지 않는다 |
-| `lastMessagePreview` | string | Y | Y | P2 `CHAT-07` | 구현 예정 | 채팅방의 마지막 메시지 본문(`SYSTEM`이면 조립된 안내 문장). 메시지가 없거나 `chatAvailable = false`이면 `null` |
-| `lastMessageAt` | string(date-time) | Y | Y | P2 `CHAT-07` | 구현 예정 | 마지막 메시지의 저장 시각. 메시지가 없으면 `null` |
-| `unreadCount` | integer | Y | N | P2 `CHAT-07` | 구현 예정 | 요청자가 이 방에서 아직 읽지 않은 메시지 수. 본인이 보낸 `USER` 메시지와 본인이 대상인 `SYSTEM` 메시지는 세지 않는다. `chatAvailable = false`이면 `0` |
+| `lastMessagePreview` | string | Y | Y | P2 `CHAT-07` | 제공 | 채팅방의 마지막 메시지 본문(`SYSTEM`이면 조립된 안내 문장). 메시지가 없거나 `chatAvailable = false`이면 `null` |
+| `lastMessageAt` | string(date-time) | Y | Y | P2 `CHAT-07` | 제공 | 마지막 메시지의 저장 시각. 메시지가 없으면 `null` |
+| `unreadCount` | integer | Y | N | P2 `CHAT-07` | 제공 | 요청자가 이 방에서 아직 읽지 않은 메시지 수. 본인이 보낸 `USER` 메시지와 본인이 대상인 `SYSTEM` 메시지는 세지 않는다. `chatAvailable = false`이면 `0` |
 
 `joinable`과 `waitlistable`은 `PublicRoomResponse`와 같은 요청자 기준 값이다. 내 모임은 주최·참가 ROOM만 반환하므로 두 값은 항상 `false`이고, 대기 중인 ROOM을 조회 대상에 추가하지 않는다. `chatAvailable`은 서버 접근 가능성의 계약 일치를 위한 값이며, 채팅 버튼은 모임 상세의 `myRole`·대상 ROOM 보정 뒤 저장 상태 기준으로 표시한다. 내 모임 목록에는 중복 채팅 진입을 표시하지 않으며, 직접 채팅 API를 호출해도 서버가 같은 관계·상태 규칙으로 거절한다.
 
-`lastMessagePreview`·`lastMessageAt`·`unreadCount`는 `CHAT-07`의 목표 계약이며 현재 제공 필드가 아니다. 계산 방식·저장 구조는 [CHAT-07 계약](#chat-07-채팅-목록-마지막-메시지방별-미읽음-상태-계약)이 소유한다.
+`lastMessagePreview`·`lastMessageAt`·`unreadCount`는 [#862](https://github.com/bamsongi-club/albam-mate/pull/862)가 구현해 `GET /api/users/me/rooms`가 제공한다. 계산 방식·저장 구조는 [CHAT-07 계약](#chat-07-채팅-목록-마지막-메시지방별-미읽음-상태-계약)이 소유한다.
 
 ### 4.11 RoomStatusResponse
 
@@ -2614,7 +2614,7 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 
 ### CHAT-07 채팅방 읽음 처리
 
-> **도입 단계: P2** · **기능: CHAT-07** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+> **도입 단계: P2** · **기능: CHAT-07** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 제공**
 
 | 항목 | 값 |
 |---|---|
