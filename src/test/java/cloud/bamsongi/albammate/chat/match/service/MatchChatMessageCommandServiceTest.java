@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -166,6 +167,30 @@ class MatchChatMessageCommandServiceTest {
 				synchronization -> synchronization.afterCompletion(TransactionSynchronization.STATUS_ROLLED_BACK));
 
 		verify(rolledBackReservation).release();
+	}
+
+	@Test
+	void 이벤트_발행_실패로_해제한_예약은_이후_트랜잭션_동기화가_다시_해제를_시도해도_한_번만_해제된다() {
+		when(matchChatMessageRepository.findByMatchChatRoomIdAndSenderUserIdAndClientMessageId(
+			CHAT_ROOM_ID, CURRENT_USER_ID, "client-event-fail")).thenReturn(Optional.empty());
+		MatchChatMessageRateLimiter.RateLimitReservation reservation = mock(
+			MatchChatMessageRateLimiter.RateLimitReservation.class);
+		when(matchChatMessageRateLimiter.reserve(CURRENT_USER_ID, PARTY_ID)).thenReturn(reservation);
+		org.mockito.Mockito.doThrow(new RuntimeException("publish failed"))
+			.when(eventPublisher).publishEvent(any(MatchChatMessageCommitted.class));
+
+		assertThrows(
+			RuntimeException.class,
+			() -> service.send(
+				CURRENT_USER_ID, PARTY_ID, new MatchChatMessageSendRequest("client-event-fail", "본문")));
+
+		verify(reservation).release();
+
+		TransactionSynchronizationManager.getSynchronizations()
+			.forEach(
+				synchronization -> synchronization.afterCompletion(TransactionSynchronization.STATUS_ROLLED_BACK));
+
+		verify(reservation, times(1)).release();
 	}
 
 	@Test
