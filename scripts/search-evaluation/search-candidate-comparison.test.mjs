@@ -8,6 +8,7 @@ import test from "node:test";
 import {
     buildComparisonReport,
     buildComparisonJudgementPacket,
+    buildEvaluationMetadata,
     buildRrfRanking,
     loadComparisonManifest,
     normalizeCandidateResults,
@@ -53,11 +54,21 @@ function candidate(name, queries, results) {
     return { name, queries, results };
 }
 
-function approvedJudgements(grades = { "1": 2, "2": 1, "3": 0, "4": 2 }) {
+const TEST_CANDIDATES = [
+    candidate("lexical", QUERY_FIXTURE, BASELINE_RESULTS),
+    candidate("dense", QUERY_FIXTURE, DENSE_RESULTS),
+];
+const TEST_EVALUATION = buildEvaluationMetadata({ candidates: TEST_CANDIDATES });
+
+function approvedJudgements(
+    grades = { "1": 2, "2": 1, "3": 0, "4": 2 },
+    evaluation = TEST_EVALUATION,
+) {
     return {
         schemaVersion: 1,
         kind: "search-04-search-candidate-qrels",
         status: "approved",
+        evaluation,
         queries: [
             {
                 id: "Q-010",
@@ -164,6 +175,42 @@ test("candidate Top-K에 대한 qrels가 빠지면 approved 비교를 거절한�
         }),
         /qrels.*game ID|grade.*4/u,
     );
+});
+
+test("packet과 metrics는 동일한 evaluation Top-K pool checksum을 사용한다", () => {
+    const queryFixture = [{
+        id: "Q-010",
+        query: "가볍게 웃으면서 즐길 수 있는 게임",
+        cohorts: ["intent/description"],
+        analysisClass: "semantic-core",
+        hardFilters: {},
+    }];
+    const candidates = [
+        candidate("lexical", queryFixture, {
+            "Q-010": { rankedGameIds: Array.from({ length: 25 }, (_, index) => index + 1), hardFilterViolationGameIds: [] },
+        }),
+        candidate("dense", queryFixture, {
+            "Q-010": { rankedGameIds: Array.from({ length: 25 }, (_, index) => index + 26), hardFilterViolationGameIds: [] },
+        }),
+    ];
+    const packet = buildComparisonJudgementPacket({
+        queries: queryFixture,
+        candidates,
+        searchText: { games: Array.from({ length: 50 }, (_, index) => ({ gameId: index + 1, searchText: `게임 ${index + 1}` })) },
+    });
+    const evaluationGameIds = [
+        ...Array.from({ length: 20 }, (_, index) => index + 1),
+        ...Array.from({ length: 20 }, (_, index) => index + 26),
+    ];
+    const grades = Object.fromEntries(evaluationGameIds.map((gameId) => [String(gameId), 0]));
+    const report = buildComparisonReport({
+        queries: queryFixture,
+        candidates,
+        judgements: approvedJudgements(grades, packet.evaluation),
+    });
+
+    assert.equal(report.status, "metrics-ready");
+    assert.deepEqual(report.evaluation, packet.evaluation);
 });
 
 test("RRF는 고정 k와 game ID tie-break로 결정적으로 순위를 합친다", () => {

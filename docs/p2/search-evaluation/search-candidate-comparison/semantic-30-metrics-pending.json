@@ -3,6 +3,10 @@
   "kind": "search-04-search-candidate-comparison",
   "status": "pending-human-judgement",
   "queryCount": 30,
+  "evaluation": {
+    "topK": 20,
+    "candidatePoolSha256": "22cba9cb32fb2e00b5b9c76054fd3a7ecdc767a432b30b3c060674201a47f0ec"
+  },
   "blockingReasons": [
     "독립 human qrels가 approved 상태가 아닙니다."
   ],

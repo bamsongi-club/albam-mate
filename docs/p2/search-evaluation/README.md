@@ -138,7 +138,7 @@ node scripts/search-evaluation/search-candidate-comparison.mjs \
 
 후보 간 query ID·문구·cohort·`analysisClass`·hard filter가 하나라도 다르면 비교를 중단한다. ID만 같고 query 문구가 다른 결과를 같은 질의로 취급하지 않으며, `expectedGameIds`·provisional ID를 qrels 대신 사용하지 않는다.
 
-사람 판정 packet은 검증된 후보 Top-K union의 공개 catalog evidence만 포함하고 model·score·source rank를 숨긴다.
+사람 판정 packet은 검증된 후보 Top-K union의 공개 catalog evidence만 포함하고 model·score·source rank를 숨긴다. packet의 `evaluation.topK`와 `evaluation.candidatePoolSha256`는 qrels에 그대로 보존해야 하며, metrics 단계는 두 값을 packet과 대조한다.
 
 ```bash
 node scripts/search-evaluation/search-candidate-comparison.mjs \
@@ -147,7 +147,7 @@ node scripts/search-evaluation/search-candidate-comparison.mjs \
   --out /tmp/search-04-candidate-judgement-packet.json
 ```
 
-독립 판정자 2명의 0·1·2 grade와 불일치 시 제3 판정 consensus가 `approved` 된 뒤에만 `--metrics`가 Recall@10·MRR@10·nDCG@10·hard-filter violation을 계산한다. 지표가 준비되어도 최종 방식은 자동 선택하지 않고 선택·탈락 근거를 별도로 기록한다.
+독립 판정자 2명의 0·1·2 grade와 불일치 시 제3 판정 consensus가 `approved` 된 뒤에만 `--metrics`가 Recall@10·MRR@10·nDCG@10·hard-filter violation을 계산한다. qrels의 `evaluation.topK`·`candidatePoolSha256`가 packet과 다르면 metrics를 거부한다. 지표가 준비되어도 최종 방식은 자동 선택하지 않고 선택·탈락 근거를 별도로 기록한다.
 
 Hybrid/RRF는 필요할 때만 이미 검증된 ranked output에 `--hybrid-rrf`를 붙여 한 번 추가한다. 결합 규칙은 고정 `RRF k=60`, 동일 query의 기존 후보 union, `score DESC·gameId ASC` tie-break이며 새 후보를 생성하거나 결과에 맞춰 파라미터를 튜닝하지 않는다.
 
@@ -160,7 +160,7 @@ node scripts/search-evaluation/search-candidate-comparison.mjs \
   --out /tmp/search-04-candidate-comparison.json
 ```
 
-`semantic-30-v1` 실행 manifest는 [`search-candidate-semantic-30-input.json`](search-candidate-semantic-30-input.json)이다. 승인된 fixture SHA-256은 `84522f97b196d12db33b082fc26529218555b9408a973e6b6da3577587387142`이며, 결과는 `search-candidate-comparison/semantic-30-lexical-results.json`, `semantic-30-sparse-results.json`, `semantic-30-dense-results.json`에 보존한다. blind packet은 30 query·1,369 candidate row이며 후보명·score·source rank를 숨긴다. 현재 qrels가 없어 metrics/RRF report는 `pending-human-judgement`, 방식 선택은 null이다.
+`semantic-30-v1` 실행 manifest는 [`search-candidate-semantic-30-input.json`](search-candidate-semantic-30-input.json)이다. 승인된 fixture SHA-256은 `84522f97b196d12db33b082fc26529218555b9408a973e6b6da3577587387142`이고 evaluation Top-K는 20이다. 결과는 `search-candidate-comparison/semantic-30-lexical-results.json`, `semantic-30-sparse-results.json`, `semantic-30-dense-results.json`에 보존한다. blind packet은 30 query·1,369 candidate row이며 후보명·score·source rank를 숨기고, packet의 candidate pool checksum을 기록한다. 현재 qrels가 없어 metrics/RRF report는 `pending-human-judgement`, 방식 선택은 null이다.
 
 ### 구조 검증
 

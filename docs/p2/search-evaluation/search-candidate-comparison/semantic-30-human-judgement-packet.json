@@ -3,6 +3,10 @@
   "kind": "search-04-search-candidate-judgement-packet",
   "status": "pending-independent-human-judgement",
   "seed": "search-04-candidate-comparison-v1",
+  "evaluation": {
+    "topK": 20,
+    "candidatePoolSha256": "22cba9cb32fb2e00b5b9c76054fd3a7ecdc767a432b30b3c060674201a47f0ec"
+  },
   "hides": [
     "candidate",
     "score",

@@ -12,6 +12,7 @@ export const COMPARISON_SCHEMA_VERSION = 1;
 export const COMPARISON_KIND = "search-04-search-candidate-comparison";
 export const COMPARISON_INPUT_KIND = "search-04-search-candidate-comparison-input";
 export const DEFAULT_METRIC_K = 10;
+export const DEFAULT_EVALUATION_TOP_K = 20;
 export const DEFAULT_RRF_K = 60;
 export const COMPARISON_BLIND_SEED = "search-04-candidate-comparison-v1";
 
@@ -27,6 +28,8 @@ export function loadComparisonManifest(manifestPath) {
     if (manifest.kind !== COMPARISON_INPUT_KIND) fail(`comparison manifest kind은 ${COMPARISON_INPUT_KIND}이어야 합니다.`);
     if (manifest.featureId !== "SEARCH-04") fail("comparison manifest featureId가 올바르지 않습니다.");
     if (!isNonEmptyString(manifest.approvalReference)) fail("comparison manifest approvalReference가 없습니다.");
+    const evaluationTopK = manifest.evaluationTopK ?? DEFAULT_EVALUATION_TOP_K;
+    validateTopK(evaluationTopK, "comparison manifest evaluationTopK");
     if (!Array.isArray(manifest.candidates) || manifest.candidates.length === 0) fail("comparison manifest candidates가 없습니다.");
 
     const names = new Set();
@@ -61,6 +64,7 @@ export function loadComparisonManifest(manifestPath) {
         inputContract: inputContract?.value,
         inputContractDescriptor: inputContract?.descriptor,
         judgements: judgements?.value,
+        evaluationTopK,
         baseDir,
     };
 }
@@ -70,6 +74,7 @@ export function compareFromManifest({
     judgementsPath = undefined,
     includeHybrid = false,
     rrfK = DEFAULT_RRF_K,
+    evaluationTopK = undefined,
 }) {
     const loaded = loadComparisonManifest(manifestPath);
     const judgements = judgementsPath
@@ -82,6 +87,7 @@ export function compareFromManifest({
         judgements,
         includeHybrid,
         rrfK,
+        evaluationTopK: evaluationTopK ?? loaded.evaluationTopK,
     });
     return {
         ...report,
@@ -98,14 +104,14 @@ export function compareFromManifest({
     };
 }
 
-export function packetFromManifest({ manifestPath, topK = 20 }) {
+export function packetFromManifest({ manifestPath, topK = undefined }) {
     const loaded = loadComparisonManifest(manifestPath);
     if (!loaded.searchText) fail("judgement packet 생성에는 searchText descriptor가 필요합니다.");
     const packet = buildComparisonJudgementPacket({
         queries: loaded.candidates[0].queries,
         candidates: loaded.candidates,
         searchText: loaded.searchText,
-        topK,
+        topK: topK ?? loaded.evaluationTopK,
     });
     return {
         ...packet,
@@ -186,6 +192,31 @@ export function validateCandidateFixtures({ candidates }) {
     return { queries: referenceQueries, candidates: normalizedCandidates };
 }
 
+function validateTopK(topK, name) {
+    if (!Number.isInteger(topK) || topK < 1) fail(`${name}는 1 이상의 정수여야 합니다.`);
+    return topK;
+}
+
+function createEvaluationMetadata(candidates, topK) {
+    const candidatePoolByQuery = Object.fromEntries(candidates[0].queries.map((query) => [
+        query.id,
+        [...new Set(candidates.flatMap((candidate) => (
+            candidate.results[query.id].rankedGameIds.slice(0, topK)
+        )))].sort((left, right) => left - right),
+    ]));
+    const candidatePoolSha256 = sha256(JSON.stringify(candidatePoolByQuery));
+    return {
+        public: { topK, candidatePoolSha256 },
+        candidatePoolByQuery,
+    };
+}
+
+export function buildEvaluationMetadata({ candidates, topK = DEFAULT_EVALUATION_TOP_K }) {
+    validateTopK(topK, "evaluationTopK");
+    const validated = validateCandidateFixtures({ candidates });
+    return createEvaluationMetadata(validated.candidates, topK).public;
+}
+
 export function buildComparisonReport({
     queries,
     candidates,
@@ -193,25 +224,30 @@ export function buildComparisonReport({
     k = DEFAULT_METRIC_K,
     includeHybrid = false,
     rrfK = DEFAULT_RRF_K,
+    evaluationTopK = DEFAULT_EVALUATION_TOP_K,
 }) {
     const validated = validateCandidateFixtures({ candidates });
+    validateTopK(evaluationTopK, "evaluationTopK");
     const comparisonCandidates = [...validated.candidates];
+    const evaluation = createEvaluationMetadata(validated.candidates, evaluationTopK);
     const hybrid = includeHybrid
-        ? buildRrfCandidateFromValidated(validated, { rrfK })
+        ? buildRrfCandidateFromValidated(validated, { rrfK, topK: evaluationTopK })
         : null;
     if (hybrid) comparisonCandidates.push(hybrid);
     const queryIds = validated.queries.map((query) => query.id);
-    const requiredGameIdsByQuery = Object.fromEntries(validated.queries.map((query) => [
-        query.id,
-        [...new Set(comparisonCandidates.flatMap((candidate) => candidate.results[query.id].rankedGameIds))],
-    ]));
-    const judgementState = validateHumanJudgements(judgements, { queryIds, requiredGameIdsByQuery });
+    const requiredGameIdsByQuery = evaluation.candidatePoolByQuery;
+    const judgementState = validateHumanJudgements(judgements, {
+        queryIds,
+        requiredGameIdsByQuery,
+        evaluation: evaluation.public,
+    });
     if (judgementState.status !== "approved") {
         return {
             schemaVersion: COMPARISON_SCHEMA_VERSION,
             kind: COMPARISON_KIND,
             status: "pending-human-judgement",
             queryCount: validated.queries.length,
+            evaluation: evaluation.public,
             blockingReasons: judgementState.blockingReasons,
             hybrid: hybrid ? { rule: "rrf", rrfK, status: "pending-human-judgement" } : null,
             selection: {
@@ -257,6 +293,7 @@ export function buildComparisonReport({
         kind: COMPARISON_KIND,
         status: "metrics-ready",
         queryCount: validated.queries.length,
+        evaluation: evaluation.public,
         hybrid: hybrid ? { rule: "rrf", rrfK, status: "included" } : null,
         metrics,
         selection: {
@@ -267,7 +304,7 @@ export function buildComparisonReport({
     };
 }
 
-export function buildRrfRanking({ rankedLists, rrfK = DEFAULT_RRF_K, topK = 20 }) {
+export function buildRrfRanking({ rankedLists, rrfK = DEFAULT_RRF_K, topK = DEFAULT_EVALUATION_TOP_K }) {
     if (!Array.isArray(rankedLists) || rankedLists.length < 2) fail("RRF에는 2개 이상의 ranked list가 필요합니다.");
     if (!Number.isInteger(rrfK) || rrfK < 1) fail("RRF k는 1 이상의 정수여야 합니다.");
     if (!Number.isInteger(topK) || topK < 1) fail("RRF topK는 1 이상의 정수여야 합니다.");
@@ -286,16 +323,16 @@ export function buildRrfRanking({ rankedLists, rrfK = DEFAULT_RRF_K, topK = 20 }
         .map(([gameId]) => gameId);
 }
 
-function buildRrfCandidateFromValidated(validated, { rrfK }) {
+function buildRrfCandidateFromValidated(validated, { rrfK, topK = DEFAULT_EVALUATION_TOP_K }) {
     return {
         name: "hybrid-rrf",
         queries: validated.queries,
         results: Object.fromEntries(validated.queries.map((query) => {
             const candidateResults = validated.candidates.map((candidate) => candidate.results[query.id]);
             const rankedGameIds = buildRrfRanking({
-                rankedLists: candidateResults.map((result) => result.rankedGameIds),
+                rankedLists: candidateResults.map((result) => result.rankedGameIds.slice(0, topK)),
                 rrfK,
-                topK: 20,
+                topK,
             });
             const violations = new Set(candidateResults.flatMap((result) => result.hardFilterViolationGameIds));
             return [query.id, {
@@ -311,10 +348,11 @@ export function buildComparisonJudgementPacket({
     candidates,
     searchText,
     seed = COMPARISON_BLIND_SEED,
-    topK = 20,
+    topK = DEFAULT_EVALUATION_TOP_K,
 }) {
-    if (!Number.isInteger(topK) || topK < 1) fail("judgement packet topK는 1 이상의 정수여야 합니다.");
+    validateTopK(topK, "judgement packet topK");
     const validated = validateCandidateFixtures({ candidates: candidates ?? [] });
+    const evaluation = createEvaluationMetadata(validated.candidates, topK);
     const searchTextRows = Array.isArray(searchText) ? searchText : searchText?.games;
     if (!Array.isArray(searchTextRows)) fail("searchText games가 없습니다.");
     const evidenceById = new Map(searchTextRows.map((row) => [Number(row?.gameId), row?.searchText]));
@@ -324,6 +362,7 @@ export function buildComparisonJudgementPacket({
         kind: "search-04-search-candidate-judgement-packet",
         status: "pending-independent-human-judgement",
         seed,
+        evaluation: evaluation.public,
         hides: ["candidate", "score", "sourceRank"],
         gradeScale: { relevant: 2, borderline: 1, irrelevant: 0 },
         judgementContract: {
@@ -332,9 +371,7 @@ export function buildComparisonJudgementPacket({
             gradeMeaning: "2=relevant, 1=borderline, 0=irrelevant",
         },
         queries: validated.queries.map((query) => {
-            const gameIds = [...new Set(validated.candidates.flatMap((candidate) => (
-                candidate.results[query.id].rankedGameIds.slice(0, topK)
-            )))];
+            const gameIds = evaluation.candidatePoolByQuery[query.id];
             const candidatesForJudgement = gameIds
                 .sort((left, right) => {
                     const leftKey = stableKey(seed, query.id, left);
@@ -368,7 +405,7 @@ export function buildComparisonJudgementPacket({
     };
 }
 
-export function validateHumanJudgements(judgements, { queryIds, requiredGameIdsByQuery }) {
+export function validateHumanJudgements(judgements, { queryIds, requiredGameIdsByQuery, evaluation }) {
     if (!judgements || judgements.status !== "approved") {
         return {
             status: "pending-human-judgement",
@@ -376,6 +413,10 @@ export function validateHumanJudgements(judgements, { queryIds, requiredGameIdsB
         };
     }
     if (!Array.isArray(judgements.queries)) fail("human qrels queries가 없습니다.");
+    if (judgements.evaluation?.topK !== evaluation.topK
+        || judgements.evaluation?.candidatePoolSha256 !== evaluation.candidatePoolSha256) {
+        fail("human qrels의 evaluation topK/candidate pool checksum이 packet과 다릅니다.");
+    }
     const byId = new Map();
     for (const query of judgements.queries) {
         if (!isNonEmptyString(query?.id) || byId.has(query.id)) fail(`human qrels query ID가 없거나 중복되었습니다: ${query?.id ?? "<empty>"}`);
@@ -401,12 +442,16 @@ export function validateHumanJudgements(judgements, { queryIds, requiredGameIdsB
         const consensus = normalizeGrades(judgement.consensus?.grades, `${queryId}.consensus.grades`);
         if (judgement.consensus?.status !== "approved") fail(`${queryId} consensus가 approved가 아닙니다.`);
         const requiredIds = requiredGameIdsByQuery[queryId] ?? [];
+        const requiredIdSet = new Set(requiredIds.map((gameId) => String(gameId)));
         for (const gameId of requiredIds) {
             if (!Object.hasOwn(consensus, String(gameId))) {
                 fail(`${queryId} qrels에 candidate 결과 game ID가 없습니다: ${gameId}`);
             }
         }
         for (const gameId of Object.keys(consensus)) {
+            if (!requiredIdSet.has(gameId)) {
+                fail(`${queryId} qrels가 evaluation candidate pool 밖의 game ID를 포함합니다: ${gameId}`);
+            }
             const votes = judgeGrades.filter((grades) => grades[gameId] === consensus[gameId]).length;
             if (votes <= judgeGrades.length / 2) {
                 fail(`${queryId}의 consensus가 독립 판정 다수결과 다릅니다: ${gameId}`);
@@ -677,6 +722,7 @@ function main() {
             manifestPath,
             judgementsPath: options.judgements,
             includeHybrid: options.hybridRrf,
+            evaluationTopK: options.topK ? Number(options.topK) : undefined,
         });
         if (options.out) {
             const output = writeNewJson(options.out, report, inputPaths);

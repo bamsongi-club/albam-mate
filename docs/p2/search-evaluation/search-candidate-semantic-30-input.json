@@ -4,6 +4,7 @@
   "featureId": "SEARCH-04",
   "approvalReference": "https://github.com/bamsongi-club/albam-mate/issues/885#issuecomment-5344383511",
   "evaluationProfile": "semantic-30-v1",
+  "evaluationTopK": 20,
   "fixtureProfile": {
     "rows": 30,
     "primaryAnalysisClass": "semantic-core",
