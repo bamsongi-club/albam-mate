@@ -24,6 +24,9 @@ spring:
         jdbc:
           time_zone: UTC
 app:
+  notification:
+    relay:
+      enabled: false
   monitoring:
     dependency-health:
       enabled: false

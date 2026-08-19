@@ -26,6 +26,7 @@ import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.AuthorityUtils;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
@@ -40,6 +41,7 @@ import tools.jackson.databind.ObjectMapper;
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class MatchReportHttpIntegrationTest {
 
 	private static final Instant FIXED_TIME = Instant.parse("2026-08-19T00:00:00Z");
