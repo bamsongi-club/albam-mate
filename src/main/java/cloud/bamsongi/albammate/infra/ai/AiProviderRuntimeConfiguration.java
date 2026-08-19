@@ -36,6 +36,7 @@ class AiProviderRuntimeConfiguration {
 					.model(properties.getModel())
 					.timeout(properties.getTimeout())
 					.maxRetries(0)
+					.maxCompletionTokens(properties.getMaxOutputTokens())
 					.store(false)
 					.build())
 				.build();
@@ -90,10 +91,17 @@ class AiProviderRuntimeConfiguration {
 			providerConfigured,
 			properties.isNoRetentionVerified(),
 			properties.isNoTrainingVerified(),
+			properties.getPolicyVersion(),
+			properties.getPolicyUrl(),
 			properties.getModel(),
 			properties.getTimeout(),
 			properties.getRetryCount(),
 			properties.isStore(),
+			properties.getPricingSnapshot(),
+			properties.getInputTokenPriceUsdPerMillion(),
+			properties.getOutputTokenPriceUsdPerMillion(),
+			properties.getMaxInputTokens(),
+			properties.getMaxOutputTokens(),
 			properties.getReservationCostUsd());
 	}
 }

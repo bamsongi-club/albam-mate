@@ -153,6 +153,7 @@ public final class AiProviderIntentExtractor implements AssistantIntentExtractor
 		return switch (failure) {
 			case TIMEOUT -> AssistantIntentStatus.PROVIDER_TIMEOUT;
 			case RATE_LIMITED -> AssistantIntentStatus.PROVIDER_RATE_LIMITED;
+			case INPUT_TOO_LARGE -> AssistantIntentStatus.PROVIDER_INPUT_TOO_LARGE;
 			case INVALID_SCHEMA -> AssistantIntentStatus.INVALID_PROVIDER_SCHEMA;
 			case SERVICE_UNAVAILABLE -> AssistantIntentStatus.SERVICE_UNAVAILABLE;
 		};

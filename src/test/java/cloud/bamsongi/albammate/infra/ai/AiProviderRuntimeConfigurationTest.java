@@ -39,11 +39,11 @@ class AiProviderRuntimeConfigurationTest {
 	@Test
 	void T1_fake_provider는_외부_보존학습_검증없이도_결정적_로컬_경로를_사용할_수_있다() {
 		AiProviderSettings fakeSettings = new AiProviderSettings(
-			"fake", true, true, false, false, "gpt-5.6-luna", Duration.ofSeconds(10), 0, false,
-			new BigDecimal("0.10"));
+			"fake", true, true, false, false, "", "", "gpt-5.6-luna", Duration.ofSeconds(10), 0, false,
+			"", BigDecimal.ZERO, BigDecimal.ZERO, 4096, 256, new BigDecimal("0.10"));
 		AiProviderSettings openAiSettings = new AiProviderSettings(
-			"local-openai", true, true, false, false, "gpt-5.6-luna", Duration.ofSeconds(10), 0, false,
-			new BigDecimal("0.10"));
+			"local-openai", true, true, false, false, "", "", "gpt-5.6-luna", Duration.ofSeconds(10), 0, false,
+			"", BigDecimal.ZERO, BigDecimal.ZERO, 4096, 256, new BigDecimal("0.10"));
 
 		assertTrue(fakeSettings.readyForCall());
 		assertFalse(openAiSettings.readyForCall());
