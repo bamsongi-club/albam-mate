@@ -310,8 +310,9 @@ test('baseline evidence receipt가 실제 15-query 결과 artifact와 일치한�
     }
 });
 
-test('CLI는 실제 승인 artifact로 15개 query의 결과 파일과 checksum을 만든다', () => {
+test('CLI는 실제 승인 artifact로 15개 query의 커밋 결과와 evidence checksum을 재현한다', () => {
     const directory = mkdtempSync(path.join(tmpdir(), 'search-04-baseline-cli-'));
+    const evidence = JSON.parse(readFileSync(EVIDENCE_PATH, 'utf8'));
     try {
         for (const mode of ['lexical', 'sparse']) {
             const outputPath = path.join(directory, `${mode}-results.json`);
@@ -326,11 +327,16 @@ test('CLI는 실제 승인 artifact로 15개 query의 결과 파일과 checksum�
             ], { cwd: REPOSITORY_ROOT, encoding: 'utf8' });
             const envelope = JSON.parse(stdout);
             const resultBytes = readFileSync(outputPath);
+            const committedResultBytes = readFileSync(path.join(OUTPUT_ROOT, `${mode}-results.json`));
             const results = JSON.parse(resultBytes.toString('utf8'));
+            const resultSha256 = sha256(resultBytes);
 
             assert.equal(envelope.ok, true);
             assert.equal(envelope.queryCount, 15);
-            assert.equal(envelope.resultSha256, sha256(resultBytes));
+            assert.equal(envelope.resultSha256, resultSha256);
+            assert.equal(resultSha256, TRUSTED_RESULT_SHA256[mode]);
+            assert.equal(resultSha256, evidence.outputs[mode].sha256);
+            assert.deepEqual(resultBytes, committedResultBytes);
             assert.equal(envelope.output, outputPath);
             assert.deepEqual(results, expectedResults(mode));
         }
