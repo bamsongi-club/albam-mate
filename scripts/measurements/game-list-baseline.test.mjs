@@ -55,16 +55,17 @@ function startServer({
       if (hangMeasuredRequest && gameRequests === 7) {
         return;
       }
-      const totalPages = Math.ceil(datasetSize / responseSize);
+      const effectiveResponseSize = gameRequests >= 7 ? responseSize : 24;
+      const totalPages = Math.ceil(datasetSize / effectiveResponseSize);
       response.end(JSON.stringify({
         status: 200,
         data: {
           content: Array.from(
-            { length: Math.min(datasetSize, responseSize) },
+            { length: Math.min(datasetSize, effectiveResponseSize) },
             () => ({ name: "Catan", englishName: "Catan" }),
           ),
           page: 0,
-          size: responseSize,
+          size: effectiveResponseSize,
           totalElements: datasetSize,
           totalPages,
           hasNext: totalPages > 1,
