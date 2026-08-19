@@ -2,8 +2,10 @@ package cloud.bamsongi.albammate.infra.ai;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.SystemMessage;
@@ -27,6 +29,9 @@ import tools.jackson.databind.ObjectMapper;
 final class OpenAiAssistantProvider implements AiProviderClient {
 
 	private static final String TOOL_NAME = "propose_game_room_intent";
+	private static final Set<String> ALLOWED_GAME_STYLES = Set.of(
+		"STRATEGY", "ABSTRACT_STRATEGY", "COLLECTIBLE", "FAMILY",
+		"CHILDREN", "THEMATIC", "PARTY", "WARGAME");
 	private static final String V1_INSTRUCTION = """
 		You extract a board-game room intent from exactly one current user sentence.
 		Call propose_game_room_intent exactly once and return only arguments matching its schema.
@@ -40,7 +45,16 @@ final class OpenAiAssistantProvider implements AiProviderClient {
 		  "additionalProperties":false,
 		  "properties":{
 		    "action":{"type":"string","enum":["RECOMMEND"]},
-		    "gameStyles":{"type":"array","items":{"type":"string"}}
+		    "gameStyles":{
+		      "type":"array",
+		      "minItems":1,
+		      "maxItems":8,
+		      "uniqueItems":true,
+		      "items":{
+		        "type":"string",
+		        "enum":["STRATEGY","ABSTRACT_STRATEGY","COLLECTIBLE","FAMILY","CHILDREN","THEMATIC","PARTY","WARGAME"]
+		      }
+		    }
 		  },
 		  "required":["action","gameStyles"]
 		}
@@ -155,8 +169,14 @@ final class OpenAiAssistantProvider implements AiProviderClient {
 		if (action == null || !action.isTextual() || gameStyles == null || !gameStyles.isArray()) {
 			return false;
 		}
+		if (gameStyles.size() < 1 || gameStyles.size() > 8) {
+			return false;
+		}
+		Set<String> seenGameStyles = new HashSet<>();
 		for (JsonNode gameStyle : gameStyles) {
-			if (!gameStyle.isTextual()) {
+			if (!gameStyle.isTextual()
+				|| !ALLOWED_GAME_STYLES.contains(gameStyle.asText())
+				|| !seenGameStyles.add(gameStyle.asText())) {
 				return false;
 			}
 		}
