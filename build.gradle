@@ -186,6 +186,8 @@ def gatedBranchCoverage = [
     'cloud.bamsongi.albammate.global.security.endpoint'    : 0.90,
     'cloud.bamsongi.albammate.global.security.error'       : 0.71,
     'cloud.bamsongi.albammate.global.security.ratelimit'   : 0.84,
+    'cloud.bamsongi.albammate.assistant.dto'                : 0.57,
+    'cloud.bamsongi.albammate.assistant.service'            : 0.50,
     'cloud.bamsongi.albammate.infra.ai'                     : 0.49,
     'cloud.bamsongi.albammate.infra.redis'                  : 0.73,
     'cloud.bamsongi.albammate.matching.recovery'            : 0.55,
