@@ -260,10 +260,10 @@ flowchart LR
 | `chat/websocket` (P1) | 방별 WebSocket handshake, 인스턴스 로컬 연결과 PostgreSQL 이력 복구 상태 |
 | `chat/retention` (P1) | 최종 상태 메시지의 일일 만료 선별, 소량 묶음 삭제와 실패 계측 |
 | `chat/system` (P2 계획) | `room.contract`의 참가 변경 사실을 받는 동기 listener와 입장·퇴장 안내 문장 조립 |
-| `chat/match` (P2) | MATCH 채팅이 공유하는 메시지 종류·SYSTEM 이벤트 키 도메인 타입 |
-| `chat/match/entity`, `chat/match/repository` (P2) | MATCH 전용 채팅방과 URL 텍스트를 포함한 메시지의 영속 구조 |
-| `chat/match/adapter` (P2 계획) | `matching.contract`의 provision·SYSTEM message·cleanup port 구현 |
-| `chat/match/service` (P2 계획) | `matching.contract`의 access·write guard 계약을 사용하는 MATCH 채팅 조회·저장 유스케이스 |
+| `chat/match` (P2 일부 구현) | MATCH 채팅이 공유하는 메시지 종류·SYSTEM 이벤트 키 도메인 타입, HTTP Controller·요청/응답 DTO, 커밋 이후 실시간 전달 port·이벤트 타입. `chat.match.controller`·`chat.match.dto`처럼 별도 하위 패키지로 나누지 않고 이 패키지에 함께 둔다 |
+| `chat/match/entity`, `chat/match/repository` (P2 일부 구현) | MATCH 전용 채팅방과 URL 텍스트를 포함한 메시지의 영속 구조 |
+| `chat/match/adapter` (P2 일부 구현) | `matching.contract`의 provision·SYSTEM message port 구현. cleanup port 구현은 계획 |
+| `chat/match/service` (P2 일부 구현) | `matching.contract`의 access·write guard 계약을 사용하는 MATCH 채팅 전송·이력 조회 유스케이스와 커밋 이후 실시간 전달 no-op 기본 구현 |
 | `global/security/session` (P1) | 공용 서버 세션 설정과 세션 쿠키 공통 규칙 |
 | `global/scheduling` (P1) | 업무 규칙을 모르는 클러스터 스케줄 잠금 port |
 | `global` | 업무 의미가 없는 공통 기술 기반 |

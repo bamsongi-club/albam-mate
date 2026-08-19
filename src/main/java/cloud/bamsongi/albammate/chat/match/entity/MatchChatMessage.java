@@ -41,4 +41,29 @@ public class MatchChatMessage {
 	private String content;
 	@Column(name = "created_at", nullable = false)
 	private Instant createdAt;
+
+	/** Party lifecycle SYSTEM 알림을 만든다. 멱등 저장은 호출자 repository가 소유한다. */
+	public static MatchChatMessage createSystemMessage(
+		long matchChatRoomId, MatchChatSystemEventKey systemEventKey, String content, Instant createdAt) {
+		MatchChatMessage message = new MatchChatMessage();
+		message.matchChatRoomId = matchChatRoomId;
+		message.messageType = MatchChatMessageType.SYSTEM;
+		message.systemEventKey = systemEventKey;
+		message.content = content;
+		message.createdAt = createdAt;
+		return message;
+	}
+
+	/** HTTP 전송으로 저장하는 USER 메시지를 만든다. 멱등 조회·저장은 호출자 service가 소유한다. */
+	public static MatchChatMessage createUserMessage(
+		long matchChatRoomId, long senderUserId, String clientMessageId, String content, Instant createdAt) {
+		MatchChatMessage message = new MatchChatMessage();
+		message.matchChatRoomId = matchChatRoomId;
+		message.senderUserId = senderUserId;
+		message.messageType = MatchChatMessageType.USER;
+		message.clientMessageId = clientMessageId;
+		message.content = content;
+		message.createdAt = createdAt;
+		return message;
+	}
 }
