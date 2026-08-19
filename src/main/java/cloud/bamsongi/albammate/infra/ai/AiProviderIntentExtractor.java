@@ -32,7 +32,7 @@ public final class AiProviderIntentExtractor implements AssistantIntentExtractor
 	private static final Pattern PEM_PRIVATE_KEY = Pattern.compile(
 		"(?is)-----BEGIN\\s+(?:[a-z0-9 ]+\\s+)?PRIVATE KEY-----");
 	private static final Pattern KOREAN_STREET_ADDRESS = Pattern.compile(
-		"(?:[가-힣]+(?:특별시|광역시|시|도)\\s+)?[가-힣]+(?:구|군)\\s+[가-힣0-9]+(?:로|길)\\s*\\d+(?:-\\d+)?");
+		"(?<![가-힣])(?:(?:[가-힣]+(?:특별시|광역시|시|도)\\s+)?(?:[가-힣]+(?:구|군)\\s+))?[가-힣0-9]+(?:로|길)\\s*\\d+(?:-\\d+)?");
 
 	private final AiProviderClient provider;
 	private final AiQuotaLedger quotaLedger;
