@@ -55,7 +55,8 @@ class MatchChatConnectionRegistry {
 		synchronized (connectionIndexLock) {
 			connectionsBySession.put(session, connection);
 			connectionsByPartyId.compute(partyId, (key, connections) -> {
-				Set<MatchChatPartyConnection> updated = connections == null ? ConcurrentHashMap.newKeySet() : connections;
+				Set<MatchChatPartyConnection> updated = connections == null ? ConcurrentHashMap.newKeySet()
+					: connections;
 				updated.add(connection);
 				return updated;
 			});

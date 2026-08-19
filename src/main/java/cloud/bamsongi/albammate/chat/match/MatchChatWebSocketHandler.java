@@ -133,8 +133,8 @@ public class MatchChatWebSocketHandler implements WebSocketHandler, MatchChatRea
 
 	/** 새 메시지가 오지 않아도 Party별 로컬 연결마다 접근 상실을 감지해 정책 위반으로 종료한다. */
 	private void validateAccess() {
-		connectionRegistry.snapshotByPartyId().forEach((partyId, connections) ->
-			connections.forEach(this::validateCurrentAccess));
+		connectionRegistry.snapshotByPartyId()
+			.forEach((partyId, connections) -> connections.forEach(this::validateCurrentAccess));
 	}
 
 	private void validateCurrentAccess(MatchChatPartyConnection connection) {
