@@ -78,19 +78,18 @@ class GameMetadataHttpIntegrationTest {
 		mockMvc
 			.perform(get("/api/games").param("keyword", "Metadata").param("category", "STRATEGY").param("category",
 				"FAMILY"))
-			.andExpect(status().isOk()).andExpect(jsonPath("$.data.totalElements").value(3));
+			.andExpect(status().isOk()).andExpect(jsonPath("$.data.content.length()").value(3));
 		mockMvc
 			.perform(get("/api/games").param("keyword", "Metadata").param("theme", "FANTASY").param("theme", "WAR")
 				.param("themeMatch", "ALL"))
-			.andExpect(status().isOk()).andExpect(jsonPath("$.data.totalElements").value(1));
+			.andExpect(status().isOk()).andExpect(jsonPath("$.data.content.length()").value(1));
 		mockMvc
 			.perform(get("/api/games").param("keyword", "Metadata").param("category", "STRATEGY")
 				.param("theme", "FANTASY").param("playerCount", "2").param("recommendedPlayerCount", "3")
 				.param("recommendedPlayerCount", "4").param("bestPlayerCount", "4").param("bestPlayerCount", "5")
 				.param("page", "1").param("size", "1"))
 			.andExpect(status().isOk()).andExpect(jsonPath("$.data.page").value(1))
-			.andExpect(jsonPath("$.data.size").value(1)).andExpect(jsonPath("$.data.totalElements").value(2))
-			.andExpect(jsonPath("$.data.totalPages").value(2))
+			.andExpect(jsonPath("$.data.size").value(1)).andExpect(jsonPath("$.data.hasNext").value(false))
 			.andExpect(jsonPath("$.data.content.length()").value(1))
 			.andExpect(jsonPath("$.data.content[0].id").value(paged.getId()));
 		mockMvc.perform(get("/api/games/{id}", both.getId()))
@@ -126,7 +125,7 @@ class GameMetadataHttpIntegrationTest {
 		Game game = saveGame(420010L, "Duplicate category");
 		categoryRelationRepository.saveAndFlush(new GameCategoryRelation(game, strategy));
 		mockMvc.perform(get("/api/games").param("category", "STRATEGY").param("category", "STRATEGY"))
-			.andExpect(status().isOk()).andExpect(jsonPath("$.data.totalElements").value(1))
+			.andExpect(status().isOk()).andExpect(jsonPath("$.data.content.length()").value(1))
 			.andExpect(jsonPath("$.data.content.length()").value(1))
 			.andExpect(jsonPath("$.data.content[0].id").value(game.getId()));
 		mockMvc.perform(get("/api/games").param("category", "UNKNOWN").param("category", "UNKNOWN"))
@@ -143,10 +142,10 @@ class GameMetadataHttpIntegrationTest {
 		themeRelationRepository.saveAndFlush(new GameThemeRelation(both, war));
 		themeRelationRepository.saveAndFlush(new GameThemeRelation(fantasyOnly, fantasy));
 		mockMvc.perform(get("/api/games").param("theme", "FANTASY").param("theme", "WAR"))
-			.andExpect(status().isOk()).andExpect(jsonPath("$.data.totalElements").value(2))
+			.andExpect(status().isOk()).andExpect(jsonPath("$.data.content.length()").value(2))
 			.andExpect(jsonPath("$.data.content.length()").value(2));
 		mockMvc.perform(get("/api/games").param("theme", "FANTASY").param("theme", "WAR").param("themeMatch", "ALL"))
-			.andExpect(status().isOk()).andExpect(jsonPath("$.data.totalElements").value(1))
+			.andExpect(status().isOk()).andExpect(jsonPath("$.data.content.length()").value(1))
 			.andExpect(jsonPath("$.data.content.length()").value(1))
 			.andExpect(jsonPath("$.data.content[0].id").value(both.getId()));
 	}

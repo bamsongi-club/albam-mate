@@ -17,7 +17,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
-import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Slice;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -110,7 +110,7 @@ class GameQueryServiceListIntegrationTest {
 			NOW.plusSeconds(6),
 			RoomStatus.RECRUITING);
 
-		Page<GameListItem> result = gameQueryService.findPage(listRequest(false, 10), null);
+		Slice<GameListItem> result = gameQueryService.findPage(listRequest(false, 10), null);
 
 		Map<Long, Long> upcomingRoomCounts = result.getContent().stream()
 			.collect(
@@ -124,10 +124,8 @@ class GameQueryServiceListIntegrationTest {
 				gameWithoutUpcomingRoom.getId(), 0L),
 			upcomingRoomCounts);
 
-		Page<GameListItem> upcomingOnlyResult = gameQueryService.findPage(listRequest(true, 1), null);
+		Slice<GameListItem> upcomingOnlyResult = gameQueryService.findPage(listRequest(true, 1), null);
 
-		assertEquals(2, upcomingOnlyResult.getTotalElements());
-		assertEquals(2, upcomingOnlyResult.getTotalPages());
 		assertTrue(upcomingOnlyResult.hasNext());
 		assertEquals(1L, upcomingOnlyResult.getContent().getFirst().upcomingRoomCount());
 		assertEquals(gameWithOneRoom.getId(), upcomingOnlyResult.getContent().getFirst().id());
@@ -141,9 +139,8 @@ class GameQueryServiceListIntegrationTest {
 		GameListRequest request = listRequest(false, 10);
 		request.setYoungestPlayerAge(10);
 
-		Page<GameListItem> result = gameQueryService.findPage(request, null);
+		Slice<GameListItem> result = gameQueryService.findPage(request, null);
 
-		assertEquals(1, result.getTotalElements());
 		assertEquals(List.of(included.getId()), result.getContent().stream().map(GameListItem::id).toList());
 	}
 
@@ -154,10 +151,8 @@ class GameQueryServiceListIntegrationTest {
 		GameListRequest request = listRequest(false, 1);
 		request.setPage(1);
 
-		Page<GameListItem> result = gameQueryService.findPage(request, null);
+		Slice<GameListItem> result = gameQueryService.findPage(request, null);
 
-		assertEquals(2, result.getTotalElements());
-		assertEquals(2, result.getTotalPages());
 		assertEquals(List.of(beta.getId()), result.getContent().stream().map(GameListItem::id).toList());
 	}
 

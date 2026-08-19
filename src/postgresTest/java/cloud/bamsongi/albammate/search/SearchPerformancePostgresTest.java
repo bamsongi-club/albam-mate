@@ -44,8 +44,8 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.Sort;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.testcontainers.junit.jupiter.Container;
@@ -230,9 +230,9 @@ class SearchPerformancePostgresTest {
 	void 최종_방_인덱스_적용뒤에도_게임_결과와_name_id_정렬_페이지가_같다() {
 		try {
 			dropRoomIndex();
-			List<Page<GameListItem>> before = gameRequests().stream().map(this::gamePage).toList();
+			List<Slice<GameListItem>> before = gameRequests().stream().map(this::gamePage).toList();
 			createRoomIndex();
-			List<Page<GameListItem>> after = gameRequests().stream().map(this::gamePage).toList();
+			List<Slice<GameListItem>> after = gameRequests().stream().map(this::gamePage).toList();
 
 			for (int index = 0; index < before.size(); index++) {
 				assertSameGamePage(before.get(index), after.get(index));
@@ -327,8 +327,8 @@ class SearchPerformancePostgresTest {
 	}
 
 	private void assertRepeatedGameResult(GameListRequest request) {
-		Page<GameListItem> first = gamePage(request);
-		Page<GameListItem> second = gamePage(request);
+		Slice<GameListItem> first = gamePage(request);
+		Slice<GameListItem> second = gamePage(request);
 		assertFalse(first.isEmpty());
 		assertSameGamePage(first, second);
 	}
@@ -424,7 +424,7 @@ class SearchPerformancePostgresTest {
 		});
 	}
 
-	private Page<GameListItem> gamePage(GameListRequest request) {
+	private Slice<GameListItem> gamePage(GameListRequest request) {
 		return gameQueryService.findPage(request, request.getPlayedFilter() == null ? null : USER_ID);
 	}
 
@@ -432,12 +432,11 @@ class SearchPerformancePostgresTest {
 		return roomListQueryService.findPage(request, Optional.empty());
 	}
 
-	private void assertSameGamePage(Page<GameListItem> expected, Page<GameListItem> actual) {
+	private void assertSameGamePage(Slice<GameListItem> expected, Slice<GameListItem> actual) {
 		assertEquals(gameIds(expected), gameIds(actual));
 		assertEquals(expected.getNumber(), actual.getNumber());
 		assertEquals(expected.getSize(), actual.getSize());
-		assertEquals(expected.getTotalPages(), actual.getTotalPages());
-		assertEquals(expected.getTotalElements(), actual.getTotalElements());
+		assertEquals(expected.hasNext(), actual.hasNext());
 		assertNameIdOrder(actual);
 	}
 
@@ -465,7 +464,7 @@ class SearchPerformancePostgresTest {
 		return request;
 	}
 
-	private List<Long> gameIds(Page<GameListItem> page) {
+	private List<Long> gameIds(Slice<GameListItem> page) {
 		return page.getContent().stream().map(GameListItem::id).toList();
 	}
 
@@ -473,7 +472,7 @@ class SearchPerformancePostgresTest {
 		return rooms.stream().map(PublicRoomResponse::id).toList();
 	}
 
-	private void assertNameIdOrder(Page<GameListItem> page) {
+	private void assertNameIdOrder(Slice<GameListItem> page) {
 		List<String> values = page.getContent().stream().map(item -> item.name() + ":" + item.id()).toList();
 		assertEquals(values.stream().sorted().toList(), values);
 	}

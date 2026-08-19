@@ -77,7 +77,7 @@ class GameHttpIntegrationTest {
 	}
 
 	@Test
-	void 실제_프로젝션_결과는_이름과_ID_오름차순_및_페이지_메타데이터를_반환한다() throws Exception {
+	void 실제_프로젝션_결과는_이름과_ID_오름차순_및_Slice_메타데이터를_반환한다() throws Exception {
 		Game firstAlpha = saveGame(10011L, SORT_PREFIX + "Alpha", "알파", "알파 상세 설명");
 		Game secondAlpha = saveGame(10012L, SORT_PREFIX + "Alpha", "알파", "알파 상세 설명");
 		Game beta = saveGame(10013L, SORT_PREFIX + "Beta", "베타", "베타 상세 설명");
@@ -95,8 +95,8 @@ class GameHttpIntegrationTest {
 			.andExpect(jsonPath("$.data.content[1].id").value(secondAlpha.getId()))
 			.andExpect(jsonPath("$.data.page").value(0))
 			.andExpect(jsonPath("$.data.size").value(2))
-			.andExpect(jsonPath("$.data.totalElements").value(3))
-			.andExpect(jsonPath("$.data.totalPages").value(2))
+			.andExpect(jsonPath("$.data.totalElements").doesNotExist())
+			.andExpect(jsonPath("$.data.totalPages").doesNotExist())
 			.andExpect(jsonPath("$.data.hasNext").value(true));
 
 		mockMvc.perform(
@@ -109,8 +109,8 @@ class GameHttpIntegrationTest {
 			.andExpect(jsonPath("$.data.content[0].id").value(beta.getId()))
 			.andExpect(jsonPath("$.data.page").value(1))
 			.andExpect(jsonPath("$.data.size").value(2))
-			.andExpect(jsonPath("$.data.totalElements").value(3))
-			.andExpect(jsonPath("$.data.totalPages").value(2))
+			.andExpect(jsonPath("$.data.totalElements").doesNotExist())
+			.andExpect(jsonPath("$.data.totalPages").doesNotExist())
 			.andExpect(jsonPath("$.data.hasNext").value(false));
 	}
 

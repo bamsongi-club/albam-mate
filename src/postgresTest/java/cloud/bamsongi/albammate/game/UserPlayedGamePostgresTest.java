@@ -184,7 +184,7 @@ class UserPlayedGamePostgresTest {
 
 		var page = gameQueryService.findPage(request(PlayedFilter.PLAYED_ONLY), user.getId());
 
-		assertEquals(1, page.getTotalElements());
+		assertEquals(false, page.hasNext());
 		assertEquals(game.getId(), page.getContent().getFirst().id());
 		assertEquals(true, page.getContent().getFirst().playedByMe());
 		assertTrue(userPlayedGameRepository.findByUserIdAndGameId(user.getId(), game.getId()).isEmpty());
@@ -198,7 +198,7 @@ class UserPlayedGamePostgresTest {
 
 		var page = gameQueryService.findPage(request(PlayedFilter.EXCLUDE_PLAYED), user.getId());
 
-		assertEquals(1, page.getTotalElements());
+		assertEquals(false, page.hasNext());
 		assertEquals(game.getId(), page.getContent().getFirst().id());
 		assertEquals(false, page.getContent().getFirst().playedByMe());
 		assertEquals(1, userPlayedGameRepository.findByUserIdAndGameId(user.getId(), game.getId()).size());

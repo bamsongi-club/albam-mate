@@ -10,10 +10,10 @@ import org.springframework.web.bind.annotation.RestController;
 import cloud.bamsongi.albammate.game.dto.GameDetail;
 import cloud.bamsongi.albammate.game.dto.GameListItem;
 import cloud.bamsongi.albammate.game.dto.GameListRequest;
+import cloud.bamsongi.albammate.game.dto.GameListSliceResponse;
 import cloud.bamsongi.albammate.game.service.GameDetailQueryService;
 import cloud.bamsongi.albammate.game.service.GameQueryService;
 import cloud.bamsongi.albammate.global.response.ApiResponse;
-import cloud.bamsongi.albammate.global.response.PageResponse;
 import cloud.bamsongi.albammate.global.security.currentuser.CurrentUserAccessor;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
@@ -32,11 +32,11 @@ public class GameController {
 	@NonNull private final CurrentUserAccessor currentUserAccessor;
 
 	@GetMapping
-	public ApiResponse<PageResponse<GameListItem>> listGames(
+	public ApiResponse<GameListSliceResponse<GameListItem>> listGames(
 		@Valid @ModelAttribute
 		GameListRequest request) {
 		long startedAt = System.nanoTime();
-		PageResponse<GameListItem> page = PageResponse.from(
+		GameListSliceResponse<GameListItem> page = GameListSliceResponse.from(
 			gameQueryService.findPage(request, currentUserAccessor.currentUserId().orElse(null)));
 		log.atInfo()
 			.addKeyValue("event", "game_search_completed")

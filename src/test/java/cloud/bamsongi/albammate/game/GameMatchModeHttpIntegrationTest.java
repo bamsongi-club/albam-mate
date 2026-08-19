@@ -69,17 +69,17 @@ class GameMatchModeHttpIntegrationTest {
 
 		mockMvc.perform(matchRequest("T1"))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.totalElements").value(3));
+			.andExpect(jsonPath("$.data.content.length()").value(3));
 		mockMvc.perform(matchRequest("T1").param("themeMatch", "ALL"))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.totalElements").value(2));
+			.andExpect(jsonPath("$.data.content.length()").value(2));
 		mockMvc.perform(matchRequest("T1").param("mechanismMatch", "ALL"))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.totalElements").value(2));
+			.andExpect(jsonPath("$.data.content.length()").value(2));
 	}
 
 	@Test
-	void 메커니즘_ANY는_하나이상_ALL은_모든_고유코드관계를_요구하고_목록과_전체건수가_같다() throws Exception {
+	void 메커니즘_ANY는_하나이상_ALL은_모든_고유코드관계를_요구하고_목록_항목이_같다() throws Exception {
 		GameMechanism hand = saveMechanism(5201L, "HAND_MANAGEMENT");
 		GameMechanism dice = saveMechanism(5202L, "DICE_ROLLING");
 		Game both = saveGame(520001L, "T2 both", 2);
@@ -97,7 +97,8 @@ class GameMatchModeHttpIntegrationTest {
 				.param("mechanism", "DICE_ROLLING")
 				.param("mechanism", "DICE_ROLLING"))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.totalElements").value(3))
+			.andExpect(jsonPath("$.data.totalElements").doesNotExist())
+			.andExpect(jsonPath("$.data.totalPages").doesNotExist())
 			.andExpect(jsonPath("$.data.content.length()").value(3));
 		mockMvc.perform(
 			get("/api/games")
@@ -107,7 +108,6 @@ class GameMatchModeHttpIntegrationTest {
 				.param("mechanism", "DICE_ROLLING")
 				.param("mechanismMatch", "ALL"))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.totalElements").value(1))
 			.andExpect(jsonPath("$.data.content.length()").value(1))
 			.andExpect(jsonPath("$.data.content[0].id").value(both.getId()));
 	}
@@ -158,7 +158,6 @@ class GameMatchModeHttpIntegrationTest {
 				.param("mechanismMatch", "ALL")
 				.param("playerCount", "2"))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.totalElements").value(1))
 			.andExpect(jsonPath("$.data.content.length()").value(1))
 			.andExpect(jsonPath("$.data.content[0].id").value(matched.getId()));
 	}

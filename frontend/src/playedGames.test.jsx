@@ -208,18 +208,13 @@ describe('T7 해 본 게임 표시와 취소', () => {
 });
 
 describe('내정보의 해 본 게임 진입점', () => {
-  it('해 본 게임 수를 통계로 세고 목록 진입점을 남긴다', async () => {
-    getGames.mockResolvedValue({ content: [], page: 0, size: 1, totalElements: 19, totalPages: 19 });
+  it('Slice 목록을 집계하지 않고 목록 진입점을 남긴다', async () => {
     getMyRooms.mockResolvedValue({ content: [], page: 0, size: 1, totalElements: 4, totalPages: 4 });
 
     render(<ProfileView me={{ nickname: '테스터', email: 'tester@example.com' }} onSave={vi.fn()} onLogout={vi.fn()} />);
     await act(async () => {});
 
-    expect(getGames).toHaveBeenCalledWith(
-      expect.objectContaining({ playedFilter: 'PLAYED_ONLY', page: 0, size: 1 }),
-      expect.any(AbortSignal)
-    );
-    expect(screen.getByText('19')).toBeTruthy();
+    expect(getGames).not.toHaveBeenCalled();
     expect(screen.getByRole('link', { name: /해 본 게임/ }).getAttribute('href')).toBe('#/game-list/played');
   });
 });

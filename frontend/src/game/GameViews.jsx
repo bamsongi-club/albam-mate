@@ -67,6 +67,17 @@ function GameCard({ game, played, pending, onTogglePlayed }) {
   );
 }
 
+function GameSlicePagination({ page, hasNext, loading, onChange }) {
+  if (page <= 0 && !hasNext) return null;
+  return (
+    <nav className="pagination" aria-label="페이지 이동">
+      <button className="page-btn" type="button" disabled={loading || page <= 0} onClick={() => onChange(page - 1)} aria-label="이전 페이지">이전</button>
+      <span className="page-btn on" aria-current="page">{page + 1}페이지</span>
+      <button className="page-btn" type="button" disabled={loading || !hasNext} onClick={() => onChange(page + 1)} aria-label="다음 페이지">다음</button>
+    </nav>
+  );
+}
+
 export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, onPlayedError, headerActions, initialFilters = EMPTY_GAME_FILTERS, onBack }) {
   const [input, setInput] = useState(gameQuery);
   const [filters, setFilters] = useState(initialFilters);
@@ -82,7 +93,6 @@ export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, on
     [keyword, filterKey, dataVersion, playedRefreshKey]
   );
   const games = (data?.content || []).map(normalizeGameSummary);
-  const total = data?.totalElements ?? 0;
   useEffect(() => setInput(gameQuery), [gameQuery]);
 
   const playedChips = (
@@ -117,8 +127,8 @@ export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, on
         <label className="sr-only" htmlFor="game-q">게임 이름 검색</label>
         <input id="game-q" value={input} onChange={(event) => setInput(event.target.value)} placeholder="게임 이름으로 검색" />
       </form>
-      <GameFilters filters={filters} onChange={setFilters} quickSlot={playedChips} resultCount={total} />
-      {!error && <p className="section-label" style={{ marginTop: 18 }}>{loading && !data ? '불러오는 중' : '게임 ' + total + '개'}</p>}
+      <GameFilters filters={filters} onChange={setFilters} quickSlot={playedChips} />
+      {!error && <p className="section-label" style={{ marginTop: 18 }}>{loading && !data ? '불러오는 중' : '게임 목록'}</p>}
       {error && (
         <div style={{ marginTop: 26 }}>
           {unauthenticated
@@ -145,8 +155,8 @@ export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, on
           <StateBlock title="검색 결과가 없어요" description="게임 이름의 일부만 넣어보세요." />
         </div>
       )}
-      {!error && !!games.length && (
-        <Pagination page={data?.page ?? 0} totalPages={data?.totalPages ?? 0} loading={loading} onChange={setPage} />
+      {!error && data && (
+        <GameSlicePagination page={data.page ?? 0} hasNext={Boolean(data.hasNext)} loading={loading} onChange={setPage} />
       )}
       </div>
     </>

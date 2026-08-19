@@ -17,16 +17,12 @@ const GAME_A_FIRST_PAGE = {
   content: [{ id: 1, name: 'A 첫 번째 게임' }],
   page: 0,
   size: 10,
-  totalElements: 2,
-  totalPages: 2,
   hasNext: true
 };
 const GAME_B_FIRST_PAGE = {
   content: [{ id: 2, name: 'B 첫 번째 게임' }],
   page: 0,
   size: 10,
-  totalElements: 1,
-  totalPages: 1,
   hasNext: false
 };
 
@@ -54,6 +50,19 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+});
+
+it('#770 exact 결과 수 없이 hasNext 더 보기만 표시한다', async () => {
+  getGames.mockResolvedValue(GAME_A_FIRST_PAGE);
+  render(<GamePickerDialog isOpen selectedGameId="" allowClear={false} onSelect={vi.fn()} onClear={vi.fn()} onClose={vi.fn()} />);
+
+  fireEvent.change(screen.getByRole('textbox', { name: '게임 이름 검색' }), { target: { value: 'A' } });
+  act(() => { vi.advanceTimersByTime(250); });
+  await act(async () => {});
+
+  expect(screen.getByText('검색 결과')).toBeTruthy();
+  expect(screen.queryByText(/검색 결과 .*개/u)).toBeNull();
+  expect(screen.getByRole('button', { name: '검색 결과 더 보기' })).toBeTruthy();
 });
 
 it('검색어가 바뀐 직후 도착한 이전 더 보기 응답을 새 결과에 합치지 않는다', async () => {
