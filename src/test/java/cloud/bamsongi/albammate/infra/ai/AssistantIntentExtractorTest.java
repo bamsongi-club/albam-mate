@@ -9,7 +9,9 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 
@@ -73,6 +75,11 @@ class AssistantIntentExtractorTest {
 
 		assertEquals(AssistantIntentStatus.SENSITIVE_INPUT_REJECTED, missingFieldRejected.status());
 		assertEquals(1, provider.calls());
+		AssistantIntentExtraction addressRejected = extractor.extract(AssistantIntentRequest.forUser(
+			"user-991", "서울시 강남구 테헤란로 123에서 보드게임 추천해줘", List.of()));
+
+		assertEquals(AssistantIntentStatus.SENSITIVE_INPUT_REJECTED, addressRejected.status());
+		assertEquals(1, provider.calls());
 
 		for (String piiSentence : List.of(
 			"메일은 member@example.com이고 게임만 추천해줘",
@@ -117,6 +124,15 @@ class AssistantIntentExtractorTest {
 		assertEquals(AssistantIntentStatus.PROVIDER_TIMEOUT, timeout.status());
 		assertEquals(1, timeoutProvider.calls());
 		assertFalse(timeout.fallbackUsed());
+
+		CapturingAssistantProvider successProvider = new CapturingAssistantProvider();
+		RecordingUsageEventSink usageEvents = new RecordingUsageEventSink();
+		AssistantIntentExtraction incompleteCompletion = extractor(successProvider,
+			new NotCompletedAiQuotaLedger(), usageEvents).extract(request());
+
+		assertEquals(AssistantIntentStatus.SERVICE_UNAVAILABLE, incompleteCompletion.status());
+		assertEquals(1, successProvider.calls());
+		assertEquals(0, usageEvents.events().size());
 	}
 
 	@Test
@@ -130,6 +146,7 @@ class AssistantIntentExtractorTest {
 			.extract(request());
 
 		assertEquals(AssistantIntentStatus.SERVICE_UNAVAILABLE, failed.status());
+		assertEquals(0, quotaLedger.activeSubjectCount());
 
 		AssistantIntentExtraction retryAfterException = new AiProviderIntentExtractor(
 			new DeterministicFakeAssistantProvider(),
@@ -196,14 +213,34 @@ class AssistantIntentExtractorTest {
 
 	private static class PermittingAiQuotaLedger implements AiQuotaLedger {
 
+		private final Set<String> activeSubjects = new HashSet<>();
+
 		@Override
 		public AiQuotaReservation reserve(String quotaSubject, Instant now) {
+			if (!activeSubjects.add(quotaSubject)) {
+				return AiQuotaReservation.rejected(AiQuotaReservationStatus.CONCURRENT_LIMIT_REACHED);
+			}
 			return AiQuotaReservation.acquired(quotaSubject);
 		}
 
 		@Override
 		public AiQuotaCompletionStatus complete(AiQuotaReservation reservation, BigDecimal costUsd) {
-			return AiQuotaCompletionStatus.COMPLETED;
+			return activeSubjects.remove(reservation.quotaSubject())
+				? AiQuotaCompletionStatus.COMPLETED
+				: AiQuotaCompletionStatus.NOT_ACQUIRED;
+		}
+
+		int activeSubjectCount() {
+			return activeSubjects.size();
+		}
+	}
+
+	private static final class NotCompletedAiQuotaLedger extends PermittingAiQuotaLedger {
+
+		@Override
+		public AiQuotaCompletionStatus complete(AiQuotaReservation reservation, BigDecimal costUsd) {
+			super.complete(reservation, costUsd);
+			return AiQuotaCompletionStatus.NOT_ACQUIRED;
 		}
 	}
 
