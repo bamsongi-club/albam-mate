@@ -12,11 +12,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import cloud.bamsongi.albammate.AlbamMateApplication;
 import cloud.bamsongi.albammate.chat.contract.ChatRoomPreviewQuery;
@@ -29,6 +26,7 @@ import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
 import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
+import cloud.bamsongi.albammate.testsupport.SharedPostgresIntegrationSupport;
 
 /**
  * T1·T2: {@code ChatRoomLastMessageRow}가 실제 PostgreSQL JDBC 드라이버가 반환하는 {@code created_at} 값을
@@ -39,15 +37,9 @@ import cloud.bamsongi.albammate.room.repository.RoomRepository;
  */
 @Testcontainers
 @SpringBootTest(classes = AlbamMateApplication.class)
-class ChatRoomPreviewQueryServicePostgresTest {
+class ChatRoomPreviewQueryServicePostgresTest extends SharedPostgresIntegrationSupport {
 
-	private static final String POSTGRES_IMAGE = "postgres:18.4";
 	private static final Instant NOW = Instant.parse("2026-08-19T00:00:00Z");
-
-	@Container
-	@ServiceConnection
-	static final PostgreSQLContainer postgres = new PostgreSQLContainer(POSTGRES_IMAGE)
-		.withDatabaseName("albam_mate_chat_preview_test");
 
 	@Autowired
 	private ChatRoomPreviewQueryService chatRoomPreviewQueryService;

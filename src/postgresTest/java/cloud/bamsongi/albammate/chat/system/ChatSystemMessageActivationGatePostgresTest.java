@@ -14,15 +14,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.data.domain.Pageable;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import cloud.bamsongi.albammate.AlbamMateApplication;
 import cloud.bamsongi.albammate.chat.entity.ChatMessage;
@@ -34,6 +31,7 @@ import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
 import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
 import cloud.bamsongi.albammate.room.service.command.RoomParticipationService;
+import cloud.bamsongi.albammate.testsupport.SharedPostgresIntegrationSupport;
 
 /**
  * #869 T6 — gate 판정이 {@code enabled_at} 전후 사건의 안내 유무를 실제 PostgreSQL {@code clock_timestamp()}로
@@ -42,16 +40,10 @@ import cloud.bamsongi.albammate.room.service.command.RoomParticipationService;
 @Testcontainers
 @SpringBootTest(classes = AlbamMateApplication.class)
 @Import(ChatSystemMessageActivationGatePostgresTest.WrongClockConfiguration.class)
-class ChatSystemMessageActivationGatePostgresTest {
+class ChatSystemMessageActivationGatePostgresTest extends SharedPostgresIntegrationSupport {
 
-	private static final String POSTGRES_IMAGE = "postgres:18.4";
 	private static final String GATE_NAME = "chat-system-message";
 	private static final Instant ROOM_START_AT = Instant.parse("2026-07-28T01:00:00Z");
-
-	@Container
-	@ServiceConnection
-	static final PostgreSQLContainer postgres = new PostgreSQLContainer(POSTGRES_IMAGE)
-		.withDatabaseName("albam_mate_chat_system_message_gate_test");
 
 	@Autowired
 	private ChatSystemMessageActivationGateRepository gateRepository;

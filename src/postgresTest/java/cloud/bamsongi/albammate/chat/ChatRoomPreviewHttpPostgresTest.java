@@ -20,11 +20,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import cloud.bamsongi.albammate.AlbamMateApplication;
 import cloud.bamsongi.albammate.chat.entity.ChatMessage;
@@ -35,6 +32,7 @@ import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
 import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
+import cloud.bamsongi.albammate.testsupport.SharedPostgresIntegrationSupport;
 import cloud.bamsongi.albammate.user.contract.CreateUserAccountCommand;
 import cloud.bamsongi.albammate.user.contract.RawPassword;
 import cloud.bamsongi.albammate.user.contract.UserAccount;
@@ -53,16 +51,10 @@ import tools.jackson.databind.ObjectMapper;
  */
 @Testcontainers
 @SpringBootTest(classes = AlbamMateApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = "app.security.cookie.secure=false")
-class ChatRoomPreviewHttpPostgresTest {
+class ChatRoomPreviewHttpPostgresTest extends SharedPostgresIntegrationSupport {
 
-	private static final String POSTGRES_IMAGE = "postgres:18.4";
 	private static final String PASSWORD = "123456789012345";
 	private static final Instant NOW = Instant.parse("2026-08-19T00:00:00Z");
-
-	@Container
-	@ServiceConnection
-	static final PostgreSQLContainer postgres = new PostgreSQLContainer(POSTGRES_IMAGE)
-		.withDatabaseName("albam_mate_chat_preview_http_test");
 
 	@Autowired
 	private RoomRepository roomRepository;

@@ -17,15 +17,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import cloud.bamsongi.albammate.AlbamMateApplication;
 import cloud.bamsongi.albammate.chat.entity.ChatMessage;
@@ -39,6 +36,7 @@ import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.repository.ParticipationRepository;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
 import cloud.bamsongi.albammate.room.service.command.RoomParticipationService;
+import cloud.bamsongi.albammate.testsupport.SharedPostgresIntegrationSupport;
 
 /**
  * #869 T3 — SYSTEM 안내 저장 실패가 참가 상태 전이·점유 인원과 함께 원자적으로 롤백되고, 참가 자체가 실패한 요청은
@@ -47,16 +45,10 @@ import cloud.bamsongi.albammate.room.service.command.RoomParticipationService;
 @Testcontainers
 @SpringBootTest(classes = AlbamMateApplication.class)
 @Import(ChatSystemMessageAtomicityPostgresTest.FixedClockConfiguration.class)
-class ChatSystemMessageAtomicityPostgresTest {
+class ChatSystemMessageAtomicityPostgresTest extends SharedPostgresIntegrationSupport {
 
-	private static final String POSTGRES_IMAGE = "postgres:18.4";
 	private static final String GATE_NAME = "chat-system-message";
 	private static final Instant NOW = Instant.parse("2026-07-28T00:00:00Z");
-
-	@Container
-	@ServiceConnection
-	static final PostgreSQLContainer postgres = new PostgreSQLContainer(POSTGRES_IMAGE)
-		.withDatabaseName("albam_mate_chat_system_message_atomicity_test");
 
 	@MockitoBean
 	private ChatMessageRepository chatMessageRepository;
