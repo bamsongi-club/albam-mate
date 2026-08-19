@@ -35,6 +35,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -201,6 +202,7 @@ class SearchPerformancePostgresTest {
 	}
 
 	@Test
+	@Tag("measurement")
 	void 대표_SQL은_같은_fixture에서_실행계획과_수집항목을_반복_가능하게_반환한다() {
 		List<Scenario> scenarios = scenarios();
 		try {

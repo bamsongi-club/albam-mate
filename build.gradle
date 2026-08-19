@@ -95,6 +95,21 @@ tasks.register('postgresTest', Test) {
     classpath = sourceSets.postgresTest.runtimeClasspath
     dependsOn tasks.named('postgresTestClasses')
     shouldRunAfter tasks.named('test')
+    useJUnitPlatform {
+        excludeTags 'measurement'
+    }
+}
+
+tasks.register('postgresMeasurementTest', Test) {
+    description = 'Runs opt-in PostgreSQL wall-clock and baseline/candidate measurements.'
+    group = 'verification'
+    testClassesDirs = sourceSets.postgresTest.output.classesDirs
+    classpath = sourceSets.postgresTest.runtimeClasspath
+    dependsOn tasks.named('postgresTestClasses')
+    shouldRunAfter tasks.named('postgresTest')
+    useJUnitPlatform {
+        includeTags 'measurement'
+    }
 }
 
 // 커버리지 태스크는 담당 Test 태스크의 execution data만 명시적으로 사용한다.
