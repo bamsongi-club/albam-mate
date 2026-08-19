@@ -112,7 +112,7 @@ object key는 `receipts/v1/{environment}/{stackId}/{receiptId}/{sequence}-{stage
 | `jvm.threads.live` | gauge·Micrometer JVM binder | 없음 | 1분 `Maximum` | production 설정·OTLP export 자동 검증 완료, CloudWatch 배포·실측 필요 |
 | `tomcat.threads.busy`, `tomcat.threads.current`, `tomcat.threads.config.max` | gauge·Tomcat binder | connector `name`의 배포 고정값 | 1분 `Maximum`, busy/max | Spring Boot 4 connector binder·OTLP export 자동 검증, CloudWatch 실측 필요 |
 | `hikaricp.connections.active`, `idle`, `pending`, `max`, `timeout` | gauge·counter·HikariCP binder | 고정 pool 이름 | 1분 `Maximum`·timeout `Sum` | production 설정·OTLP export 자동 검증 완료, CloudWatch 배포·실측 필요 |
-| `albam.dependency.health` | gauge·추가 구현 | `dependency=postgresql|redis`; 값 `1=up`, `0=down` | 마지막 값과 2회 연속 down | 추가 구현 필요 |
+| `albam.dependency.health` | gauge·앱 코드 | `dependency=postgresql|redis`; 값 `1=up`, `0=down`; 최초 known 결과 전과 probe timeout·중단·실행 예외는 missing 값을 유지 | 마지막 값과 2회 연속 down | 앱 코드·자동 검증 완료, OTLP/CloudWatch export·배포·실측 미확인 |
 | `albam.telemetry.last_success_age` | gauge·Agent/infra 추가 구현 | `signal=metric|log`, 배포 dimension | 5분 `Maximum`; ACTIVE에서 임계 초과 | 추가 구현 필요 |
 
 `frontend/nginx.production.conf`는 proxy 구간에 한해 raw URI·query·client 식별자 없이 `request_time`, `upstream_response_time`, `upstream_addr`를 구조화된 timing 원천으로 남긴다. 외부 응답의 `X-Albam-Mate-Upstream`은 backend가 검증한 `app1` 또는 `app2` 역할만 전달하고 raw 주소를 합성하지 않는다. 내부 `upstream_addr`는 CloudWatch dimension으로 직접 사용하지 않고, private infra가 배포 manifest와 대조해 유한한 App1·App2 `role`로 변환해야 한다. Agent 변환·CloudWatch 배포·실측은 아직 완료 증거가 아니다.
@@ -141,12 +141,16 @@ source는 첫 두 meter가 `AuthenticationRequestLimiterMetrics`, WebSocket 네 
 | `chat.message.retention.backlog.remaining` | counter | 없음 | 15분 `Sum` | 현재 코드·export 필요 |
 | `chat.message.retention.execution.duration` | timer | 없음 | 실행별 p95·max | 현재 코드·export 필요 |
 | `chat.message.retention.delay` | timer | 없음 | 실행별 p95·max | 현재 코드·export 필요 |
-| `notification.relay.events` | counter | `outcome=processed|retry_scheduled|failed` | 1분 `Sum`·최종 전달 결과 | 추가 구현 필요 |
-| `notification.relay.delivery.duration` | timer | 없음 | 1분 p95·알림 전달 30초 기준 | 추가 구현 필요 |
+| `notification.relay.events` | counter | `outcome=processed|retry_scheduled|failed` | 1분 `Sum`·최종 전달 결과 | `processed` 현재 코드·export 필요, retry/failure 추가 구현 필요 |
+| `notification.relay.delivery.duration` | timer | 없음 | 1분 p95·알림 전달 30초 기준 | 현재 코드·export 필요, CloudWatch 배포·실측 필요 |
 | `notification.relay.oldest.processable.age` | gauge | 없음 | 1분 `Maximum`·60초 3회 | 추가 구현 필요 |
-| `room.status.correction.runs` | counter | `outcome=completed|failed|skipped|batch_limit` | 15분 `Sum`·보정 결과 | 추가 구현 필요 |
-| `room.status.correction.duration` | timer | 없음 | 실행별 p95·180초 warning | 추가 구현 필요 |
+| `room.status.correction.runs` | counter | `outcome=completed|failed|skipped|batch_limit` | 15분 `Sum`·보정 결과 | `completed|failed|batch_limit` 현재 코드·export 필요, `skipped` 추가 구현 필요 |
+| `room.status.correction.duration` | timer | 없음 | 실행별 p95·180초 warning | 현재 코드·export 필요, CloudWatch 배포·실측 필요 |
 | `room.waitlist.operations` | counter | `operation=join|cancel|promote`, `outcome=accepted|rejected|failed` | 배포 fixture별 `Sum`·최종 업무 결과 | 추가 구현 필요 |
+
+`notification.relay.delivery.duration`은 outbox의 `recordedAt`부터 Notification 기록 시각까지의 `deliveryDelayMs`를 기록한다. `processingDurationMs`는 구조화 로그의 진단 필드일 뿐 meter에 기록하지 않는다.
+
+채팅 보존의 복구 판정은 앱 인스턴스 메모리나 domain meter가 합성하지 않는다. release 전체의 `failures`와 `completed` 신호를 함께 평가하는 비공개 infra alarm이 소유하며, 그 alarm 구현·배포·실측은 미완료다.
 
 마지막 여섯 meter는 현재 구조화 log·업무 결과에 값이 있거나 검증 경계가 있지만 지속 alarm·업무 결과용 meter는 없는 항목의 구현 이름을 고정한다. 구현 중 다른 이름이나 Logs metric filter가 더 적합하다고 판단하면 코드만 다르게 만들지 않고 이 inventory와 alarm query를 같은 변경에서 갱신한다.
 
@@ -157,7 +161,7 @@ source는 첫 두 meter가 `AuthenticationRequestLimiterMetrics`, WebSocket 네 
 허용 공통 필드는 UTC `timestamp`, `level`, 고정 `event`, `environment`, `stackId`, `service`, `role`, `instanceId`, `release`, 서버 확정 `requestId`다. event별 수치·enum 필드는 아래 목록에서만 추가한다.
 
 - 수치: 고정 event가 정의한 `*Ms`, `*Millis`, `*Count`, `*Limit`, `attempt`, `batchNumber`
-- 유한 enum: `failureCode`, `reasonCode`, event별 `exceptionClass` 또는 `exceptionType`, `eventType`, `targetType`, `action`, `outcome`, `roomStatus`, `useCase`, `section`, `lockName`
+- 유한 enum: `failureCode`, `reasonCode`, event별 `exceptionClass` 또는 `exceptionType`, `eventType`, `targetType`, `action`, `outcome`, `dependency=postgresql|redis`, `roomStatus`, `useCase`, `section`, `lockName`
 - UTC 시각: `measurementTime`, `occurredAt`, `outboxRecordedAt`, `notificationRecordedAt`, `nextAvailableAt`
 - 접근 제한 상관 키: 단일 `roomId`, `messageId`, `sourceEventId`, `gameId`; metric dimension·dashboard group·alarm dimension에는 사용하지 않는다.
 - event별 boolean은 `notification_outbox_relay_event_failed` 전용 boolean `deterministicFailure`만 허용한다. `true`는 이번 실패가 결정적 또는 보존 기간 만료로 자동 재시도 대상이 아니며 최종 실패로 격리됐음을, `false`는 그렇지 않음을 뜻한다. 다른 event나 metric dimension에는 넣지 않는다.
@@ -173,6 +177,8 @@ source는 첫 두 meter가 `AuthenticationRequestLimiterMetrics`, WebSocket 네 
 | `notification_outbox_relay_retry_scheduled` | WARN; 단일 `sourceEventId`, 고정 failure 값·count·다음 시각 | 허용·상관 키 비집계 |
 | `notification_outbox_relay_event_failed` | WARN; 단일 `sourceEventId`, 고정 failure 값·count, 전용 boolean `deterministicFailure` | 허용·상관 키 비집계 |
 | `notification_outbox_relay_scheduler_failed`, `notification_outbox_operation_failed` | ERROR; `failureCode`, `exceptionClass`, `occurredAt` | 허용 |
+| `http_request_failed` | ERROR; `failureCode=HTTP_SERVER_ERROR`, 서버 확정 `requestId` | 허용 |
+| `dependency_health_changed` | WARN/INFO; `dependency=postgresql|redis`, `outcome=down|recovered`, down일 때만 고정 `failureCode` | 허용 |
 | `notification_cleanup_completed`, `notification_cleanup_failed` | INFO/WARN; `targetType`, batch·delete count, duration, 고정 failure 값 | 허용 |
 | `chat_message_retention_completed`, `chat_message_retention_lease_guard_aborted`, `chat_message_retention_backlog_remaining`, `chat_message_retention_failed` | INFO/WARN/ERROR; count·duration·threshold·`exceptionClass` | 허용 |
 | `chat_message_retention_room_failed`, `chat_message_retention_lock_skipped` | INFO/WARN; 고정 reason, `lockName`, `section`, `exceptionClass` | 허용 |
@@ -212,6 +218,8 @@ Query 결과를 Git에 원문으로 저장하지 않는다. 장기 증거는 금
 ## Alarm·runbook matrix
 
 모든 alarm은 `jiho`를 1차 담당자로 하고 SNS 실제 구독에서만 이메일 주소를 관리한다. `warning`과 `critical`, `OK` 복구를 전달하며 자동 restart·scale·rollback·데이터 재처리를 실행하지 않는다. 측정 전 값은 `후보`이며 SLA가 아니다.
+
+일반 API의 60초 timeout은 Nginx가 504를 확정하므로 애플리케이션이 `HTTP_TIMEOUT` 로그나 meter를 합성하지 않는다. Nginx timing과 중앙 수집을 연결한 timeout 경고·복구 검증은 비공개 infra alarm 소유의 미완료 항목이다.
 
 | alarm·query | 기간·평가 | 등급·missing data | `PLANNED_STOP` | 복구·첫 조치 |
 | --- | --- | --- | --- | --- |

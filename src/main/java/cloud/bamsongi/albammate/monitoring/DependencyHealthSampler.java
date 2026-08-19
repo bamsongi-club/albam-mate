@@ -6,6 +6,7 @@ import java.time.Duration;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 import javax.sql.DataSource;
 
@@ -15,7 +16,6 @@ import org.springframework.data.redis.connection.RedisConnection;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.stereotype.Component;
 
-import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.annotation.PreDestroy;
 
 /** 업무 transaction 밖에서 의존성 연결 상태만 제한된 주기로 표본화한다. */
@@ -41,19 +41,20 @@ class DependencyHealthSampler {
 		});
 
 	DependencyHealthSampler(DataSource dataSource, RedisConnectionFactory redisConnectionFactory,
-		MeterRegistry meterRegistry, @Value("${app.monitoring.dependency-health.poll-interval:10s}")
+		DependencyHealthMetrics metrics, @Value("${app.monitoring.dependency-health.poll-interval:10s}")
 		Duration pollInterval) {
 		this.dataSource = dataSource;
 		this.redisConnectionFactory = redisConnectionFactory;
-		metrics = new DependencyHealthMetrics(meterRegistry);
+		this.metrics = metrics;
 		probeTimeout = boundedProbeTimeout(pollInterval);
 	}
 
 	void sample() {
-		Future<Boolean> postgresqlProbe = postgresqlProbeExecutor.submit(this::postgresqlIsUp);
-		Future<Boolean> redisProbe = redisProbeExecutor.submit(this::redisIsUp);
-		metrics.recordRedis(awaitProbe(redisProbe));
-		metrics.recordPostgresql(awaitProbe(postgresqlProbe));
+		Future<ProbeResult> postgresqlProbe = postgresqlProbeExecutor.submit(
+			() -> ProbeResult.from(postgresqlIsUp()));
+		Future<ProbeResult> redisProbe = redisProbeExecutor.submit(() -> ProbeResult.from(redisIsUp()));
+		recordKnown(awaitProbe(redisProbe), metrics::recordRedis);
+		recordKnown(awaitProbe(postgresqlProbe), metrics::recordPostgresql);
 	}
 
 	@PreDestroy
@@ -62,16 +63,24 @@ class DependencyHealthSampler {
 		redisProbeExecutor.shutdownNow();
 	}
 
-	private boolean awaitProbe(Future<Boolean> probe) {
+	private void recordKnown(ProbeResult result, Consumer<Boolean> recorder) {
+		if (result == ProbeResult.UP) {
+			recorder.accept(true);
+		} else if (result == ProbeResult.DOWN) {
+			recorder.accept(false);
+		}
+	}
+
+	private ProbeResult awaitProbe(Future<ProbeResult> probe) {
 		try {
 			return probe.get(probeTimeout.toNanos(), TimeUnit.NANOSECONDS);
 		} catch (InterruptedException exception) {
 			Thread.currentThread().interrupt();
 			probe.cancel(true);
-			return false;
+			return ProbeResult.UNKNOWN;
 		} catch (java.util.concurrent.TimeoutException | java.util.concurrent.ExecutionException exception) {
 			probe.cancel(true);
-			return false;
+			return ProbeResult.UNKNOWN;
 		}
 	}
 
@@ -101,5 +110,15 @@ class DependencyHealthSampler {
 		}
 		long timeoutNanos = Math.min(Duration.ofMillis(250).toNanos(), (pollIntervalNanos - 1) / 2);
 		return Duration.ofNanos(timeoutNanos);
+	}
+
+	private enum ProbeResult {
+		UP,
+		DOWN,
+		UNKNOWN;
+
+		private static ProbeResult from(boolean up) {
+			return up ? UP : DOWN;
+		}
 	}
 }

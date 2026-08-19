@@ -36,6 +36,8 @@ import cloud.bamsongi.albammate.notification.enums.NotificationOutboxStatus;
 import cloud.bamsongi.albammate.notification.repository.NotificationOutboxEventRepository;
 import cloud.bamsongi.albammate.notification.repository.NotificationOutboxRecipientRepository;
 import cloud.bamsongi.albammate.notification.repository.NotificationRepository;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
 class NotificationRelayExecutorTest {
 
@@ -173,6 +175,40 @@ class NotificationRelayExecutorTest {
 			assertNoSensitiveValue(message);
 		} finally {
 			detachLogAppender(appender);
+		}
+	}
+
+	@Test
+	void T2_relay_성공은_상관키를_dimension으로_쓰지_않고_유한_outcome_metric으로_기록한다() {
+		SimpleMeterRegistry registry = new SimpleMeterRegistry();
+		Metrics.addRegistry(registry);
+		NotificationOutboxEventRepository eventRepository = mock(NotificationOutboxEventRepository.class);
+		NotificationOutboxRecipientRepository recipientRepository = mock(NotificationOutboxRecipientRepository.class);
+		NotificationRepository notificationRepository = mock(NotificationRepository.class);
+		NotificationOutboxEvent event = pendingEvent(10L);
+		NotificationOutboxEventRepository.RelayClaim claim = claim(10L);
+		when(eventRepository.claimEarliestProcessableEvent()).thenReturn(Optional.of(claim));
+		when(eventRepository.findById(10L)).thenReturn(Optional.of(event));
+		when(recipientRepository.findRecipientUserIdsByOutboxEventId(10L)).thenReturn(List.of(2L));
+		try {
+			NotificationRelayExecutor executor = new NotificationRelayExecutor(
+				eventRepository, recipientRepository, notificationRepository);
+
+			executor.processOne();
+			invokeAfterCommit();
+
+			assertEquals(1.0, registry.find("notification.relay.events").tag("outcome", "processed").counter()
+				.count());
+			io.micrometer.core.instrument.Timer deliveryDuration = registry.find("notification.relay.delivery.duration")
+				.timer();
+			assertEquals(1L, deliveryDuration.count());
+			assertEquals(60_000.0, deliveryDuration.totalTime(java.util.concurrent.TimeUnit.MILLISECONDS));
+			assertEquals(60_000.0, deliveryDuration.max(java.util.concurrent.TimeUnit.MILLISECONDS));
+			assertTrue(registry.find("notification.relay.events").meters().stream()
+				.allMatch(meter -> meter.getId().getTags().stream().allMatch(tag -> "outcome".equals(tag.getKey()))));
+		} finally {
+			Metrics.removeRegistry(registry);
+			registry.close();
 		}
 	}
 
