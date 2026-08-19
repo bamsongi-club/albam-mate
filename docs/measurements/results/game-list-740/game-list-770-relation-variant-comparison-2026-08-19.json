@@ -1035,5 +1035,12 @@
       }
     ]
   },
-  "selectedVariant": "V1"
+  "selectedVariant": "V1",
+  "evidence": {
+    "schemaVersion": 1,
+    "sqlCaptureCount": 24,
+    "slowestExplainCount": 24,
+    "relationComplexContentPlanCount": 8,
+    "baseExactCountAbsent": true
+  }
 }

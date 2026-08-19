@@ -192,8 +192,17 @@ function validateServerProvenance(artifact, label) {
     || startContainers.length === 0 || startContainers.length !== endContainers.length) {
     fail(`${label} server provenance의 시작·종료 container 목록이 다릅니다.`);
   }
+  const containerIds = new Map();
   for (const startContainer of startContainers) {
     const role = nonEmptyString(startContainer.role, `${label}.serverContainers.role`);
+    const containerId = nonEmptyString(
+      startContainer.containerId,
+      `${label}.serverContainers[${role}].containerId`,
+    );
+    if (containerIds.has(role)) {
+      fail(`${label} server provenance에 중복 role이 있습니다: ${role}`);
+    }
+    containerIds.set(role, containerId);
     const startRevision = nonEmptyString(
       startContainer.imageRevision,
       `${label}.serverContainers[${role}].imageRevision`,
@@ -202,23 +211,35 @@ function validateServerProvenance(artifact, label) {
       fail(`${label} server container ${role}의 imageRevision이 serverCommit과 다릅니다.`);
     }
     const endContainer = endContainers.find((candidate) => candidate?.role === role);
-    if (!endContainer || endContainer.imageRevision !== startRevision) {
+    if (!endContainer
+      || endContainer.containerId !== containerId
+      || endContainer.imageRevision !== startRevision) {
       fail(`${label} server container ${role}의 시작·종료 imageRevision이 다릅니다.`);
     }
   }
-  return serverCommit;
+  return { serverCommit, containerIds };
 }
 
-function validateScenario(result, label) {
+function validateScenario(result, label, serverContainerIds) {
   if (!isPlainObject(result)) {
     fail(`${label} result가 object가 아닙니다.`);
   }
   if (result.status !== "success") {
     fail(`${label} status가 success가 아닙니다: ${result.status}`);
   }
+  if (!isPlainObject(result.params)) {
+    fail(`${label}.params가 object가 아닙니다.`);
+  }
+  const expectedPage = Number(result.params.page);
+  const expectedSize = Number(result.params.size);
+  if (!Number.isSafeInteger(expectedPage) || expectedPage < 0
+    || !Number.isSafeInteger(expectedSize) || expectedSize <= 0) {
+    fail(`${label}.params의 page와 size가 올바르지 않습니다.`);
+  }
   if (!Array.isArray(result.samples) || result.samples.length !== 20) {
     fail(`${label} samples는 정확히 20개여야 합니다: ${result.samples?.length ?? "missing"}`);
   }
+  let firstPageMetadata = null;
   result.samples.forEach((sample, index) => {
     if (!isPlainObject(sample)) {
       fail(`${label} samples[${index}]가 object가 아닙니다.`);
@@ -228,6 +249,30 @@ function validateScenario(result, label) {
     }
     if (sample.error !== null && sample.error !== undefined) {
       fail(`${label} samples[${index}]에 오류가 있습니다: ${sample.error}`);
+    }
+    const metadata = sample.pageMetadata;
+    if (!isPlainObject(metadata)
+      || !equivalent(Object.keys(metadata).sort(), ["contentLength", "hasNext", "page", "size"])) {
+      fail(`${label} samples[${index}].pageMetadata가 Slice 계약과 다릅니다.`);
+    }
+    if (metadata.page !== expectedPage || metadata.size !== expectedSize
+      || typeof metadata.hasNext !== "boolean"
+      || !Number.isSafeInteger(metadata.contentLength)
+      || metadata.contentLength < 0 || metadata.contentLength > expectedSize
+      || (metadata.hasNext && metadata.contentLength !== expectedSize)) {
+      fail(`${label} samples[${index}].pageMetadata가 요청 page/size와 일치하지 않습니다.`);
+    }
+    if (firstPageMetadata !== null && !equivalent(metadata, firstPageMetadata)) {
+      fail(`${label} samples[${index}].pageMetadata가 같은 scenario의 다른 표본과 다릅니다.`);
+    }
+    firstPageMetadata ??= metadata;
+    const upstreamRole = nonEmptyString(sample.upstreamRole, `${label} samples[${index}].upstreamRole`);
+    const upstreamContainerId = nonEmptyString(
+      sample.upstreamContainerId,
+      `${label} samples[${index}].upstreamContainerId`,
+    );
+    if (serverContainerIds.get(upstreamRole) !== upstreamContainerId) {
+      fail(`${label} samples[${index}] upstream container이 server provenance와 다릅니다.`);
     }
     finiteNonnegative(sample.elapsedMs, `${label} samples[${index}].elapsedMs`);
   });
@@ -244,6 +289,111 @@ function validateScenario(result, label) {
   return calculated;
 }
 
+function readEvidenceFile(root, relativePath, label) {
+  const filePath = path.join(root, relativePath);
+  if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+    fail(`${label} evidence 파일이 없습니다: ${relativePath}`);
+  }
+  const contents = fs.readFileSync(filePath, "utf8");
+  if (contents.trim() === "") {
+    fail(`${label} evidence 파일이 비어 있습니다: ${relativePath}`);
+  }
+  return contents;
+}
+
+export function validateEvidenceRoot(evidenceRoot) {
+  const root = path.resolve(evidenceRoot);
+  if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) {
+    fail(`evidence root가 디렉터리가 아닙니다: ${root}`);
+  }
+  let selectionSummary;
+  try {
+    selectionSummary = JSON.parse(readEvidenceFile(root, "selection-summary.json", "selection-summary"));
+  } catch (error) {
+    fail(`selection-summary.json을 읽을 수 없습니다: ${error.message}`);
+  }
+
+  let sqlCaptureCount = 0;
+  let slowestExplainCount = 0;
+  let relationComplexContentPlanCount = 0;
+  for (const variant of VARIANTS) {
+    const variantKey = variant.toLowerCase();
+    const variantSummary = selectionSummary[variantKey];
+    if (!isPlainObject(variantSummary)) {
+      fail(`selection-summary에 ${variant}가 없습니다.`);
+    }
+    for (const scenario of REQUIRED_SCENARIOS) {
+      const summary = variantSummary[scenario];
+      if (!isPlainObject(summary)) {
+        fail(`selection-summary에 ${variant} ${scenario}가 없습니다.`);
+      }
+      const contentSql = nonEmptyString(summary.contentSql, `${variant} ${scenario}.contentSql`);
+      const postgresLog = readEvidenceFile(
+        root,
+        `${variantKey}/${scenario}.postgres.log`,
+        `${variant} ${scenario}`,
+      );
+      if (!postgresLog.includes(contentSql)) {
+        fail(`${variant} ${scenario} SQL capture가 selection-summary contentSql과 다릅니다.`);
+      }
+      sqlCaptureCount += 1;
+
+      const slowestInput = readEvidenceFile(
+        root,
+        `${variantKey}/explain-input/${scenario}-slowest.sql`,
+        `${variant} ${scenario} slowest EXPLAIN input`,
+      );
+      const slowestOutput = readEvidenceFile(
+        root,
+        `${variantKey}/explain-output/${scenario}-slowest.txt`,
+        `${variant} ${scenario} slowest EXPLAIN output`,
+      );
+      if (!/EXPLAIN\s*\(/iu.test(slowestInput)
+        || !/QUERY PLAN/iu.test(slowestOutput)
+        || !/Execution Time:/iu.test(slowestOutput)) {
+        fail(`${variant} ${scenario} slowest EXPLAIN evidence가 올바르지 않습니다.`);
+      }
+      slowestExplainCount += 1;
+
+      if (scenario === "relation-theme-mechanism" || scenario === "complex") {
+        const contentInput = readEvidenceFile(
+          root,
+          `${variantKey}/explain-input/${scenario}-content.sql`,
+          `${variant} ${scenario} content EXPLAIN input`,
+        );
+        const contentOutput = readEvidenceFile(
+          root,
+          `${variantKey}/explain-output/${scenario}-content.txt`,
+          `${variant} ${scenario} content EXPLAIN output`,
+        );
+        if (!/EXPLAIN\s*\(/iu.test(contentInput)
+          || !/QUERY PLAN/iu.test(contentOutput)
+          || !/Execution Time:/iu.test(contentOutput)) {
+          fail(`${variant} ${scenario} content EXPLAIN evidence가 올바르지 않습니다.`);
+        }
+        relationComplexContentPlanCount += 1;
+      }
+
+      if (scenario === "base") {
+        if (/\bselect\s+count\s*\([^)]*\)[\s\S]*\bfrom\s+games\b/iu.test(postgresLog)) {
+          fail(`${variant} base SQL capture에 games exact count statement가 있습니다.`);
+        }
+        if (!/fetch first \$\d+ rows only/iu.test(contentSql)
+          || !/Parameters:[^\n]*'25'/u.test(postgresLog)) {
+          fail(`${variant} base SQL capture가 Slice size + 1 조회를 증명하지 않습니다.`);
+        }
+      }
+    }
+  }
+  return {
+    schemaVersion: 1,
+    sqlCaptureCount,
+    slowestExplainCount,
+    relationComplexContentPlanCount,
+    baseExactCountAbsent: true,
+  };
+}
+
 function validateArtifact(spec) {
   const label = `${spec.variant} round ${spec.round}`;
   if (!isPlainObject(spec.artifact)) {
@@ -257,7 +407,7 @@ function validateArtifact(spec) {
     fail(`${label} runnerSourceClean이 true가 아닙니다.`);
   }
   const runnerFileSha256 = sha256(artifact.runnerFileSha256, `${label}.runnerFileSha256`);
-  const serverCommit = validateServerProvenance(artifact, label);
+  const serverProvenance = validateServerProvenance(artifact, label);
   if (!isPlainObject(artifact.endProvenance?.runner)) {
     fail(`${label}.endProvenance.runner가 object가 아닙니다.`);
   }
@@ -281,7 +431,7 @@ function validateArtifact(spec) {
     if (Object.hasOwn(scenarios, name)) {
       fail(`${label}에 중복 scenario가 있습니다: ${name}`);
     }
-    scenarios[name] = validateScenario(result, `${label} ${name}`);
+    scenarios[name] = validateScenario(result, `${label} ${name}`, serverProvenance.containerIds);
   }
   for (const name of REQUIRED_SCENARIOS) {
     if (!Object.hasOwn(scenarios, name)) {
@@ -291,7 +441,7 @@ function validateArtifact(spec) {
   return {
     path: spec.path,
     round: spec.round,
-    serverCommit,
+    serverCommit: serverProvenance.serverCommit,
     runnerFileSha256,
     fixture,
     scenarios,
@@ -449,7 +599,7 @@ function parseArtifactArgument(value) {
 }
 
 function parseArgs(argv) {
-  const options = { artifactSpecs: [], output: null, markdownOutput: null };
+  const options = { artifactSpecs: [], output: null, markdownOutput: null, evidenceRoot: null };
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
     const next = () => {
@@ -472,16 +622,20 @@ function parseArgs(argv) {
         if (options.markdownOutput) fail("--markdown-output은 한 번만 지정할 수 있습니다.");
         options.markdownOutput = next();
         break;
+      case "--evidence-root":
+        if (options.evidenceRoot) fail("--evidence-root는 한 번만 지정할 수 있습니다.");
+        options.evidenceRoot = next();
+        break;
       case "--help":
-        console.log("Usage: node scripts/measurements/game-list-variant-comparison.mjs --artifact V0:1:path.json ... --output result.json --markdown-output result.md");
+        console.log("Usage: node scripts/measurements/game-list-variant-comparison.mjs --artifact V0:1:path.json ... --evidence-root sql-captures --output result.json --markdown-output result.md");
         process.exit(0);
         break;
       default:
         fail(`알 수 없는 인자입니다: ${argument}`);
     }
   }
-  if (!options.output || !options.markdownOutput) {
-    fail("--output과 --markdown-output을 모두 지정해야 합니다.");
+  if (!options.output || !options.markdownOutput || !options.evidenceRoot) {
+    fail("--evidence-root, --output과 --markdown-output을 모두 지정해야 합니다.");
   }
   return options;
 }
@@ -513,6 +667,9 @@ export function comparisonMarkdown(result) {
     `- fixture manifest SHA-256: \`${result.fixture.fixtureManifestSha256}\``,
     `- runner file SHA-256: \`${result.runnerFileSha256}\``,
     `- 선정 후보: ${result.selectedVariant ?? "없음 — V0 유지"}`,
+    ...(result.evidence ? [
+      `- SQL/EXPLAIN evidence gate: ${result.evidence.sqlCaptureCount} SQL capture, ${result.evidence.slowestExplainCount} slowest EXPLAIN, ${result.evidence.relationComplexContentPlanCount} relation·complex content plan, base exact count 부재=${result.evidence.baseExactCountAbsent ? "PASS" : "FAIL"}`,
+    ] : []),
     "",
     "## Scenario median (네 batch 가운데 두 p95의 산술평균)",
     "",
@@ -551,7 +708,9 @@ function writeText(filePath, text) {
 
 function main() {
   const options = parseArgs(process.argv.slice(2));
+  const evidence = validateEvidenceRoot(options.evidenceRoot);
   const result = compareVariants(options.artifactSpecs.map(readArtifact));
+  result.evidence = evidence;
   writeText(options.output, `${JSON.stringify(result, null, 2)}\n`);
   writeText(options.markdownOutput, comparisonMarkdown(result));
   console.log(`selectedVariant=${result.selectedVariant ?? "null"}`);

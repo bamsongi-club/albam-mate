@@ -12,6 +12,10 @@ import {
 } from "./game-list-variant-comparison.mjs";
 
 const comparisonPath = fileURLToPath(new URL("./game-list-variant-comparison.mjs", import.meta.url));
+const evidenceRoot = fileURLToPath(new URL(
+  "../../docs/measurements/results/game-list-740/game-list-867-2026-08-19/sql-captures/",
+  import.meta.url,
+));
 const fixture = {
   fixtureId: "game-list-170005-observed-2026-08-19",
   fixtureManifestSha256: "58263d92f6f1f39f7cf3619f9f7666cf9d48c6f420b59606116a1e353f6000eb",
@@ -57,8 +61,8 @@ function artifact({
     runnerSourceClean: true,
     serverCommit,
     serverContainers: [
-      { role: "app1", imageRevision: serverCommit },
-      { role: "app2", imageRevision: serverCommit },
+      { role: "app1", containerId: "app1", imageRevision: serverCommit },
+      { role: "app2", containerId: "app2", imageRevision: serverCommit },
     ],
     dataset,
     endProvenance: {
@@ -70,8 +74,8 @@ function artifact({
       server: {
         commit: serverCommit,
         containers: [
-          { role: "app1", imageRevision: serverCommit },
-          { role: "app2", imageRevision: serverCommit },
+          { role: "app1", containerId: "app1", imageRevision: serverCommit },
+          { role: "app2", containerId: "app2", imageRevision: serverCommit },
         ],
       },
       dataset: {
@@ -92,11 +96,15 @@ function artifact({
 function scenarioResult(name, elapsedMs, sampleStatus) {
   return {
     name,
+    params: { page: "0", size: "24" },
     status: "success",
     samples: Array.from({ length: 20 }, (_, index) => ({
       run: index + 1,
       status: sampleStatus,
       elapsedMs,
+      pageMetadata: { page: 0, size: 24, hasNext: true, contentLength: 24 },
+      upstreamRole: "app1",
+      upstreamContainerId: "app1",
       error: sampleStatus === 200 ? null : "HTTP failure",
     })),
     summary: {
@@ -205,6 +213,16 @@ test("runner SHA와 모든 200 sample이 같지 않으면 성공 비교를 만�
   serverContainerMismatch.find((candidate) => candidate.variant === "V3" && candidate.round === 1)
     .artifact.endProvenance.server.containers[0].imageRevision = "1".repeat(40);
   assert.throws(() => compareVariants(serverContainerMismatch), /server container/u);
+
+  const sliceMetadataMismatch = validSpecs();
+  sliceMetadataMismatch.find((candidate) => candidate.variant === "V1" && candidate.round === 2)
+    .artifact.results[0].samples[0].pageMetadata.hasNext = false;
+  assert.throws(() => compareVariants(sliceMetadataMismatch), /pageMetadata/u);
+
+  const upstreamContainerMismatch = validSpecs();
+  upstreamContainerMismatch.find((candidate) => candidate.variant === "V2" && candidate.round === 1)
+    .artifact.results[0].samples[0].upstreamContainerId = "stale-container";
+  assert.throws(() => compareVariants(upstreamContainerMismatch), /upstream container/u);
 });
 
 test("CLI는 JSON과 Markdown 결과에 선정 후보와 raw artifact를 함께 기록한다", () => {
@@ -219,9 +237,22 @@ test("CLI는 JSON과 Markdown 결과에 선정 후보와 raw artifact를 함께 
     }
     const outputPath = path.join(root, "comparison.json");
     const markdownPath = path.join(root, "comparison.md");
+    assert.throws(
+      () => execFileSync(process.execPath, [
+        comparisonPath,
+        ...args,
+        "--output",
+        outputPath,
+        "--markdown-output",
+        markdownPath,
+      ], { stdio: "pipe" }),
+      (error) => error.status === 1 && String(error.stderr).includes("--evidence-root"),
+    );
     execFileSync(process.execPath, [
       comparisonPath,
       ...args,
+      "--evidence-root",
+      evidenceRoot,
       "--output",
       outputPath,
       "--markdown-output",
