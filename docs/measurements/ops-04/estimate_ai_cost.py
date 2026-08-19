@@ -12,6 +12,10 @@ from typing import Any
 
 
 OUTPUT_SCALE = Decimal("0.000000000001")
+APPROVED_SNAPSHOT_ID = "openai-gpt-5.6-luna-standard-2026-07-30-v1"
+APPROVED_SNAPSHOT_CHECKSUM_SHA256 = (
+    "4fcaa7afd3e6ec6f0f223051d06d488ddfb48c4e17939fd462122868e94a22bb"
+)
 
 
 def canonical_sha256(value: Any) -> str:
@@ -43,6 +47,12 @@ def validate_snapshot(snapshot: dict[str, Any]) -> None:
     }
     if canonical_sha256(snapshot_payload) != snapshot["snapshotChecksumSha256"]:
         raise ValueError("snapshot checksum does not match the snapshot")
+    if (
+        snapshot["snapshotId"] != APPROVED_SNAPSHOT_ID
+        or snapshot["snapshotChecksumSha256"]
+        != APPROVED_SNAPSHOT_CHECKSUM_SHA256
+    ):
+        raise ValueError("snapshot is not in the approved allowlist")
 
 
 def no_observation(snapshot: dict[str, Any], reason: str) -> dict[str, Any]:

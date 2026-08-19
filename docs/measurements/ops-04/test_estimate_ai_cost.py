@@ -128,6 +128,21 @@ class EstimateAiCostTest(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "snapshot checksum"):
                     ESTIMATOR.validate_snapshot(changed)
 
+    def test_resigned_arbitrary_snapshot_is_not_approved(self) -> None:
+        changed = json.loads(json.dumps(self.snapshot))
+        changed["rateCard"]["outputUsd"] = "9.99"
+        changed["rateCardChecksumSha256"] = ESTIMATOR.canonical_sha256(
+            changed["rateCard"]
+        )
+        changed["snapshotChecksumSha256"] = ESTIMATOR.canonical_sha256({
+            key: value
+            for key, value in changed.items()
+            if key != "snapshotChecksumSha256"
+        })
+
+        with self.assertRaisesRegex(ValueError, "approved allowlist"):
+            ESTIMATOR.validate_snapshot(changed)
+
 
 if __name__ == "__main__":
     unittest.main()
