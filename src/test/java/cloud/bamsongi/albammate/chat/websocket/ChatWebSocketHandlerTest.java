@@ -204,6 +204,7 @@ class ChatWebSocketHandlerTest {
 			connectionRegistry,
 			chatMessageRepository,
 			userQuery,
+			new cloud.bamsongi.albammate.chat.system.ChatMessageResponseAssembler(),
 			metrics,
 			JsonMapper.builder().build(),
 			Clock.fixed(Instant.parse("2026-08-05T00:00:00Z"), java.time.ZoneOffset.UTC));

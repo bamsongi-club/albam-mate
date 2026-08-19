@@ -29,6 +29,7 @@ import cloud.bamsongi.albammate.chat.entity.ChatMessage;
 import cloud.bamsongi.albammate.chat.entity.ChatRoom;
 import cloud.bamsongi.albammate.chat.repository.ChatMessageRepository;
 import cloud.bamsongi.albammate.chat.repository.ChatRoomRepository;
+import cloud.bamsongi.albammate.chat.system.ChatMessageResponseAssembler;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.room.contract.ChatAccessGuard;
@@ -51,7 +52,8 @@ class ChatMessageHistoryQueryServiceTest {
 	@BeforeEach
 	void setUp() {
 		chatMessageHistoryQueryService = new ChatMessageHistoryQueryService(
-			chatAccessGuard, chatRoomRepository, chatMessageRepository, userQuery);
+			chatAccessGuard, chatRoomRepository, chatMessageRepository, userQuery,
+			new ChatMessageResponseAssembler());
 		when(chatAccessGuard.executeWithAccess(anyLong(), anyLong(), any()))
 			.thenAnswer(invocation -> ((Supplier<?>)invocation.getArgument(2)).get());
 	}

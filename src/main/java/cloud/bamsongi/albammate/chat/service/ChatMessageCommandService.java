@@ -133,7 +133,7 @@ public class ChatMessageCommandService {
 			throw new BusinessException(ErrorCode.VALIDATION_ERROR);
 		}
 		return new ChatMessageSendResult(
-			ChatMessageResponse.from(existing, roomId, sender.nickname(), sender.profileImageUrl(), true), false);
+			ChatMessageResponse.forUser(existing, roomId, sender.nickname(), sender.profileImageUrl(), true), false);
 	}
 
 	private ChatMessageSendResult saveNewMessage(
@@ -151,7 +151,7 @@ public class ChatMessageCommandService {
 			registerReservationReleaseOnRollback(releaseOnce);
 			eventPublisher.publishEvent(MessageCommitted.messageCreated(roomId, saved.getId()));
 			return new ChatMessageSendResult(
-				ChatMessageResponse.from(saved, roomId, sender.nickname(), sender.profileImageUrl(), true), true);
+				ChatMessageResponse.forUser(saved, roomId, sender.nickname(), sender.profileImageUrl(), true), true);
 		} catch (RuntimeException exception) {
 			releaseOnce.run();
 			throw exception;
