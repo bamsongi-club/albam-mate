@@ -312,7 +312,7 @@ function requiresApprovedReleaseGate(manifest) {
     if (!manifest) {
         return false;
     }
-    return [
+    const hasReleaseFields = [
         "approved",
         "testOnly",
         "releaseId",
@@ -323,6 +323,14 @@ function requiresApprovedReleaseGate(manifest) {
         "embedding",
         "outputs",
     ].some((field) => manifest[field] !== undefined);
+    const hasApprovedDescriptionRewrite = Object.values(
+        manifest.provenance?.descriptionFields ?? {},
+    ).some(
+        (field) =>
+            field?.processing === "approved-translation" ||
+            field?.processing === "approved-rewrite",
+    );
+    return hasReleaseFields || hasApprovedDescriptionRewrite;
 }
 
 function writeFailureReport({ games, ranks, manifest, out }, error) {

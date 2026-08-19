@@ -1,6 +1,12 @@
 import { createHash } from "node:crypto";
 import { basename } from "node:path";
 
+import {
+    analyzeDescriptionQuality,
+    DESCRIPTION_FIELDS,
+    validateDescriptionProvenance,
+} from "./description-quality.mjs";
+
 export const CATALOG_FIELDS = [
     "bgg_id",
     "name",
@@ -55,10 +61,6 @@ const FIELD_LENGTHS = {
     estimated_play_time: 50,
 };
 const OPTIONAL_TEXT_FIELDS = new Set(["alias", "image_url"]);
-const LOCALIZED_DESCRIPTION_FIELDS = ["description", "detail_description"];
-const HANGUL_LETTERS = /[가-힣ㄱ-ㅎㅏ-ㅣ]/g;
-const LATIN_LETTERS = /[A-Za-z]/g;
-const MIN_HANGUL_LETTER_SHARE = 0.3;
 const POSTGRES_INTEGER_MIN = -2_147_483_648;
 const POSTGRES_INTEGER_MAX = 2_147_483_647;
 
@@ -94,7 +96,9 @@ export function analyzeCatalog({
     const catalog = normalizedGames
         .sort((left, right) => left.bgg_id - right.bgg_id);
     errors.push(...validateSelectionCounts(manifest, gameRows.length, catalog.length, catalog));
-    const warnings = qualityWarnings(validGameRows, rankByBggId);
+    const descriptionQuality = analyzeDescriptionQuality(validGameRows);
+    const warnings = qualityWarnings(validGameRows, rankByBggId, descriptionQuality);
+    errors.push(...blockingDescriptionErrors(warnings));
     const checks = checkSummary(validGameRows, rankByBggId);
     const acceptedWarnings = new Set(
         Array.isArray(manifest?.review?.acceptedWarnings)
@@ -117,6 +121,7 @@ export function analyzeCatalog({
         ranksCount: rankRows.length,
         errors,
         warnings,
+        descriptionQuality,
         checks,
         releaseYears: releaseYearSummary(validGameRows, rankByBggId),
         searchNumericFields: searchNumericFieldSummary(validGameRows),
@@ -183,7 +188,7 @@ function checkSummary(games, rankByBggId) {
     };
 }
 
-function qualityWarnings(games, rankByBggId) {
+function qualityWarnings(games, rankByBggId, descriptionQuality) {
     const warnings = [];
     const versionCollisions = possibleVersionCollisions(games, rankByBggId);
     if (versionCollisions.length > 0) {
@@ -199,7 +204,11 @@ function qualityWarnings(games, rankByBggId) {
     if (correlationWarning) {
         warnings.push(correlationWarning);
     }
-    const untranslatedWarning = untranslatedDescriptions(games);
+    const mixedWarning = mixedDescriptions(descriptionQuality);
+    if (mixedWarning) {
+        warnings.push(mixedWarning);
+    }
+    const untranslatedWarning = untranslatedDescriptions(descriptionQuality);
     if (untranslatedWarning) {
         warnings.push(untranslatedWarning);
     }
@@ -238,20 +247,37 @@ function qualityWarnings(games, rankByBggId) {
     return warnings;
 }
 
-function untranslatedDescriptions(games) {
+function mixedDescriptions(descriptionQuality) {
     const findings = [];
-    const affectedRows = new Set();
-    for (const game of games) {
-        for (const field of LOCALIZED_DESCRIPTION_FIELDS) {
-            if (!isUntranslatedDescription(game[field])) {
-                continue;
+    for (const field of DESCRIPTION_FIELDS) {
+        for (const finding of descriptionQuality.fields[field].samples.mixed) {
+            findings.push({ bgg_id: finding.bgg_id, field, sample: finding.sample });
+        }
+    }
+    if (findings.length === 0) {
+        return null;
+    }
+    return {
+        code: "MIXED_DESCRIPTION",
+        blocking: true,
+        message:
+            "영문 문장에 한글 단어만 부분 치환된 설명은 정상 한국어 설명으로 취급하지 않습니다.",
+        rowCount: descriptionQuality.rowCounts.mixed,
+        fieldCount: DESCRIPTION_FIELDS.reduce(
+            (count, field) => count + descriptionQuality.fields[field].counts.mixed,
+            0,
+        ),
+        sample: findings.slice(0, 10),
+    };
+}
+
+function untranslatedDescriptions(descriptionQuality) {
+    const findings = [];
+    for (const field of DESCRIPTION_FIELDS) {
+        for (const state of ["english", "other"]) {
+            for (const finding of descriptionQuality.fields[field].samples[state]) {
+                findings.push({ bgg_id: finding.bgg_id, field, sample: finding.sample });
             }
-            affectedRows.add(String(game.bgg_id));
-            findings.push({
-                bgg_id: Number(game.bgg_id),
-                field,
-                sample: String(game[field] ?? "").slice(0, 300),
-            });
         }
     }
     if (findings.length === 0) {
@@ -260,24 +286,26 @@ function untranslatedDescriptions(games) {
     return {
         code: "UNTRANSLATED_DESCRIPTION",
         message:
-            "설명 필드가 한국어로 번역되지 않아 원문이 그대로 노출됩니다. " +
-            "번역 후 다시 적재하거나 검수자가 경고를 승인해야 합니다.",
-        rowCount: affectedRows.size,
-        totalCount: games.length,
-        fieldCount: findings.length,
+            "설명 필드가 영문 원문이거나 언어를 판정할 수 없습니다. " +
+            "승인된 원문 provenance가 없으면 적재할 수 없습니다.",
+        rowCount: descriptionQuality.rowCounts.untranslated,
+        fieldCount: DESCRIPTION_FIELDS.reduce(
+            (count, field) => count + descriptionQuality.fields[field].counts.english
+                + descriptionQuality.fields[field].counts.other,
+            0,
+        ),
         sample: findings.slice(0, 10),
     };
 }
 
-function isUntranslatedDescription(value) {
-    const text = String(value ?? "");
-    const hangul = text.match(HANGUL_LETTERS)?.length ?? 0;
-    const latin = text.match(LATIN_LETTERS)?.length ?? 0;
-    const letters = hangul + latin;
-    if (letters === 0) {
-        return false;
-    }
-    return hangul / letters < MIN_HANGUL_LETTER_SHARE;
+function blockingDescriptionErrors(warnings) {
+    return warnings
+        .filter(({ blocking }) => blocking)
+        .map(({ blocking, ...warning }) => ({
+            ...warning,
+            code: `${warning.code}_BLOCKED`,
+            message: `${warning.message} 적재 산출물을 만들지 않습니다.`,
+        }));
 }
 
 function suspiciousComplexityRankCorrelation(games, rankByBggId) {
@@ -892,6 +920,7 @@ function validateManifest(manifest, gamesPath, gamesContents, ranksPath, ranksCo
             message: "모든 적재 필드의 출처 규칙이 필요합니다.",
         });
     }
+    errors.push(...validateDescriptionProvenance(manifest));
     if (
         !isoTimestamp(manifest.review?.reviewedAt) ||
         !Array.isArray(manifest.review?.reviewers) ||

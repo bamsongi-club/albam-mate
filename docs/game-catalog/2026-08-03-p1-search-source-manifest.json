@@ -61,6 +61,24 @@
         "transformation": "Issue #293 승인에 따라 estimated_play_time 4건만 보정: BGG 242705는 90분, BGG 171·369646·1540은 정보 없음"
       }
     ],
+    "descriptionFields": {
+      "description": {
+        "source": "P0 팀 임시 표시 문구와 2026-08-01 이전 로컬 편집값",
+        "sourceVersion": "games.p1-search-time-corrected-2026-08-03",
+        "processing": "human-reviewed",
+        "status": "review-required",
+        "reviewedBy": "beyejin",
+        "reviewedAt": "2026-08-03T08:59:55Z"
+      },
+      "detail_description": {
+        "source": "P0 팀 임시 상세 문구와 2026-08-01 이전 로컬 편집값",
+        "sourceVersion": "games.p1-search-time-corrected-2026-08-03",
+        "processing": "human-reviewed",
+        "status": "review-required",
+        "reviewedBy": "beyejin",
+        "reviewedAt": "2026-08-03T08:59:55Z"
+      }
+    },
     "serviceFieldBoundary": "이번 적재기는 manifest.fieldSources의 카탈로그 필드만 출력한다. release_year는 ranks.yearpublished를 bgg_id로 매핑해 출력하며, 빈 값만 NULL로 둔다. 입력에 포함된 BGG minplayers·maxplayers는 supported_player_count 파싱 결과의 2,000건 대조 근거이며 검색 수치는 표시값에서 다시 결정적으로 생성한다. mechanisms와 한국어 편집 라벨은 이번 서비스 카탈로그·SQL에 포함하지 않는다.",
     "usagePolicyReferences": [
       "docs/adr/game/0015-bgg-baseline-team-collected-game-list.md",

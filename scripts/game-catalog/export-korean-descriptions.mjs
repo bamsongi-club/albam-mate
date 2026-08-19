@@ -7,17 +7,29 @@
 // 두 필드가 모두 한국어인 행만 내보낸다. 미번역 행이 섞이면 적재 게이트가 막으므로
 // 여기서 먼저 걸러 실패를 앞당긴다.
 
+import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { basename, resolve } from 'node:path';
 
-const HANGUL_LETTERS = /[가-힣ㄱ-ㅎㅏ-ㅣ]/g;
-const LATIN_LETTERS = /[A-Za-z]/g;
-const MIN_HANGUL_LETTER_SHARE = 0.3;
+import { validateApprovedReleaseManifest } from './catalog-release-manifest.mjs';
+import { classifyDescription } from './description-quality.mjs';
+
 const REQUIRED_FIELDS = ['description', 'detail_description'];
 
-export function buildKoreanDescriptionUpsertSql(rows) {
+export function buildKoreanDescriptionUpsertSql(rows, manifest, { actualDescriptionInput } = {}) {
     if (!Array.isArray(rows) || rows.length === 0) {
         throw new Error('입력은 비어 있지 않은 JSON 배열이어야 한다');
+    }
+    try {
+        validateApprovedReleaseManifest(manifest, {
+            actualDescriptionInput,
+            requiredProcessingScopes: ['description-correction'],
+        });
+    } catch (error) {
+        throw new Error(
+            `승인된 description correction release manifest가 필요하다: ${error.message}`,
+            { cause: error },
+        );
     }
 
     const seen = new Set();
@@ -37,8 +49,8 @@ export function buildKoreanDescriptionUpsertSql(rows) {
             if (typeof value !== 'string' || value.trim() === '') {
                 throw new Error(`${bggId}의 ${field}가 비어 있다`);
             }
-            if (isUntranslated(value)) {
-                throw new Error(`${bggId}의 ${field}가 한국어로 번역되지 않았다`);
+            if (classifyDescription(value) !== 'korean') {
+                throw new Error(`${bggId}의 ${field}가 정상 한국어 설명이 아니다`);
             }
         }
         exported.push({
@@ -75,17 +87,6 @@ COMMIT;
     };
 }
 
-// 한글 비율이 30% 미만이면 미번역으로 본다. catalog-analysis.mjs 의 게이트와 같은 기준이다.
-function isUntranslated(value) {
-    const hangul = value.match(HANGUL_LETTERS)?.length ?? 0;
-    const latin = value.match(LATIN_LETTERS)?.length ?? 0;
-    const letters = hangul + latin;
-    if (letters === 0) {
-        return false;
-    }
-    return hangul / letters < MIN_HANGUL_LETTER_SHARE;
-}
-
 function quote(value) {
     return `'${value.replaceAll("'", "''")}'`;
 }
@@ -98,20 +99,37 @@ function parseOptions(args) {
         if (!key?.startsWith('--') || !value) failUsage();
         values[key.slice(2)] = value;
     }
-    if (!values.input || !values.out) failUsage();
-    return { input: resolve(values.input), out: resolve(values.out) };
+    if (!values.input || !values.manifest || !values.out) failUsage();
+    return {
+        input: resolve(values.input),
+        manifest: resolve(values.manifest),
+        out: resolve(values.out),
+    };
 }
 
 function failUsage() {
     process.stderr.write(
-        'usage: node export-korean-descriptions.mjs --input <json> --out <sql>\n',
+        'usage: node export-korean-descriptions.mjs --input <json> --manifest <json> --out <sql>\n',
     );
     process.exit(2);
 }
 
 if (process.argv[1] && import.meta.url.endsWith(process.argv[1].split('/').pop())) {
     const options = parseOptions(process.argv.slice(2));
-    const result = buildKoreanDescriptionUpsertSql(JSON.parse(readFileSync(options.input, 'utf8')));
+    const inputContents = readFileSync(options.input, 'utf8');
+    const rows = JSON.parse(inputContents);
+    const manifest = JSON.parse(readFileSync(options.manifest, 'utf8'));
+    const result = buildKoreanDescriptionUpsertSql(rows, manifest, {
+        actualDescriptionInput: {
+            fileName: basename(options.input),
+            sha256: sha256(inputContents),
+            rows: rows.length,
+        },
+    });
     writeFileSync(options.out, result.sql, 'utf8');
     process.stdout.write(`${result.rows}건 내보냄 -> ${options.out}\n`);
+}
+
+function sha256(value) {
+    return createHash('sha256').update(value).digest('hex');
 }

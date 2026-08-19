@@ -96,6 +96,47 @@ test("기존 비-AI manifest는 기존 출처·품질 validator로 계속 처리
     });
 });
 
+test("번역·재작성 provenance가 구체 release 없이 있으면 적재 산출물을 만들지 않는다", () => {
+    withCase([game(10, "10", "첫 번째 게임", "First Game")], ({
+        games,
+        ranks,
+        manifest,
+        out,
+    }) => {
+        writeManifest(manifest, games, ranks, []);
+        const value = readJson(manifest);
+        for (const field of [
+            "releaseId",
+            "datasetId",
+            "approved",
+            "testOnly",
+            "approval",
+            "approvedFields",
+            "approvedProcessingScopes",
+            "search_text",
+            "embedding",
+            "inputs",
+            "coverage",
+            "outputs",
+        ]) {
+            delete value[field];
+        }
+        value.provenance.descriptionFields.description.processing = "approved-translation";
+        value.provenance.descriptionFields.detail_description.processing = "approved-translation";
+        writeFileSync(manifest, `${JSON.stringify(value, null, 2)}\n`);
+
+        const result = runCli(games, ranks, out, manifest);
+
+        assert.equal(result.status, 1);
+        const report = readJson(join(out, "quality-report.json"));
+        assert.ok(
+            report.errors.some(({ code }) => code === "INVALID_APPROVED_RELEASE_MANIFEST"),
+        );
+        assert.throws(() => readFileSync(join(out, "service-catalog.json")));
+        assert.throws(() => readFileSync(join(out, "upsert-games.sql")));
+    });
+});
+
 test("승인 manifest의 산출물 checksum이 실제 결과와 다르면 파일을 쓰기 전에 차단한다", () => {
     withCase([game(10, "10", "첫 번째 게임", "First Game")], ({
         games,
@@ -1620,22 +1661,57 @@ test("번역되지 않은 영문 설명은 경고로 남고 승인 없이는 적
     });
 });
 
-test("영문 문장에 한글 단어만 섞인 설명도 미번역으로 탐지한다", () => {
+test("영문 문장에 한글 단어만 섞인 설명은 혼합값으로 분류하고 승인으로 우회할 수 없다", () => {
     const wordSwapped = game(1, "10", "그란 포르세티", "Gran Forseti");
     wordSwapped.description = "Game about 전략적 politics and roles.";
     wordSwapped.detail_description =
         "You must play as your role, but be careful, your identity is a 비밀 until the end.";
 
     withCase([wordSwapped], ({ games, ranks, manifest, out }) => {
-        writeManifest(manifest, games, ranks, []);
+        writeManifest(manifest, games, ranks, ["MIXED_DESCRIPTION"]);
         const result = runCli(games, ranks, out, manifest);
 
         assert.equal(result.status, 1);
         const report = readJson(join(out, "quality-report.json"));
-        assert.ok(
-            report.warnings.some(({ code }) => code === "UNTRANSLATED_DESCRIPTION"),
-        );
+        assert.ok(report.warnings.some(({ code }) => code === "MIXED_DESCRIPTION"));
+        assert.ok(report.errors.some(({ code }) => code === "MIXED_DESCRIPTION_BLOCKED"));
         assert.throws(() => readFileSync(join(out, "upsert-games.sql")));
+    });
+});
+
+test("영문 원문을 승인 경고로 수용해도 설명 provenance가 없으면 적재를 막는다", () => {
+    const untranslated = game(1, "10", "세티", "SETI");
+    untranslated.description = "SETI is a strategy game about searching for life.";
+    untranslated.detail_description = "Players scan space and publish findings.";
+
+    withCase([untranslated], ({ games, ranks, manifest, out }) => {
+        writeManifest(manifest, games, ranks, ["UNTRANSLATED_DESCRIPTION"]);
+        const value = readJson(manifest);
+        delete value.provenance;
+        writeFileSync(manifest, `${JSON.stringify(value, null, 2)}\n`);
+
+        const result = runCli(games, ranks, out, manifest);
+
+        assert.equal(result.status, 1);
+        const report = readJson(join(out, "quality-report.json"));
+        assert.ok(report.errors.some(({ code }) => code === "DESCRIPTION_PROVENANCE_REQUIRED"));
+        assert.throws(() => readFileSync(join(out, "upsert-games.sql")));
+    });
+});
+
+test("출처가 확인된 승인 영문 원문은 UNTRANSLATED 경고를 수용하고 적재할 수 있다", () => {
+    const original = game(1, "10", "세티", "SETI");
+    original.description = "SETI is a strategy game about searching for life.";
+    original.detail_description = "Players scan space and publish findings.";
+
+    withCase([original], ({ games, ranks, manifest, out }) => {
+        writeManifest(manifest, games, ranks, ["UNTRANSLATED_DESCRIPTION"]);
+
+        const result = runCli(games, ranks, out, manifest);
+
+        assert.equal(result.status, 0, result.stderr);
+        assert.ok(readFileSync(join(out, "service-catalog.json")));
+        assert.ok(readFileSync(join(out, "upsert-games.sql")));
     });
 });
 
@@ -1765,6 +1841,26 @@ function writeManifest(path, gamesPath, ranksPath, acceptedWarnings) {
             release_year: "ranks.yearpublished",
             description: "games.description",
             detail_description: "games.detail_description",
+        },
+        provenance: {
+            descriptionFields: {
+                description: {
+                    source: "테스트 검수 입력",
+                    sourceVersion: "test-description-v1",
+                    processing: "human-reviewed",
+                    status: "approved",
+                    reviewedBy: "test-reviewer",
+                    reviewedAt: "2026-07-27T10:00:00Z",
+                },
+                detail_description: {
+                    source: "테스트 검수 입력",
+                    sourceVersion: "test-description-v1",
+                    processing: "human-reviewed",
+                    status: "approved",
+                    reviewedBy: "test-reviewer",
+                    reviewedAt: "2026-07-27T10:00:00Z",
+                },
+            },
         },
         selectionRules: {
             include: "BGG 기준 스냅샷과 bgg_id가 일치하고 필수 검수를 통과한 후보만 포함",

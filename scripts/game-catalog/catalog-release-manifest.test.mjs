@@ -94,6 +94,17 @@ test('dataset·AI allowlist·search_text·embedding provenance가 없으면 차�
     );
 });
 
+test('renderer가 출력하는 설명 필드는 approvedFields allowlist에 포함되어야 한다', () => {
+    const manifest = validManifest();
+    manifest.approvedFields = ['name', 'english_name', 'alias', 'tag'];
+    manifest.search_text.fields = ['name', 'english_name'];
+
+    assert.throws(
+        () => validateApprovedReleaseManifest(manifest),
+        /approvedFields.*description.*detail_description/u,
+    );
+});
+
 test('runner 입력·산출물의 실제 checksum과 행 수가 manifest와 다르면 차단한다', () => {
     const manifest = validManifest();
     const actualInputs = {
@@ -218,6 +229,12 @@ function validManifest() {
                 rows: 2,
             },
         },
+        provenance: {
+            descriptionFields: {
+                description: descriptionProvenance(),
+                detail_description: descriptionProvenance(),
+            },
+        },
         outputs: {
             serviceCatalog: {
                 path: 'service-catalog.json',
@@ -230,5 +247,16 @@ function validManifest() {
                 rows: 2,
             },
         },
+    };
+}
+
+function descriptionProvenance() {
+    return {
+        source: 'approved test catalog',
+        sourceVersion: 'test-description-v1',
+        processing: 'human-reviewed',
+        status: 'approved',
+        reviewedBy: 'albam-mate-team',
+        reviewedAt: '2026-08-13T00:00:00Z',
     };
 }
