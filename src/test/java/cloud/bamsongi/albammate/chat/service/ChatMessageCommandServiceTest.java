@@ -7,7 +7,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Clock;
@@ -26,6 +28,7 @@ import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import cloud.bamsongi.albammate.chat.contract.ChatMessageRateLimiter;
+import cloud.bamsongi.albammate.chat.contract.MessageCommitted;
 import cloud.bamsongi.albammate.chat.dto.ChatMessageSendRequest;
 import cloud.bamsongi.albammate.chat.entity.ChatMessage;
 import cloud.bamsongi.albammate.chat.entity.ChatRoom;
@@ -229,6 +232,59 @@ class ChatMessageCommandServiceTest {
 			TransactionSynchronizationManager.clearSynchronization();
 			Metrics.removeRegistry(meterRegistry);
 			meterRegistry.close();
+		}
+	}
+
+	@Test
+	void event_발행_실패와_rollback_callback이_겹쳐도_rate_limit_reservation은_한번만_해제한다() {
+		TransactionSynchronizationManager.initSynchronization();
+		ChatAccessGuard chatAccessGuard = mock(ChatAccessGuard.class);
+		when(chatAccessGuard.executeWithAccess(anyLong(), anyLong(), any()))
+			.thenAnswer(invocation -> ((Supplier<?>)invocation.getArgument(2)).get());
+		ChatRoom chatRoom = mock(ChatRoom.class);
+		when(chatRoom.getId()).thenReturn(3L);
+		ChatRoomRepository chatRoomRepository = mock(ChatRoomRepository.class);
+		when(chatRoomRepository.findByRoomIdForMessageAppend(ROOM_ID)).thenReturn(Optional.of(chatRoom));
+		ChatMessageRepository chatMessageRepository = mock(ChatMessageRepository.class);
+		when(chatMessageRepository.findByChatRoomIdAndSenderUserIdAndClientMessageId(3L, SENDER_USER_ID, "failed"))
+			.thenReturn(Optional.empty());
+		ChatMessage saved = mock(ChatMessage.class);
+		when(saved.getId()).thenReturn(31L);
+		when(saved.getClientMessageId()).thenReturn("failed");
+		when(saved.getContent()).thenReturn("내용");
+		when(saved.getCreatedAt()).thenReturn(Instant.parse("2026-08-04T00:00:00Z"));
+		when(chatMessageRepository.save(any(ChatMessage.class))).thenReturn(saved);
+		UserQuery userQuery = mock(UserQuery.class);
+		when(userQuery.findUserSummaryById(SENDER_USER_ID))
+			.thenReturn(Optional.of(new UserQuery.UserSummary("발신자", null)));
+		ChatMessageRateLimiter rateLimiter = mock(ChatMessageRateLimiter.class);
+		ChatMessageRateLimiter.RateLimitReservation reservation = mock(
+			ChatMessageRateLimiter.RateLimitReservation.class);
+		when(rateLimiter.reserve(SENDER_USER_ID, ROOM_ID)).thenReturn(reservation);
+		ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
+		doThrow(new IllegalStateException("publisher unavailable")).when(eventPublisher)
+			.publishEvent(any(MessageCommitted.class));
+		ChatMessageCommandService service = new ChatMessageCommandService(
+			chatAccessGuard,
+			chatRoomRepository,
+			chatMessageRepository,
+			userQuery,
+			rateLimiter,
+			eventPublisher,
+			Clock.fixed(Instant.parse("2026-08-04T00:00:00Z"), ZoneOffset.UTC),
+			new ChatMessageLimitProperties());
+
+		try {
+			assertThrows(IllegalStateException.class,
+				() -> service.send(SENDER_USER_ID, ROOM_ID, new ChatMessageSendRequest("failed", "내용")));
+
+			TransactionSynchronizationManager.getSynchronizations()
+				.forEach(
+					synchronization -> synchronization.afterCompletion(TransactionSynchronization.STATUS_ROLLED_BACK));
+
+			verify(reservation).release();
+		} finally {
+			TransactionSynchronizationManager.clearSynchronization();
 		}
 	}
 

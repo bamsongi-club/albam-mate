@@ -14,6 +14,11 @@ spring:
       connection-init-sql: SET TIME ZONE 'UTC'
   flyway:
     locations: classpath:db/migration,classpath:db/vendor-migration/postgresql
+management:
+  otlp:
+    metrics:
+      export:
+        enabled: false
 app:
   monitoring:
     dependency-health:

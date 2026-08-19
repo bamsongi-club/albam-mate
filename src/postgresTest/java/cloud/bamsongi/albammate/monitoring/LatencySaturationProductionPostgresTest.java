@@ -43,6 +43,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -57,13 +58,14 @@ import com.google.protobuf.MessageOrBuilder;
 import com.sun.net.httpserver.HttpServer;
 
 import io.micrometer.core.instrument.Meter;
-import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.registry.otlp.OtlpMeterRegistry;
 import io.opentelemetry.proto.collector.metrics.v1.ExportMetricsServiceRequest;
 import io.opentelemetry.proto.common.v1.KeyValue;
 import io.opentelemetry.proto.metrics.v1.Metric;
 import io.opentelemetry.proto.metrics.v1.NumberDataPoint;
 
 @Testcontainers
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @ActiveProfiles("production")
 @Import(LatencySaturationProductionPostgresTest.ControlledHttpRequestConfiguration.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
@@ -78,6 +80,7 @@ import io.opentelemetry.proto.metrics.v1.NumberDataPoint;
 	"ALBAM_MATE_ROLE=app1",
 	"ALBAM_MATE_INSTANCE_ID=postgres-test",
 	"ALBAM_MATE_RELEASE=test-release",
+	"management.otlp.metrics.export.enabled=true",
 	"spring.datasource.hikari.maximum-pool-size=1",
 	"spring.datasource.hikari.minimum-idle=0"
 })
@@ -119,7 +122,7 @@ class LatencySaturationProductionPostgresTest {
 	private DataSource dataSource;
 
 	@Autowired
-	private MeterRegistry meterRegistry;
+	private OtlpMeterRegistry meterRegistry;
 
 	@LocalServerPort
 	private int applicationPort;
@@ -137,7 +140,9 @@ class LatencySaturationProductionPostgresTest {
 	}
 
 	@AfterAll
-	static void stopOtlpReceiver() {
+	static void stopOtlpExporterBeforeReceiver(@Autowired
+	OtlpMeterRegistry otlpMeterRegistry) {
+		otlpMeterRegistry.close();
 		OTLP_RECEIVER.stop(0);
 	}
 
