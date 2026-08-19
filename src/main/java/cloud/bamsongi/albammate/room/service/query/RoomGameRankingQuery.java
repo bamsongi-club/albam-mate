@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.room.service.query;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 
 import org.springframework.data.domain.PageRequest;
@@ -36,6 +37,15 @@ public class RoomGameRankingQuery implements GameRankingQuery {
 			roomRepository.findGameRankingCounts(
 				RoomType.GAME_FOCUSED, EXCLUDED_STATUSES, false, Instant.EPOCH, Instant.EPOCH,
 				PageRequest.of(0, limit)));
+	}
+
+	@Override
+	public List<GameRoomCount> findOverallRankingForGameIds(Collection<Long> gameIds) {
+		if (gameIds.isEmpty()) {
+			return List.of();
+		}
+		return toGameRoomCounts(roomRepository.findGameRankingCountsForGameIds(
+			gameIds, RoomType.GAME_FOCUSED, EXCLUDED_STATUSES));
 	}
 
 	@Override

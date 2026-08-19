@@ -132,20 +132,18 @@ class ModuleArchitectureTest {
 
 	@Test
 	void 업무_모듈은_허용된_방향으로만_참조한다() {
-		FORBIDDEN_DEPENDENCIES.forEach(
-			(sourceModule, targetModules) -> noClasses()
+		FORBIDDEN_DEPENDENCIES.forEach((sourceModule,
+			targetModules) -> targetModules.forEach(targetModule -> noClasses()
 				.that()
 				.resideInAPackage(modulePackage(sourceModule))
 				.should()
-				.dependOnClassesThat()
-				.resideInAnyPackage(
-					targetModules.stream()
-						.map(ModuleArchitectureTest::modulePackage)
-						.toArray(String[]::new))
+				.dependOnClassesThat(
+					resideInAPackage(modulePackage(targetModule))
+						.and(resideOutsideOfPackage(contractPackage(targetModule))))
 				.because(
 					"업무 모듈 간 참조 방향은 이 테스트의 명시된 금지 목록과 각 모듈의 contract 경계를 따른다")
 				.allowEmptyShould(sourceModule.equals("notification"))
-				.check(PRODUCTION_CLASSES));
+				.check(PRODUCTION_CLASSES)));
 	}
 
 	@Test
