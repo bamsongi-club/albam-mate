@@ -36,7 +36,7 @@ import { GameDetailView, GamePickerDialog, GameRankingView, GamesView, EMPTY_GAM
 import { MobileHomePanel } from './mobile/MobileHomePanel';
 import { NotificationPanel } from './notification/NotificationPanel';
 import { selectNotificationAndNavigate } from './notification/notificationNavigation';
-import { useNotificationPolling } from './notification/useNotificationPolling';
+import { NOTIFICATION_POLL_INTERVAL_MS, useNotificationPolling } from './notification/useNotificationPolling';
 import { useNotificationReadSync } from './notification/useNotificationReadSync';
 import { MobileBottomNavigation, ROOT_ROUTES } from './mobile/MobileNavigation';
 import { BotView, MatchView, OnlineRoomView } from './p2';
@@ -402,7 +402,7 @@ function validateRoomForm(form, roomType) {
 }
 
 /** 홈·게임 찾기 타이틀 줄 오른쪽에 붙는 알림·채팅 진입. */
-function HeaderActions({ unreadCount, onOpenNotifications }) {
+function HeaderActions({ unreadCount, chatUnreadCount, onOpenNotifications }) {
   return (
     <span className="appbar-actions">
       <button
@@ -414,7 +414,14 @@ function HeaderActions({ unreadCount, onOpenNotifications }) {
         <BellIcon />
         {unreadCount > 0 && <span className="unread-dot" aria-hidden="true" />}
       </button>
-      <a className="icon-btn" href="#/chats" aria-label="전체 채팅"><ChatIcon /></a>
+      <a
+        className="icon-btn"
+        href="#/chats"
+        aria-label={chatUnreadCount > 0 ? '전체 채팅, 읽지 않은 채팅방 ' + chatUnreadCount + '개' : '전체 채팅'}
+      >
+        <ChatIcon />
+        {chatUnreadCount > 0 && <span className="unread-dot" aria-hidden="true" />}
+      </a>
     </span>
   );
 }
@@ -459,12 +466,12 @@ function RoomListItem({ room, showHostBadge = false, actions }) {
   );
 }
 
-function HomeView({ me, unreadCount, onOpenNotifications, dataVersion }) {
+function HomeView({ me, unreadCount, chatUnreadCount, onOpenNotifications, dataVersion }) {
   return (
     <div className="screen">
       <div className="appbar">
         <span className="appbar-brand"><BrandMark /><span>알밤메이트</span></span>
-        <HeaderActions unreadCount={unreadCount} onOpenNotifications={onOpenNotifications} />
+        <HeaderActions unreadCount={unreadCount} chatUnreadCount={chatUnreadCount} onOpenNotifications={onOpenNotifications} />
       </div>
       <div className="screen-body pad-bottom">
         <MobileHomePanel me={me} dataVersion={dataVersion} />
@@ -1300,8 +1307,15 @@ export function ChatListView({ dataVersion, onBack }) {
                     <strong>{room.title}</strong>
                     <time dateTime={room.startsAt}>{formatStartsAt(room.startsAt)}</time>
                   </span>
-                  <span className="chatrow-last">{participantCount(room)}명 참가 · {room.place || room.region || '장소 미정'}</span>
+                  <span className="chatrow-last">
+                    {room.lastMessagePreview || (participantCount(room) + '명 참가 · ' + (room.place || room.region || '장소 미정'))}
+                  </span>
                 </span>
+                {room.unreadCount > 0 && (
+                  <span className="badge red" aria-label={room.unreadCount + '개 안읽음'}>
+                    {room.unreadCount > 99 ? '99+' : room.unreadCount}
+                  </span>
+                )}
               </a>
             ))}
           </div>
@@ -1339,7 +1353,7 @@ function mergeChatMessages(current, incoming) {
   return [...byId.values()].sort((left, right) => Number(left.messageId) - Number(right.messageId));
 }
 
-export function ChatRoomView({ roomId, dataVersion, onBack }) {
+export function ChatRoomView({ roomId, dataVersion, onBack, onChatRead }) {
   const { data, loading, error } = useRequest(
     (signal) => api.getChatMessages(roomId, signal).catch((cause) => { throw chatAccessError(cause); }),
     [roomId, dataVersion]
@@ -1367,6 +1381,7 @@ export function ChatRoomView({ roomId, dataVersion, onBack }) {
   const [sendResultUnknown, setSendResultUnknown] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState('');
   const lastEventIdRef = useRef(null);
+  const lastMarkedReadMessageIdRef = useRef(0);
   const chatHistoryRef = useRef(null);
   const loadMoreSentinelRef = useRef(null);
   const historyScrollSnapshotRef = useRef(null);
@@ -1394,6 +1409,7 @@ export function ChatRoomView({ roomId, dataVersion, onBack }) {
     setSendResultUnknown(false);
     setConnectionStatus('');
     setClientMessageId(createClientMessageId());
+    lastMarkedReadMessageIdRef.current = 0;
   }, [roomId]);
 
   useEffect(() => {
@@ -1408,6 +1424,21 @@ export function ChatRoomView({ roomId, dataVersion, onBack }) {
     setNextBeforeMessageId(data.nextBeforeMessageId ?? null);
     setHasNext(Boolean(data.hasNext));
   }, [data]);
+
+  // 채팅방에 들어가 최신 메시지를 확인한 시점(초기 로드·실시간 수신 모두 포함)마다 읽음 처리한다.
+  useEffect(() => {
+    if (messagesRoomId !== roomId || !messages.length) return;
+    const latestMessageId = Number(messages.at(-1).messageId) || 0;
+    if (latestMessageId <= lastMarkedReadMessageIdRef.current) return;
+    const requestedRoomId = roomId;
+    lastMarkedReadMessageIdRef.current = latestMessageId;
+    api.markChatRead(roomId, latestMessageId)
+      .then(() => onChatRead?.())
+      .catch(() => {
+        if (roomIdRef.current !== requestedRoomId) return;
+        if (lastMarkedReadMessageIdRef.current === latestMessageId) lastMarkedReadMessageIdRef.current = 0;
+      });
+  }, [messages, messagesRoomId, roomId, onChatRead]);
 
   useEffect(() => {
     if (!data || error) return undefined;
@@ -1735,7 +1766,7 @@ export function SocialLinkView({ socialProviders = [], onSocialLink, onBack }) {
   );
 }
 
-export function ProfileView({ me, onSave, onLogout, socialProviders = [], onUploadImage, onDeleteImage, dataVersion = 0, unreadCount, onOpenNotifications }) {
+export function ProfileView({ me, onSave, onLogout, socialProviders = [], onUploadImage, onDeleteImage, dataVersion = 0, unreadCount, chatUnreadCount, onOpenNotifications }) {
   const [nickname, setNickname] = useState(me.nickname);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -1801,7 +1832,7 @@ export function ProfileView({ me, onSave, onLogout, socialProviders = [], onUplo
   return (
     <div className="screen">
       <div className="screen-body pad-top pad-bottom">
-        <ScreenTitle actions={<HeaderActions unreadCount={unreadCount} onOpenNotifications={onOpenNotifications} />}>내정보</ScreenTitle>
+        <ScreenTitle actions={<HeaderActions unreadCount={unreadCount} chatUnreadCount={chatUnreadCount} onOpenNotifications={onOpenNotifications} />}>내정보</ScreenTitle>
         <div className="profile-head">
           <div className="profile-avatar">
             <Avatar name={me.nickname} index={0} imageUrl={me.profileImageUrl} />
@@ -2069,6 +2100,20 @@ export function App() {
     resumeAfterReadSynchronization: notificationState.resumeAfterReadSynchronization,
     isUnauthenticated
   });
+
+  // 상단 채팅 아이콘 배지: 알림 배지와 같은 주기로 폴링하고, 방을 읽음 처리한 직후에는 즉시 한 번 더 갱신한다.
+  const [chatUnreadVersion, setChatUnreadVersion] = useState(0);
+  const refreshChatUnread = useCallback(() => setChatUnreadVersion((version) => version + 1), []);
+  useEffect(() => {
+    if (!authenticated) return undefined;
+    const timer = window.setInterval(refreshChatUnread, NOTIFICATION_POLL_INTERVAL_MS);
+    return () => window.clearInterval(timer);
+  }, [authenticated, refreshChatUnread]);
+  const chatUnreadSummary = useRequest(
+    (signal) => (authenticated ? api.getUnreadChatSummary(signal) : Promise.resolve({ unreadRoomCount: 0 })),
+    [authenticated, dataVersion, chatUnreadVersion]
+  );
+  const chatUnreadCount = chatUnreadSummary.data?.unreadRoomCount || 0;
 
   const refreshData = () => setDataVersion((version) => version + 1);
   const goBack = () => {
@@ -2377,7 +2422,7 @@ export function App() {
 
   const unreadCount = notificationReadSync.visibleUnreadCount;
   const openNotifications = () => navigate('/notifications');
-  const headerActions = <HeaderActions unreadCount={unreadCount} onOpenNotifications={openNotifications} />;
+  const headerActions = <HeaderActions unreadCount={unreadCount} chatUnreadCount={chatUnreadCount} onOpenNotifications={openNotifications} />;
 
   let content;
   if (route === 'find') {
@@ -2410,7 +2455,7 @@ export function App() {
       : <LoginRequiredView message="내 모임을 보려면 로그인해주세요." onBack={goBack} />;
   } else if (route === 'chat') {
     content = me
-      ? <ChatRoomView roomId={arg} dataVersion={dataVersion} onBack={goBack} />
+      ? <ChatRoomView roomId={arg} dataVersion={dataVersion} onBack={goBack} onChatRead={refreshChatUnread} />
       : <LoginRequiredView message="모임 채팅을 보려면 로그인해주세요." onBack={goBack} />;
   } else if (route === 'chats') {
     content = me
@@ -2453,7 +2498,7 @@ export function App() {
       : <LoginRequiredView message="소셜 계정을 연결하려면 로그인해주세요." onBack={goBack} />;
   } else if (route === 'profile') {
     content = me
-      ? <ProfileView me={me} onSave={handleSaveProfile} onLogout={handleLogout} socialProviders={socialProviders} onUploadImage={handleUploadProfileImage} onDeleteImage={handleDeleteProfileImage} dataVersion={dataVersion} unreadCount={unreadCount} onOpenNotifications={openNotifications} />
+      ? <ProfileView me={me} onSave={handleSaveProfile} onLogout={handleLogout} socialProviders={socialProviders} onUploadImage={handleUploadProfileImage} onDeleteImage={handleDeleteProfileImage} dataVersion={dataVersion} unreadCount={unreadCount} chatUnreadCount={chatUnreadCount} onOpenNotifications={openNotifications} />
       : <AuthView onLogin={handleLogin} socialProviders={socialProviders} onSocialLogin={handleSocialLogin} />;
   } else if (route === 'auth') {
     content = me
@@ -2464,7 +2509,7 @@ export function App() {
       ? <div className="screen sub"><TopBar onBack={goBack} /><div className="screen-body pad-bottom"><StateBlock title="이미 로그인되어 있어요" description="홈에서 모임을 찾아보세요."><a className="btn" href="#/home">홈으로 이동</a></StateBlock></div></div>
       : <SignupView onSignup={handleSignup} onBack={goBack} />;
   } else {
-    content = <HomeView me={me} unreadCount={unreadCount} onOpenNotifications={openNotifications} dataVersion={dataVersion} />;
+    content = <HomeView me={me} unreadCount={unreadCount} chatUnreadCount={chatUnreadCount} onOpenNotifications={openNotifications} dataVersion={dataVersion} />;
   }
 
   // 상단 화면에서만 탭바를 띄운다. 하위 화면은 뒤로가기로 돌아간다.

@@ -350,6 +350,11 @@ export const api = {
     '/api/rooms/' + roomId + '/chat/messages',
     { method: 'POST', body: message, signal, onRequestStarted }
   ),
+  markChatRead: (roomId, upToMessageId, signal) => mutate(
+    '/api/rooms/' + roomId + '/chat/read',
+    { method: 'POST', body: { upToMessageId }, signal }
+  ),
+  getUnreadChatSummary: (signal) => request('/api/users/me/chat/unread-summary', { signal }),
   getNotifications: ({ page = 0, size = 10 } = {}, signal) =>
     request('/api/users/me/notifications' + query({ page, size }), { signal }),
   getUnreadNotificationCount: (signal) =>
