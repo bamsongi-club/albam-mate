@@ -36,7 +36,8 @@ class RoomParticipationCancelExecutor {
 		RoomRepository roomRepository,
 		ParticipationRepository participationRepository,
 		RoomWaitlistRepository roomWaitlistRepository,
-		RoomChangeEventRecorder roomChangeEventRecorder) {
+		RoomChangeEventRecorder roomChangeEventRecorder,
+		RoomWaitlistMetrics... ignoredMetrics) {
 		this.roomRepository = Objects.requireNonNull(roomRepository, "roomRepository");
 		this.participationRepository = Objects.requireNonNull(participationRepository, "participationRepository");
 		this.roomWaitlistRepository = Objects.requireNonNull(roomWaitlistRepository, "roomWaitlistRepository");
@@ -47,7 +48,15 @@ class RoomParticipationCancelExecutor {
 	@Transactional(propagation = Propagation.REQUIRES_NEW)
 	public RoomParticipationResponse cancelParticipation(
 		long currentUserId, long roomId, Instant requestTime) {
+		return cancelParticipation(currentUserId, roomId, requestTime, () -> {});
+	}
+
+	/** 상위 외부 요청은 현재 attempt의 승격 도달 여부만 명시적으로 수집한다. */
+	@Transactional(propagation = Propagation.REQUIRES_NEW)
+	public RoomParticipationResponse cancelParticipation(
+		long currentUserId, long roomId, Instant requestTime, Runnable promotionAttemptedObserver) {
 		Objects.requireNonNull(requestTime, "requestTime");
+		Objects.requireNonNull(promotionAttemptedObserver, "promotionAttemptedObserver");
 
 		Room room = roomRepository
 			.findById(roomId)
@@ -63,7 +72,7 @@ class RoomParticipationCancelExecutor {
 		participation.cancel(requestTime);
 		participationRepository.save(participation);
 		participationRepository.flush();
-		Optional<Long> promotedUserId = promoteFirstWaiting(room, requestTime);
+		Optional<Long> promotedUserId = promoteFirstWaiting(room, requestTime, promotionAttemptedObserver);
 		if (promotedUserId.isPresent()) {
 			roomChangeEventRecorder.record(
 				new WaitlistPromotedEvent(room.getId(), requestTime), List.of(promotedUserId.get()));
@@ -76,7 +85,8 @@ class RoomParticipationCancelExecutor {
 	}
 
 	/** 현재 ROOM의 빈자리 하나에는 조건부 전이에 성공한 첫 대기자만 활성 참가로 만든다. */
-	private Optional<Long> promoteFirstWaiting(Room room, Instant requestTime) {
+	private Optional<Long> promoteFirstWaiting(
+		Room room, Instant requestTime, Runnable promotionAttemptedObserver) {
 		if (room.getStatus() != RoomStatus.RECRUITING) {
 			return Optional.empty();
 		}
@@ -91,6 +101,7 @@ class RoomParticipationCancelExecutor {
 				room.getId(), waiting.getUserId(), waiting.getQueueOrder(), requestTime) == 0) {
 				continue;
 			}
+			promotionAttemptedObserver.run();
 
 			room.addActiveParticipant();
 			roomRepository.save(room);

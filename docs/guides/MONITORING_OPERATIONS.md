@@ -121,7 +121,7 @@ object key는 `receipts/v1/{environment}/{stackId}/{receiptId}/{sequence}-{stage
 
 ### 현재 생산 코드의 domain meter
 
-source는 첫 두 meter가 `AuthenticationRequestLimiterMetrics`, WebSocket 네 meter가 `ChatWebSocketMetrics`, message delivery 두 meter가 `ChatMessageCommittedListener`, retention 여덟 meter가 `ChatMessageRetentionMetrics`다. `추가 구현 필요` meter는 각각 notification relay, ROOM status correction과 waitlist module이 생산하고 도메인 코드가 CloudWatch SDK에 의존하지 않도록 `MeterRegistry`까지만 소유한다.
+source는 첫 두 meter가 `AuthenticationRequestLimiterMetrics`, WebSocket 네 meter가 `ChatWebSocketMetrics`, message delivery 두 meter가 `ChatMessageCommittedListener`, 채팅 업무 결과 meter가 `ChatMessageMetrics`, retention 여덟 meter가 `ChatMessageRetentionMetrics`다. `추가 구현 필요` meter는 각각 notification relay, ROOM status correction과 waitlist module이 생산하고 도메인 코드가 CloudWatch SDK에 의존하지 않도록 `MeterRegistry`까지만 소유한다.
 
 | 이름 | type | 허용 tag 값 | 사용 query·용도 | 상태 |
 | --- | --- | --- | --- | --- |
@@ -133,6 +133,7 @@ source는 첫 두 meter가 `AuthenticationRequestLimiterMetrics`, WebSocket 네 
 | `chat.websocket.recovery.messages` | counter | 없음 | 5분 `Sum`·복구 확인 | 현재 코드·export 필요 |
 | `chat.message.delivery.duration` | timer | 없음 | 5분 count·p95 | 현재 코드·export 필요 |
 | `chat.message.delivery.failures` | counter | 없음 | 5분 `Sum` | 현재 코드·export 필요 |
+| `chat.message.operations` | counter | `outcome=accepted|rejected|failed` | 배포 fixture별 `Sum`·저장 업무 결과 | 현재 코드·자동 검증 완료, CloudWatch 배포·실측 필요 |
 | `chat.message.retention.lock.skipped` | counter | 없음 | 1시간 `Sum` | 현재 코드·export 필요 |
 | `chat.message.retention.rooms.purged` | counter | 없음 | 1일 `Sum` | 현재 코드·export 필요 |
 | `chat.message.retention.messages.deleted` | counter | 없음 | 1일 `Sum` | 현재 코드·export 필요 |
@@ -141,14 +142,14 @@ source는 첫 두 meter가 `AuthenticationRequestLimiterMetrics`, WebSocket 네 
 | `chat.message.retention.backlog.remaining` | counter | 없음 | 15분 `Sum` | 현재 코드·export 필요 |
 | `chat.message.retention.execution.duration` | timer | 없음 | 실행별 p95·max | 현재 코드·export 필요 |
 | `chat.message.retention.delay` | timer | 없음 | 실행별 p95·max | 현재 코드·export 필요 |
-| `notification.relay.events` | counter | `outcome=processed|retry_scheduled|failed` | 1분 `Sum`·최종 전달 결과 | `processed` 현재 코드·export 필요, retry/failure 추가 구현 필요 |
+| `notification.relay.events` | counter | `outcome=processed|retry_scheduled|failed` | 1분 `Sum`·최종 전달 결과 | 현재 코드·자동 검증 완료, CloudWatch 배포·실측 필요 |
 | `notification.relay.delivery.duration` | timer | 없음 | 1분 p95·알림 전달 30초 기준 | 현재 코드·export 필요, CloudWatch 배포·실측 필요 |
-| `notification.relay.oldest.processable.age` | gauge | 없음 | 1분 `Maximum`·60초 3회 | 추가 구현 필요 |
+| `notification.relay.oldest.processable.age` | gauge | 없음 | 1분 `Maximum`·60초 3회 | 현재 코드·자동 검증 완료, CloudWatch 배포·실측 필요 |
 | `room.status.correction.runs` | counter | `outcome=completed|failed|skipped|batch_limit` | 15분 `Sum`·보정 결과 | `completed|failed|batch_limit` 현재 코드·export 필요, `skipped` 추가 구현 필요 |
 | `room.status.correction.duration` | timer | 없음 | 실행별 p95·180초 warning | 현재 코드·export 필요, CloudWatch 배포·실측 필요 |
-| `room.waitlist.operations` | counter | `operation=join|cancel|promote`, `outcome=accepted|rejected|failed` | 배포 fixture별 `Sum`·최종 업무 결과 | 추가 구현 필요 |
+| `room.waitlist.operations` | counter | `operation=join|cancel|promote`, `outcome=accepted|rejected|failed` | 배포 fixture별 `Sum`·최종 업무 결과 | 현재 코드·H2·PostgreSQL 자동 검증 완료, CloudWatch 배포·실측 필요 |
 
-`notification.relay.delivery.duration`은 outbox의 `recordedAt`부터 Notification 기록 시각까지의 `deliveryDelayMs`를 기록한다. `processingDurationMs`는 구조화 로그의 진단 필드일 뿐 meter에 기록하지 않는다.
+`notification.relay.delivery.duration`은 outbox의 `recordedAt`부터 Notification 기록 시각까지의 `deliveryDelayMs`를 기록한다. `notification.relay.oldest.processable.age`는 batch 종료 뒤 PostgreSQL 조회의 밀리초 값을 초 단위 gauge로 기록하고, 처리 가능한 적체가 없으면 0이다. `processingDurationMs`는 구조화 로그의 진단 필드일 뿐 meter에 기록하지 않는다.
 
 채팅 보존의 복구 판정은 앱 인스턴스 메모리나 domain meter가 합성하지 않는다. release 전체의 `failures`와 `completed` 신호를 함께 평가하는 비공개 infra alarm이 소유하며, 그 alarm 구현·배포·실측은 미완료다.
 
