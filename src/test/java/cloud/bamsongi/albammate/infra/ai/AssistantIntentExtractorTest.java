@@ -46,6 +46,31 @@ class AssistantIntentExtractorTest {
 	}
 
 	@Test
+	void T1_점_구분_전화번호와_허용되지_않은_missingFields는_provider_호출_전에_거절한다() {
+		CapturingAssistantProvider provider = new CapturingAssistantProvider();
+		AssistantIntentExtractor extractor = extractor(provider, new RecordingAiQuotaLedger(),
+			new RecordingUsageEventSink());
+		List<String> allowedMissingFields = List.of("GAME_STYLE", "GAME", "PLAYER_COUNT", "STARTS_AT", "REGION");
+
+		AssistantIntentExtraction allowed = extractor.extract(AssistantIntentRequest.forUser(
+			"user-991", "주말 보드게임 추천해줘", allowedMissingFields));
+
+		assertEquals(AssistantIntentStatus.SUCCESS, allowed.status());
+		assertEquals(allowedMissingFields, provider.payload().missingFields());
+		assertEquals(1, provider.calls());
+
+		for (AssistantIntentRequest rejectedRequest : List.of(
+			AssistantIntentRequest.forUser("user-991", "전화번호 010.1234.5678은 보내지 마", List.of()),
+			AssistantIntentRequest.forUser("user-991", "국제번호 +82.10.1234.5678은 보내지 마", List.of()),
+			AssistantIntentRequest.forUser("user-991", "주말 보드게임 추천해줘", List.of("이전 대화 원문")))) {
+			AssistantIntentExtraction rejected = extractor.extract(rejectedRequest);
+
+			assertEquals(AssistantIntentStatus.SENSITIVE_INPUT_REJECTED, rejected.status());
+			assertEquals(1, provider.calls());
+		}
+	}
+
+	@Test
 	void T2_provider_payload은_allowlist만_포함하고_tool_권한과_원문_식별자를_전달하지_않는다() {
 		CapturingAssistantProvider provider = new CapturingAssistantProvider();
 		AssistantIntentExtractor extractor = extractor(provider, new RecordingAiQuotaLedger(),

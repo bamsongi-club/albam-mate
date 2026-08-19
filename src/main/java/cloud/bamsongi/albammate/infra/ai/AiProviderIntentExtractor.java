@@ -5,6 +5,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 import cloud.bamsongi.albammate.assistant.contract.AssistantIntentExtraction;
@@ -21,12 +22,14 @@ public final class AiProviderIntentExtractor implements AssistantIntentExtractor
 	private static final String SCHEMA_VERSION = "AI-02-SCHEMA-V1";
 	private static final String TOOL_NAME = "propose_game_room_intent";
 	private static final String REFERENCE_ZONE = "Asia/Seoul";
+	private static final Set<String> ALLOWED_MISSING_FIELDS = Set.of(
+		"GAME_STYLE", "GAME", "PLAYER_COUNT", "STARTS_AT", "REGION");
 	private static final Pattern EMAIL = Pattern.compile("[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}",
 		Pattern.CASE_INSENSITIVE);
 	private static final Pattern PHONE = Pattern.compile(
-		"(?<![\\d+])(?:01[016789][ -]?\\d{3,4}[ -]?\\d{4}"
-			+ "|(?:02|031|032|033|041|042|043|051|052|053|054|055|061|062|063|064|070)[ -]?\\d{3,4}[ -]?\\d{4}"
-			+ "|\\+82[ -]?0?(?:1[016789]|2|3[123]|4[123]|5[12345]|6[1234]|70)[ -]?\\d{3,4}[ -]?\\d{4})(?!\\d)");
+		"(?<![\\d+])(?:01[016789][ .-]?\\d{3,4}[ .-]?\\d{4}"
+			+ "|(?:02|031|032|033|041|042|043|051|052|053|054|055|061|062|063|064|070)[ .-]?\\d{3,4}[ .-]?\\d{4}"
+			+ "|\\+82[ .-]?0?(?:1[016789]|2|3[123]|4[123]|5[12345]|6[1234]|70)[ .-]?\\d{3,4}[ .-]?\\d{4})(?!\\d)");
 	private static final Pattern LONG_NUMBER = Pattern.compile("(?<!\\d)\\d{6,}(?!\\d)");
 	private static final Pattern UUID = Pattern.compile(
 		"(?i)(?<![0-9a-f])[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![0-9a-f])");
@@ -65,7 +68,8 @@ public final class AiProviderIntentExtractor implements AssistantIntentExtractor
 		if (!settings.readyForCall()) {
 			return failure(AssistantIntentStatus.NOT_ENABLED);
 		}
-		if (containsSensitiveInput(request.currentUserSentence())
+		if (!hasAllowedMissingFields(request)
+			|| containsSensitiveInput(request.currentUserSentence())
 			|| request.missingFields().stream().anyMatch(this::containsSensitiveInput)) {
 			return failure(AssistantIntentStatus.SENSITIVE_INPUT_REJECTED);
 		}
@@ -157,6 +161,10 @@ public final class AiProviderIntentExtractor implements AssistantIntentExtractor
 			case INVALID_SCHEMA -> AssistantIntentStatus.INVALID_PROVIDER_SCHEMA;
 			case SERVICE_UNAVAILABLE -> AssistantIntentStatus.SERVICE_UNAVAILABLE;
 		};
+	}
+
+	private boolean hasAllowedMissingFields(AssistantIntentRequest request) {
+		return request.missingFields().stream().allMatch(ALLOWED_MISSING_FIELDS::contains);
 	}
 
 	private boolean containsSensitiveInput(String sentence) {
