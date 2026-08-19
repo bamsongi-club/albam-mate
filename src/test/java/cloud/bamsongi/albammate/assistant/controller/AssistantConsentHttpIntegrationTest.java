@@ -3,6 +3,7 @@ package cloud.bamsongi.albammate.assistant.controller;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -104,6 +105,8 @@ class AssistantConsentHttpIntegrationTest {
 		assertEquals(
 			"GRANTED|AI-01-CONSENT-V1|OPENAI|OPENAI-POLICY-2026-08|https://openai.com/policies/api-data-usage-policies|FALSE",
 			persisted);
+		assertTrue(assistantConsentGate.isGranted(user.getId()));
+		assistantConsentGate.requireGranted(user.getId());
 	}
 
 	@Test
