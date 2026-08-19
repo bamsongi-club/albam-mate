@@ -35,4 +35,25 @@ public class MatchReport {
 	private Instant reportedAt;
 	@Column(name = "purge_after", nullable = false)
 	private Instant purgeAfter;
+
+	public static MatchReport create(
+		long reporterUserId,
+		long reportedUserId,
+		MatchReportReason reason,
+		Instant reportedAt,
+		Instant purgeAfter) {
+		MatchReport report = new MatchReport();
+		report.reporterUserId = reporterUserId;
+		report.reportedUserId = reportedUserId;
+		report.reason = reason;
+		report.reportedAt = reportedAt;
+		report.purgeAfter = purgeAfter;
+		return report;
+	}
+
+	public void replaceExpiredReport(MatchReportReason reason, Instant reportedAt, Instant purgeAfter) {
+		this.reason = reason;
+		this.reportedAt = reportedAt;
+		this.purgeAfter = purgeAfter;
+	}
 }
