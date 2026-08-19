@@ -1,6 +1,6 @@
 # P2 운영 관측 런북
 
-> **문서 상태: active · 계약 정본 · OPS-01 구현·AWS 실측 완료 · 최종 검증일: 2026-08-18**
+> **문서 상태: active · 계약 정본 · OPS-01 구현·AWS 실측 완료 · OPS-04 구현·로컬 검증 완료 · 최종 검증일: 2026-08-19**
 >
 > 이 문서는 `OPS-01`~`OPS-05`의 metric·log 허용 목록, 경고 대응과 전체 스택 계획 종료·재기동 계약을 소유한다. `OPS-01-AC1`~`AC3`은 [#730](https://github.com/bamsongi-club/albam-mate/issues/730), `OPS-01-AC4`~`AC7`은 [#731](https://github.com/bamsongi-club/albam-mate/issues/731)의 앱·운영 CLI·인프라와 AWS 수용 실행에서 검증됐다.
 
@@ -11,10 +11,10 @@
 | 구분 | 현재 판정 | 완료 증거 |
 | --- | --- | --- |
 | 이 문서의 metric·log·alarm·상태 전이 계약 | 확정 | 이 문서와 연결 정본의 링크·회귀 검사 |
-| 애플리케이션 OTLP·JSON logging | `OPS-01-AC1`~`AC3` 구현·자동 검증 완료, OPS-02 HTTP·JVM·Tomcat·Hikari·Nginx timing 원천 범위 부분 구현·자동 검증 | OPS-01 앱 [#764](https://github.com/bamsongi-club/albam-mate/pull/764), merge `0fa8285a019fafbb1d7caa65baa30cc8446e2c89`; OPS-02 production 설정·자동 검증 |
-| 인프라 수집·상태 정본·경고 제어·Scheduler | `OPS-01-AC1`~`AC7` 구현·자동 검증 완료, OPS-02 infra 미구현 | `albam-mate-infra` [#14](https://github.com/bamsongi-club/albam-mate-infra/pull/14)·[#16](https://github.com/bamsongi-club/albam-mate-infra/pull/16)·[#17](https://github.com/bamsongi-club/albam-mate-infra/pull/17)·[#18](https://github.com/bamsongi-club/albam-mate-infra/pull/18)·[#19](https://github.com/bamsongi-club/albam-mate-infra/pull/19)·[#20](https://github.com/bamsongi-club/albam-mate-infra/pull/20)·[#22](https://github.com/bamsongi-club/albam-mate-infra/pull/22), main `ce8913c01937b7db71264008bd24a851a1c6d4d4` |
-| AWS 배포와 실제 수집 | `OPS-01-AC1`~`AC7` 임시 배포·실측·철거 완료, OPS-02 미배포·미측정 | OPS-01 #730 앱 release `8e25bbc6ee2c1b68aa28247b9c2fdbf7b8e88784`, 아래 #730·#731 T1~T3와 Terraform teardown; OPS-02는 같은 release의 metric·log 도착과 수집 공백 검사 필요 |
-| 경고·복구 | #731 OPS-01 범위 실측 완료, OPS-02 미측정 | OPS-01 대표 alarm `OK → ALARM → OK`, SNS 경고·복구 실제 수신, 최종 receipt `79bc6489-994a-4ba5-80ae-b43b075d8020`; OPS-02 실측 필요 |
+| 애플리케이션 OTLP·JSON logging | `OPS-01-AC1`~`AC3` 구현·자동 검증 완료, OPS-02 HTTP·JVM·Tomcat·Hikari·Nginx timing 원천 범위 부분 구현·자동 검증, OPS-04 usage·cost-warning meter 구현·자동 검증 완료 | OPS-01 앱 [#764](https://github.com/bamsongi-club/albam-mate/pull/764), merge `0fa8285a019fafbb1d7caa65baa30cc8446e2c89`; OPS-02 production 설정·자동 검증; OPS-04 #852 소비 결과와 #872 로컬 통합 검증 |
+| 인프라 수집·상태 정본·경고 제어·Scheduler | `OPS-01-AC1`~`AC7` 구현·자동 검증 완료, OPS-02 infra 미구현, OPS-04 dashboard·cost-warning alarm·비용 계산 구현·로컬 검증 완료 | `albam-mate-infra` [#14](https://github.com/bamsongi-club/albam-mate-infra/pull/14)·[#16](https://github.com/bamsongi-club/albam-mate-infra/pull/16)·[#17](https://github.com/bamsongi-club/albam-mate-infra/pull/17)·[#18](https://github.com/bamsongi-club/albam-mate-infra/pull/18)·[#19](https://github.com/bamsongi-club/albam-mate-infra/pull/19)·[#20](https://github.com/bamsongi-club/albam-mate-infra/pull/20)·[#22](https://github.com/bamsongi-club/albam-mate-infra/pull/22), main `ce8913c01937b7db71264008bd24a851a1c6d4d4`; OPS-04 별도 워크트리 로컬 검증 |
+| AWS 배포와 실제 수집 | `OPS-01-AC1`~`AC7` 임시 배포·실측·철거 완료, OPS-02·OPS-04 미배포·미측정 | OPS-01 #730 앱 release `8e25bbc6ee2c1b68aa28247b9c2fdbf7b8e88784`, 아래 #730·#731 T1~T3와 Terraform teardown; OPS-02·OPS-04는 같은 release의 metric·log 도착과 수집 공백 검사 필요 |
+| 경고·복구 | #731 OPS-01 범위 실측 완료, OPS-02·OPS-04 미측정 | OPS-01 대표 alarm `OK → ALARM → OK`, SNS 경고·복구 실제 수신, 최종 receipt `79bc6489-994a-4ba5-80ae-b43b075d8020`; OPS-02와 OPS-04 `$4` warning·복구 실측 필요 |
 
 이 계약은 App1·App2·PostgreSQL·Redis로 구성한 하나의 `stackId` 전체에만 적용한다. 애플리케이션 배포, 한 컨테이너 재시작, rolling restart와 부분 유지보수는 `PLANNED_STOP`이 아니며 `ACTIVE` 상태와 배포 grace 안에서 관측한다.
 
@@ -148,12 +148,27 @@ source는 첫 두 meter가 `AuthenticationRequestLimiterMetrics`, WebSocket 네 
 | `room.status.correction.runs` | counter | `outcome=completed|failed|skipped|batch_limit` | 15분 `Sum`·보정 결과 | `completed|failed|batch_limit` 현재 코드·export 필요, `skipped` 추가 구현 필요 |
 | `room.status.correction.duration` | timer | 없음 | 실행별 p95·180초 warning | 현재 코드·export 필요, CloudWatch 배포·실측 필요 |
 | `room.waitlist.operations` | counter | `operation=join|cancel|promote`, `outcome=accepted|rejected|failed` | 배포 fixture별 `Sum`·최종 업무 결과 | 현재 코드·H2·PostgreSQL 자동 검증 완료, CloudWatch 배포·실측 필요 |
+| `assistant.usage.events` | counter | `provider=fake|openai|unknown`, `model=gpt-5.6-luna|unknown`, `feature=AI-02|unknown`, 승인된 `prompt_version`·`schema_version`·`status` 또는 `unknown` | 같은 release의 요청 수를 provider·model·feature·status별 `Sum` | 현재 코드·자동 검증 완료, CloudWatch 배포·실측 필요 |
+| `assistant.usage.tokens` | distribution summary | 위 usage tag와 `token_type=input|output|total` | 같은 release의 token 합계와 공식 가격 snapshot 기반 추정 비용 | 현재 코드·자동 검증 완료, CloudWatch 배포·실측 필요 |
+| `assistant.usage.latency` | timer | usage event와 같은 유한 tag | provider·model·feature별 count·p95 | 현재 코드·자동 검증 완료, CloudWatch 배포·실측 필요 |
+| `assistant.usage.cost.usd` | distribution summary | usage event와 같은 유한 tag | provider adapter가 보고한 참고 비용; 공식 가격 재계산이나 청구서로 사용 금지 | 현재 코드·자동 검증 완료, CloudWatch 배포·실측 필요 |
+| `assistant.cost.warning.events` | counter | `quota_month=YYYY-MM`, `warning_threshold_usd=4.00|unknown` | 월별 중복 없는 `$4` warning, SNS warning·OK 복구 | 현재 코드·자동 검증 완료, CloudWatch 배포·실측 필요 |
 
 `notification.relay.delivery.duration`은 outbox의 `recordedAt`부터 Notification 기록 시각까지의 `deliveryDelayMs`를 기록한다. `notification.relay.oldest.processable.age`는 batch 종료 뒤 PostgreSQL 조회의 밀리초 값을 초 단위 gauge로 기록하고, 처리 가능한 적체가 없으면 0이다. `processingDurationMs`는 구조화 로그의 진단 필드일 뿐 meter에 기록하지 않는다.
 
+### OPS-04 가격·비용 계산과 경고 경계
+
+OpenAI `gpt-5.6-luna` standard short-context 가격은 [OPS-04 가격 snapshot](../measurements/ops-04/README.md)에 고정한다. 입력 USD 0.20/1M token과 출력 USD 1.20/1M token으로 `assistant.usage.tokens`를 독립 재계산하며, dashboard 값은 실제 청구서가 아닌 추정값이다. cached input을 분리하지 못하거나 요청별 input이 272,000 token을 넘으면 임의의 요율이나 비용 `0`을 적용하지 않고 `NO_OBSERVATION`으로 남긴다.
+
+#872 승인 T1의 `outcome` 축은 #852가 고정한 실제 bounded tag `status`로 조회한다. OPS-04가 같은 의미의 `outcome` tag를 중복 추가하거나 공유 meter 계약을 확장하지 않는다.
+
+비공개 인프라의 `${project_name}-${stack_id}-ops04` dashboard는 같은 `release`의 요청 수, input/output/total token, 공식 snapshot 추정 비용과 `$4` warning 신호를 표시한다. cost-warning alarm은 SNS warning과 OK action을 모두 가지며, 예상 밖 비용 신호이므로 `PLANNED_STOP` alarm 억제 목록에는 넣지 않는다. 통제된 `OK → ALARM → OK`는 별도 alert-cycle 허용 목록과 receipt로 검증한다. 정적 dashboard·alarm 구현은 AWS metric 도착, 이메일 수신, 복구와 teardown을 증명하지 않는다.
+
+관측 자체의 월 비용은 기존 host/application 관측을 제외한 OPS-04 증분만 계산한다. release별 provider 하나와 현재 유한 status 조합을 전제로 31일·60초 export, 최대 128개 bounded series, export당 series별 최대 2 datapoint, datapoint당 600 bytes, OTel USD 0.50/GB, 유료 dashboard 1개 USD 3, standard alarm 1개 USD 0.10을 보수적으로 적용한 현재 추정은 월 USD 6.53이다. 128개는 무제한 cardinality 예측이 아니라 배포 중단 상한이다. series·datapoint·가격 가정 중 하나라도 넘거나 누락되면 `$10 이하`로 간주하지 않고 재계산·재승인을 요구한다. OPS-04는 새 중앙 log group을 만들지 않아 증분 log 비용은 0으로 계산한다.
+
 채팅 보존의 복구 판정은 앱 인스턴스 메모리나 domain meter가 합성하지 않는다. release 전체의 `failures`와 `completed` 신호를 함께 평가하는 비공개 infra alarm이 소유하며, 그 alarm 구현·배포·실측은 미완료다.
 
-마지막 여섯 meter는 현재 구조화 log·업무 결과에 값이 있거나 검증 경계가 있지만 지속 alarm·업무 결과용 meter는 없는 항목의 구현 이름을 고정한다. 구현 중 다른 이름이나 Logs metric filter가 더 적합하다고 판단하면 코드만 다르게 만들지 않고 이 inventory와 alarm query를 같은 변경에서 갱신한다.
+`notification.relay.events`부터 `room.waitlist.operations`까지의 여섯 meter는 현재 구조화 log·업무 결과에 값이 있거나 검증 경계가 있지만 지속 alarm·업무 결과용 meter는 없는 항목의 구현 이름을 고정한다. 구현 중 다른 이름이나 Logs metric filter가 더 적합하다고 판단하면 코드만 다르게 만들지 않고 이 inventory와 alarm query를 같은 변경에서 갱신한다.
 
 ## 중앙 log 허용 목록
 

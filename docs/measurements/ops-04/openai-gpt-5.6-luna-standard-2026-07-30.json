@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "snapshotId": "openai-gpt-5.6-luna-standard-2026-07-30-v1",
+  "provider": "openai",
+  "model": "gpt-5.6-luna",
+  "currency": "USD",
+  "billingMode": "standard",
+  "effectiveFrom": "2026-07-30",
+  "retrievedAt": "2026-08-19",
+  "sources": [
+    "https://developers.openai.com/api/docs/models/gpt-5.6-luna",
+    "https://openai.com/index/advancing-the-price-performance-frontier-with-gpt-5-6/"
+  ],
+  "rateCard": {
+    "unitTokens": 1000000,
+    "inputUsd": "0.20",
+    "cachedInputUsd": "0.02",
+    "outputUsd": "1.20",
+    "shortContextMaximumInputTokens": 272000
+  },
+  "rateCardChecksumSha256": "50fe86838f93e8788ad8360fd780b716e30132573bd736bdf6bd0c1831e13d7c",
+  "calculationPolicy": {
+    "formula": "inputTokens * inputUsd / unitTokens + outputTokens * outputUsd / unitTokens",
+    "cachedInputPolicy": "NO_OBSERVATION_WHEN_NONZERO_OR_UNKNOWN",
+    "longContextPolicy": "NO_OBSERVATION_ABOVE_SHORT_CONTEXT_MAXIMUM",
+    "excludedAdjustments": [
+      "batch",
+      "flex",
+      "priority",
+      "regional-processing-uplift",
+      "cache-write",
+      "discount",
+      "free-tier",
+      "tax",
+      "foreign-exchange"
+    ]
+  }
+}
