@@ -2,9 +2,9 @@ package cloud.bamsongi.albammate.matching;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.Instant;
@@ -94,6 +94,6 @@ class MatchPartyParticipantRefQueryServiceTest {
 		participantRefQueryService.findParticipantRef(10L, 1L);
 
 		verify(participantRepository).findParticipantByPartyIdAndUserId(10L, 1L);
-		verify(participantRepository, never()).findParticipantsByPartyIdAndUserIds(10L, List.of(1L));
+		verifyNoMoreInteractions(participantRepository);
 	}
 }

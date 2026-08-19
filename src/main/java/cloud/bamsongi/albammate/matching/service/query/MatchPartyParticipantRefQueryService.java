@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import cloud.bamsongi.albammate.matching.contract.MatchPartyParticipantRefQuery;
 import cloud.bamsongi.albammate.matching.entity.MatchPartyParticipant;
 import cloud.bamsongi.albammate.matching.repository.MatchPartyParticipantRepository;
+import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -21,7 +22,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class MatchPartyParticipantRefQueryService implements MatchPartyParticipantRefQuery {
 
-	private final MatchPartyParticipantRepository participantRepository;
+	@NonNull private final MatchPartyParticipantRepository participantRepository;
 
 	@Override
 	@Transactional(readOnly = true)
