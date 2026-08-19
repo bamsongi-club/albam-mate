@@ -46,10 +46,10 @@
       "224517": "Top 1,000 안의 비교 제외 후보이며 독립 판정 전입니다."
     },
     "source": {
-      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "releaseId": "bgg-catalog-170k-v4-2026-08-19",
       "fieldVersion": "catalog-fields-v1",
       "reference": "docs/game-catalog/SEARCH_04_CATALOG_DATASET_RELEASE.md",
-      "qualityCorpusReleaseId": "pending-boardlife-quality-top1000-2026-08-14",
+      "qualityCorpusReleaseId": "boardlife-quality-top1000-2026-08-19",
       "qualityCorpusReference": "docs/p2/search-evaluation/quality-corpus.json"
     },
     "judgements": []
@@ -102,10 +102,10 @@
       "224517": "Top 1,000 안의 비교 제외 후보이며 독립 판정 전입니다."
     },
     "source": {
-      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "releaseId": "bgg-catalog-170k-v4-2026-08-19",
       "fieldVersion": "catalog-fields-v1",
       "reference": "docs/game-catalog/SEARCH_04_CATALOG_DATASET_RELEASE.md",
-      "qualityCorpusReleaseId": "pending-boardlife-quality-top1000-2026-08-14",
+      "qualityCorpusReleaseId": "boardlife-quality-top1000-2026-08-19",
       "qualityCorpusReference": "docs/p2/search-evaluation/quality-corpus.json"
     },
     "judgements": []
@@ -159,10 +159,10 @@
       "224517": "Top 1,000 안의 비교 제외 후보이며 독립 판정 전입니다."
     },
     "source": {
-      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "releaseId": "bgg-catalog-170k-v4-2026-08-19",
       "fieldVersion": "catalog-fields-v1",
       "reference": "docs/game-catalog/SEARCH_04_CATALOG_DATASET_RELEASE.md",
-      "qualityCorpusReleaseId": "pending-boardlife-quality-top1000-2026-08-14",
+      "qualityCorpusReleaseId": "boardlife-quality-top1000-2026-08-19",
       "qualityCorpusReference": "docs/p2/search-evaluation/quality-corpus.json"
     },
     "judgements": []
@@ -190,10 +190,10 @@
       "174430": "Top 1,000 안의 비교 제외 후보이며 독립 판정 전입니다."
     },
     "source": {
-      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "releaseId": "bgg-catalog-170k-v4-2026-08-19",
       "fieldVersion": "catalog-fields-v1",
       "reference": "docs/game-catalog/SEARCH_04_CATALOG_DATASET_RELEASE.md",
-      "qualityCorpusReleaseId": "pending-boardlife-quality-top1000-2026-08-14",
+      "qualityCorpusReleaseId": "boardlife-quality-top1000-2026-08-19",
       "qualityCorpusReference": "docs/p2/search-evaluation/quality-corpus.json"
     },
     "judgements": []
@@ -221,10 +221,10 @@
       "174430": "Top 1,000 안의 비교 제외 후보이며 독립 판정 전입니다."
     },
     "source": {
-      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "releaseId": "bgg-catalog-170k-v4-2026-08-19",
       "fieldVersion": "catalog-fields-v1",
       "reference": "docs/game-catalog/SEARCH_04_CATALOG_DATASET_RELEASE.md",
-      "qualityCorpusReleaseId": "pending-boardlife-quality-top1000-2026-08-14",
+      "qualityCorpusReleaseId": "boardlife-quality-top1000-2026-08-19",
       "qualityCorpusReference": "docs/p2/search-evaluation/quality-corpus.json"
     },
     "judgements": []
@@ -252,10 +252,10 @@
       "174430": "Top 1,000 안의 비교 제외 후보이며 독립 판정 전입니다."
     },
     "source": {
-      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "releaseId": "bgg-catalog-170k-v4-2026-08-19",
       "fieldVersion": "catalog-fields-v1",
       "reference": "docs/game-catalog/SEARCH_04_CATALOG_DATASET_RELEASE.md",
-      "qualityCorpusReleaseId": "pending-boardlife-quality-top1000-2026-08-14",
+      "qualityCorpusReleaseId": "boardlife-quality-top1000-2026-08-19",
       "qualityCorpusReference": "docs/p2/search-evaluation/quality-corpus.json"
     },
     "judgements": []
@@ -283,10 +283,10 @@
       "174430": "Top 1,000 안의 비교 제외 후보이며 독립 판정 전입니다."
     },
     "source": {
-      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "releaseId": "bgg-catalog-170k-v4-2026-08-19",
       "fieldVersion": "catalog-fields-v1",
       "reference": "docs/game-catalog/SEARCH_04_CATALOG_DATASET_RELEASE.md",
-      "qualityCorpusReleaseId": "pending-boardlife-quality-top1000-2026-08-14",
+      "qualityCorpusReleaseId": "boardlife-quality-top1000-2026-08-19",
       "qualityCorpusReference": "docs/p2/search-evaluation/quality-corpus.json"
     },
     "judgements": []
@@ -314,10 +314,10 @@
       "174430": "Top 1,000 안의 비교 제외 후보이며 독립 판정 전입니다."
     },
     "source": {
-      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "releaseId": "bgg-catalog-170k-v4-2026-08-19",
       "fieldVersion": "catalog-fields-v1",
       "reference": "docs/game-catalog/SEARCH_04_CATALOG_DATASET_RELEASE.md",
-      "qualityCorpusReleaseId": "pending-boardlife-quality-top1000-2026-08-14",
+      "qualityCorpusReleaseId": "boardlife-quality-top1000-2026-08-19",
       "qualityCorpusReference": "docs/p2/search-evaluation/quality-corpus.json"
     },
     "judgements": []
@@ -345,10 +345,10 @@
       "174430": "Top 1,000 안의 비교 제외 후보이며 독립 판정 전입니다."
     },
     "source": {
-      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "releaseId": "bgg-catalog-170k-v4-2026-08-19",
       "fieldVersion": "catalog-fields-v1",
       "reference": "docs/game-catalog/SEARCH_04_CATALOG_DATASET_RELEASE.md",
-      "qualityCorpusReleaseId": "pending-boardlife-quality-top1000-2026-08-14",
+      "qualityCorpusReleaseId": "boardlife-quality-top1000-2026-08-19",
       "qualityCorpusReference": "docs/p2/search-evaluation/quality-corpus.json"
     },
     "judgements": []
@@ -376,10 +376,10 @@
       "224517": "Top 1,000 안의 비교 제외 후보이며 독립 판정 전입니다."
     },
     "source": {
-      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "releaseId": "bgg-catalog-170k-v4-2026-08-19",
       "fieldVersion": "catalog-fields-v1",
       "reference": "docs/game-catalog/SEARCH_04_CATALOG_DATASET_RELEASE.md",
-      "qualityCorpusReleaseId": "pending-boardlife-quality-top1000-2026-08-14",
+      "qualityCorpusReleaseId": "boardlife-quality-top1000-2026-08-19",
       "qualityCorpusReference": "docs/p2/search-evaluation/quality-corpus.json"
     },
     "judgements": []
@@ -407,10 +407,10 @@
       "224517": "Top 1,000 안의 비교 제외 후보이며 독립 판정 전입니다."
     },
     "source": {
-      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "releaseId": "bgg-catalog-170k-v4-2026-08-19",
       "fieldVersion": "catalog-fields-v1",
       "reference": "docs/game-catalog/SEARCH_04_CATALOG_DATASET_RELEASE.md",
-      "qualityCorpusReleaseId": "pending-boardlife-quality-top1000-2026-08-14",
+      "qualityCorpusReleaseId": "boardlife-quality-top1000-2026-08-19",
       "qualityCorpusReference": "docs/p2/search-evaluation/quality-corpus.json"
     },
     "judgements": []
@@ -438,10 +438,10 @@
       "224517": "Top 1,000 안의 비교 제외 후보이며 독립 판정 전입니다."
     },
     "source": {
-      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "releaseId": "bgg-catalog-170k-v4-2026-08-19",
       "fieldVersion": "catalog-fields-v1",
       "reference": "docs/game-catalog/SEARCH_04_CATALOG_DATASET_RELEASE.md",
-      "qualityCorpusReleaseId": "pending-boardlife-quality-top1000-2026-08-14",
+      "qualityCorpusReleaseId": "boardlife-quality-top1000-2026-08-19",
       "qualityCorpusReference": "docs/p2/search-evaluation/quality-corpus.json"
     },
     "judgements": []
@@ -473,10 +473,10 @@
       "174430": "Top 1,000 안의 비교 제외 후보이며 독립 판정 전입니다."
     },
     "source": {
-      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "releaseId": "bgg-catalog-170k-v4-2026-08-19",
       "fieldVersion": "catalog-fields-v1",
       "reference": "docs/game-catalog/SEARCH_04_CATALOG_DATASET_RELEASE.md",
-      "qualityCorpusReleaseId": "pending-boardlife-quality-top1000-2026-08-14",
+      "qualityCorpusReleaseId": "boardlife-quality-top1000-2026-08-19",
       "qualityCorpusReference": "docs/p2/search-evaluation/quality-corpus.json"
     },
     "judgements": []
@@ -508,10 +508,10 @@
       "174430": "Top 1,000 안의 비교 제외 후보이며 독립 판정 전입니다."
     },
     "source": {
-      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "releaseId": "bgg-catalog-170k-v4-2026-08-19",
       "fieldVersion": "catalog-fields-v1",
       "reference": "docs/game-catalog/SEARCH_04_CATALOG_DATASET_RELEASE.md",
-      "qualityCorpusReleaseId": "pending-boardlife-quality-top1000-2026-08-14",
+      "qualityCorpusReleaseId": "boardlife-quality-top1000-2026-08-19",
       "qualityCorpusReference": "docs/p2/search-evaluation/quality-corpus.json"
     },
     "judgements": []
@@ -543,10 +543,10 @@
       "174430": "Top 1,000 안의 비교 제외 후보이며 독립 판정 전입니다."
     },
     "source": {
-      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "releaseId": "bgg-catalog-170k-v4-2026-08-19",
       "fieldVersion": "catalog-fields-v1",
       "reference": "docs/game-catalog/SEARCH_04_CATALOG_DATASET_RELEASE.md",
-      "qualityCorpusReleaseId": "pending-boardlife-quality-top1000-2026-08-14",
+      "qualityCorpusReleaseId": "boardlife-quality-top1000-2026-08-19",
       "qualityCorpusReference": "docs/p2/search-evaluation/quality-corpus.json"
     },
     "judgements": []
