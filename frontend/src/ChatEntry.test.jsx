@@ -6,8 +6,10 @@ import {
   App,
   CHAT_SEND_REQUEST_DEADLINE_MS,
   CHAT_SEND_RESULT_UNKNOWN_MESSAGE,
+  ChatListView,
   ChatRoomView,
   MyRoomsSection,
+  ProfileView,
   SessionDetailView
 } from './main';
 
@@ -1188,5 +1190,138 @@ describe('#427 T5~T6 모임 상세 채팅 진입', () => {
 
     await waitFor(() => expect(screen.getByText('취소된 모임이에요')).toBeTruthy());
     expect(screen.queryByRole('link', { name: '모임 채팅' })).toBeNull();
+  });
+});
+
+// #876 CHAT-07 채팅 목록 마지막 메시지·미읽음 표시와 읽음 처리 트리거
+function renderChatList(rooms) {
+  const getMyRooms = vi.spyOn(api, 'getMyRooms')
+    .mockImplementation(({ role }) => Promise.resolve(roomPage(role === 'hosted' ? rooms : [])));
+  return { getMyRooms, ...render(<ChatListView dataVersion={0} onBack={vi.fn()} />) };
+}
+
+describe('#876 CHAT-07 채팅 목록 마지막 메시지·미읽음 표시', () => {
+  it('T1 메시지가 없는 방은 참가 정보를 보여주고 미읽음 배지가 없다', async () => {
+    renderChatList([myRoom({ participantCount: 2, place: '홍대입구역', lastMessagePreview: null, lastMessageAt: null, unreadCount: 0 })]);
+
+    await waitFor(() => expect(screen.getByText(/2명 참가/)).toBeTruthy());
+    expect(screen.queryByLabelText(/개 안읽음/)).toBeNull();
+  });
+
+  it('T2 마지막 메시지가 있으면 참가 정보 대신 미리보기를 보여주고 미읽음 배지를 표시한다', async () => {
+    renderChatList([myRoom({ lastMessagePreview: '내일 뵈어요', lastMessageAt: '2026-09-01T18:00:00+09:00', unreadCount: 3 })]);
+
+    await waitFor(() => expect(screen.getByText('내일 뵈어요')).toBeTruthy());
+    expect(screen.getByLabelText('3개 안읽음').textContent).toBe('3');
+    expect(screen.queryByText(/명 참가/)).toBeNull();
+  });
+
+  it('T5 두 방의 마지막 메시지·미읽음 표시가 서로 섞이지 않는다', async () => {
+    renderChatList([
+      myRoom({ id: 1, title: '방A', lastMessagePreview: 'A의 메시지', unreadCount: 2 }),
+      myRoom({ id: 2, title: '방B', lastMessagePreview: 'B의 메시지', unreadCount: 0 })
+    ]);
+
+    await waitFor(() => expect(screen.getByText('A의 메시지')).toBeTruthy());
+    expect(screen.getByText('B의 메시지')).toBeTruthy();
+    expect(screen.getByLabelText('2개 안읽음').textContent).toBe('2');
+    expect(screen.getAllByLabelText(/개 안읽음/)).toHaveLength(1);
+  });
+});
+
+describe('#876 CHAT-07 채팅방 읽음 처리 트리거', () => {
+  it('T3 채팅방에 들어가 최신 메시지를 확인하면 읽음 처리 API를 호출한다', async () => {
+    vi.spyOn(api, 'getChatMessages').mockResolvedValue({
+      messages: [{ messageId: 5, roomId: 7, clientMessageId: 'c1', sender: { nickname: '주최자' }, isMine: false, content: '안녕하세요', createdAt: '2026-09-01T19:00:00+09:00' }],
+      nextBeforeMessageId: null,
+      hasNext: false
+    });
+    const markChatRead = vi.spyOn(api, 'markChatRead').mockResolvedValue({ roomId: 7, lastReadMessageId: 5, updatedAt: '2026-09-01T19:00:01+09:00' });
+
+    render(<ChatRoomView roomId="7" dataVersion={0} />);
+
+    await waitFor(() => expect(markChatRead).toHaveBeenCalledWith('7', 5));
+  });
+
+  it('실시간으로 도착한 새 메시지까지 다시 읽음 처리한다', async () => {
+    vi.stubGlobal('WebSocket', FakeWebSocket);
+    FakeWebSocket.instances = [];
+    vi.spyOn(api, 'getChatMessages').mockResolvedValue({
+      messages: [{ messageId: 5, roomId: 7, clientMessageId: 'c1', sender: { nickname: '주최자' }, isMine: false, content: '안녕하세요', createdAt: '2026-09-01T19:00:00+09:00' }],
+      nextBeforeMessageId: null,
+      hasNext: false
+    });
+    const markChatRead = vi.spyOn(api, 'markChatRead').mockResolvedValue({ roomId: 7, lastReadMessageId: 5, updatedAt: '2026-09-01T19:00:01+09:00' });
+
+    render(<ChatRoomView roomId="7" dataVersion={0} />);
+    await waitFor(() => expect(markChatRead).toHaveBeenCalledWith('7', 5));
+
+    const [socket] = FakeWebSocket.instances;
+    socket.open();
+    socket.message({
+      eventId: 6,
+      type: 'MESSAGE_CREATED',
+      message: { messageId: 6, roomId: 7, clientMessageId: 'c2', sender: { nickname: '참가자' }, isMine: false, content: '반가워요', createdAt: '2026-09-01T19:01:00+09:00' }
+    });
+
+    await waitFor(() => expect(markChatRead).toHaveBeenCalledWith('7', 6));
+  });
+
+  it('읽음 처리 요청이 실패해도 채팅 화면은 정상 동작한다', async () => {
+    vi.spyOn(api, 'getChatMessages').mockResolvedValue({
+      messages: [{ messageId: 5, roomId: 7, clientMessageId: 'c1', sender: { nickname: '주최자' }, isMine: false, content: '안녕하세요', createdAt: '2026-09-01T19:00:00+09:00' }],
+      nextBeforeMessageId: null,
+      hasNext: false
+    });
+    vi.spyOn(api, 'markChatRead').mockRejectedValue(new ApiError({ status: 500, code: 'INTERNAL_SERVER_ERROR', message: '오류' }));
+
+    render(<ChatRoomView roomId="7" dataVersion={0} />);
+
+    await waitFor(() => expect(screen.getByText('안녕하세요')).toBeTruthy());
+  });
+
+  it('T8 읽음 처리 성공 후 상단 배지 갱신 콜백을 호출한다', async () => {
+    vi.spyOn(api, 'getChatMessages').mockResolvedValue({
+      messages: [{ messageId: 5, roomId: 7, clientMessageId: 'c1', sender: { nickname: '주최자' }, isMine: false, content: '안녕하세요', createdAt: '2026-09-01T19:00:00+09:00' }],
+      nextBeforeMessageId: null,
+      hasNext: false
+    });
+    vi.spyOn(api, 'markChatRead').mockResolvedValue({ roomId: 7, lastReadMessageId: 5, updatedAt: '2026-09-01T19:00:01+09:00' });
+    const onChatRead = vi.fn();
+
+    render(<ChatRoomView roomId="7" dataVersion={0} onChatRead={onChatRead} />);
+
+    await waitFor(() => expect(onChatRead).toHaveBeenCalled());
+  });
+
+  it('읽음 처리가 실패하면 상단 배지 갱신 콜백을 호출하지 않는다', async () => {
+    vi.spyOn(api, 'getChatMessages').mockResolvedValue({
+      messages: [{ messageId: 5, roomId: 7, clientMessageId: 'c1', sender: { nickname: '주최자' }, isMine: false, content: '안녕하세요', createdAt: '2026-09-01T19:00:00+09:00' }],
+      nextBeforeMessageId: null,
+      hasNext: false
+    });
+    vi.spyOn(api, 'markChatRead').mockRejectedValue(new ApiError({ status: 500, code: 'INTERNAL_SERVER_ERROR', message: '오류' }));
+    const onChatRead = vi.fn();
+
+    render(<ChatRoomView roomId="7" dataVersion={0} onChatRead={onChatRead} />);
+
+    await waitFor(() => expect(screen.getByText('안녕하세요')).toBeTruthy());
+    expect(onChatRead).not.toHaveBeenCalled();
+  });
+});
+
+describe('#876 CHAT-07 상단 채팅 아이콘 미읽음 배지', () => {
+  it('T6 미읽음 방이 1개 이상이면 알림 아이콘과 같은 방식의 점 표시가 나타난다', () => {
+    const { container } = render(<ProfileView me={{ nickname: '테스터' }} onSave={vi.fn()} onLogout={vi.fn()} chatUnreadCount={2} />);
+
+    expect(screen.getByLabelText('전체 채팅, 읽지 않은 채팅방 2개')).toBeTruthy();
+    expect(container.querySelector('.unread-dot')).toBeTruthy();
+  });
+
+  it('T7 미읽음 방이 0개면 점 표시가 없다', () => {
+    const { container } = render(<ProfileView me={{ nickname: '테스터' }} onSave={vi.fn()} onLogout={vi.fn()} chatUnreadCount={0} />);
+
+    expect(screen.getByLabelText('전체 채팅')).toBeTruthy();
+    expect(container.querySelector('.unread-dot')).toBeNull();
   });
 });
