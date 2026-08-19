@@ -1,5 +1,7 @@
 package cloud.bamsongi.albammate.matching;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -19,6 +21,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import cloud.bamsongi.albammate.AlbamMateApplication;
@@ -106,8 +109,10 @@ class MatchBlockHttpIntegrationTest {
 			.andExpect(jsonPath("$.code").value(ErrorCode.CSRF_TOKEN_INVALID.getCode()));
 		assertBlockSnapshotEquals(expectedBlocks);
 
-		mockMvc.perform(put("/api/matches/parties/{partyId}/participants/{participantRef}/block", "not-a-number", blockedRef)
-			.with(authenticationFor(requesterUserId)).with(csrf()))
+		mockMvc
+			.perform(
+				put("/api/matches/parties/{partyId}/participants/{participantRef}/block", "not-a-number", blockedRef)
+					.with(authenticationFor(requesterUserId)).with(csrf()))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
 		assertBlockSnapshotEquals(expectedBlocks);
@@ -153,10 +158,15 @@ class MatchBlockHttpIntegrationTest {
 		insertParticipant(partyId, requesterUserId, requesterRef, null);
 		insertParticipant(partyId, blockedUserId, blockedRef, null);
 
-		mockMvc.perform(blockPut(partyId, blockedRef).with(authenticationFor(requesterUserId)).with(csrf()))
-			.andExpect(status().isOk());
-		mockMvc.perform(blockPut(partyId, blockedRef).with(authenticationFor(requesterUserId)).with(csrf()))
-			.andExpect(status().isOk());
+		MvcResult firstResult = mockMvc.perform(
+			blockPut(partyId, blockedRef).with(authenticationFor(requesterUserId)).with(csrf()))
+			.andExpect(status().isOk())
+			.andReturn();
+		MvcResult secondResult = mockMvc.perform(
+			blockPut(partyId, blockedRef).with(authenticationFor(requesterUserId)).with(csrf()))
+			.andExpect(status().isOk())
+			.andReturn();
+		assertSameBlockResponse(firstResult, secondResult);
 
 		assertBlockCount(requesterUserId, blockedUserId, 1);
 		Integer activePartyCount = jdbcTemplate.queryForObject(
@@ -255,6 +265,25 @@ class MatchBlockHttpIntegrationTest {
 
 	private void assertBlockSnapshotEquals(String expectedBlocks) {
 		org.junit.jupiter.api.Assertions.assertEquals(expectedBlocks, blockSnapshot());
+	}
+
+	private void assertSameBlockResponse(MvcResult first, MvcResult second) throws Exception {
+		String firstResponse = first.getResponse().getContentAsString();
+		String secondResponse = second.getResponse().getContentAsString();
+		assertEquals(200, first.getResponse().getStatus());
+		assertEquals(first.getResponse().getStatus(), second.getResponse().getStatus());
+		Object firstData = com.jayway.jsonpath.JsonPath.read(firstResponse, "$.data");
+		Object secondData = com.jayway.jsonpath.JsonPath.read(secondResponse, "$.data");
+		Object firstBlockId = com.jayway.jsonpath.JsonPath.read(firstResponse, "$.data.blockId");
+		Object secondBlockId = com.jayway.jsonpath.JsonPath.read(secondResponse, "$.data.blockId");
+		Object firstBlockedAt = com.jayway.jsonpath.JsonPath.read(firstResponse, "$.data.blockedAt");
+		Object secondBlockedAt = com.jayway.jsonpath.JsonPath.read(secondResponse, "$.data.blockedAt");
+
+		assertTrue(firstBlockId != null);
+		assertTrue(firstBlockedAt != null);
+		assertEquals(firstData, secondData);
+		assertEquals(firstBlockId, secondBlockId);
+		assertEquals(firstBlockedAt, secondBlockedAt);
 	}
 
 	private RequestPostProcessor authenticationFor(long userId) {
