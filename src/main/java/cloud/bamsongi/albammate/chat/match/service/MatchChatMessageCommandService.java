@@ -3,16 +3,20 @@ package cloud.bamsongi.albammate.chat.match.service;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import cloud.bamsongi.albammate.chat.match.MatchChatMessageCommitted;
 import cloud.bamsongi.albammate.chat.match.MatchChatMessageResponse;
 import cloud.bamsongi.albammate.chat.match.MatchChatMessageSendRequest;
 import cloud.bamsongi.albammate.chat.match.MatchChatSender;
+import cloud.bamsongi.albammate.chat.match.contract.MatchChatMessageCommitted;
+import cloud.bamsongi.albammate.chat.match.contract.MatchChatMessageRateLimiter;
 import cloud.bamsongi.albammate.chat.match.entity.MatchChatMessage;
 import cloud.bamsongi.albammate.chat.match.entity.MatchChatRoom;
 import cloud.bamsongi.albammate.chat.match.repository.MatchChatMessageRepository;
@@ -51,6 +55,7 @@ public class MatchChatMessageCommandService {
 	private final MatchChatMessageRepository matchChatMessageRepository;
 	private final MatchPartyParticipantRefQuery matchPartyParticipantRefQuery;
 	private final UserQuery userQuery;
+	private final MatchChatMessageRateLimiter matchChatMessageRateLimiter;
 	private final ApplicationEventPublisher eventPublisher;
 	private final Clock clock;
 
@@ -92,11 +97,41 @@ public class MatchChatMessageCommandService {
 		String clientMessageId,
 		String content,
 		MatchChatSender sender) {
-		MatchChatMessage saved = matchChatMessageRepository.save(
-			MatchChatMessage.createUserMessage(chatRoom.getId(), currentUserId, clientMessageId, content,
-				Instant.now(clock)));
-		eventPublisher.publishEvent(MatchChatMessageCommitted.messageCreated(partyId, saved.getId()));
-		return new MatchChatMessageSendResult(MatchChatMessageResponse.from(saved, partyId, sender, true), true);
+		MatchChatMessageRateLimiter.RateLimitReservation reservation = matchChatMessageRateLimiter
+			.reserve(currentUserId, partyId);
+		Runnable releaseOnce = releaseOnce(reservation);
+		try {
+			MatchChatMessage saved = matchChatMessageRepository.save(
+				MatchChatMessage.createUserMessage(chatRoom.getId(), currentUserId, clientMessageId, content,
+					Instant.now(clock)));
+			registerReservationReleaseOnRollback(releaseOnce);
+			eventPublisher.publishEvent(MatchChatMessageCommitted.messageCreated(partyId, saved.getId()));
+			return new MatchChatMessageSendResult(MatchChatMessageResponse.from(saved, partyId, sender, true), true);
+		} catch (RuntimeException exception) {
+			releaseOnce.run();
+			throw exception;
+		}
+	}
+
+	private Runnable releaseOnce(MatchChatMessageRateLimiter.RateLimitReservation reservation) {
+		AtomicBoolean released = new AtomicBoolean();
+		return () -> {
+			if (released.compareAndSet(false, true)) {
+				reservation.release();
+			}
+		};
+	}
+
+	private void registerReservationReleaseOnRollback(Runnable releaseOnce) {
+		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+
+			@Override
+			public void afterCompletion(int status) {
+				if (status != STATUS_COMMITTED) {
+					releaseOnce.run();
+				}
+			}
+		});
 	}
 
 	private String validateClientMessageId(String clientMessageId) {

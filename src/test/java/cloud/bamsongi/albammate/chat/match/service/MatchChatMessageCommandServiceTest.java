@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -19,15 +20,19 @@ import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import cloud.bamsongi.albammate.chat.match.MatchChatMessageCommitted;
 import cloud.bamsongi.albammate.chat.match.MatchChatMessageSendRequest;
 import cloud.bamsongi.albammate.chat.match.MatchChatMessageType;
 import cloud.bamsongi.albammate.chat.match.MatchChatSender;
+import cloud.bamsongi.albammate.chat.match.contract.MatchChatMessageCommitted;
+import cloud.bamsongi.albammate.chat.match.contract.MatchChatMessageRateLimiter;
 import cloud.bamsongi.albammate.chat.match.entity.MatchChatMessage;
 import cloud.bamsongi.albammate.chat.match.entity.MatchChatRoom;
 import cloud.bamsongi.albammate.chat.match.repository.MatchChatMessageRepository;
@@ -51,16 +56,19 @@ class MatchChatMessageCommandServiceTest {
 	private MatchChatMessageRepository matchChatMessageRepository;
 	private MatchPartyParticipantRefQuery matchPartyParticipantRefQuery;
 	private UserQuery userQuery;
+	private MatchChatMessageRateLimiter matchChatMessageRateLimiter;
 	private ApplicationEventPublisher eventPublisher;
 	private MatchChatMessageCommandService service;
 
 	@BeforeEach
 	void setUp() {
+		TransactionSynchronizationManager.initSynchronization();
 		matchPartyChatWriteGuard = mock(MatchPartyChatWriteGuard.class);
 		matchChatRoomRepository = mock(MatchChatRoomRepository.class);
 		matchChatMessageRepository = mock(MatchChatMessageRepository.class);
 		matchPartyParticipantRefQuery = mock(MatchPartyParticipantRefQuery.class);
 		userQuery = mock(UserQuery.class);
+		matchChatMessageRateLimiter = mock(MatchChatMessageRateLimiter.class);
 		eventPublisher = mock(ApplicationEventPublisher.class);
 		service = new MatchChatMessageCommandService(
 			matchPartyChatWriteGuard,
@@ -68,6 +76,7 @@ class MatchChatMessageCommandServiceTest {
 			matchChatMessageRepository,
 			matchPartyParticipantRefQuery,
 			userQuery,
+			matchChatMessageRateLimiter,
 			eventPublisher,
 			Clock.fixed(NOW, ZoneOffset.UTC));
 
@@ -79,11 +88,17 @@ class MatchChatMessageCommandServiceTest {
 		when(matchPartyParticipantRefQuery.findParticipantRef(PARTY_ID, CURRENT_USER_ID))
 			.thenReturn(Optional.of("ref-1"));
 		when(userQuery.findNicknameById(CURRENT_USER_ID)).thenReturn(Optional.of("발신자"));
+		when(matchChatMessageRateLimiter.reserve(anyLong(), anyLong())).thenReturn(() -> {});
 		when(matchChatMessageRepository.save(any())).thenAnswer(invocation -> {
 			MatchChatMessage saved = invocation.getArgument(0);
 			ReflectionTestUtils.setField(saved, "id", 900L);
 			return saved;
 		});
+	}
+
+	@AfterEach
+	void tearDown() {
+		TransactionSynchronizationManager.clearSynchronization();
 	}
 
 	@Test
@@ -103,6 +118,79 @@ class MatchChatMessageCommandServiceTest {
 		assertTrue(result.message().isMine());
 		assertEquals("같이 플레이해요.", result.message().content());
 		verify(eventPublisher).publishEvent(MatchChatMessageCommitted.messageCreated(PARTY_ID, 900L));
+		verify(matchChatMessageRateLimiter).reserve(CURRENT_USER_ID, PARTY_ID);
+	}
+
+	@Test
+	void 신규_저장_직전에_예약하고_저장이_실패하면_예약을_즉시_해제한다() {
+		when(matchChatMessageRepository.findByMatchChatRoomIdAndSenderUserIdAndClientMessageId(
+			CHAT_ROOM_ID, CURRENT_USER_ID, "client-fail")).thenReturn(Optional.empty());
+		MatchChatMessageRateLimiter.RateLimitReservation reservation = mock(
+			MatchChatMessageRateLimiter.RateLimitReservation.class);
+		when(matchChatMessageRateLimiter.reserve(CURRENT_USER_ID, PARTY_ID)).thenReturn(reservation);
+		org.mockito.Mockito.doThrow(new RuntimeException("save failed"))
+			.when(matchChatMessageRepository).save(any());
+
+		assertThrows(
+			RuntimeException.class,
+			() -> service.send(CURRENT_USER_ID, PARTY_ID, new MatchChatMessageSendRequest("client-fail", "본문")));
+
+		verify(reservation).release();
+		verifyNoInteractions(eventPublisher);
+	}
+
+	@Test
+	void 저장_성공_후_커밋되면_예약을_해제하지_않고_롤백되면_해제한다() {
+		when(matchChatMessageRepository.findByMatchChatRoomIdAndSenderUserIdAndClientMessageId(
+			CHAT_ROOM_ID, CURRENT_USER_ID, "client-commit")).thenReturn(Optional.empty());
+		MatchChatMessageRateLimiter.RateLimitReservation committedReservation = mock(
+			MatchChatMessageRateLimiter.RateLimitReservation.class);
+		when(matchChatMessageRateLimiter.reserve(CURRENT_USER_ID, PARTY_ID)).thenReturn(committedReservation);
+
+		service.send(CURRENT_USER_ID, PARTY_ID, new MatchChatMessageSendRequest("client-commit", "본문"));
+		TransactionSynchronizationManager.getSynchronizations()
+			.forEach(synchronization -> synchronization.afterCompletion(TransactionSynchronization.STATUS_COMMITTED));
+
+		verify(committedReservation, never()).release();
+		TransactionSynchronizationManager.clearSynchronization();
+
+		TransactionSynchronizationManager.initSynchronization();
+		when(matchChatMessageRepository.findByMatchChatRoomIdAndSenderUserIdAndClientMessageId(
+			CHAT_ROOM_ID, CURRENT_USER_ID, "client-rollback")).thenReturn(Optional.empty());
+		MatchChatMessageRateLimiter.RateLimitReservation rolledBackReservation = mock(
+			MatchChatMessageRateLimiter.RateLimitReservation.class);
+		when(matchChatMessageRateLimiter.reserve(CURRENT_USER_ID, PARTY_ID)).thenReturn(rolledBackReservation);
+
+		service.send(CURRENT_USER_ID, PARTY_ID, new MatchChatMessageSendRequest("client-rollback", "본문"));
+		TransactionSynchronizationManager.getSynchronizations()
+			.forEach(
+				synchronization -> synchronization.afterCompletion(TransactionSynchronization.STATUS_ROLLED_BACK));
+
+		verify(rolledBackReservation).release();
+	}
+
+	@Test
+	void 이벤트_발행_실패로_해제한_예약은_이후_트랜잭션_동기화가_다시_해제를_시도해도_한_번만_해제된다() {
+		when(matchChatMessageRepository.findByMatchChatRoomIdAndSenderUserIdAndClientMessageId(
+			CHAT_ROOM_ID, CURRENT_USER_ID, "client-event-fail")).thenReturn(Optional.empty());
+		MatchChatMessageRateLimiter.RateLimitReservation reservation = mock(
+			MatchChatMessageRateLimiter.RateLimitReservation.class);
+		when(matchChatMessageRateLimiter.reserve(CURRENT_USER_ID, PARTY_ID)).thenReturn(reservation);
+		org.mockito.Mockito.doThrow(new RuntimeException("publish failed"))
+			.when(eventPublisher).publishEvent(any(MatchChatMessageCommitted.class));
+
+		assertThrows(
+			RuntimeException.class,
+			() -> service.send(
+				CURRENT_USER_ID, PARTY_ID, new MatchChatMessageSendRequest("client-event-fail", "본문")));
+
+		verify(reservation).release();
+
+		TransactionSynchronizationManager.getSynchronizations()
+			.forEach(
+				synchronization -> synchronization.afterCompletion(TransactionSynchronization.STATUS_ROLLED_BACK));
+
+		verify(reservation, times(1)).release();
 	}
 
 	@Test
@@ -121,6 +209,7 @@ class MatchChatMessageCommandServiceTest {
 		assertEquals("안녕하세요", result.message().content());
 		verify(matchChatMessageRepository, never()).save(any());
 		verifyNoInteractions(eventPublisher);
+		verify(matchChatMessageRateLimiter, never()).reserve(anyLong(), anyLong());
 	}
 
 	@Test
@@ -133,6 +222,7 @@ class MatchChatMessageCommandServiceTest {
 		assertValidationError(new MatchChatMessageSendRequest("client-1", "다른 본문"));
 
 		verify(matchChatMessageRepository, never()).save(any());
+		verify(matchChatMessageRateLimiter, never()).reserve(anyLong(), anyLong());
 		verifyNoInteractions(eventPublisher);
 	}
 
@@ -218,6 +308,7 @@ class MatchChatMessageCommandServiceTest {
 		assertEquals(ErrorCode.FORBIDDEN, exception.getErrorCode());
 		verifyNoInteractions(matchChatMessageRepository);
 		verifyNoInteractions(eventPublisher);
+		verifyNoInteractions(matchChatMessageRateLimiter);
 	}
 
 	@Test

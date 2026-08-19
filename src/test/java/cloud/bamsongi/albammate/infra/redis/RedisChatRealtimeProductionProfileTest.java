@@ -31,6 +31,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import cloud.bamsongi.albammate.chat.contract.ChatRealtimePublisher;
 import cloud.bamsongi.albammate.chat.contract.ChatRealtimeSignalGateway;
+import cloud.bamsongi.albammate.chat.match.contract.MatchChatRealtimeSignalGateway;
 
 /** T7: production과 local이 같은 PostgreSQL catch-up용 Redis fan-out adapter를 등록하는지 검증한다. */
 class RedisChatRealtimeProductionProfileTest {
@@ -152,9 +153,11 @@ class RedisChatRealtimeProductionProfileTest {
 		environment.setActiveProfiles(profile);
 		context.registerBean(RedisConnectionFactory.class, () -> mock(RedisConnectionFactory.class));
 		context.registerBean(ChatRealtimeSignalGateway.class, () -> mock(ChatRealtimeSignalGateway.class));
+		context.registerBean(MatchChatRealtimeSignalGateway.class, () -> mock(MatchChatRealtimeSignalGateway.class));
 		context.register(
 			RedisChatRealtimePublisher.class,
 			RedisChatRealtimeSubscriber.class,
+			RedisMatchChatRealtimeSubscriber.class,
 			RedisChatRealtimeListenerConfiguration.class,
 			noOpPublisherClass());
 		context.refresh();
