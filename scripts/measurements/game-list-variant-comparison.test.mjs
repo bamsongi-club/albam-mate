@@ -13,10 +13,10 @@ import {
 
 const comparisonPath = fileURLToPath(new URL("./game-list-variant-comparison.mjs", import.meta.url));
 const fixture = {
-  fixtureId: "game-list-770-fixture-170005",
-  fixtureManifestSha256: "a".repeat(64),
+  fixtureId: "game-list-170005-observed-2026-08-19",
+  fixtureManifestSha256: "58263d92f6f1f39f7cf3619f9f7666cf9d48c6f420b59606116a1e353f6000eb",
   gameCount: 170005,
-  bggIdSetSha256: "b".repeat(64),
+  bggIdSetSha256: "75bcb893bcfef7f3b0a0de363e06037d332392c038ad5eb46c33de2b553c8744",
   metadata: {
     gameMechanismRelations: 428488,
     gameThemeRelations: 461973,
@@ -37,6 +37,7 @@ function artifact({
   p95 = baseP95,
   fixtureOverride = {},
   runnerFileSha256 = "c".repeat(64),
+  serverCommit = "f".repeat(40),
   sampleStatus = 200,
 } = {}) {
   const dataset = {
@@ -54,7 +55,11 @@ function artifact({
     runnerCommit: "e".repeat(40),
     runnerFileSha256,
     runnerSourceClean: true,
-    serverCommit: "f".repeat(40),
+    serverCommit,
+    serverContainers: [
+      { role: "app1", imageRevision: serverCommit },
+      { role: "app2", imageRevision: serverCommit },
+    ],
     dataset,
     endProvenance: {
       runner: {
@@ -62,7 +67,13 @@ function artifact({
         fileSha256: runnerFileSha256,
         sourceClean: true,
       },
-      server: { commit: "f".repeat(40) },
+      server: {
+        commit: serverCommit,
+        containers: [
+          { role: "app1", imageRevision: serverCommit },
+          { role: "app2", imageRevision: serverCommit },
+        ],
+      },
       dataset: {
         observedGameCount: dataset.observedGameCount,
         bggIdSetSha256: dataset.observedBggIdSetSha256,
@@ -129,6 +140,16 @@ test("각 variant의 네 artifact와 같은 fixture fingerprint가 없으면 비
   mismatchedFixture.dataset.observedBggIdSetSha256 = "9".repeat(64);
   mismatchedFixture.endProvenance.dataset.bggIdSetSha256 = "9".repeat(64);
   assert.throws(() => compareVariants(mismatchedFixtureArtifacts), /fixture/u);
+
+  const consistentlyWrongFixtureArtifacts = validSpecs();
+  for (const candidate of consistentlyWrongFixtureArtifacts) {
+    candidate.artifact.dataset.fixtureId = "another-fixture";
+    candidate.artifact.dataset.fixtureManifestSha256 = "9".repeat(64);
+    candidate.artifact.dataset.bggIdSetSha256 = "8".repeat(64);
+    candidate.artifact.dataset.observedBggIdSetSha256 = "8".repeat(64);
+    candidate.artifact.endProvenance.dataset.bggIdSetSha256 = "8".repeat(64);
+  }
+  assert.throws(() => compareVariants(consistentlyWrongFixtureArtifacts), /승인된 fixture/u);
 });
 
 test("한 scenario라도 V0 median p95의 105%를 넘으면 후보를 탈락시킨다", () => {
@@ -174,6 +195,16 @@ test("runner SHA와 모든 200 sample이 같지 않으면 성공 비교를 만�
   failedSample.find((candidate) => candidate.variant === "V3" && candidate.round === 2)
     .artifact.results[0] = scenarioResult("base", 100, 503);
   assert.throws(() => compareVariants(failedSample), /base.*200/u);
+
+  const serverMismatch = validSpecs();
+  serverMismatch.find((candidate) => candidate.variant === "V2" && candidate.round === 3)
+    .artifact.endProvenance.server.commit = "1".repeat(40);
+  assert.throws(() => compareVariants(serverMismatch), /server provenance/u);
+
+  const serverContainerMismatch = validSpecs();
+  serverContainerMismatch.find((candidate) => candidate.variant === "V3" && candidate.round === 1)
+    .artifact.endProvenance.server.containers[0].imageRevision = "1".repeat(40);
+  assert.throws(() => compareVariants(serverContainerMismatch), /server container/u);
 });
 
 test("CLI는 JSON과 Markdown 결과에 선정 후보와 raw artifact를 함께 기록한다", () => {

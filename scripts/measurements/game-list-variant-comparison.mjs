@@ -23,6 +23,11 @@ const FIXTURE_METADATA = {
   gameCategoryRelations: 17337,
   gamePlayerPreferences: 263463,
 };
+const EXPECTED_FIXTURE = {
+  fixtureId: "game-list-170005-observed-2026-08-19",
+  fixtureManifestSha256: "58263d92f6f1f39f7cf3619f9f7666cf9d48c6f420b59606116a1e353f6000eb",
+  bggIdSetSha256: "75bcb893bcfef7f3b0a0de363e06037d332392c038ad5eb46c33de2b553c8744",
+};
 const NO_REGRESSION_RATIO = 1.05;
 
 function fail(message) {
@@ -109,6 +114,12 @@ function validateFixture(artifact, label) {
   const dataset = artifact.dataset;
   const fixtureId = nonEmptyString(dataset.fixtureId, `${label}.dataset.fixtureId`);
   const fixtureManifestSha256 = sha256(dataset.fixtureManifestSha256, `${label}.dataset.fixtureManifestSha256`);
+  if (fixtureId !== EXPECTED_FIXTURE.fixtureId) {
+    fail(`${label}.dataset.fixtureId가 승인된 fixture와 다릅니다: expected=${EXPECTED_FIXTURE.fixtureId}, actual=${fixtureId}`);
+  }
+  if (fixtureManifestSha256 !== EXPECTED_FIXTURE.fixtureManifestSha256) {
+    fail(`${label}.dataset.fixtureManifestSha256가 승인된 fixture와 다릅니다.`);
+  }
   const gameCount = nonnegativeInteger(dataset.gameCount, `${label}.dataset.gameCount`);
   const observedGameCount = nonnegativeInteger(dataset.observedGameCount, `${label}.dataset.observedGameCount`);
   if (gameCount !== FIXTURE_GAME_COUNT || observedGameCount !== FIXTURE_GAME_COUNT) {
@@ -119,6 +130,9 @@ function validateFixture(artifact, label) {
     dataset.observedBggIdSetSha256,
     `${label}.dataset.observedBggIdSetSha256`,
   );
+  if (dataset.bggIdSetSha256 !== EXPECTED_FIXTURE.bggIdSetSha256) {
+    fail(`${label}.dataset.bggIdSetSha256가 승인된 fixture와 다릅니다.`);
+  }
   if (bggIdSetSha256 !== observedBggIdSetSha256) {
     fail(`${label}.dataset BGG ID set fingerprint가 시작·종료에 다릅니다.`);
   }
@@ -161,6 +175,38 @@ function validateFixture(artifact, label) {
     bggIdSetSha256,
     metadata,
   };
+}
+
+function validateServerProvenance(artifact, label) {
+  const serverCommit = artifact.serverCommit;
+  if (typeof serverCommit !== "string" || !/^[0-9a-f]{40}$/u.test(serverCommit)) {
+    fail(`${label}.serverCommit은 40자리 commit SHA여야 합니다.`);
+  }
+  const endServer = artifact.endProvenance.server;
+  if (!isPlainObject(endServer) || endServer.commit !== serverCommit) {
+    fail(`${label} server provenance의 시작·종료 commit이 다릅니다.`);
+  }
+  const startContainers = artifact.serverContainers;
+  const endContainers = endServer.containers;
+  if (!Array.isArray(startContainers) || !Array.isArray(endContainers)
+    || startContainers.length === 0 || startContainers.length !== endContainers.length) {
+    fail(`${label} server provenance의 시작·종료 container 목록이 다릅니다.`);
+  }
+  for (const startContainer of startContainers) {
+    const role = nonEmptyString(startContainer.role, `${label}.serverContainers.role`);
+    const startRevision = nonEmptyString(
+      startContainer.imageRevision,
+      `${label}.serverContainers[${role}].imageRevision`,
+    );
+    if (startRevision !== serverCommit) {
+      fail(`${label} server container ${role}의 imageRevision이 serverCommit과 다릅니다.`);
+    }
+    const endContainer = endContainers.find((candidate) => candidate?.role === role);
+    if (!endContainer || endContainer.imageRevision !== startRevision) {
+      fail(`${label} server container ${role}의 시작·종료 imageRevision이 다릅니다.`);
+    }
+  }
+  return serverCommit;
 }
 
 function validateScenario(result, label) {
@@ -211,6 +257,7 @@ function validateArtifact(spec) {
     fail(`${label} runnerSourceClean이 true가 아닙니다.`);
   }
   const runnerFileSha256 = sha256(artifact.runnerFileSha256, `${label}.runnerFileSha256`);
+  const serverCommit = validateServerProvenance(artifact, label);
   if (!isPlainObject(artifact.endProvenance?.runner)) {
     fail(`${label}.endProvenance.runner가 object가 아닙니다.`);
   }
@@ -244,7 +291,7 @@ function validateArtifact(spec) {
   return {
     path: spec.path,
     round: spec.round,
-    serverCommit: artifact.serverCommit ?? null,
+    serverCommit,
     runnerFileSha256,
     fixture,
     scenarios,
