@@ -5,7 +5,10 @@ import java.time.Clock;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,7 +19,9 @@ import org.springframework.web.socket.WebSocketSession;
 import cloud.bamsongi.albammate.chat.dto.ChatMessageEvent;
 import cloud.bamsongi.albammate.chat.dto.ChatMessageResponse;
 import cloud.bamsongi.albammate.chat.entity.ChatMessage;
+import cloud.bamsongi.albammate.chat.entity.ChatMessageType;
 import cloud.bamsongi.albammate.chat.repository.ChatMessageRepository;
+import cloud.bamsongi.albammate.chat.system.ChatMessageResponseAssembler;
 import cloud.bamsongi.albammate.user.contract.UserQuery;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +43,7 @@ class ChatMessageDeliveryService {
 	@NonNull private final ChatConnectionRegistry connectionRegistry;
 	@NonNull private final ChatMessageRepository chatMessageRepository;
 	@NonNull private final UserQuery userQuery;
+	@NonNull private final ChatMessageResponseAssembler responseAssembler;
 	@NonNull private final ChatWebSocketMetrics metrics;
 	@NonNull private final ObjectMapper objectMapper;
 	@NonNull private final Clock clock;
@@ -45,7 +51,8 @@ class ChatMessageDeliveryService {
 	/**
 	 * 연결의 마지막 전달 ID 이후 메시지만 오름차순으로 보내고 전달한 만큼 기준을 갱신한다.
 	 *
-	 * <p>전송이 실패하면 그 메시지에서 멈추고 연결을 {@code SERVER_ERROR}로 종료하며 실패를 계측한다.
+	 * <p>USER 메시지의 발신자 요약을 찾지 못하면 전송이 실패한 것으로 보고 연결을 {@code SERVER_ERROR}로 종료한다.
+	 * SYSTEM 메시지는 대상 프로필을 찾지 못해도 고정 대체 표시명으로 계속 전달한다.
 	 */
 	void deliverNewMessages(ChatRoomConnection connection) {
 		List<ChatMessage> newMessages = chatMessageRepository
@@ -54,27 +61,22 @@ class ChatMessageDeliveryService {
 		if (newMessages.isEmpty()) {
 			return;
 		}
-		Map<Long, UserQuery.UserSummary> senderSummaries = userQuery.findUserSummariesByIds(
-			newMessages.stream().map(ChatMessage::getSenderUserId).collect(Collectors.toSet()));
+		Set<Long> profileIds = newMessages.stream()
+			.flatMap(message -> Stream.of(message.getSenderUserId(), message.getSubjectUserId()))
+			.filter(Objects::nonNull)
+			.collect(Collectors.toSet());
+		Map<Long, UserQuery.UserSummary> profilesById = userQuery.findUserSummariesByIds(profileIds);
 		int delivered = 0;
 		for (ChatMessage message : newMessages) {
 			if (connectionRegistry.shouldStopDelivery(connection.session)) {
 				break;
 			}
-			UserQuery.UserSummary sender = senderSummaries.get(message.getSenderUserId());
-			if (sender == null) {
-				log.atError().addKeyValue("event", "chat_message_sender_nickname_missing")
-					.addKeyValue("roomId", connection.roomId).log("chat message sender nickname missing");
+			ChatMessageResponse response = toResponse(message, connection, profilesById);
+			if (response == null) {
 				metrics.recordDeliveryFailure();
 				connectionRegistry.closeForTransportFailure(connection.session);
 				break;
 			}
-			ChatMessageResponse response = ChatMessageResponse.from(
-				message,
-				connection.roomId,
-				sender.nickname(),
-				sender.profileImageUrl(),
-				message.getSenderUserId().equals(connection.userId));
 			if (!send(connection.session, ChatMessageEvent.messageCreated(response))) {
 				metrics.recordDeliveryFailure();
 				connectionRegistry.closeForTransportFailure(connection.session);
@@ -85,6 +87,23 @@ class ChatMessageDeliveryService {
 			delivered++;
 		}
 		metrics.recordRecoveredMessages(delivered);
+	}
+
+	/** USER 발신자 요약이 없으면 전달 실패로 보고 {@code null}을 반환한다. SYSTEM은 대체 표시명으로 항상 조립한다. */
+	private ChatMessageResponse toResponse(
+		ChatMessage message, ChatRoomConnection connection, Map<Long, UserQuery.UserSummary> profilesById) {
+		if (message.getMessageType() == ChatMessageType.SYSTEM) {
+			return responseAssembler.assembleSystemMessage(
+				message, connection.roomId, profilesById.get(message.getSubjectUserId()));
+		}
+		UserQuery.UserSummary sender = profilesById.get(message.getSenderUserId());
+		if (sender == null) {
+			log.atError().addKeyValue("event", "chat_message_sender_nickname_missing")
+				.addKeyValue("roomId", connection.roomId).log("chat message sender nickname missing");
+			return null;
+		}
+		return responseAssembler.assembleUserMessage(
+			message, connection.roomId, sender, message.getSenderUserId().equals(connection.userId));
 	}
 
 	private boolean send(WebSocketSession session, ChatMessageEvent event) {

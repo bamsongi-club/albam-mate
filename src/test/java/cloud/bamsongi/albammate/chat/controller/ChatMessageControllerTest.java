@@ -226,9 +226,12 @@ class ChatMessageControllerTest {
 		return new ChatMessageResponse(
 			10L,
 			1L,
+			cloud.bamsongi.albammate.chat.entity.ChatMessageType.USER,
 			"client-1",
 			new ChatMessageSender("작성자", "https://cdn.example.com/writer.png"),
 			true,
+			null,
+			null,
 			"안녕하세요",
 			Instant.parse("2026-08-04T00:00:00Z"));
 	}
