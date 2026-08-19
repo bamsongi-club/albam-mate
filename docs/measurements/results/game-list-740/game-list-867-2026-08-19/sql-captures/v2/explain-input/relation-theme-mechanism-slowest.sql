@@ -1,0 +1,5 @@
+-- v2/relation-theme-mechanism slowest read
+-- source=docs/measurements/results/game-list-740/game-list-867-2026-08-19/sql-captures/v2/relation-theme-mechanism.postgres.log
+-- captured_execute_duration_ms=6299.343
+EXPLAIN (ANALYZE, BUFFERS, VERBOSE, FORMAT TEXT)
+select g1_0.id,g1_0.alias,g1_0.bgg_id,g1_0.complexity,g1_0.created_at,g1_0.description,g1_0.detail_description,g1_0.english_name,g1_0.estimated_play_time,g1_0.image_url,g1_0.max_play_time_minutes,g1_0.max_players,g1_0.min_age,g1_0.min_play_time_minutes,g1_0.min_players,g1_0.name,g1_0.popularity_score,g1_0.release_year,g1_0.supported_player_count,g1_0.tag,g1_0.updated_at from games g1_0 where exists(select 1 from game_mechanism_relations gmr1_0 join game_mechanisms m1_0 on m1_0.id=gmr1_0.mechanism_id where gmr1_0.game_id=g1_0.id and m1_0.code in ('HAND_MANAGEMENT') and m1_0.is_public) and exists(select 1 from game_theme_relations gtr1_0 join game_themes t1_0 on t1_0.id=gtr1_0.theme_id where gtr1_0.game_id=g1_0.id and t1_0.code in ('BOOK_BGG_1117')) order by g1_0.popularity_score desc,g1_0.name,g1_0.id offset '0' rows fetch first '25' rows only;

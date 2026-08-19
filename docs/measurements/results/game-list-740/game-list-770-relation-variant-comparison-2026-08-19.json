@@ -1,0 +1,1039 @@
+{
+  "schemaVersion": 1,
+  "status": "success",
+  "fixture": {
+    "fixtureId": "game-list-170005-observed-2026-08-19",
+    "fixtureManifestSha256": "58263d92f6f1f39f7cf3619f9f7666cf9d48c6f420b59606116a1e353f6000eb",
+    "gameCount": 170005,
+    "bggIdSetSha256": "75bcb893bcfef7f3b0a0de363e06037d332392c038ad5eb46c33de2b553c8744",
+    "metadata": {
+      "gameMechanismRelations": 428488,
+      "gameThemeRelations": 461973,
+      "gameCategoryRelations": 17337,
+      "gamePlayerPreferences": 263463
+    }
+  },
+  "runnerFileSha256": "a96476d2d354a561e418853805b60fe3dbd425f9e3da93c338e7bb8ab6b8ac09",
+  "variants": {
+    "V0": {
+      "scenarios": {
+        "base": {
+          "batches": [
+            {
+              "round": 1,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v0-r1.json",
+              "serverCommit": "cecbe1017a38b90b7be8e472ee16c5d809918b90",
+              "p50Ms": 51.6527500000002,
+              "p95Ms": 109.38808300000073,
+              "maxMs": 239.59799999999996
+            },
+            {
+              "round": 2,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v0-r2.json",
+              "serverCommit": "cecbe1017a38b90b7be8e472ee16c5d809918b90",
+              "p50Ms": 32.154999999999745,
+              "p95Ms": 82.55825000000004,
+              "maxMs": 93.02829199999996
+            },
+            {
+              "round": 3,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v0-r3.json",
+              "serverCommit": "cecbe1017a38b90b7be8e472ee16c5d809918b90",
+              "p50Ms": 27.354916000000003,
+              "p95Ms": 41.783333000000084,
+              "maxMs": 49.390709000000015
+            },
+            {
+              "round": 4,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v0-r4.json",
+              "serverCommit": "cecbe1017a38b90b7be8e472ee16c5d809918b90",
+              "p50Ms": 33.06420799999978,
+              "p95Ms": 89.79258299999992,
+              "maxMs": 103.52095899999995
+            }
+          ],
+          "medianP50Ms": 32.60960399999976,
+          "medianP95Ms": 86.17541649999998,
+          "medianMaxMs": 98.27462549999996
+        },
+        "keyword": {
+          "batches": [
+            {
+              "round": 1,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v0-r1.json",
+              "serverCommit": "cecbe1017a38b90b7be8e472ee16c5d809918b90",
+              "p50Ms": 41.18645899999956,
+              "p95Ms": 93.08987500000057,
+              "maxMs": 113.85054200000013
+            },
+            {
+              "round": 2,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v0-r2.json",
+              "serverCommit": "cecbe1017a38b90b7be8e472ee16c5d809918b90",
+              "p50Ms": 19.79529100000036,
+              "p95Ms": 28.167333999999755,
+              "maxMs": 30.75562499999978
+            },
+            {
+              "round": 3,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v0-r3.json",
+              "serverCommit": "cecbe1017a38b90b7be8e472ee16c5d809918b90",
+              "p50Ms": 18.206707999999708,
+              "p95Ms": 23.49649999999974,
+              "maxMs": 29.662166999999954
+            },
+            {
+              "round": 4,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v0-r4.json",
+              "serverCommit": "cecbe1017a38b90b7be8e472ee16c5d809918b90",
+              "p50Ms": 19.78991700000006,
+              "p95Ms": 36.221583000000464,
+              "maxMs": 39.251540999999634
+            }
+          ],
+          "medianP50Ms": 19.79260400000021,
+          "medianP95Ms": 32.19445850000011,
+          "medianMaxMs": 35.00358299999971
+        },
+        "player-count": {
+          "batches": [
+            {
+              "round": 1,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v0-r1.json",
+              "serverCommit": "cecbe1017a38b90b7be8e472ee16c5d809918b90",
+              "p50Ms": 42.74120799999946,
+              "p95Ms": 161.57937500000025,
+              "maxMs": 166.9920000000002
+            },
+            {
+              "round": 2,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v0-r2.json",
+              "serverCommit": "cecbe1017a38b90b7be8e472ee16c5d809918b90",
+              "p50Ms": 23.9506250000004,
+              "p95Ms": 60.242041999999856,
+              "maxMs": 68.10433400000056
+            },
+            {
+              "round": 3,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v0-r3.json",
+              "serverCommit": "cecbe1017a38b90b7be8e472ee16c5d809918b90",
+              "p50Ms": 21.18100000000004,
+              "p95Ms": 31.990583000000242,
+              "maxMs": 103.03841700000021
+            },
+            {
+              "round": 4,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v0-r4.json",
+              "serverCommit": "cecbe1017a38b90b7be8e472ee16c5d809918b90",
+              "p50Ms": 21.851042000000234,
+              "p95Ms": 37.07666700000027,
+              "maxMs": 41.84570799999983
+            }
+          ],
+          "medianP50Ms": 22.900833500000317,
+          "medianP95Ms": 48.65935450000006,
+          "medianMaxMs": 85.57137550000039
+        },
+        "relation-theme-mechanism": {
+          "batches": [
+            {
+              "round": 1,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v0-r1.json",
+              "serverCommit": "cecbe1017a38b90b7be8e472ee16c5d809918b90",
+              "p50Ms": 474.9526670000014,
+              "p95Ms": 630.7302500000005,
+              "maxMs": 676.0145830000001
+            },
+            {
+              "round": 2,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v0-r2.json",
+              "serverCommit": "cecbe1017a38b90b7be8e472ee16c5d809918b90",
+              "p50Ms": 646.1146669999998,
+              "p95Ms": 784.1022499999999,
+              "maxMs": 855.9197910000003
+            },
+            {
+              "round": 3,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v0-r3.json",
+              "serverCommit": "cecbe1017a38b90b7be8e472ee16c5d809918b90",
+              "p50Ms": 244.9340830000001,
+              "p95Ms": 313.52500000000146,
+              "maxMs": 326.9254999999994
+            },
+            {
+              "round": 4,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v0-r4.json",
+              "serverCommit": "cecbe1017a38b90b7be8e472ee16c5d809918b90",
+              "p50Ms": 322.0176249999986,
+              "p95Ms": 478.6542499999996,
+              "maxMs": 581.730125
+            }
+          ],
+          "medianP50Ms": 398.485146,
+          "medianP95Ms": 554.6922500000001,
+          "medianMaxMs": 628.8723540000001
+        },
+        "complex": {
+          "batches": [
+            {
+              "round": 1,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v0-r1.json",
+              "serverCommit": "cecbe1017a38b90b7be8e472ee16c5d809918b90",
+              "p50Ms": 288.32237499999974,
+              "p95Ms": 417.7469170000004,
+              "maxMs": 500.1533329999984
+            },
+            {
+              "round": 2,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v0-r2.json",
+              "serverCommit": "cecbe1017a38b90b7be8e472ee16c5d809918b90",
+              "p50Ms": 614.9468330000018,
+              "p95Ms": 764.1389170000002,
+              "maxMs": 789.3059169999979
+            },
+            {
+              "round": 3,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v0-r3.json",
+              "serverCommit": "cecbe1017a38b90b7be8e472ee16c5d809918b90",
+              "p50Ms": 224.398459,
+              "p95Ms": 315.2181670000009,
+              "maxMs": 325.4449999999997
+            },
+            {
+              "round": 4,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v0-r4.json",
+              "serverCommit": "cecbe1017a38b90b7be8e472ee16c5d809918b90",
+              "p50Ms": 257.80525000000125,
+              "p95Ms": 600.9597920000015,
+              "maxMs": 692.5352500000008
+            }
+          ],
+          "medianP50Ms": 273.0638125000005,
+          "medianP95Ms": 509.35335450000093,
+          "medianMaxMs": 596.3442914999996
+        },
+        "flags-upcoming-exact": {
+          "batches": [
+            {
+              "round": 1,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v0-r1.json",
+              "serverCommit": "cecbe1017a38b90b7be8e472ee16c5d809918b90",
+              "p50Ms": 48.283500000005006,
+              "p95Ms": 197.50362499999756,
+              "maxMs": 296.69616600000154
+            },
+            {
+              "round": 2,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v0-r2.json",
+              "serverCommit": "cecbe1017a38b90b7be8e472ee16c5d809918b90",
+              "p50Ms": 22.630208000002312,
+              "p95Ms": 40.36750000000029,
+              "maxMs": 54.12904200000048
+            },
+            {
+              "round": 3,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v0-r3.json",
+              "serverCommit": "cecbe1017a38b90b7be8e472ee16c5d809918b90",
+              "p50Ms": 25.584750000001804,
+              "p95Ms": 59.28429200000028,
+              "maxMs": 86.91779200000019
+            },
+            {
+              "round": 4,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v0-r4.json",
+              "serverCommit": "cecbe1017a38b90b7be8e472ee16c5d809918b90",
+              "p50Ms": 41.74454100000003,
+              "p95Ms": 77.14483400000245,
+              "maxMs": 79.73820799999885
+            }
+          ],
+          "medianP50Ms": 33.664645500000915,
+          "medianP95Ms": 68.21456300000136,
+          "medianMaxMs": 83.32799999999952
+        }
+      },
+      "gates": {
+        "noRegression": true,
+        "relationComplexImprovement": true,
+        "relationImproved": true,
+        "complexImproved": true,
+        "reasons": []
+      }
+    },
+    "V1": {
+      "scenarios": {
+        "base": {
+          "batches": [
+            {
+              "round": 1,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v1-r1.json",
+              "serverCommit": "2502d57e8c468929598e66a080442a4e2a5e412a",
+              "p50Ms": 33.85295900000028,
+              "p95Ms": 63.720666999999594,
+              "maxMs": 84.10037499999999
+            },
+            {
+              "round": 2,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v1-r2.json",
+              "serverCommit": "2502d57e8c468929598e66a080442a4e2a5e412a",
+              "p50Ms": 17.146958999999924,
+              "p95Ms": 29.651582999999846,
+              "maxMs": 39.990583000000015
+            },
+            {
+              "round": 3,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v1-r3.json",
+              "serverCommit": "2502d57e8c468929598e66a080442a4e2a5e412a",
+              "p50Ms": 52.27587500000027,
+              "p95Ms": 95.56795900000088,
+              "maxMs": 108.81345899999997
+            },
+            {
+              "round": 4,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v1-r4.json",
+              "serverCommit": "2502d57e8c468929598e66a080442a4e2a5e412a",
+              "p50Ms": 22.883082999999715,
+              "p95Ms": 42.17554199999995,
+              "maxMs": 63.76125000000002
+            }
+          ],
+          "medianP50Ms": 28.368021,
+          "medianP95Ms": 52.94810449999977,
+          "medianMaxMs": 73.9308125
+        },
+        "keyword": {
+          "batches": [
+            {
+              "round": 1,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v1-r1.json",
+              "serverCommit": "2502d57e8c468929598e66a080442a4e2a5e412a",
+              "p50Ms": 19.657916000000114,
+              "p95Ms": 47.43729200000007,
+              "maxMs": 52.544916000000285
+            },
+            {
+              "round": 2,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v1-r2.json",
+              "serverCommit": "2502d57e8c468929598e66a080442a4e2a5e412a",
+              "p50Ms": 13.422165999999834,
+              "p95Ms": 19.684416000000056,
+              "maxMs": 22.277667000000065
+            },
+            {
+              "round": 3,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v1-r3.json",
+              "serverCommit": "2502d57e8c468929598e66a080442a4e2a5e412a",
+              "p50Ms": 30.76274999999987,
+              "p95Ms": 46.183500000000095,
+              "maxMs": 50.7681249999996
+            },
+            {
+              "round": 4,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v1-r4.json",
+              "serverCommit": "2502d57e8c468929598e66a080442a4e2a5e412a",
+              "p50Ms": 12.723500000000058,
+              "p95Ms": 16.624249999999847,
+              "maxMs": 31.405666999999994
+            }
+          ],
+          "medianP50Ms": 16.540040999999974,
+          "medianP95Ms": 32.933958000000075,
+          "medianMaxMs": 41.0868959999998
+        },
+        "player-count": {
+          "batches": [
+            {
+              "round": 1,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v1-r1.json",
+              "serverCommit": "2502d57e8c468929598e66a080442a4e2a5e412a",
+              "p50Ms": 20.566208000000188,
+              "p95Ms": 34.061250000000655,
+              "maxMs": 157.64116699999977
+            },
+            {
+              "round": 2,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v1-r2.json",
+              "serverCommit": "2502d57e8c468929598e66a080442a4e2a5e412a",
+              "p50Ms": 22.7052920000001,
+              "p95Ms": 234.75037499999962,
+              "maxMs": 3470.380667
+            },
+            {
+              "round": 3,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v1-r3.json",
+              "serverCommit": "2502d57e8c468929598e66a080442a4e2a5e412a",
+              "p50Ms": 33.84608399999979,
+              "p95Ms": 44.200958999999784,
+              "maxMs": 53.5185419999998
+            },
+            {
+              "round": 4,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v1-r4.json",
+              "serverCommit": "2502d57e8c468929598e66a080442a4e2a5e412a",
+              "p50Ms": 15.579874999999902,
+              "p95Ms": 21.060875000000124,
+              "maxMs": 23.851916999999958
+            }
+          ],
+          "medianP50Ms": 21.635750000000144,
+          "medianP95Ms": 39.13110450000022,
+          "medianMaxMs": 105.57985449999978
+        },
+        "relation-theme-mechanism": {
+          "batches": [
+            {
+              "round": 1,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v1-r1.json",
+              "serverCommit": "2502d57e8c468929598e66a080442a4e2a5e412a",
+              "p50Ms": 238.6077499999992,
+              "p95Ms": 320.041709000001,
+              "maxMs": 363.4895830000005
+            },
+            {
+              "round": 2,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v1-r2.json",
+              "serverCommit": "2502d57e8c468929598e66a080442a4e2a5e412a",
+              "p50Ms": 226.4449999999997,
+              "p95Ms": 256.2219170000026,
+              "maxMs": 256.880000000001
+            },
+            {
+              "round": 3,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v1-r3.json",
+              "serverCommit": "2502d57e8c468929598e66a080442a4e2a5e412a",
+              "p50Ms": 288.63837499999863,
+              "p95Ms": 342.9323750000003,
+              "maxMs": 388.9400000000005
+            },
+            {
+              "round": 4,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v1-r4.json",
+              "serverCommit": "2502d57e8c468929598e66a080442a4e2a5e412a",
+              "p50Ms": 184.99120800000128,
+              "p95Ms": 242.17204200000015,
+              "maxMs": 245.90612499999952
+            }
+          ],
+          "medianP50Ms": 232.52637499999946,
+          "medianP95Ms": 288.1318130000018,
+          "medianMaxMs": 310.18479150000076
+        },
+        "complex": {
+          "batches": [
+            {
+              "round": 1,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v1-r1.json",
+              "serverCommit": "2502d57e8c468929598e66a080442a4e2a5e412a",
+              "p50Ms": 179.05312500000218,
+              "p95Ms": 283.91433400000096,
+              "maxMs": 362.4104159999988
+            },
+            {
+              "round": 2,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v1-r2.json",
+              "serverCommit": "2502d57e8c468929598e66a080442a4e2a5e412a",
+              "p50Ms": 156.2021249999998,
+              "p95Ms": 227.21837500000038,
+              "maxMs": 232.7432919999992
+            },
+            {
+              "round": 3,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v1-r3.json",
+              "serverCommit": "2502d57e8c468929598e66a080442a4e2a5e412a",
+              "p50Ms": 699.8217080000031,
+              "p95Ms": 5116.884708000005,
+              "maxMs": 5731.160790999998
+            },
+            {
+              "round": 4,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v1-r4.json",
+              "serverCommit": "2502d57e8c468929598e66a080442a4e2a5e412a",
+              "p50Ms": 158.5022910000007,
+              "p95Ms": 211.78133399999933,
+              "maxMs": 213.02908300000126
+            }
+          ],
+          "medianP50Ms": 168.77770800000144,
+          "medianP95Ms": 255.56635450000067,
+          "medianMaxMs": 297.576853999999
+        },
+        "flags-upcoming-exact": {
+          "batches": [
+            {
+              "round": 1,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v1-r1.json",
+              "serverCommit": "2502d57e8c468929598e66a080442a4e2a5e412a",
+              "p50Ms": 21.48737500000061,
+              "p95Ms": 35.388332999998966,
+              "maxMs": 40.400250000002416
+            },
+            {
+              "round": 2,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v1-r2.json",
+              "serverCommit": "2502d57e8c468929598e66a080442a4e2a5e412a",
+              "p50Ms": 15.00391700000182,
+              "p95Ms": 21.8872080000001,
+              "maxMs": 22.431166999998823
+            },
+            {
+              "round": 3,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v1-r3.json",
+              "serverCommit": "2502d57e8c468929598e66a080442a4e2a5e412a",
+              "p50Ms": 48.52216600000247,
+              "p95Ms": 79.23554100000183,
+              "maxMs": 89.01429199999984
+            },
+            {
+              "round": 4,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v1-r4.json",
+              "serverCommit": "2502d57e8c468929598e66a080442a4e2a5e412a",
+              "p50Ms": 13.981292000000394,
+              "p95Ms": 19.292499999999563,
+              "maxMs": 21.898832999999286
+            }
+          ],
+          "medianP50Ms": 18.245646000001216,
+          "medianP95Ms": 28.637770499999533,
+          "medianMaxMs": 31.41570850000062
+        }
+      },
+      "gates": {
+        "noRegression": true,
+        "relationComplexImprovement": true,
+        "relationImproved": true,
+        "complexImproved": true,
+        "reasons": []
+      }
+    },
+    "V2": {
+      "scenarios": {
+        "base": {
+          "batches": [
+            {
+              "round": 1,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v2-r1.json",
+              "serverCommit": "725a04197b81fffa284b77f415c64be280a897cb",
+              "p50Ms": 39.30991600000016,
+              "p95Ms": 57.97608300000047,
+              "maxMs": 67.59870800000044
+            },
+            {
+              "round": 2,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v2-r2.json",
+              "serverCommit": "725a04197b81fffa284b77f415c64be280a897cb",
+              "p50Ms": 33.24537499999997,
+              "p95Ms": 122.35387500000002,
+              "maxMs": 130.77737500000012
+            },
+            {
+              "round": 3,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v2-r3.json",
+              "serverCommit": "725a04197b81fffa284b77f415c64be280a897cb",
+              "p50Ms": 32.555667000000085,
+              "p95Ms": 53.43212500000027,
+              "maxMs": 118.668541
+            },
+            {
+              "round": 4,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v2-r4.json",
+              "serverCommit": "725a04197b81fffa284b77f415c64be280a897cb",
+              "p50Ms": 31.84583300000031,
+              "p95Ms": 48.580374999999776,
+              "maxMs": 101.77891600000021
+            }
+          ],
+          "medianP50Ms": 32.900521000000026,
+          "medianP95Ms": 55.70410400000037,
+          "medianMaxMs": 110.2237285000001
+        },
+        "keyword": {
+          "batches": [
+            {
+              "round": 1,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v2-r1.json",
+              "serverCommit": "725a04197b81fffa284b77f415c64be280a897cb",
+              "p50Ms": 21.199208,
+              "p95Ms": 33.29600000000028,
+              "maxMs": 33.82291600000008
+            },
+            {
+              "round": 2,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v2-r2.json",
+              "serverCommit": "725a04197b81fffa284b77f415c64be280a897cb",
+              "p50Ms": 19.21875,
+              "p95Ms": 31.014458000000104,
+              "maxMs": 31.124915999999757
+            },
+            {
+              "round": 3,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v2-r3.json",
+              "serverCommit": "725a04197b81fffa284b77f415c64be280a897cb",
+              "p50Ms": 21.29399999999987,
+              "p95Ms": 38.76283300000068,
+              "maxMs": 43.671166000000085
+            },
+            {
+              "round": 4,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v2-r4.json",
+              "serverCommit": "725a04197b81fffa284b77f415c64be280a897cb",
+              "p50Ms": 29.88495899999998,
+              "p95Ms": 67.35087500000009,
+              "maxMs": 118.0184589999999
+            }
+          ],
+          "medianP50Ms": 21.246603999999934,
+          "medianP95Ms": 36.02941650000048,
+          "medianMaxMs": 38.74704100000008
+        },
+        "player-count": {
+          "batches": [
+            {
+              "round": 1,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v2-r1.json",
+              "serverCommit": "725a04197b81fffa284b77f415c64be280a897cb",
+              "p50Ms": 33.515625,
+              "p95Ms": 65.08883399999922,
+              "maxMs": 67.07054100000005
+            },
+            {
+              "round": 2,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v2-r2.json",
+              "serverCommit": "725a04197b81fffa284b77f415c64be280a897cb",
+              "p50Ms": 17.813000000000102,
+              "p95Ms": 27.24449999999979,
+              "maxMs": 34.70170800000005
+            },
+            {
+              "round": 3,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v2-r3.json",
+              "serverCommit": "725a04197b81fffa284b77f415c64be280a897cb",
+              "p50Ms": 22.240458999999646,
+              "p95Ms": 26.973291999999674,
+              "maxMs": 32.4287919999997
+            },
+            {
+              "round": 4,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v2-r4.json",
+              "serverCommit": "725a04197b81fffa284b77f415c64be280a897cb",
+              "p50Ms": 26.292083999999704,
+              "p95Ms": 42.61745900000005,
+              "maxMs": 48.12174999999979
+            }
+          ],
+          "medianP50Ms": 24.266271499999675,
+          "medianP95Ms": 34.93097949999992,
+          "medianMaxMs": 41.41172899999992
+        },
+        "relation-theme-mechanism": {
+          "batches": [
+            {
+              "round": 1,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v2-r1.json",
+              "serverCommit": "725a04197b81fffa284b77f415c64be280a897cb",
+              "p50Ms": 131.91883299999972,
+              "p95Ms": 216.4656249999989,
+              "maxMs": 953.3730420000011
+            },
+            {
+              "round": 2,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v2-r2.json",
+              "serverCommit": "725a04197b81fffa284b77f415c64be280a897cb",
+              "p50Ms": 75.29158300000017,
+              "p95Ms": 90.74712499999987,
+              "maxMs": 101.25324999999975
+            },
+            {
+              "round": 3,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v2-r3.json",
+              "serverCommit": "725a04197b81fffa284b77f415c64be280a897cb",
+              "p50Ms": 80.47591600000032,
+              "p95Ms": 111.23600000000079,
+              "maxMs": 119.81829099999959
+            },
+            {
+              "round": 4,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v2-r4.json",
+              "serverCommit": "725a04197b81fffa284b77f415c64be280a897cb",
+              "p50Ms": 77.28229199999987,
+              "p95Ms": 129.35929099999976,
+              "maxMs": 140.33991700000115
+            }
+          ],
+          "medianP50Ms": 78.8791040000001,
+          "medianP95Ms": 120.29764550000027,
+          "medianMaxMs": 130.07910400000037
+        },
+        "complex": {
+          "batches": [
+            {
+              "round": 1,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v2-r1.json",
+              "serverCommit": "725a04197b81fffa284b77f415c64be280a897cb",
+              "p50Ms": 96.24287499999991,
+              "p95Ms": 143.48516700000255,
+              "maxMs": 166.062417000001
+            },
+            {
+              "round": 2,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v2-r2.json",
+              "serverCommit": "725a04197b81fffa284b77f415c64be280a897cb",
+              "p50Ms": 78.35091699999975,
+              "p95Ms": 142.30475000000115,
+              "maxMs": 537.6638750000002
+            },
+            {
+              "round": 3,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v2-r3.json",
+              "serverCommit": "725a04197b81fffa284b77f415c64be280a897cb",
+              "p50Ms": 84.68199999999888,
+              "p95Ms": 441.44333299999926,
+              "maxMs": 604.7582500000008
+            },
+            {
+              "round": 4,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v2-r4.json",
+              "serverCommit": "725a04197b81fffa284b77f415c64be280a897cb",
+              "p50Ms": 105.39225000000079,
+              "p95Ms": 232.08412500000122,
+              "maxMs": 558.189875
+            }
+          ],
+          "medianP50Ms": 90.4624374999994,
+          "medianP95Ms": 187.78464600000189,
+          "medianMaxMs": 547.9268750000001
+        },
+        "flags-upcoming-exact": {
+          "batches": [
+            {
+              "round": 1,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v2-r1.json",
+              "serverCommit": "725a04197b81fffa284b77f415c64be280a897cb",
+              "p50Ms": 19.114166999999725,
+              "p95Ms": 31.79266700000153,
+              "maxMs": 39.24254199999996
+            },
+            {
+              "round": 2,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v2-r2.json",
+              "serverCommit": "725a04197b81fffa284b77f415c64be280a897cb",
+              "p50Ms": 18.93791699999929,
+              "p95Ms": 31.014791999999943,
+              "maxMs": 35.476457999999184
+            },
+            {
+              "round": 3,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v2-r3.json",
+              "serverCommit": "725a04197b81fffa284b77f415c64be280a897cb",
+              "p50Ms": 18.29724999999962,
+              "p95Ms": 24.938874999999825,
+              "maxMs": 29.04070900000079
+            },
+            {
+              "round": 4,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v2-r4.json",
+              "serverCommit": "725a04197b81fffa284b77f415c64be280a897cb",
+              "p50Ms": 14.477041999998619,
+              "p95Ms": 19.11004199999843,
+              "maxMs": 25.64891699999862
+            }
+          ],
+          "medianP50Ms": 18.617583499999455,
+          "medianP95Ms": 27.976833499999884,
+          "medianMaxMs": 32.258583499999986
+        }
+      },
+      "gates": {
+        "noRegression": false,
+        "relationComplexImprovement": true,
+        "relationImproved": true,
+        "complexImproved": true,
+        "reasons": [
+          {
+            "scenario": "keyword",
+            "candidateP95Ms": 36.02941650000048,
+            "controlP95Ms": 32.19445850000011,
+            "thresholdP95Ms": 33.80418142500012
+          }
+        ]
+      }
+    },
+    "V3": {
+      "scenarios": {
+        "base": {
+          "batches": [
+            {
+              "round": 1,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v3-r1.json",
+              "serverCommit": "4d34d74d1adff1eb010a52962acbf3de425df58a",
+              "p50Ms": 34.0534590000002,
+              "p95Ms": 49.96462500000007,
+              "maxMs": 50.47675000000004
+            },
+            {
+              "round": 2,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v3-r2.json",
+              "serverCommit": "4d34d74d1adff1eb010a52962acbf3de425df58a",
+              "p50Ms": 35.499333000000206,
+              "p95Ms": 67.7500829999999,
+              "maxMs": 71.30770800000028
+            },
+            {
+              "round": 3,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v3-r3.json",
+              "serverCommit": "4d34d74d1adff1eb010a52962acbf3de425df58a",
+              "p50Ms": 38.22354099999984,
+              "p95Ms": 67.30545899999993,
+              "maxMs": 80.59120800000005
+            },
+            {
+              "round": 4,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v3-r4.json",
+              "serverCommit": "4d34d74d1adff1eb010a52962acbf3de425df58a",
+              "p50Ms": 50.7092090000001,
+              "p95Ms": 100.29166600000008,
+              "maxMs": 250.48950000000013
+            }
+          ],
+          "medianP50Ms": 36.86143700000002,
+          "medianP95Ms": 67.52777099999992,
+          "medianMaxMs": 75.94945800000016
+        },
+        "keyword": {
+          "batches": [
+            {
+              "round": 1,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v3-r1.json",
+              "serverCommit": "4d34d74d1adff1eb010a52962acbf3de425df58a",
+              "p50Ms": 20.08312500000011,
+              "p95Ms": 24.828042000000096,
+              "maxMs": 27.660167
+            },
+            {
+              "round": 2,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v3-r2.json",
+              "serverCommit": "4d34d74d1adff1eb010a52962acbf3de425df58a",
+              "p50Ms": 23.214833999999883,
+              "p95Ms": 74.96029099999987,
+              "maxMs": 79.36187500000005
+            },
+            {
+              "round": 3,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v3-r3.json",
+              "serverCommit": "4d34d74d1adff1eb010a52962acbf3de425df58a",
+              "p50Ms": 48.623541999999816,
+              "p95Ms": 621.0600829999994,
+              "maxMs": 4349.725791999999
+            },
+            {
+              "round": 4,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v3-r4.json",
+              "serverCommit": "4d34d74d1adff1eb010a52962acbf3de425df58a",
+              "p50Ms": 26.053791000000274,
+              "p95Ms": 43.385832999999366,
+              "maxMs": 45.37512500000048
+            }
+          ],
+          "medianP50Ms": 24.634312500000078,
+          "medianP95Ms": 59.17306199999962,
+          "medianMaxMs": 62.36850000000027
+        },
+        "player-count": {
+          "batches": [
+            {
+              "round": 1,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v3-r1.json",
+              "serverCommit": "4d34d74d1adff1eb010a52962acbf3de425df58a",
+              "p50Ms": 19.728207999999995,
+              "p95Ms": 32.435875000000124,
+              "maxMs": 52.17595799999981
+            },
+            {
+              "round": 2,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v3-r2.json",
+              "serverCommit": "4d34d74d1adff1eb010a52962acbf3de425df58a",
+              "p50Ms": 21.345541000000594,
+              "p95Ms": 32.21966599999996,
+              "maxMs": 35.37187499999982
+            },
+            {
+              "round": 3,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v3-r3.json",
+              "serverCommit": "4d34d74d1adff1eb010a52962acbf3de425df58a",
+              "p50Ms": 61.840791000000536,
+              "p95Ms": 245.39087500000096,
+              "maxMs": 559.6977079999997
+            },
+            {
+              "round": 4,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v3-r4.json",
+              "serverCommit": "4d34d74d1adff1eb010a52962acbf3de425df58a",
+              "p50Ms": 39.785167,
+              "p95Ms": 104.13841700000012,
+              "maxMs": 111.55154200000015
+            }
+          ],
+          "medianP50Ms": 30.565354000000298,
+          "medianP95Ms": 68.28714600000012,
+          "medianMaxMs": 81.86374999999998
+        },
+        "relation-theme-mechanism": {
+          "batches": [
+            {
+              "round": 1,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v3-r1.json",
+              "serverCommit": "4d34d74d1adff1eb010a52962acbf3de425df58a",
+              "p50Ms": 76.97204099999999,
+              "p95Ms": 92.26995799999986,
+              "maxMs": 146.30987499999992
+            },
+            {
+              "round": 2,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v3-r2.json",
+              "serverCommit": "4d34d74d1adff1eb010a52962acbf3de425df58a",
+              "p50Ms": 132.6200829999998,
+              "p95Ms": 197.72345799999948,
+              "maxMs": 201.00133300000016
+            },
+            {
+              "round": 3,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v3-r3.json",
+              "serverCommit": "4d34d74d1adff1eb010a52962acbf3de425df58a",
+              "p50Ms": 77.25987499999974,
+              "p95Ms": 119.78516600000148,
+              "maxMs": 170.0288330000003
+            },
+            {
+              "round": 4,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v3-r4.json",
+              "serverCommit": "4d34d74d1adff1eb010a52962acbf3de425df58a",
+              "p50Ms": 458.9960829999982,
+              "p95Ms": 4388.370833000001,
+              "maxMs": 6220.300959
+            }
+          ],
+          "medianP50Ms": 104.93997899999977,
+          "medianP95Ms": 158.75431200000048,
+          "medianMaxMs": 185.51508300000023
+        },
+        "complex": {
+          "batches": [
+            {
+              "round": 1,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v3-r1.json",
+              "serverCommit": "4d34d74d1adff1eb010a52962acbf3de425df58a",
+              "p50Ms": 105.00766699999986,
+              "p95Ms": 217.78112500000134,
+              "maxMs": 624.034040999999
+            },
+            {
+              "round": 2,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v3-r2.json",
+              "serverCommit": "4d34d74d1adff1eb010a52962acbf3de425df58a",
+              "p50Ms": 141.68354100000033,
+              "p95Ms": 328.8782080000001,
+              "maxMs": 558.3202500000007
+            },
+            {
+              "round": 3,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v3-r3.json",
+              "serverCommit": "4d34d74d1adff1eb010a52962acbf3de425df58a",
+              "p50Ms": 82.9969170000004,
+              "p95Ms": 1022.8144580000007,
+              "maxMs": 1051.4378749999996
+            },
+            {
+              "round": 4,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v3-r4.json",
+              "serverCommit": "4d34d74d1adff1eb010a52962acbf3de425df58a",
+              "p50Ms": 525.2837910000017,
+              "p95Ms": 3024.7022089999955,
+              "maxMs": 3279.3540839999987
+            }
+          ],
+          "medianP50Ms": 123.3456040000001,
+          "medianP95Ms": 675.8463330000004,
+          "medianMaxMs": 837.7359579999993
+        },
+        "flags-upcoming-exact": {
+          "batches": [
+            {
+              "round": 1,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v3-r1.json",
+              "serverCommit": "4d34d74d1adff1eb010a52962acbf3de425df58a",
+              "p50Ms": 18.116500000000087,
+              "p95Ms": 31.497874999999112,
+              "maxMs": 35.98291599999902
+            },
+            {
+              "round": 2,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v3-r2.json",
+              "serverCommit": "4d34d74d1adff1eb010a52962acbf3de425df58a",
+              "p50Ms": 13.669625000000451,
+              "p95Ms": 24.287708000001658,
+              "maxMs": 24.34087499999987
+            },
+            {
+              "round": 3,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v3-r3.json",
+              "serverCommit": "4d34d74d1adff1eb010a52962acbf3de425df58a",
+              "p50Ms": 22.35162499999933,
+              "p95Ms": 62.289082999999664,
+              "maxMs": 80.27375000000029
+            },
+            {
+              "round": 4,
+              "path": "docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v3-r4.json",
+              "serverCommit": "4d34d74d1adff1eb010a52962acbf3de425df58a",
+              "p50Ms": 29.82600000000093,
+              "p95Ms": 47.07508299998881,
+              "maxMs": 51.08249999998952
+            }
+          ],
+          "medianP50Ms": 20.23406249999971,
+          "medianP95Ms": 39.28647899999396,
+          "medianMaxMs": 43.53270799999427
+        }
+      },
+      "gates": {
+        "noRegression": false,
+        "relationComplexImprovement": false,
+        "relationImproved": true,
+        "complexImproved": false,
+        "reasons": [
+          {
+            "scenario": "keyword",
+            "candidateP95Ms": 59.17306199999962,
+            "controlP95Ms": 32.19445850000011,
+            "thresholdP95Ms": 33.80418142500012
+          },
+          {
+            "scenario": "player-count",
+            "candidateP95Ms": 68.28714600000012,
+            "controlP95Ms": 48.65935450000006,
+            "thresholdP95Ms": 51.09232222500007
+          },
+          {
+            "scenario": "complex",
+            "candidateP95Ms": 675.8463330000004,
+            "controlP95Ms": 509.35335450000093,
+            "thresholdP95Ms": 534.821022225001
+          }
+        ]
+      }
+    }
+  },
+  "selection": {
+    "noRegressionRatio": 1.05,
+    "requiredImprovementScenarios": [
+      "relation-theme-mechanism",
+      "complex"
+    ],
+    "candidates": [
+      {
+        "variant": "V1",
+        "relationComplexMedianP95Sum": 543.6981675000025
+      }
+    ]
+  },
+  "selectedVariant": "V1"
+}

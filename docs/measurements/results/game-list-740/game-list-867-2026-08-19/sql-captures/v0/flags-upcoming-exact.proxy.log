@@ -1,0 +1,4 @@
+2026-08-19T10:44:50.959674675Z 172.18.0.1 - - [19/Aug/2026:10:44:50 +0000] "GET / HTTP/1.1" 200 1121 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36" "-"
+2026-08-19T10:44:50.959746842Z 2026-08-19T10:44:50+00:00 measurement_id=- request="GET / HTTP/1.1" status=200 upstream=-
+2026-08-19T10:44:51.022627550Z 172.18.0.1 - - [19/Aug/2026:10:44:51 +0000] "GET /api/games?upcomingOnly=true&playerCountExact=true&playerCountMin=4&playerCountMax=4&page=0&size=24 HTTP/1.1" 200 71 "-" "curl/8.7.1" "-"
+2026-08-19T10:44:51.022638925Z 2026-08-19T10:44:51+00:00 measurement_id=game-list-867-v0-flags-upcoming-exact request="GET /api/games?upcomingOnly=true&playerCountExact=true&playerCountMin=4&playerCountMax=4&page=0&size=24 HTTP/1.1" status=200 upstream=172.18.0.5:8080

@@ -1,0 +1,6 @@
+2026-08-19T10:44:45.989894048Z 127.0.0.1 - - [19/Aug/2026:10:44:45 +0000] "GET / HTTP/1.1" 200 1121 "-" "Wget" "-"
+2026-08-19T10:44:45.989923506Z 2026-08-19T10:44:45+00:00 measurement_id=- request="GET / HTTP/1.1" status=200 upstream=-
+2026-08-19T10:44:47.249340465Z 172.18.0.1 - - [19/Aug/2026:10:44:47 +0000] "GET / HTTP/1.1" 200 1121 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36" "-"
+2026-08-19T10:44:47.249377507Z 2026-08-19T10:44:47+00:00 measurement_id=- request="GET / HTTP/1.1" status=200 upstream=-
+2026-08-19T10:44:48.215764174Z 172.18.0.1 - - [19/Aug/2026:10:44:48 +0000] "GET /api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24&theme=BOOK_BGG_1117&mechanism=HAND_MANAGEMENT HTTP/1.1" 200 7561 "-" "curl/8.7.1" "-"
+2026-08-19T10:44:48.215786674Z 2026-08-19T10:44:48+00:00 measurement_id=game-list-867-v0-relation-theme-mechanism request="GET /api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24&theme=BOOK_BGG_1117&mechanism=HAND_MANAGEMENT HTTP/1.1" status=200 upstream=172.18.0.4:8080

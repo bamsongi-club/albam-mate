@@ -1,0 +1,23 @@
+                                                                                                                                                   QUERY PLAN                                                                                                                                                   
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=251.36..251.37 rows=1 width=1162) (actual time=0.963..0.965 rows=0.00 loops=1)
+   Output: id, alias, bgg_id, complexity, created_at, description, detail_description, english_name, estimated_play_time, image_url, max_play_time_minutes, max_players, min_age, min_play_time_minutes, min_players, name, popularity_score, release_year, supported_player_count, tag, updated_at
+   Buffers: shared hit=32 read=10
+   ->  Sort  (cost=251.36..251.37 rows=1 width=1162) (actual time=0.960..0.962 rows=0.00 loops=1)
+         Output: id, alias, bgg_id, complexity, created_at, description, detail_description, english_name, estimated_play_time, image_url, max_play_time_minutes, max_players, min_age, min_play_time_minutes, min_players, name, popularity_score, release_year, supported_player_count, tag, updated_at
+         Sort Key: g1_0.popularity_score DESC, g1_0.name, g1_0.id
+         Sort Method: quicksort  Memory: 25kB
+         Buffers: shared hit=32 read=10
+         ->  Index Scan using games_pkey on public.games g1_0  (cost=0.42..251.35 rows=1 width=1162) (actual time=0.823..0.823 rows=0.00 loops=1)
+               Output: id, alias, bgg_id, complexity, created_at, description, detail_description, english_name, estimated_play_time, image_url, max_play_time_minutes, max_players, min_age, min_play_time_minutes, min_players, name, popularity_score, release_year, supported_player_count, tag, updated_at
+               Index Cond: (g1_0.id = ANY ('{31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60}'::bigint[]))
+               Filter: ((g1_0.min_players = 4) AND (g1_0.max_players = 4))
+               Rows Removed by Filter: 30
+               Index Searches: 1
+               Buffers: shared hit=23 read=10
+ Planning:
+   Buffers: shared hit=277 read=1
+ Planning Time: 1.428 ms
+ Execution Time: 1.157 ms
+(19 rows)
+

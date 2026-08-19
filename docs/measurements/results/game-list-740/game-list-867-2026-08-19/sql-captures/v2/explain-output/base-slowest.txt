@@ -1,0 +1,15 @@
+                                                                                                                                                QUERY PLAN                                                                                                                                                
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.42..9.55 rows=25 width=1164) (actual time=0.046..0.626 rows=25.00 loops=1)
+   Output: id, alias, bgg_id, complexity, created_at, description, detail_description, english_name, estimated_play_time, image_url, max_play_time_minutes, max_players, min_age, min_play_time_minutes, min_players, name, popularity_score, release_year, supported_player_count, tag, updated_at
+   Buffers: shared hit=28
+   ->  Index Scan using ix_games_popularity_score_name_id on public.games g1_0  (cost=0.42..62060.18 rows=170005 width=1164) (actual time=0.044..0.619 rows=25.00 loops=1)
+         Output: id, alias, bgg_id, complexity, created_at, description, detail_description, english_name, estimated_play_time, image_url, max_play_time_minutes, max_players, min_age, min_play_time_minutes, min_players, name, popularity_score, release_year, supported_player_count, tag, updated_at
+         Index Searches: 1
+         Buffers: shared hit=28
+ Planning:
+   Buffers: shared hit=265
+ Planning Time: 3.001 ms
+ Execution Time: 0.688 ms
+(11 rows)
+

@@ -1,0 +1,67 @@
+                                                                                                                                                                                                                  QUERY PLAN                                                                                                                                                                                                                   
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=3634.38..3634.44 rows=25 width=1164) (actual time=653.391..653.412 rows=25.00 loops=1)
+   Output: g1_0.id, g1_0.alias, g1_0.bgg_id, g1_0.complexity, g1_0.created_at, g1_0.description, g1_0.detail_description, g1_0.english_name, g1_0.estimated_play_time, g1_0.image_url, g1_0.max_play_time_minutes, g1_0.max_players, g1_0.min_age, g1_0.min_play_time_minutes, g1_0.min_players, g1_0.name, g1_0.popularity_score, g1_0.release_year, g1_0.supported_player_count, g1_0.tag, g1_0.updated_at
+   Buffers: shared hit=97839
+   ->  Sort  (cost=3634.38..3634.55 rows=70 width=1164) (actual time=653.388..653.406 rows=25.00 loops=1)
+         Output: g1_0.id, g1_0.alias, g1_0.bgg_id, g1_0.complexity, g1_0.created_at, g1_0.description, g1_0.detail_description, g1_0.english_name, g1_0.estimated_play_time, g1_0.image_url, g1_0.max_play_time_minutes, g1_0.max_players, g1_0.min_age, g1_0.min_play_time_minutes, g1_0.min_players, g1_0.name, g1_0.popularity_score, g1_0.release_year, g1_0.supported_player_count, g1_0.tag, g1_0.updated_at
+         Sort Key: g1_0.popularity_score DESC, g1_0.name, g1_0.id
+         Sort Method: top-N heapsort  Memory: 90kB
+         Buffers: shared hit=97839
+         ->  Hash Semi Join  (cost=637.99..3632.40 rows=70 width=1164) (actual time=45.447..622.534 rows=70.00 loops=1)
+               Output: g1_0.id, g1_0.alias, g1_0.bgg_id, g1_0.complexity, g1_0.created_at, g1_0.description, g1_0.detail_description, g1_0.english_name, g1_0.estimated_play_time, g1_0.image_url, g1_0.max_play_time_minutes, g1_0.max_players, g1_0.min_age, g1_0.min_play_time_minutes, g1_0.min_players, g1_0.name, g1_0.popularity_score, g1_0.release_year, g1_0.supported_player_count, g1_0.tag, g1_0.updated_at
+               Hash Cond: (gmr1_0.game_id = gtr1_0.game_id)
+               Buffers: shared hit=97830
+               ->  Nested Loop  (cost=175.85..3163.54 rows=2186 width=1172) (actual time=20.382..595.780 rows=24419.00 loops=1)
+                     Output: g1_0.id, g1_0.alias, g1_0.bgg_id, g1_0.complexity, g1_0.created_at, g1_0.description, g1_0.detail_description, g1_0.english_name, g1_0.estimated_play_time, g1_0.image_url, g1_0.max_play_time_minutes, g1_0.max_players, g1_0.min_age, g1_0.min_play_time_minutes, g1_0.min_players, g1_0.name, g1_0.popularity_score, g1_0.release_year, g1_0.supported_player_count, g1_0.tag, g1_0.updated_at, gmr1_0.game_id
+                     Inner Unique: true
+                     Buffers: shared hit=97805
+                     ->  HashAggregate  (cost=175.43..197.29 rows=2186 width=8) (actual time=20.290..38.713 rows=24419.00 loops=1)
+                           Output: gmr1_0.game_id
+                           Group Key: gmr1_0.game_id
+                           Batches: 1  Memory Usage: 1305kB
+                           Buffers: shared hit=129
+                           ->  Nested Loop  (cost=0.57..169.96 rows=2186 width=8) (actual time=0.084..9.799 rows=24419.00 loops=1)
+                                 Output: gmr1_0.game_id
+                                 Buffers: shared hit=129
+                                 ->  Index Scan using uq_game_mechanisms_code on public.game_mechanisms m1_0  (cost=0.14..8.16 rows=1 width=8) (actual time=0.037..0.069 rows=1.00 loops=1)
+                                       Output: m1_0.id, m1_0.bgg_mechanism_id, m1_0.code, m1_0.name_ko, m1_0.name_en, m1_0.featured_order, m1_0.is_public, m1_0.source_reference, m1_0.reviewed_by, m1_0.reviewed_at, m1_0.created_at, m1_0.updated_at, m1_0.description_ko
+                                       Index Cond: ((m1_0.code)::text = 'HAND_MANAGEMENT'::text)
+                                       Filter: m1_0.is_public
+                                       Index Searches: 1
+                                       Buffers: shared hit=2
+                                 ->  Index Only Scan using idx_game_mechanism_relations_mechanism_game on public.game_mechanism_relations gmr1_0  (cost=0.42..139.48 rows=2232 width=16) (actual time=0.043..6.854 rows=24419.00 loops=1)
+                                       Output: gmr1_0.mechanism_id, gmr1_0.game_id
+                                       Index Cond: (gmr1_0.mechanism_id = m1_0.id)
+                                       Heap Fetches: 0
+                                       Index Searches: 1
+                                       Buffers: shared hit=127
+                     ->  Index Scan using games_pkey on public.games g1_0  (cost=0.42..1.37 rows=1 width=1164) (actual time=0.022..0.022 rows=1.00 loops=24419)
+                           Output: g1_0.id, g1_0.alias, g1_0.bgg_id, g1_0.complexity, g1_0.created_at, g1_0.description, g1_0.detail_description, g1_0.english_name, g1_0.estimated_play_time, g1_0.image_url, g1_0.max_play_time_minutes, g1_0.max_players, g1_0.min_age, g1_0.min_play_time_minutes, g1_0.min_players, g1_0.name, g1_0.popularity_score, g1_0.release_year, g1_0.supported_player_count, g1_0.tag, g1_0.updated_at
+                           Index Cond: (g1_0.id = gmr1_0.game_id)
+                           Index Searches: 24419
+                           Buffers: shared hit=97676
+               ->  Hash  (cost=394.20..394.20 rows=5435 width=8) (actual time=3.136..3.144 rows=4258.00 loops=1)
+                     Output: gtr1_0.game_id
+                     Buckets: 8192  Batches: 1  Memory Usage: 231kB
+                     Buffers: shared hit=25
+                     ->  Nested Loop  (cost=0.42..394.20 rows=5435 width=8) (actual time=0.409..2.018 rows=4258.00 loops=1)
+                           Output: gtr1_0.game_id
+                           Buffers: shared hit=25
+                           ->  Seq Scan on public.game_themes t1_0  (cost=0.00..3.06 rows=1 width=8) (actual time=0.056..0.077 rows=1.00 loops=1)
+                                 Output: t1_0.id, t1_0.bgg_theme_id, t1_0.code, t1_0.name_ko, t1_0.name_en, t1_0.created_at, t1_0.updated_at
+                                 Filter: ((t1_0.code)::text = 'BOOK_BGG_1117'::text)
+                                 Rows Removed by Filter: 84
+                                 Buffers: shared hit=2
+                           ->  Index Only Scan using ix_game_theme_relations_theme_game on public.game_theme_relations gtr1_0  (cost=0.42..336.14 rows=5500 width=16) (actual time=0.348..1.471 rows=4258.00 loops=1)
+                                 Output: gtr1_0.theme_id, gtr1_0.game_id
+                                 Index Cond: (gtr1_0.theme_id = t1_0.id)
+                                 Heap Fetches: 0
+                                 Index Searches: 1
+                                 Buffers: shared hit=23
+ Planning:
+   Buffers: shared hit=580
+ Planning Time: 4.162 ms
+ Execution Time: 656.084 ms
+(63 rows)
+

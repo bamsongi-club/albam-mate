@@ -1,0 +1,25 @@
+                                                                                                                                                   QUERY PLAN                                                                                                                                                   
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=84.78..84.82 rows=17 width=1162) (actual time=1.034..1.037 rows=1.00 loops=1)
+   Output: id, alias, bgg_id, complexity, created_at, description, detail_description, english_name, estimated_play_time, image_url, max_play_time_minutes, max_players, min_age, min_play_time_minutes, min_players, name, popularity_score, release_year, supported_player_count, tag, updated_at
+   Buffers: shared hit=10 read=4
+   ->  Sort  (cost=84.78..84.82 rows=17 width=1162) (actual time=1.032..1.033 rows=1.00 loops=1)
+         Output: id, alias, bgg_id, complexity, created_at, description, detail_description, english_name, estimated_play_time, image_url, max_play_time_minutes, max_players, min_age, min_play_time_minutes, min_players, name, popularity_score, release_year, supported_player_count, tag, updated_at
+         Sort Key: g1_0.popularity_score DESC, g1_0.name, g1_0.id
+         Sort Method: quicksort  Memory: 26kB
+         Buffers: shared hit=10 read=4
+         ->  Bitmap Heap Scan on public.games g1_0  (cost=17.18..84.43 rows=17 width=1162) (actual time=0.939..0.942 rows=1.00 loops=1)
+               Output: id, alias, bgg_id, complexity, created_at, description, detail_description, english_name, estimated_play_time, image_url, max_play_time_minutes, max_players, min_age, min_play_time_minutes, min_players, name, popularity_score, release_year, supported_player_count, tag, updated_at
+               Recheck Cond: (lower((g1_0.name)::text) ~~ '%gap%'::text)
+               Heap Blocks: exact=1
+               Buffers: shared hit=1 read=4
+               ->  Bitmap Index Scan on ix_games_name_lower_trgm  (cost=0.00..17.17 rows=17 width=0) (actual time=0.246..0.247 rows=1.00 loops=1)
+                     Index Cond: (lower((g1_0.name)::text) ~~ '%gap%'::text)
+                     Index Searches: 1
+                     Buffers: shared hit=1 read=3
+ Planning:
+   Buffers: shared hit=276 read=3
+ Planning Time: 5.102 ms
+ Execution Time: 2.648 ms
+(21 rows)
+

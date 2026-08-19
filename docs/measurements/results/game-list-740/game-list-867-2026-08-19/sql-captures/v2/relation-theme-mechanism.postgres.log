@@ -1,0 +1,210 @@
+2026-08-19T10:37:19.160841050Z 2026-08-19 10:37:19.160 UTC [159] app2 LOG:  duration: 0.058 ms  statement: 
+2026-08-19T10:37:19.162329634Z 2026-08-19 10:37:19.161 UTC [159] app2 LOG:  duration: 0.012 ms  statement: 
+2026-08-19T10:37:19.779496717Z 2026-08-19 10:37:19.779 UTC [151] app2 LOG:  duration: 0.372 ms  statement: 
+2026-08-19T10:37:20.100451759Z 2026-08-19 10:37:20.099 UTC [151] app2 LOG:  duration: 2.278 ms  statement: BEGIN READ ONLY
+2026-08-19T10:37:20.107161217Z 2026-08-19 10:37:20.106 UTC [151] app2 LOG:  duration: 5.686 ms  parse <unnamed>: select count(gm1_0.id) from game_mechanisms gm1_0 where gm1_0.code in ($1) and gm1_0.is_public=true
+2026-08-19T10:37:20.115622926Z 2026-08-19 10:37:20.115 UTC [151] app2 LOG:  duration: 8.185 ms  bind <unnamed>: select count(gm1_0.id) from game_mechanisms gm1_0 where gm1_0.code in ($1) and gm1_0.is_public=true
+2026-08-19T10:37:20.115654634Z 2026-08-19 10:37:20.115 UTC [151] app2 DETAIL:  Parameters: $1 = 'HAND_MANAGEMENT'
+2026-08-19T10:37:20.116473801Z 2026-08-19 10:37:20.116 UTC [151] app2 LOG:  duration: 0.673 ms  execute <unnamed>: select count(gm1_0.id) from game_mechanisms gm1_0 where gm1_0.code in ($1) and gm1_0.is_public=true
+2026-08-19T10:37:20.116485884Z 2026-08-19 10:37:20.116 UTC [151] app2 DETAIL:  Parameters: $1 = 'HAND_MANAGEMENT'
+2026-08-19T10:37:20.130356009Z 2026-08-19 10:37:20.130 UTC [151] app2 LOG:  duration: 0.650 ms  parse <unnamed>: select count(gt1_0.id) from game_themes gt1_0 where gt1_0.code in ($1)
+2026-08-19T10:37:20.136133217Z 2026-08-19 10:37:20.135 UTC [151] app2 LOG:  duration: 5.532 ms  bind <unnamed>: select count(gt1_0.id) from game_themes gt1_0 where gt1_0.code in ($1)
+2026-08-19T10:37:20.136169051Z 2026-08-19 10:37:20.135 UTC [151] app2 DETAIL:  Parameters: $1 = 'BOOK_BGG_1117'
+2026-08-19T10:37:20.137818467Z 2026-08-19 10:37:20.137 UTC [151] app2 LOG:  duration: 1.356 ms  execute <unnamed>: select count(gt1_0.id) from game_themes gt1_0 where gt1_0.code in ($1)
+2026-08-19T10:37:20.137844717Z 2026-08-19 10:37:20.137 UTC [151] app2 DETAIL:  Parameters: $1 = 'BOOK_BGG_1117'
+2026-08-19T10:37:20.213677301Z 2026-08-19 10:37:20.212 UTC [151] app2 LOG:  duration: 0.632 ms  parse <unnamed>: select g1_0.id,g1_0.alias,g1_0.bgg_id,g1_0.complexity,g1_0.created_at,g1_0.description,g1_0.detail_description,g1_0.english_name,g1_0.estimated_play_time,g1_0.image_url,g1_0.max_play_time_minutes,g1_0.max_players,g1_0.min_age,g1_0.min_play_time_minutes,g1_0.min_players,g1_0.name,g1_0.popularity_score,g1_0.release_year,g1_0.supported_player_count,g1_0.tag,g1_0.updated_at from games g1_0 where exists(select 1 from game_mechanism_relations gmr1_0 join game_mechanisms m1_0 on m1_0.id=gmr1_0.mechanism_id where gmr1_0.game_id=g1_0.id and m1_0.code in ($1) and m1_0.is_public) and exists(select 1 from game_theme_relations gtr1_0 join game_themes t1_0 on t1_0.id=gtr1_0.theme_id where gtr1_0.game_id=g1_0.id and t1_0.code in ($2)) order by g1_0.popularity_score desc,g1_0.name,g1_0.id offset $3 rows fetch first $4 rows only
+2026-08-19T10:37:20.237531259Z 2026-08-19 10:37:20.236 UTC [151] app2 LOG:  duration: 24.107 ms  bind <unnamed>: select g1_0.id,g1_0.alias,g1_0.bgg_id,g1_0.complexity,g1_0.created_at,g1_0.description,g1_0.detail_description,g1_0.english_name,g1_0.estimated_play_time,g1_0.image_url,g1_0.max_play_time_minutes,g1_0.max_players,g1_0.min_age,g1_0.min_play_time_minutes,g1_0.min_players,g1_0.name,g1_0.popularity_score,g1_0.release_year,g1_0.supported_player_count,g1_0.tag,g1_0.updated_at from games g1_0 where exists(select 1 from game_mechanism_relations gmr1_0 join game_mechanisms m1_0 on m1_0.id=gmr1_0.mechanism_id where gmr1_0.game_id=g1_0.id and m1_0.code in ($1) and m1_0.is_public) and exists(select 1 from game_theme_relations gtr1_0 join game_themes t1_0 on t1_0.id=gtr1_0.theme_id where gtr1_0.game_id=g1_0.id and t1_0.code in ($2)) order by g1_0.popularity_score desc,g1_0.name,g1_0.id offset $3 rows fetch first $4 rows only
+2026-08-19T10:37:20.237571217Z 2026-08-19 10:37:20.236 UTC [151] app2 DETAIL:  Parameters: $1 = 'HAND_MANAGEMENT', $2 = 'BOOK_BGG_1117', $3 = '0', $4 = '25'
+2026-08-19T10:37:20.835658759Z 2026-08-19 10:37:20.834 UTC [160] app1 LOG:  duration: 0.315 ms  statement: 
+2026-08-19T10:37:20.844984634Z 2026-08-19 10:37:20.844 UTC [160] app1 LOG:  duration: 0.063 ms  statement: 
+2026-08-19T10:37:23.413445052Z 2026-08-19 10:37:23.412 UTC [159] app2 LOG:  duration: 0.615 ms  statement: 
+2026-08-19T10:37:23.520045594Z 2026-08-19 10:37:23.518 UTC [159] app2 LOG:  duration: 0.231 ms  statement: BEGIN
+2026-08-19T10:37:23.541945094Z 2026-08-19 10:37:23.541 UTC [159] app2 LOG:  duration: 19.356 ms  parse <unnamed>: with operation as materialized (
+2026-08-19T10:37:23.541991636Z 	    select clock_timestamp() as operation_time
+2026-08-19T10:37:23.541997761Z 	), claimable as (
+2026-08-19T10:37:23.541999427Z 	    select event.id as id, event.available_at as available_at, operation.operation_time as operation_time
+2026-08-19T10:37:23.542001177Z 	    from notification_outbox_events event
+2026-08-19T10:37:23.542002469Z 	    cross join operation
+2026-08-19T10:37:23.542003844Z 	    where event.status in ('PENDING', 'RETRY_WAIT')
+2026-08-19T10:37:23.542005177Z 	      and event.available_at <= operation.operation_time
+2026-08-19T10:37:23.542006511Z 	    order by event.available_at asc, event.id asc
+2026-08-19T10:37:23.542014386Z 	    limit 1
+2026-08-19T10:37:23.542015927Z 	    for update of event skip locked
+2026-08-19T10:37:23.542040261Z 	)
+2026-08-19T10:37:23.542043302Z 	select id as id, available_at as "availableAt", operation_time as "operationTime"
+2026-08-19T10:37:23.542044969Z 	from claimable
+2026-08-19T10:37:23.542046219Z 	
+2026-08-19T10:37:23.547360719Z 2026-08-19 10:37:23.546 UTC [159] app2 LOG:  duration: 3.106 ms  bind <unnamed>: with operation as materialized (
+2026-08-19T10:37:23.547433969Z 	    select clock_timestamp() as operation_time
+2026-08-19T10:37:23.547437802Z 	), claimable as (
+2026-08-19T10:37:23.547439302Z 	    select event.id as id, event.available_at as available_at, operation.operation_time as operation_time
+2026-08-19T10:37:23.547441094Z 	    from notification_outbox_events event
+2026-08-19T10:37:23.547442427Z 	    cross join operation
+2026-08-19T10:37:23.547443636Z 	    where event.status in ('PENDING', 'RETRY_WAIT')
+2026-08-19T10:37:23.547444927Z 	      and event.available_at <= operation.operation_time
+2026-08-19T10:37:23.547446302Z 	    order by event.available_at asc, event.id asc
+2026-08-19T10:37:23.547447594Z 	    limit 1
+2026-08-19T10:37:23.547448844Z 	    for update of event skip locked
+2026-08-19T10:37:23.547450094Z 	)
+2026-08-19T10:37:23.547451344Z 	select id as id, available_at as "availableAt", operation_time as "operationTime"
+2026-08-19T10:37:23.547452927Z 	from claimable
+2026-08-19T10:37:23.547455011Z 	
+2026-08-19T10:37:23.549837302Z 2026-08-19 10:37:23.549 UTC [159] app2 LOG:  duration: 0.387 ms  execute <unnamed>: with operation as materialized (
+2026-08-19T10:37:23.549918802Z 	    select clock_timestamp() as operation_time
+2026-08-19T10:37:23.549922094Z 	), claimable as (
+2026-08-19T10:37:23.549923969Z 	    select event.id as id, event.available_at as available_at, operation.operation_time as operation_time
+2026-08-19T10:37:23.549925469Z 	    from notification_outbox_events event
+2026-08-19T10:37:23.549926761Z 	    cross join operation
+2026-08-19T10:37:23.549928052Z 	    where event.status in ('PENDING', 'RETRY_WAIT')
+2026-08-19T10:37:23.549929386Z 	      and event.available_at <= operation.operation_time
+2026-08-19T10:37:23.549930719Z 	    order by event.available_at asc, event.id asc
+2026-08-19T10:37:23.549932011Z 	    limit 1
+2026-08-19T10:37:23.549933219Z 	    for update of event skip locked
+2026-08-19T10:37:23.549934469Z 	)
+2026-08-19T10:37:23.549935677Z 	select id as id, available_at as "availableAt", operation_time as "operationTime"
+2026-08-19T10:37:23.549937344Z 	from claimable
+2026-08-19T10:37:23.549938552Z 	
+2026-08-19T10:37:23.634858969Z 2026-08-19 10:37:23.634 UTC [159] app2 LOG:  duration: 0.402 ms  bind S_1: COMMIT
+2026-08-19T10:37:23.635107677Z 2026-08-19 10:37:23.634 UTC [159] app2 LOG:  duration: 0.055 ms  execute S_1: COMMIT
+2026-08-19T10:37:23.700018302Z 2026-08-19 10:37:23.699 UTC [159] app2 LOG:  duration: 1.546 ms  parse <unnamed>: with operation as materialized (
+2026-08-19T10:37:23.700087511Z 	    select clock_timestamp() as operation_time
+2026-08-19T10:37:23.700096761Z 	)
+2026-08-19T10:37:23.700101677Z 	select extract(epoch from (
+2026-08-19T10:37:23.700104136Z 	    operation.operation_time - (
+2026-08-19T10:37:23.700105427Z 	        select min(event.available_at)
+2026-08-19T10:37:23.700106761Z 	        from notification_outbox_events event
+2026-08-19T10:37:23.700108011Z 	        where event.status in ('PENDING', 'RETRY_WAIT')
+2026-08-19T10:37:23.700109469Z 	          and event.available_at <= operation.operation_time
+2026-08-19T10:37:23.700110844Z 	    )
+2026-08-19T10:37:23.700112094Z 	)) * 1000
+2026-08-19T10:37:23.700178011Z 	from operation
+2026-08-19T10:37:23.700181886Z 	
+2026-08-19T10:37:23.709909552Z 2026-08-19 10:37:23.709 UTC [159] app2 LOG:  duration: 9.881 ms  bind <unnamed>: with operation as materialized (
+2026-08-19T10:37:23.709949636Z 	    select clock_timestamp() as operation_time
+2026-08-19T10:37:23.709955469Z 	)
+2026-08-19T10:37:23.709958094Z 	select extract(epoch from (
+2026-08-19T10:37:23.709959427Z 	    operation.operation_time - (
+2026-08-19T10:37:23.709960844Z 	        select min(event.available_at)
+2026-08-19T10:37:23.709962094Z 	        from notification_outbox_events event
+2026-08-19T10:37:23.709963636Z 	        where event.status in ('PENDING', 'RETRY_WAIT')
+2026-08-19T10:37:23.709967802Z 	          and event.available_at <= operation.operation_time
+2026-08-19T10:37:23.709972011Z 	    )
+2026-08-19T10:37:23.709973427Z 	)) * 1000
+2026-08-19T10:37:23.709974636Z 	from operation
+2026-08-19T10:37:23.709975802Z 	
+2026-08-19T10:37:23.713406219Z 2026-08-19 10:37:23.713 UTC [159] app2 LOG:  duration: 1.375 ms  execute <unnamed>: with operation as materialized (
+2026-08-19T10:37:23.713445594Z 	    select clock_timestamp() as operation_time
+2026-08-19T10:37:23.713448636Z 	)
+2026-08-19T10:37:23.713450386Z 	select extract(epoch from (
+2026-08-19T10:37:23.713451677Z 	    operation.operation_time - (
+2026-08-19T10:37:23.713452927Z 	        select min(event.available_at)
+2026-08-19T10:37:23.713454177Z 	        from notification_outbox_events event
+2026-08-19T10:37:23.713455427Z 	        where event.status in ('PENDING', 'RETRY_WAIT')
+2026-08-19T10:37:23.713484761Z 	          and event.available_at <= operation.operation_time
+2026-08-19T10:37:23.713488427Z 	    )
+2026-08-19T10:37:23.713489719Z 	)) * 1000
+2026-08-19T10:37:23.713490927Z 	from operation
+2026-08-19T10:37:23.713492136Z 	
+2026-08-19T10:37:23.756528302Z 2026-08-19 10:37:23.756 UTC [159] app2 LOG:  duration: 0.044 ms  statement: 
+2026-08-19T10:37:23.809993511Z 2026-08-19 10:37:23.809 UTC [150] app1 LOG:  duration: 0.422 ms  statement: 
+2026-08-19T10:37:23.823022553Z 2026-08-19 10:37:23.822 UTC [150] app1 LOG:  duration: 0.046 ms  statement: 
+2026-08-19T10:37:23.831413178Z 2026-08-19 10:37:23.831 UTC [160] app1 LOG:  duration: 7.482 ms  statement: 
+2026-08-19T10:37:24.211957844Z 2026-08-19 10:37:24.211 UTC [160] app1 LOG:  duration: 0.144 ms  statement: BEGIN
+2026-08-19T10:37:24.344029928Z 2026-08-19 10:37:24.341 UTC [160] app1 LOG:  duration: 129.559 ms  parse <unnamed>: with operation as materialized (
+2026-08-19T10:37:24.344216386Z 	    select clock_timestamp() as operation_time
+2026-08-19T10:37:24.344226803Z 	), claimable as (
+2026-08-19T10:37:24.344229094Z 	    select event.id as id, event.available_at as available_at, operation.operation_time as operation_time
+2026-08-19T10:37:24.344231011Z 	    from notification_outbox_events event
+2026-08-19T10:37:24.344232511Z 	    cross join operation
+2026-08-19T10:37:24.344233886Z 	    where event.status in ('PENDING', 'RETRY_WAIT')
+2026-08-19T10:37:24.344235261Z 	      and event.available_at <= operation.operation_time
+2026-08-19T10:37:24.344236803Z 	    order by event.available_at asc, event.id asc
+2026-08-19T10:37:24.344238219Z 	    limit 1
+2026-08-19T10:37:24.344239636Z 	    for update of event skip locked
+2026-08-19T10:37:24.344241178Z 	)
+2026-08-19T10:37:24.344242761Z 	select id as id, available_at as "availableAt", operation_time as "operationTime"
+2026-08-19T10:37:24.344244469Z 	from claimable
+2026-08-19T10:37:24.344245803Z 	
+2026-08-19T10:37:24.382853803Z 2026-08-19 10:37:24.382 UTC [160] app1 LOG:  duration: 39.314 ms  bind <unnamed>: with operation as materialized (
+2026-08-19T10:37:24.383141386Z 	    select clock_timestamp() as operation_time
+2026-08-19T10:37:24.383157678Z 	), claimable as (
+2026-08-19T10:37:24.383160053Z 	    select event.id as id, event.available_at as available_at, operation.operation_time as operation_time
+2026-08-19T10:37:24.383161969Z 	    from notification_outbox_events event
+2026-08-19T10:37:24.383163428Z 	    cross join operation
+2026-08-19T10:37:24.383164803Z 	    where event.status in ('PENDING', 'RETRY_WAIT')
+2026-08-19T10:37:24.383166219Z 	      and event.available_at <= operation.operation_time
+2026-08-19T10:37:24.383273344Z 	    order by event.available_at asc, event.id asc
+2026-08-19T10:37:24.383280469Z 	    limit 1
+2026-08-19T10:37:24.383282803Z 	    for update of event skip locked
+2026-08-19T10:37:24.383288636Z 	)
+2026-08-19T10:37:24.383293553Z 	select id as id, available_at as "availableAt", operation_time as "operationTime"
+2026-08-19T10:37:24.383299428Z 	from claimable
+2026-08-19T10:37:24.383304803Z 	
+2026-08-19T10:37:24.390826469Z 2026-08-19 10:37:24.382 UTC [160] app1 LOG:  duration: 0.169 ms  execute <unnamed>: with operation as materialized (
+2026-08-19T10:37:24.394411719Z 	    select clock_timestamp() as operation_time
+2026-08-19T10:37:24.394464803Z 	), claimable as (
+2026-08-19T10:37:24.394468594Z 	    select event.id as id, event.available_at as available_at, operation.operation_time as operation_time
+2026-08-19T10:37:24.394470344Z 	    from notification_outbox_events event
+2026-08-19T10:37:24.394471928Z 	    cross join operation
+2026-08-19T10:37:24.394473303Z 	    where event.status in ('PENDING', 'RETRY_WAIT')
+2026-08-19T10:37:24.394474761Z 	      and event.available_at <= operation.operation_time
+2026-08-19T10:37:24.394476261Z 	    order by event.available_at asc, event.id asc
+2026-08-19T10:37:24.394477719Z 	    limit 1
+2026-08-19T10:37:24.394479094Z 	    for update of event skip locked
+2026-08-19T10:37:24.394480553Z 	)
+2026-08-19T10:37:24.394485136Z 	select id as id, available_at as "availableAt", operation_time as "operationTime"
+2026-08-19T10:37:24.394487053Z 	from claimable
+2026-08-19T10:37:24.394499719Z 	
+2026-08-19T10:37:24.425603719Z 2026-08-19 10:37:24.419 UTC [160] app1 LOG:  duration: 1.761 ms  parse <unnamed>: SELECT c.oid, a.attnum, a.attname, c.relname, n.nspname, a.attnotnull OR (t.typtype = 'd' AND t.typnotnull), a.attidentity != '' OR pg_catalog.pg_get_expr(d.adbin, d.adrelid) LIKE '%nextval(%' FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON (c.relnamespace = n.oid) JOIN pg_catalog.pg_attribute a ON (c.oid = a.attrelid) JOIN pg_catalog.pg_type t ON (a.atttypid = t.oid) LEFT JOIN pg_catalog.pg_attrdef d ON (d.adrelid = a.attrelid AND d.adnum = a.attnum) JOIN (SELECT 16509 AS oid , 1 AS attnum UNION ALL SELECT 16509, 7) vals ON (c.oid = vals.oid AND a.attnum = vals.attnum) where c.oid in (16509)
+2026-08-19T10:37:24.538433261Z 2026-08-19 10:37:24.535 UTC [160] app1 LOG:  duration: 97.274 ms  bind <unnamed>: SELECT c.oid, a.attnum, a.attname, c.relname, n.nspname, a.attnotnull OR (t.typtype = 'd' AND t.typnotnull), a.attidentity != '' OR pg_catalog.pg_get_expr(d.adbin, d.adrelid) LIKE '%nextval(%' FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON (c.relnamespace = n.oid) JOIN pg_catalog.pg_attribute a ON (c.oid = a.attrelid) JOIN pg_catalog.pg_type t ON (a.atttypid = t.oid) LEFT JOIN pg_catalog.pg_attrdef d ON (d.adrelid = a.attrelid AND d.adnum = a.attnum) JOIN (SELECT 16509 AS oid , 1 AS attnum UNION ALL SELECT 16509, 7) vals ON (c.oid = vals.oid AND a.attnum = vals.attnum) where c.oid in (16509)
+2026-08-19T10:37:24.538525470Z 2026-08-19 10:37:24.536 UTC [160] app1 LOG:  duration: 0.165 ms  execute <unnamed>: SELECT c.oid, a.attnum, a.attname, c.relname, n.nspname, a.attnotnull OR (t.typtype = 'd' AND t.typnotnull), a.attidentity != '' OR pg_catalog.pg_get_expr(d.adbin, d.adrelid) LIKE '%nextval(%' FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON (c.relnamespace = n.oid) JOIN pg_catalog.pg_attribute a ON (c.oid = a.attrelid) JOIN pg_catalog.pg_type t ON (a.atttypid = t.oid) LEFT JOIN pg_catalog.pg_attrdef d ON (d.adrelid = a.attrelid AND d.adnum = a.attnum) JOIN (SELECT 16509 AS oid , 1 AS attnum UNION ALL SELECT 16509, 7) vals ON (c.oid = vals.oid AND a.attnum = vals.attnum) where c.oid in (16509)
+2026-08-19T10:37:24.620117928Z 2026-08-19 10:37:24.619 UTC [160] app1 LOG:  duration: 0.184 ms  bind S_1: COMMIT
+2026-08-19T10:37:24.623320386Z 2026-08-19 10:37:24.623 UTC [160] app1 LOG:  duration: 0.096 ms  execute S_1: COMMIT
+2026-08-19T10:37:24.702760178Z 2026-08-19 10:37:24.702 UTC [160] app1 LOG:  duration: 6.504 ms  parse <unnamed>: with operation as materialized (
+2026-08-19T10:37:24.702800428Z 	    select clock_timestamp() as operation_time
+2026-08-19T10:37:24.702802595Z 	)
+2026-08-19T10:37:24.702804053Z 	select extract(epoch from (
+2026-08-19T10:37:24.702805511Z 	    operation.operation_time - (
+2026-08-19T10:37:24.702806720Z 	        select min(event.available_at)
+2026-08-19T10:37:24.702808011Z 	        from notification_outbox_events event
+2026-08-19T10:37:24.702809303Z 	        where event.status in ('PENDING', 'RETRY_WAIT')
+2026-08-19T10:37:24.702810595Z 	          and event.available_at <= operation.operation_time
+2026-08-19T10:37:24.702811970Z 	    )
+2026-08-19T10:37:24.702813178Z 	)) * 1000
+2026-08-19T10:37:24.702814386Z 	from operation
+2026-08-19T10:37:24.702815553Z 	
+2026-08-19T10:37:24.706324761Z 2026-08-19 10:37:24.706 UTC [160] app1 LOG:  duration: 3.114 ms  bind <unnamed>: with operation as materialized (
+2026-08-19T10:37:24.706363636Z 	    select clock_timestamp() as operation_time
+2026-08-19T10:37:24.706365886Z 	)
+2026-08-19T10:37:24.706367553Z 	select extract(epoch from (
+2026-08-19T10:37:24.706368886Z 	    operation.operation_time - (
+2026-08-19T10:37:24.706370136Z 	        select min(event.available_at)
+2026-08-19T10:37:24.706371386Z 	        from notification_outbox_events event
+2026-08-19T10:37:24.706372678Z 	        where event.status in ('PENDING', 'RETRY_WAIT')
+2026-08-19T10:37:24.706373970Z 	          and event.available_at <= operation.operation_time
+2026-08-19T10:37:24.706375428Z 	    )
+2026-08-19T10:37:24.706376636Z 	)) * 1000
+2026-08-19T10:37:24.706377845Z 	from operation
+2026-08-19T10:37:24.706379053Z 	
+2026-08-19T10:37:24.706583136Z 2026-08-19 10:37:24.706 UTC [160] app1 LOG:  duration: 0.030 ms  execute <unnamed>: with operation as materialized (
+2026-08-19T10:37:24.706609595Z 	    select clock_timestamp() as operation_time
+2026-08-19T10:37:24.706612720Z 	)
+2026-08-19T10:37:24.706614511Z 	select extract(epoch from (
+2026-08-19T10:37:24.706616178Z 	    operation.operation_time - (
+2026-08-19T10:37:24.706617720Z 	        select min(event.available_at)
+2026-08-19T10:37:24.706619303Z 	        from notification_outbox_events event
+2026-08-19T10:37:24.706620845Z 	        where event.status in ('PENDING', 'RETRY_WAIT')
+2026-08-19T10:37:24.706622428Z 	          and event.available_at <= operation.operation_time
+2026-08-19T10:37:24.706624095Z 	    )
+2026-08-19T10:37:24.706625595Z 	)) * 1000
+2026-08-19T10:37:24.706627095Z 	from operation
+2026-08-19T10:37:24.706628553Z 	
+2026-08-19T10:37:26.538218179Z 2026-08-19 10:37:26.536 UTC [151] app2 LOG:  duration: 6299.343 ms  execute <unnamed>: select g1_0.id,g1_0.alias,g1_0.bgg_id,g1_0.complexity,g1_0.created_at,g1_0.description,g1_0.detail_description,g1_0.english_name,g1_0.estimated_play_time,g1_0.image_url,g1_0.max_play_time_minutes,g1_0.max_players,g1_0.min_age,g1_0.min_play_time_minutes,g1_0.min_players,g1_0.name,g1_0.popularity_score,g1_0.release_year,g1_0.supported_player_count,g1_0.tag,g1_0.updated_at from games g1_0 where exists(select 1 from game_mechanism_relations gmr1_0 join game_mechanisms m1_0 on m1_0.id=gmr1_0.mechanism_id where gmr1_0.game_id=g1_0.id and m1_0.code in ($1) and m1_0.is_public) and exists(select 1 from game_theme_relations gtr1_0 join game_themes t1_0 on t1_0.id=gtr1_0.theme_id where gtr1_0.game_id=g1_0.id and t1_0.code in ($2)) order by g1_0.popularity_score desc,g1_0.name,g1_0.id offset $3 rows fetch first $4 rows only
+2026-08-19T10:37:26.538382929Z 2026-08-19 10:37:26.536 UTC [151] app2 DETAIL:  Parameters: $1 = 'HAND_MANAGEMENT', $2 = 'BOOK_BGG_1117', $3 = '0', $4 = '25'
+2026-08-19T10:37:26.750974846Z 2026-08-19 10:37:26.750 UTC [151] app2 LOG:  duration: 1.085 ms  parse <unnamed>: select r1_0.game_id,count(r1_0.id) from rooms r1_0 where r1_0.game_id in ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24) and r1_0.room_type=$25 and r1_0.start_at>$26 and r1_0.status not in ($27,$28) group by r1_0.game_id
+2026-08-19T10:37:26.754104429Z 2026-08-19 10:37:26.753 UTC [151] app2 LOG:  duration: 2.781 ms  bind <unnamed>: select r1_0.game_id,count(r1_0.id) from rooms r1_0 where r1_0.game_id in ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24) and r1_0.room_type=$25 and r1_0.start_at>$26 and r1_0.status not in ($27,$28) group by r1_0.game_id
+2026-08-19T10:37:26.754155596Z 2026-08-19 10:37:26.753 UTC [151] app2 DETAIL:  Parameters: $1 = '3168', $2 = '142524', $3 = '105006', $4 = '93910', $5 = '103694', $6 = '90533', $7 = '168913', $8 = '50653', $9 = '52044', $10 = '47071', $11 = '60360', $12 = '107826', $13 = '23521', $14 = '64067', $15 = '110001', $16 = '19287', $17 = '160645', $18 = '17040', $19 = '100472', $20 = '115610', $21 = '106945', $22 = '108019', $23 = '107989', $24 = '39435', $25 = 'GAME_FOCUSED', $26 = '2026-08-19 10:37:19.780146+00', $27 = 'CANCELED', $28 = 'FINISHED'
+2026-08-19T10:37:26.754160304Z 2026-08-19 10:37:26.753 UTC [151] app2 LOG:  duration: 0.247 ms  execute <unnamed>: select r1_0.game_id,count(r1_0.id) from rooms r1_0 where r1_0.game_id in ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24) and r1_0.room_type=$25 and r1_0.start_at>$26 and r1_0.status not in ($27,$28) group by r1_0.game_id
+2026-08-19T10:37:26.754197179Z 2026-08-19 10:37:26.753 UTC [151] app2 DETAIL:  Parameters: $1 = '3168', $2 = '142524', $3 = '105006', $4 = '93910', $5 = '103694', $6 = '90533', $7 = '168913', $8 = '50653', $9 = '52044', $10 = '47071', $11 = '60360', $12 = '107826', $13 = '23521', $14 = '64067', $15 = '110001', $16 = '19287', $17 = '160645', $18 = '17040', $19 = '100472', $20 = '115610', $21 = '106945', $22 = '108019', $23 = '107989', $24 = '39435', $25 = 'GAME_FOCUSED', $26 = '2026-08-19 10:37:19.780146+00', $27 = 'CANCELED', $28 = 'FINISHED'
+2026-08-19T10:37:26.760386804Z 2026-08-19 10:37:26.760 UTC [151] app2 LOG:  duration: 0.086 ms  bind S_1: COMMIT
+2026-08-19T10:37:26.760442721Z 2026-08-19 10:37:26.760 UTC [151] app2 LOG:  duration: 0.106 ms  execute S_1: COMMIT

@@ -117,6 +117,8 @@ node scripts/measurements/game-list-variant-comparison.mjs \
 
 각 variant의 여섯 scenario는 실제 SQL capture와 가장 느린 읽기 SQL의 `EXPLAIN (ANALYZE, BUFFERS, VERBOSE, FORMAT TEXT)`를 별도로 보존한다. 이 one-shot EXPLAIN execution time은 HTTP p95와 같은 통계가 아니므로 합산하지 않는다. base capture는 `size + 1` 조회와 game exact count SQL 부재를 보여야 한다.
 
+2026-08-19 실측 결과는 [#867 relation·complex 후보 비교 결과](results/game-list-740/game-list-867-2026-08-19.md)에 보존했다. 16개 artifact가 모두 `VALID`였고, 여섯 scenario의 5% p95 회귀 제한과 relation·complex 개선을 모두 통과한 V1만 선택했다. V2/V3은 relation plan을 더 좁혔지만 다른 scenario의 p95 회귀로 탈락했다.
+
 ## 측정 매트릭스
 
 | 시나리오 | 목적 |

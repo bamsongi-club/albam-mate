@@ -1,0 +1,10 @@
+2026-08-19T10:31:39.160094379Z 172.18.0.1 - - [19/Aug/2026:10:31:39 +0000] "GET / HTTP/1.1" 200 1121 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36" "-"
+2026-08-19T10:31:39.160125754Z 2026-08-19T10:31:39+00:00 measurement_id=- request="GET / HTTP/1.1" status=200 upstream=-
+2026-08-19T10:31:40.809834838Z 127.0.0.1 - - [19/Aug/2026:10:31:40 +0000] "GET / HTTP/1.1" 200 1121 "-" "Wget" "-"
+2026-08-19T10:31:40.809935047Z 2026-08-19T10:31:40+00:00 measurement_id=- request="GET / HTTP/1.1" status=200 upstream=-
+2026-08-19T10:31:44.395546757Z 172.18.0.1 - - [19/Aug/2026:10:31:44 +0000] "GET / HTTP/1.1" 200 1121 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36" "-"
+2026-08-19T10:31:44.396034132Z 2026-08-19T10:31:44+00:00 measurement_id=- request="GET / HTTP/1.1" status=200 upstream=-
+2026-08-19T10:31:47.512967091Z 172.18.0.1 - - [19/Aug/2026:10:31:47 +0000] "GET / HTTP/1.1" 200 1121 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36" "-"
+2026-08-19T10:31:47.513047800Z 2026-08-19T10:31:47+00:00 measurement_id=- request="GET / HTTP/1.1" status=200 upstream=-
+2026-08-19T10:31:48.933077884Z 172.18.0.1 - - [19/Aug/2026:10:31:48 +0000] "GET /api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24&theme=BOOK_BGG_1117&mechanism=HAND_MANAGEMENT HTTP/1.1" 200 7561 "-" "curl/8.7.1" "-"
+2026-08-19T10:31:48.933154050Z 2026-08-19T10:31:48+00:00 measurement_id=game-list-867-v1-relation-theme-mechanism request="GET /api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24&theme=BOOK_BGG_1117&mechanism=HAND_MANAGEMENT HTTP/1.1" status=200 upstream=172.18.0.5:8080

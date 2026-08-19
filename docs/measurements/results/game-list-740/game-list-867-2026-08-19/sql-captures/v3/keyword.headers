@@ -1,0 +1,15 @@
+HTTP/1.1 200 
+Server: nginx/1.30.4
+Date: Wed, 19 Aug 2026 10:48:25 GMT
+Content-Type: application/json
+Content-Length: 367
+Connection: keep-alive
+X-Albam-Mate-Upstream: app1
+X-Content-Type-Options: nosniff
+X-XSS-Protection: 0
+Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+Pragma: no-cache
+Expires: 0
+X-Frame-Options: DENY
+X-Albam-Mate-Upstream-Address: 172.19.0.5:8080
+
