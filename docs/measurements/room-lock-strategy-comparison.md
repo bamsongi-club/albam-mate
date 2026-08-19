@@ -45,7 +45,7 @@ plan은 480개 핵심 실행과 45개 회귀·배경 실행을 포함한다. 각
 
 ### 3. 후보별 comparison bundle 생성
 
-bundle은 해당 후보 SHA checkout이 clean인 상태에서 생성한다.
+비교 controller는 786 branch에서 실행하고, `--app-root`에는 해당 후보 SHA의 clean checkout을 지정한다. 후보 checkout에는 비교 도구를 추가하지 않는다. controller는 후보 checkout의 ROOM runtime만 bundle에 복사하고, infra가 요구하는 `build/k6/room/**` 아래에 결과를 만든다. 이 생성 경로 외의 후보 checkout 변경은 거절한다.
 
 ```powershell
 $env:ROOM_K6_FIXTURE_PASSWORD_HASH = '<실행 환경 전용 fixture hash>'
@@ -56,7 +56,8 @@ node load-tests/k6/jiwon/tools/room-lock-comparison.mjs render-bundle `
   --candidate-sha <A candidate SHA> `
   --condition constant-mixed `
   --concurrency 16 `
-  --source-sha <A candidate SHA>
+  --source-sha <A candidate SHA> `
+  --app-root <A candidate checkout>
 
 node load-tests/k6/jiwon/tools/room-lock-comparison.mjs validate `
   --for-execution `

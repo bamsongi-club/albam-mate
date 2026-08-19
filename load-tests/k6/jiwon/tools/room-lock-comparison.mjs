@@ -247,7 +247,7 @@ function usage() {
   node load-tests/k6/jiwon/tools/room-lock-comparison.mjs render-bundle \
     --scenario t1|t2 --run-id <id> --candidate A|B|C --candidate-sha <sha> \
     --condition <condition-id> --concurrency 2|4|8|16 \
-    --source-sha <sha> [--output-root <dir>]
+    --source-sha <sha> --app-root <candidate-checkout> [--output-root <dir>]
 
 실행 bundle 명령:
   validate --bundle <dir> [--for-execution]
@@ -274,27 +274,52 @@ function validateSourceSha(value) {
   return result;
 }
 
-function sourceProvenance(requestedSha) {
+function sourceProvenance(requestedSha, appRoot) {
   const sourceRevision = validateSourceSha(requestedSha || process.env.ALBAM_MATE_SOURCE_SHA);
-  const revision = spawnSync('git', ['rev-parse', 'HEAD'], {
-    cwd: sourceRepositoryRoot,
+  const gitArgs = (args) => ['-c', `safe.directory=${appRoot}`, ...args];
+  const revision = spawnSync('git', gitArgs(['rev-parse', 'HEAD']), {
+    cwd: appRoot,
     encoding: 'utf8',
   });
-  const status = spawnSync('git', ['status', '--porcelain', '--untracked-files=all'], {
-    cwd: sourceRepositoryRoot,
-    encoding: 'utf8',
-  });
+  const status = spawnSync(
+    'git',
+    gitArgs(['status', '--porcelain', '--untracked-files=all', '--', '.', ':(exclude)build/k6/room/**']),
+    {
+      cwd: appRoot,
+      encoding: 'utf8',
+    },
+  );
   const actualRevision = String(revision.stdout || '').trim().toLowerCase();
+  const appRootStatus = String(status.stdout || '').trim();
   if (revision.status !== 0 || !SOURCE_SHA_PATTERN.test(actualRevision)) {
     fail('앱 checkout의 현재 HEAD를 확인하지 못했습니다.');
   }
-  if (status.status !== 0 || String(status.stdout || '').trim()) {
-    fail('변경된 앱 소스에서는 비교 bundle을 만들 수 없습니다. 커밋된 release checkout에서 다시 생성하세요.');
+  if (status.status !== 0) {
+    fail('앱 checkout의 변경 상태를 확인하지 못했습니다.');
+  }
+  if (appRootStatus) {
+    fail('변경된 앱 소스에서는 비교 bundle을 만들 수 없습니다. build/k6/room 외 변경을 정리한 release checkout에서 다시 생성하세요.');
   }
   if (actualRevision !== sourceRevision) {
     fail('요청한 source SHA와 현재 앱 checkout HEAD가 다릅니다.');
   }
   return { sourceRevision, sourceDirty: false };
+}
+
+function appRootValue(value) {
+  const result = path.resolve(value || sourceRepositoryRoot);
+  if (!existsSync(result)) {
+    fail(`앱 checkout 경로를 찾을 수 없습니다: ${result}`);
+  }
+  return result;
+}
+
+function sourceRuntimePath(appRoot, relativePath) {
+  const result = path.join(appRoot, 'load-tests', 'k6', 'jiwon', relativePath);
+  if (!existsSync(result)) {
+    fail(`후보 checkout에 필요한 ROOM runtime 파일이 없습니다: ${result}`);
+  }
+  return result;
 }
 
 function candidateMap(input) {
@@ -871,7 +896,8 @@ function hashArtifacts(bundleDirectory) {
 }
 
 function renderBundle(values) {
-  const source = sourceProvenance(values.sourceSha);
+  const appRoot = appRootValue(values.appRoot);
+  const source = sourceProvenance(values.sourceSha, appRoot);
   const scenario = oneOf(values.scenario, 'scenario', CORE_SCENARIOS);
   const candidate = oneOf(values.candidate, 'candidate', CANDIDATE_LABELS);
   const candidateSha = validateSourceSha(values.candidateSha);
@@ -892,7 +918,7 @@ function renderBundle(values) {
     concurrency,
   };
   const plan = createComparisonFixturePlan(input);
-  const outputRoot = path.resolve(values.outputRoot || sourceBuildRoot);
+  const outputRoot = path.resolve(values.outputRoot || path.join(appRoot, 'build', 'k6', 'room'));
   const outputDirectory = path.join(outputRoot, plan.options.runId, plan.fixtureId);
   if (existsSync(outputDirectory)) {
     fail(`같은 comparison bundle이 이미 있습니다: ${outputDirectory}`);
@@ -933,9 +959,8 @@ function renderBundle(values) {
   writeNewJson(artifactPath(outputDirectory, ARTIFACTS.executionOptions), executionOptions(plan));
   writeNewText(artifactPath(outputDirectory, 'scenario.js'), runtimeContractSource(plan));
 
-  const sourceRuntime = (relativePath) => path.join(sourceRepositoryRoot, 'load-tests', 'k6', 'jiwon', relativePath);
   for (const relativePath of RUNTIME_FILES) {
-    copyFileSync(sourceRuntime(relativePath), artifactPath(outputDirectory, relativePath));
+    copyFileSync(sourceRuntimePath(appRoot, relativePath), artifactPath(outputDirectory, relativePath));
   }
   writeNewText(
     artifactPath(outputDirectory, 'tools/fixture.mjs'),
