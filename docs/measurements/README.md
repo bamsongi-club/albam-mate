@@ -15,6 +15,11 @@
 - PostgreSQL 후보 선점·다중 matcher 기준선의 fixture·round·결과 채택: [MATCH-01 후보 탐색 baseline 측정 계약](match-01-candidate-search-baseline-contract.md)
 - MATCH 제안 응답 완료 지연의 fixture·round·경계·결과 채택: [MATCH-01 응답 완료 지연 측정 계약](match-01-response-completion-baseline-contract.md)
 
+## 운영 관측 AWS 제한 실측
+
+- 같은 release의 대표 5xx·Redis 불능·scheduler 실패·복구와 실제 경고 수신: [OPS-03 실패·이상 AWS 제한 실측](ops-03-failure-anomaly-observability-2026-08-19.md)
+- 비식별화한 실행 SHA·집계·철거 판정: [OPS-03 Run #03 manifest](results/ops-03/ops03-20260819-03.json)
+
 ## 원자료
 
 - ROOM-09·10 기준선의 보존 결과: [results](results/)
