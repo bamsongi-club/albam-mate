@@ -9,9 +9,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 
@@ -30,7 +28,7 @@ class AssistantIntentExtractorTest {
 		RecordingUsageEventSink usageEvents = new RecordingUsageEventSink();
 		AssistantIntentExtractor extractor = new AiProviderIntentExtractor(
 			new DeterministicFakeAssistantProvider(),
-			new PermittingAiQuotaLedger(),
+			new RecordingAiQuotaLedger(),
 			usageEvents,
 			AiProviderSettings.fakeDefaults(),
 			CLOCK);
@@ -50,7 +48,7 @@ class AssistantIntentExtractorTest {
 	@Test
 	void T2_provider_payload은_allowlist만_포함하고_tool_권한과_원문_식별자를_전달하지_않는다() {
 		CapturingAssistantProvider provider = new CapturingAssistantProvider();
-		AssistantIntentExtractor extractor = extractor(provider, new PermittingAiQuotaLedger(),
+		AssistantIntentExtractor extractor = extractor(provider, new RecordingAiQuotaLedger(),
 			new RecordingUsageEventSink());
 
 		AssistantIntentExtraction result = extractor.extract(AssistantIntentRequest.forUser(
@@ -106,7 +104,7 @@ class AssistantIntentExtractorTest {
 	@Test
 	void T3_동의_feature_flag_설정과_보존조건이_충족될때만_호출하고_실패에는_재시도와_fallback이_없다() {
 		CapturingAssistantProvider provider = new CapturingAssistantProvider();
-		AssistantIntentExtraction withoutConsent = extractor(provider, new PermittingAiQuotaLedger(),
+		AssistantIntentExtraction withoutConsent = extractor(provider, new RecordingAiQuotaLedger(),
 			new RecordingUsageEventSink())
 			.extract(AssistantIntentRequest.withoutConsent("quota-subject-c", "주말 보드게임 추천", List.of()));
 
@@ -115,7 +113,7 @@ class AssistantIntentExtractorTest {
 
 		AssistantIntentExtractor disabled = new AiProviderIntentExtractor(
 			provider,
-			new PermittingAiQuotaLedger(),
+			new RecordingAiQuotaLedger(),
 			new RecordingUsageEventSink(),
 			AiProviderSettings.fakeDefaults().withEnabled(false),
 			CLOCK);
@@ -126,7 +124,7 @@ class AssistantIntentExtractorTest {
 		assertEquals(0, provider.calls());
 
 		FailingAssistantProvider timeoutProvider = new FailingAssistantProvider(AiProviderFailure.TIMEOUT);
-		AssistantIntentExtraction timeout = extractor(timeoutProvider, new PermittingAiQuotaLedger(),
+		AssistantIntentExtraction timeout = extractor(timeoutProvider, new RecordingAiQuotaLedger(),
 			new RecordingUsageEventSink())
 			.extract(request());
 
@@ -141,12 +139,12 @@ class AssistantIntentExtractorTest {
 
 		assertEquals(AssistantIntentStatus.SERVICE_UNAVAILABLE, incompleteCompletion.status());
 		assertEquals(1, successProvider.calls());
-		assertEquals(0, usageEvents.events().size());
+		assertEquals(1, usageEvents.events().size());
 	}
 
 	@Test
 	void T3_provider_예외도_active_reservation을_남기지_않는다() {
-		PermittingAiQuotaLedger quotaLedger = new PermittingAiQuotaLedger();
+		RecordingAiQuotaLedger quotaLedger = new RecordingAiQuotaLedger();
 		AiProviderClient throwingProvider = request -> {
 			throw new IllegalStateException("provider timeout");
 		};
@@ -155,7 +153,7 @@ class AssistantIntentExtractorTest {
 			.extract(request());
 
 		assertEquals(AssistantIntentStatus.SERVICE_UNAVAILABLE, failed.status());
-		assertEquals(0, quotaLedger.activeSubjectCount());
+		assertEquals(1, quotaLedger.completions());
 
 		AssistantIntentExtraction retryAfterException = new AiProviderIntentExtractor(
 			new DeterministicFakeAssistantProvider(),
@@ -164,6 +162,22 @@ class AssistantIntentExtractorTest {
 			AiProviderSettings.fakeDefaults(),
 			CLOCK).extract(request());
 		assertEquals(AssistantIntentStatus.SUCCESS, retryAfterException.status());
+	}
+
+	@Test
+	void T3_schema_실패도_provider_usage와_실제_비용을_보존한다() {
+		RecordingUsageEventSink usageEvents = new RecordingUsageEventSink();
+		AiProviderClient provider = request -> AiProviderResponse.failure(
+			AiProviderFailure.INVALID_SCHEMA, 12, 8, new BigDecimal("0.02"));
+
+		AssistantIntentExtraction result = extractor(provider, new RecordingAiQuotaLedger(), usageEvents)
+			.extract(request());
+
+		assertEquals(AssistantIntentStatus.INVALID_PROVIDER_SCHEMA, result.status());
+		assertEquals(12, result.usage().inputTokens());
+		assertEquals(8, result.usage().outputTokens());
+		assertEquals(new BigDecimal("0.02"), result.usage().costUsd());
+		assertEquals(List.of(result.usage()), usageEvents.events());
 	}
 
 	private AssistantIntentExtractor extractor(
@@ -220,31 +234,27 @@ class AssistantIntentExtractorTest {
 		}
 	}
 
-	private static class PermittingAiQuotaLedger implements AiQuotaLedger {
+	private static class RecordingAiQuotaLedger implements AiQuotaLedger {
 
-		private final Set<String> activeSubjects = new HashSet<>();
+		private int completions;
 
 		@Override
 		public AiQuotaReservation reserve(String quotaSubject, Instant now) {
-			if (!activeSubjects.add(quotaSubject)) {
-				return AiQuotaReservation.rejected(AiQuotaReservationStatus.CONCURRENT_LIMIT_REACHED);
-			}
 			return AiQuotaReservation.acquired(quotaSubject);
 		}
 
 		@Override
 		public AiQuotaCompletionStatus complete(AiQuotaReservation reservation, BigDecimal costUsd) {
-			return activeSubjects.remove(reservation.quotaSubject())
-				? AiQuotaCompletionStatus.COMPLETED
-				: AiQuotaCompletionStatus.NOT_ACQUIRED;
+			completions++;
+			return AiQuotaCompletionStatus.COMPLETED;
 		}
 
-		int activeSubjectCount() {
-			return activeSubjects.size();
+		int completions() {
+			return completions;
 		}
 	}
 
-	private static final class NotCompletedAiQuotaLedger extends PermittingAiQuotaLedger {
+	private static final class NotCompletedAiQuotaLedger extends RecordingAiQuotaLedger {
 
 		@Override
 		public AiQuotaCompletionStatus complete(AiQuotaReservation reservation, BigDecimal costUsd) {

@@ -13,9 +13,16 @@ class AiProviderProperties {
 	private boolean noRetentionVerified;
 	private boolean noTrainingVerified;
 	private boolean store;
+	private String policyVersion = "";
+	private String policyUrl = "";
 	private String model = "gpt-5.6-luna";
 	private Duration timeout = Duration.ofSeconds(10);
 	private int retryCount;
+	private String pricingSnapshot = "";
+	private BigDecimal inputTokenPriceUsdPerMillion = BigDecimal.ZERO;
+	private BigDecimal outputTokenPriceUsdPerMillion = BigDecimal.ZERO;
+	private int maxInputTokens = 4096;
+	private int maxOutputTokens = 256;
 	private BigDecimal reservationCostUsd = new BigDecimal("0.10");
 
 	boolean isEnabled() {
@@ -58,6 +65,22 @@ class AiProviderProperties {
 		this.store = store;
 	}
 
+	String getPolicyVersion() {
+		return policyVersion;
+	}
+
+	void setPolicyVersion(String policyVersion) {
+		this.policyVersion = policyVersion;
+	}
+
+	String getPolicyUrl() {
+		return policyUrl;
+	}
+
+	void setPolicyUrl(String policyUrl) {
+		this.policyUrl = policyUrl;
+	}
+
 	String getModel() {
 		return model;
 	}
@@ -80,6 +103,46 @@ class AiProviderProperties {
 
 	void setRetryCount(int retryCount) {
 		this.retryCount = retryCount;
+	}
+
+	String getPricingSnapshot() {
+		return pricingSnapshot;
+	}
+
+	void setPricingSnapshot(String pricingSnapshot) {
+		this.pricingSnapshot = pricingSnapshot;
+	}
+
+	BigDecimal getInputTokenPriceUsdPerMillion() {
+		return inputTokenPriceUsdPerMillion;
+	}
+
+	void setInputTokenPriceUsdPerMillion(BigDecimal inputTokenPriceUsdPerMillion) {
+		this.inputTokenPriceUsdPerMillion = inputTokenPriceUsdPerMillion;
+	}
+
+	BigDecimal getOutputTokenPriceUsdPerMillion() {
+		return outputTokenPriceUsdPerMillion;
+	}
+
+	void setOutputTokenPriceUsdPerMillion(BigDecimal outputTokenPriceUsdPerMillion) {
+		this.outputTokenPriceUsdPerMillion = outputTokenPriceUsdPerMillion;
+	}
+
+	int getMaxInputTokens() {
+		return maxInputTokens;
+	}
+
+	void setMaxInputTokens(int maxInputTokens) {
+		this.maxInputTokens = maxInputTokens;
+	}
+
+	int getMaxOutputTokens() {
+		return maxOutputTokens;
+	}
+
+	void setMaxOutputTokens(int maxOutputTokens) {
+		this.maxOutputTokens = maxOutputTokens;
 	}
 
 	BigDecimal getReservationCostUsd() {

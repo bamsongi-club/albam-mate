@@ -87,21 +87,21 @@ public final class AiProviderIntentExtractor implements AssistantIntentExtractor
 		} catch (RuntimeException exception) {
 			response = AiProviderResponse.failure(AiProviderFailure.SERVICE_UNAVAILABLE);
 		}
-		BigDecimal chargedCostUsd = response.succeeded()
+		BigDecimal chargedCostUsd = response.costUsd().signum() > 0
 			? response.costUsd()
 			: reservation.reservedCostUsd();
 		AssistantIntentExtraction result = response.succeeded()
 			? success(response, startedAt)
 			: failure(statusFor(response.failure()), response, startedAt, chargedCostUsd);
 		AiQuotaCompletionStatus completionStatus = completeOnce(reservation, chargedCostUsd);
+		if (result.usage() != null) {
+			usageEventSink.record(result.usage());
+		}
 		if (completionStatus != AiQuotaCompletionStatus.COMPLETED) {
 			if (completionStatus == AiQuotaCompletionStatus.UNAVAILABLE) {
 				quotaLedger.scheduleCompletionRetry(reservation, chargedCostUsd);
 			}
 			return failure(AssistantIntentStatus.SERVICE_UNAVAILABLE);
-		}
-		if (result.usage() != null) {
-			usageEventSink.record(result.usage());
 		}
 		return result;
 	}
@@ -153,6 +153,7 @@ public final class AiProviderIntentExtractor implements AssistantIntentExtractor
 		return switch (failure) {
 			case TIMEOUT -> AssistantIntentStatus.PROVIDER_TIMEOUT;
 			case RATE_LIMITED -> AssistantIntentStatus.PROVIDER_RATE_LIMITED;
+			case INPUT_TOO_LARGE -> AssistantIntentStatus.PROVIDER_INPUT_TOO_LARGE;
 			case INVALID_SCHEMA -> AssistantIntentStatus.INVALID_PROVIDER_SCHEMA;
 			case SERVICE_UNAVAILABLE -> AssistantIntentStatus.SERVICE_UNAVAILABLE;
 		};

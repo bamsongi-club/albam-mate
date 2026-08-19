@@ -5,14 +5,19 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.SystemMessage;
+import org.springframework.ai.chat.metadata.ChatResponseMetadata;
+import org.springframework.ai.chat.metadata.DefaultUsage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
@@ -36,6 +41,7 @@ class OpenAiAssistantProviderTest {
 		assertEquals("gpt-5.6-luna", options.getModel());
 		assertEquals(Duration.ofSeconds(10), options.getTimeout());
 		assertEquals(0, options.getMaxRetries());
+		assertEquals(256, options.getMaxCompletionTokens());
 		assertEquals(Boolean.FALSE, options.getStore());
 		assertEquals(Boolean.FALSE, options.getInternalToolExecutionEnabled());
 		assertEquals(Boolean.FALSE, options.getParallelToolCalls());
@@ -52,6 +58,22 @@ class OpenAiAssistantProviderTest {
 	}
 
 	@Test
+	void T3_입력_token_상한을_넘으면_provider를_호출하지_않는다() {
+		ChatModel chatModel = mock(ChatModel.class);
+		OpenAiAssistantProvider provider = new OpenAiAssistantProvider(chatModel, AiProviderSettings.fakeDefaults());
+		AiProviderPayload oversizedPayload = new AiProviderPayload(
+			"AI-02-INSTRUCTION-V1",
+			"propose_game_room_intent",
+			"AI-02-SCHEMA-V1",
+			"Asia/Seoul",
+			"가".repeat(5000),
+			List.of());
+
+		assertEquals(AiProviderFailure.INPUT_TOO_LARGE, provider.propose(oversizedPayload).failure());
+		verify(chatModel, never()).call(any(Prompt.class));
+	}
+
+	@Test
 	void T3_openai_adapter는_강제_tool_arguments만_구조화_결과로_받는다() {
 		ChatModel chatModel = mock(ChatModel.class);
 		AssistantMessage output = AssistantMessage.builder()
@@ -61,7 +83,7 @@ class OpenAiAssistantProviderTest {
 				"{\"action\":\"RECOMMEND\",\"gameStyles\":[\"STRATEGY\"]}")))
 			.build();
 		when(chatModel.call(any(Prompt.class))).thenReturn(
-			new ChatResponse(List.of(new Generation(output))));
+			chatResponse(output, new DefaultUsage(100, 20)));
 		OpenAiAssistantProvider provider = new OpenAiAssistantProvider(chatModel, AiProviderSettings.fakeDefaults());
 
 		AiProviderResponse response = provider.propose(payload());
@@ -69,6 +91,9 @@ class OpenAiAssistantProviderTest {
 		assertTrue(response.succeeded());
 		assertEquals("RECOMMEND", response.action());
 		assertEquals(List.of("STRATEGY"), response.gameStyles());
+		assertEquals(100, response.inputTokens());
+		assertEquals(20, response.outputTokens());
+		assertEquals(new BigDecimal("0.00012000"), response.costUsd());
 	}
 
 	@Test
@@ -92,12 +117,15 @@ class OpenAiAssistantProviderTest {
 				"call-1", "function", "propose_game_room_intent", "{malformed")))
 			.build();
 		when(chatModel.call(any(Prompt.class))).thenReturn(
-			new ChatResponse(List.of(new Generation(output))));
+			chatResponse(output, new DefaultUsage(100, 20)));
 		OpenAiAssistantProvider provider = new OpenAiAssistantProvider(chatModel, AiProviderSettings.fakeDefaults());
 
 		AiProviderResponse response = provider.propose(payload());
 
 		assertEquals(AiProviderFailure.INVALID_SCHEMA, response.failure());
+		assertEquals(100, response.inputTokens());
+		assertEquals(20, response.outputTokens());
+		assertEquals(new BigDecimal("0.00012000"), response.costUsd());
 	}
 
 	@Test
@@ -139,6 +167,12 @@ class OpenAiAssistantProviderTest {
 			new ChatResponse(List.of(new Generation(output))));
 		return new OpenAiAssistantProvider(chatModel, AiProviderSettings.fakeDefaults())
 			.propose(payload());
+	}
+
+	private ChatResponse chatResponse(AssistantMessage output, DefaultUsage usage) {
+		return new ChatResponse(
+			List.of(new Generation(output)),
+			ChatResponseMetadata.builder().usage(usage).build());
 	}
 
 	private AiProviderPayload payload() {

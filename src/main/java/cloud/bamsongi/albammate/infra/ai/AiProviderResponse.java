@@ -23,8 +23,16 @@ record AiProviderResponse(
 	}
 
 	static AiProviderResponse failure(AiProviderFailure failure) {
-		return new AiProviderResponse(null, List.of(), 0, 0, BigDecimal.ZERO,
-			Objects.requireNonNull(failure, "failure"));
+		return failure(failure, 0, 0, BigDecimal.ZERO);
+	}
+
+	static AiProviderResponse failure(
+		AiProviderFailure failure,
+		int inputTokens,
+		int outputTokens,
+		BigDecimal costUsd) {
+		return new AiProviderResponse(null, List.of(), inputTokens, outputTokens,
+			Objects.requireNonNull(costUsd, "costUsd"), Objects.requireNonNull(failure, "failure"));
 	}
 
 	boolean succeeded() {
