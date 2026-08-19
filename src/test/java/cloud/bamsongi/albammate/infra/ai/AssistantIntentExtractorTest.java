@@ -99,6 +99,7 @@ class AssistantIntentExtractorTest {
 			AssistantIntentExtraction piiRejected = extractor.extract(AssistantIntentRequest.forUser(
 				"user-991", piiSentence, List.of()));
 			assertEquals(AssistantIntentStatus.SENSITIVE_INPUT_REJECTED, piiRejected.status());
+			assertEquals(1, provider.calls());
 		}
 	}
 
