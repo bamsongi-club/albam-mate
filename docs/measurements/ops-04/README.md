@@ -36,4 +36,4 @@ AI 미배포, provider 미호출, usage 수집 공백, provider/model 불일치,
 
 ## 배포·실측 경계
 
-정적 snapshot과 계산기 테스트는 `OPS-04-AC3`의 구현·자동 검증 일부만 증명한다. 현재 공유 meter에는 요청별 cached input과 long-context 가격 적격성을 판별할 bounded 신호가 없으므로, 그 신호와 배포 검증이 연결되기 전의 dashboard 비용 값은 `NO_OBSERVATION`으로 취급한다. 고정 release의 metric 도착, dashboard의 미관측 경계, `$4` 경고의 CloudWatch alarm·SNS 수신과 복구, P2 전체 신규 관측 비용, teardown receipt가 모두 연결되기 전에는 배포·실측 완료로 표시하지 않는다.
+정적 snapshot과 계산기 테스트는 `OPS-04-AC3`의 구현·자동 검증 일부만 증명한다. 인프라 #43은 숫자 비용을 제거하고 dashboard·alarm을 기본 비활성화한 뒤 가격 적격성·전체 P2 비용·cardinality gate를 연결했지만, 현재 공유 meter에는 요청별 cached input과 long-context 가격 적격성을 판별할 bounded 신호가 없어 배포가 차단된다. 고정 release의 metric 도착, 실측 비용 입력·재승인, `$4` 경고의 CloudWatch alarm·SNS 수신과 복구, teardown receipt가 모두 연결되기 전에는 배포·실측 완료로 표시하지 않는다.
