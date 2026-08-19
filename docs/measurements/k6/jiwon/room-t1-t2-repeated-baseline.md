@@ -17,6 +17,8 @@ Issue #778의 승인된 T1~T4 계약에 따라 T1/T2 8개 조건을 조건별 3�
 
 T2 outcome별 latency p50·p95·p99·max와 T3 retrier/Coordinator·DB/connection 신호가 수집되지 않았다. 따라서 개별 portable `final-result.json`의 `PASS`는 원격 transport·snapshot/diagnosis 결과일 뿐, 승인된 전체 T1~T4 계약을 만족한 유효 `PASS`가 아니다. 이 문서는 성능 기준선으로 승격하지 않으며, 누락된 계측을 추정하거나 run을 합성하지 않는다.
 
+campaign evidence의 24개 Run은 모두 `reportDisposition=excluded`다. 표의 outcome·latency·RPS 집계는 excluded Run에서 얻은 진단 관찰값일 뿐이며, included Run이 0이므로 공식 결론 계산·정상/실패 경계·성능 기준선에 사용하지 않는다.
+
 근거 ledger와 각 run의 비밀 없는 artifact SHA-256은 [campaign evidence](evidence/room-t1-t2-repeated-baseline.json)에 있다. 원시 bundle은 local-only다.
 
 ## 측정 provenance
