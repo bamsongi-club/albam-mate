@@ -22,9 +22,7 @@ import {
   hydrateFixture,
   normalizeRoomSummary,
   normalizePrepareOwnership,
-  ROOM_OUTCOME_CATEGORIES,
   RUN_ID_PATTERN,
-  roomRequestDurationMetricName,
 } from './fixture-model.mjs';
 
 const toolPath = fileURLToPath(import.meta.url);
@@ -99,6 +97,32 @@ const CONDITION_TEMPLATES = [
     executionModel: 'constant-arrival-rate',
     distribution: 'mixed',
     durationSeconds: CONSTANT_DURATION_SECONDS,
+  },
+];
+
+const REGRESSION_TEMPLATES = [
+  {
+    id: 'regression-t3-race',
+    scenario: 't3',
+    executionModel: 'barrier',
+    options: { profile: 'stress', rounds: 5, t3Mode: 'race' },
+  },
+  {
+    id: 'regression-t4-c8',
+    scenario: 't4',
+    executionModel: 'barrier',
+    concurrency: 8,
+    options: { profile: 'spike', rounds: 1, concurrency: 8 },
+  },
+  {
+    id: 'regression-t5-background',
+    scenario: 't5',
+    executionModel: 'read-background',
+    options: {
+      profile: 'spike',
+      rounds: 1,
+      cases: ['public-1', 'public-10', 'host-1', 'host-10', 'participant-1', 'participant-10'],
+    },
   },
 ];
 
@@ -362,6 +386,36 @@ export function buildCampaignPlan({ campaignId, candidates, seed = campaignId })
     }
   }
 
+  for (const regression of REGRESSION_TEMPLATES) {
+    for (let repetition = 1; repetition <= MIN_PAIRED_RUNS; repetition += 1) {
+      const pairId = `${normalizedCampaignId}-${regression.id}-r${repetition}`;
+      const order = seededOrder(`${seed}:${pairId}`, CANDIDATE_LABELS);
+      order.forEach((candidate, sequenceIndex) => {
+        const runId = `${pairId}-${candidate.toLowerCase()}`;
+        if (!RUN_ID_PATTERN.test(runId)) {
+          fail(`campaign runId가 80자 안전 형식을 벗어났습니다: ${runId}`);
+        }
+        runs.push({
+          runId,
+          pairId,
+          sequence: sequenceIndex + 1,
+          scenario: regression.scenario,
+          candidate,
+          candidateSha: normalizedCandidates[candidate],
+          repetition,
+          condition: {
+            id: regression.id,
+            executionModel: regression.executionModel,
+            concurrency: regression.concurrency || null,
+            options: regression.options,
+            minimumValidSamples: null,
+          },
+          runner: 'portable',
+        });
+      });
+    }
+  }
+
   return {
     schemaVersion: 1,
     campaignId: normalizedCampaignId,
@@ -375,6 +429,7 @@ export function buildCampaignPlan({ campaignId, candidates, seed = campaignId })
       constantArrivalRate: 'concurrency-per-second',
       mixedDistribution: 'hot-50-percent-spread-50-percent',
       p95P99WinnerGate: 'constant-arrival-rate-only',
+      regressionRunner: 'existing-portable-bundle-read-only',
     },
     runs,
   };
@@ -838,13 +893,6 @@ function renderBundle(values) {
   };
   const plan = createComparisonFixturePlan(input);
   const outputRoot = path.resolve(values.outputRoot || sourceBuildRoot);
-  if (process.env.ROOM_LOCK_COMPARISON_DEBUG === '1') {
-    process.stderr.write(JSON.stringify({
-      outputRoot,
-      runId: plan.options?.runId,
-      fixtureId: plan.fixtureId,
-    }) + '\n');
-  }
   const outputDirectory = path.join(outputRoot, plan.options.runId, plan.fixtureId);
   if (existsSync(outputDirectory)) {
     fail(`같은 comparison bundle이 이미 있습니다: ${outputDirectory}`);
@@ -1182,12 +1230,25 @@ function aggregateCampaign(values) {
     winner: null,
     winnerDecision: '786은 증거를 만들며 최종 전략 선택·ADR을 자동 생성하지 않습니다.',
     candidates: {},
+    regressions: [],
     excludedRuns: [],
   };
   for (const candidate of CANDIDATE_LABELS) {
     report.candidates[candidate] = { candidateSha: plan.candidates[candidate], conditions: {} };
   }
   for (const run of plan.runs) {
+    if (run.runner !== 'room-lock-comparison') {
+      report.regressions.push({
+        runId: run.runId,
+        pairId: run.pairId,
+        candidate: run.candidate,
+        candidateSha: run.candidateSha,
+        scenario: run.scenario,
+        condition: run.condition,
+        status: 'PORTABLE_ARTIFACT_REQUIRED',
+      });
+      continue;
+    }
     const bundlePath = run.bundlePath
       || path.join(sourceBuildRoot, run.runId, run.fixtureId || `room-k6-${run.scenario}-${digest(JSON.stringify({
         ...run.condition,
@@ -1239,6 +1300,9 @@ function aggregateCampaign(values) {
   }
   if (Object.values(report.candidates).some((candidate) => Object.values(candidate.conditions)
     .some((condition) => condition.runs.length < MIN_PAIRED_RUNS))) {
+    report.status = 'INVALID';
+  }
+  if (report.regressions.some((regression) => regression.status !== 'PASS')) {
     report.status = 'INVALID';
   }
   if (values.output) {
@@ -1299,7 +1363,7 @@ if (isMainModule) {
   try {
     main();
   } catch (error) {
-    process.stderr.write(`${process.env.ROOM_LOCK_COMPARISON_DEBUG === '1' ? error.stack : error.message}\n`);
+    process.stderr.write(`${error.message}\n`);
     process.exitCode = 1;
   }
 }

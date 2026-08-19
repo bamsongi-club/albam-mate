@@ -20,7 +20,9 @@ test('campaign plan은 A/B/C를 고정 순서가 아닌 paired/crossover로 5회
     seed: 'seed786',
   });
 
-  assert.equal(plan.runs.length, 480);
+  assert.equal(plan.runs.length, 525);
+  assert.equal(plan.runs.filter((run) => run.runner === 'room-lock-comparison').length, 480);
+  assert.equal(plan.runs.filter((run) => run.runner === 'portable').length, 45);
   assert.deepEqual(plan.contract.concurrencyLevels, [2, 4, 8, 16]);
   assert.equal(plan.contract.minPairedRuns, 5);
 
@@ -32,7 +34,7 @@ test('campaign plan은 A/B/C를 고정 순서가 아닌 paired/crossover로 5회
     assert.equal(run.candidateSha, candidates[run.candidate]);
     assert.match(run.runId, /^[a-z0-9][a-z0-9._-]{0,79}$/);
   }
-  assert.equal(pairGroups.size, 160);
+  assert.equal(pairGroups.size, 175);
   for (const group of pairGroups.values()) {
     assert.deepEqual(
       group.map((run) => run.candidate).sort(),
