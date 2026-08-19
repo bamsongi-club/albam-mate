@@ -756,7 +756,7 @@ class RoomStartBoundaryConcurrencyBaselinePostgresTest {
 		}
 
 		private boolean isMatchingRoomRead(Method method, Object[] arguments, long roomId) {
-			return method.getName().equals("findById")
+			return (method.getName().equals("findById") || method.getName().equals("findByIdForWrite"))
 				&& arguments != null
 				&& arguments.length == 1
 				&& arguments[0] instanceof Long candidateRoomId

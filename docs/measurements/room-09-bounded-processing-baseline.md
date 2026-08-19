@@ -1,8 +1,8 @@
-# ROOM-09c 현행 일괄 처리 기준선 측정
+# ROOM-09c 기존 일괄 처리 기준선 측정
 
 ## 범위와 상태
 
-이 문서는 #381이 제공한 현행 `RoomRepository.findDueRooms → RoomStatusCorrectionCoordinator.correctDueRooms → RoomStatusCorrectionExecutor.correctDueRooms` 전체 Entity·단일 트랜잭션 경로의 측정 방법과 실행 원자료를 설명한다. #382의 제한 ID 후보 선별·ROOM별 독립 처리는 비교 대상이며, 이 문서는 구현하거나 측정 결과를 대신하지 않는다.
+이 문서는 #381이 제공한 당시의 `RoomRepository.findDueRooms → RoomStatusCorrectionCoordinator.correctDueRooms → RoomStatusCorrectionExecutor.correctDueRooms` 전체 Entity·단일 트랜잭션 경로의 측정 방법과 실행 원자료를 보존한다. 현재 `correctDueRooms`는 due ROOM 목록을 조회한 뒤 ROOM별 독립 트랜잭션으로 상태를 보정하므로, 아래 결과와 일괄/분할 비교표는 당시 단일 트랜잭션 기준선의 역사적 증거이며 현재 경로의 성능 결과가 아니다. #382의 제한 ID 후보 선별·ROOM별 독립 처리는 당시 비교 대상이었다.
 
 - 소형 `100/20`은 기본 `postgresTest`에서 계약을 검증한다.
 - 중형 `10,000/2,000`, 대형 `50,000/10,000`은 `issue383.measurement=true`일 때만 실행한다.
@@ -45,9 +45,9 @@
 - `pg_stat_statements`의 정규화된 query text·query ID별 호출 수, PostgreSQL 실행 시간, 행 수, shared buffer hit/read 원자료
 - 실측 5회의 실행시간과 처리량의 최소·중앙값·최댓값
 
-각 profile의 fixture를 준비한 뒤 현행 Repository의 `findDueRooms`로 후보 수를 한 번 확인하고, `finishedThreshold` 직후의 non-due `CLOSED` ROOM이 후보에서 제외되는지 검증한다. 성공 warm-up·실측 run에서는 같은 고정 fixture를 다시 준비하고, run 시작 환경 snapshot을 남긴 뒤 `pg_stat_statements_reset()`을 호출하고 현행 `correctDueRooms` 경로를 시간 측정한다. 시간 측정 직후 reset 제어 쿼리를 제외한 `pgStatStatements`를 먼저 수집하고, 후보 조회가 1회·ROOM UPDATE 호출과 처리 행이 due 수와 같은지 확인한 뒤 사후 fixture 검증을 수행한다. 따라서 정상 run은 retry가 없는 단일 일괄 트랜잭션 기준선만 성공 결과로 남기며, retry나 상태 보정 SQL 누락은 RUN_FAILURE로 기록한다. 측정 중 notification relay·chat retention은 비활성화하고 ROOM 상태 보정·notification cleanup의 첫 스케줄 실행은 24시간 뒤로 설정하지만, 성공 run의 `pgStatStatements`에는 상태 보정 경로의 이벤트·부수 쿼리와 테스트 외 동시 활동이 포함될 수 있으며, 이는 `correctDueRooms`만을 분리한 profiler 결과가 아니다. 반대로 `candidate-check` 실패 원자료에는 사전 fixture 준비와 후보 조회가 포함될 수 있으며 성능 측정 결과로 해석하지 않는다.
+각 profile의 fixture를 준비한 뒤 측정 당시 Repository의 `findDueRooms`로 후보 수를 한 번 확인하고, `finishedThreshold` 직후의 non-due `CLOSED` ROOM이 후보에서 제외되는지 검증한다. 성공 warm-up·실측 run에서는 같은 고정 fixture를 다시 준비하고, run 시작 환경 snapshot을 남긴 뒤 `pg_stat_statements_reset()`을 호출하고 측정 당시 `correctDueRooms` 경로를 시간 측정한다. 시간 측정 직후 reset 제어 쿼리를 제외한 `pgStatStatements`를 먼저 수집하고, 후보 조회가 1회·ROOM UPDATE 호출과 처리 행이 due 수와 같은지 확인한 뒤 사후 fixture 검증을 수행한다. 따라서 정상 run은 retry가 없는 당시 단일 일괄 트랜잭션 기준선만 성공 결과로 남기며, retry나 상태 보정 SQL 누락은 RUN_FAILURE로 기록한다. 측정 중 notification relay·chat retention은 비활성화하고 ROOM 상태 보정·notification cleanup의 첫 스케줄 실행은 24시간 뒤로 설정하지만, 성공 run의 `pgStatStatements`에는 상태 보정 경로의 이벤트·부수 쿼리와 테스트 외 동시 활동이 포함될 수 있으며, 이는 `correctDueRooms`만을 분리한 profiler 결과가 아니다. 반대로 `candidate-check` 실패 원자료에는 사전 fixture 준비와 후보 조회가 포함될 수 있으며 성능 측정 결과로 해석하지 않는다.
 
-`room-09c-{small|medium|large}-run-failure.json`은 `candidate-check` 단계의 `outcome: RUN_FAILURE`와 예외 유형·부분 원자료를 남긴다. `room-09c-{small|medium|large}-run-level-failure.json`은 `warm-up` 또는 `measured` 단계의 현행 일괄 트랜잭션 실패와 부분 원자료를 별도 보존한다. `partialRuns[].phase`가 `candidate-check`이면 `runFailure.category`는 `후보 수 사전 검증 실패`이며 `correctDueRooms`가 실행되지 않은 사전 검증 실패다. `warm-up` 또는 `measured`이면 `현행 일괄 트랜잭션 실패`로 분류한다. 실행이 시작되지 않은 실패의 `throughputPerSecond`는 `null`이고, 이는 ROOM별 실패가 아니므로 `roomFailures`를 비워 별도 의미를 보존한다. 현재 보존한 small 원자료는 candidate-check와 warm-up 일괄 트랜잭션 실패 각각 한 건이다.
+`room-09c-{small|medium|large}-run-failure.json`은 `candidate-check` 단계의 `outcome: RUN_FAILURE`와 예외 유형·부분 원자료를 남긴다. `room-09c-{small|medium|large}-run-level-failure.json`은 `warm-up` 또는 `measured` 단계의 측정 당시 일괄 트랜잭션 실패와 부분 원자료를 별도 보존한다. `partialRuns[].phase`가 `candidate-check`이면 `runFailure.category`는 `후보 수 사전 검증 실패`이며 `correctDueRooms`가 실행되지 않은 사전 검증 실패다. `warm-up` 또는 `measured`이면 `현행 일괄 트랜잭션 실패`로 분류한다. 실행이 시작되지 않은 실패의 `throughputPerSecond`는 `null`이고, 이는 ROOM별 실패가 아니므로 `roomFailures`를 비워 별도 의미를 보존한다. 현재 보존한 small 원자료는 candidate-check와 warm-up 일괄 트랜잭션 실패 각각 한 건이다.
 
 `room-09c-measurement-gate.json`은 기본 profile과 명시적 profile, 대형 측정 재현 명령, 처리량 산식을 기록한다. 실패·gate 원자료도 위 증거 파일에 함께 보존하며, 표의 모든 수치는 위 성공 JSON의 `summary`에서 직접 옮겼다.
 
@@ -55,7 +55,7 @@
 
 `ROOM-09d-T1`에 따라 현행과 후보를 **같은 측정 세션 안에서** 실행했다. 한 조합마다 현행 경로와 후보 경로를 번갈아 warm-up 1회와 실측 5회씩 돌려, 한쪽만 특정 시간대의 호스트 부하를 받지 않게 했다.
 
-측정 대상은 **트랜잭션 범위**의 차이다. 두 경로는 같은 커밋에서 같은 fixture를 처리하며, 현행은 due ROOM 전체를 하나의 트랜잭션에서 순회하고(`coordinator.correctDueRooms`, 제한 ID 미설정) 후보는 제한 ID로 나눠 ROOM마다 독립 트랜잭션을 연다(`scheduler.correctDueRooms` → `correctBoundedDueRooms`). 시작 경계 대기열 종료는 두 경로 모두에서 due ROOM마다 실행되므로 양쪽 공통 비용이다.
+측정 대상은 **트랜잭션 범위**의 차이다. 측정 당시 두 경로는 같은 커밋에서 같은 fixture를 처리하며, 당시 현행은 due ROOM 전체를 하나의 트랜잭션에서 순회하고(`coordinator.correctDueRooms`, 제한 ID 미설정) 후보는 제한 ID로 나눠 ROOM마다 독립 트랜잭션을 연다(`scheduler.correctDueRooms` → `correctBoundedDueRooms`). 현재 현행 경로도 ROOM별 독립 트랜잭션을 사용하므로 이 표는 당시 비교를 보존한 기록이다. 시작 경계 대기열 종료는 두 경로 모두에서 due ROOM마다 실행되므로 양쪽 공통 비용이다.
 
 다만 두 경로의 **외곽 경계가 같지 않다.** 후보는 스케줄러 진입점에서 재기 때문에 ShedLock 획득·해제와 `progressStore.claimExecution`의 `SELECT … FOR UPDATE`·`UPDATE`가 측정 구간에 들어가고, 현행은 coordinator를 직접 호출해 이 비용이 없다. 코드 경로에서 세면 run당 약 `4`개의 추가 DB 문이고, 후보 DB 호출 수 대비 소형은 `149`회 중 약 `2.7%`, 중형 `13,013`~`13,613`회와 대형 `65,044`~`68,014`회에서는 `0.1%` 미만이다. 따라서 아래 표의 차이를 트랜잭션 범위 하나만의 효과로 읽지 않는다. 이 몫은 코드에서 센 값이며 별도 측정으로 분리하지 않았다.
 
@@ -169,7 +169,7 @@ docker version
 소형 계약·기준선 측정:
 
 ```powershell
-.\gradlew.bat postgresTest --tests "cloud.bamsongi.albammate.room.measurement.RoomStatusCorrectionBaselineMeasurementPostgresTest.작은_fixture는_현행_전체_Entity_단일_트랜잭션_경로의_입력과_결과를_기록한다" --rerun --fail-fast
+.\gradlew.bat postgresTest --tests "cloud.bamsongi.albammate.room.measurement.RoomStatusCorrectionBaselineMeasurementPostgresTest.작은_fixture는_현행_전체_Entity_ROOM별_독립_트랜잭션_경로의_입력과_결과를_기록한다" --rerun --fail-fast
 ```
 
 중형·대형 승인 규모 기준선:

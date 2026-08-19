@@ -24,6 +24,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mock.env.MockEnvironment;
 
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
@@ -231,8 +232,8 @@ class RoomParticipationCancelExecutorTest {
 			mockedParticipationRepository,
 			mockedWaitlistRepository,
 			mock(RoomChangeEventRecorder.class),
-			NO_OP_EVENT_PUBLISHER);
-		when(mockedRoomRepository.findById(roomId)).thenReturn(java.util.Optional.of(mockedRoom));
+			NO_OP_EVENT_PUBLISHER, new MockEnvironment());
+		when(mockedRoomRepository.findByIdForWrite(roomId)).thenReturn(java.util.Optional.of(mockedRoom));
 		when(mockedRoom.getHostUserId()).thenReturn(1L);
 		when(mockedRoom.getId()).thenReturn(roomId);
 		when(mockedRoom.getStartAt()).thenReturn(NOW.plusSeconds(3600));
@@ -374,8 +375,8 @@ class RoomParticipationCancelExecutorTest {
 		Participation participation = mock(Participation.class);
 		RoomParticipationCancelExecutor executor = new RoomParticipationCancelExecutor(
 			mockedRoomRepository, mockedParticipationRepository, mockedWaitlistRepository, recorder,
-			NO_OP_EVENT_PUBLISHER);
-		when(mockedRoomRepository.findById(roomId)).thenReturn(java.util.Optional.of(room));
+			NO_OP_EVENT_PUBLISHER, new MockEnvironment());
+		when(mockedRoomRepository.findByIdForWrite(roomId)).thenReturn(java.util.Optional.of(room));
 		when(room.getHostUserId()).thenReturn(1L);
 		when(room.getId()).thenReturn(roomId);
 		when(room.getStartAt()).thenReturn(NOW.plusSeconds(3600));
@@ -408,8 +409,8 @@ class RoomParticipationCancelExecutorTest {
 		RoomWaitlistCandidateProjection waiting = candidate(20L, 1L);
 		RoomParticipationCancelExecutor promotedExecutor = new RoomParticipationCancelExecutor(
 			promotedRoomRepository, promotedParticipationRepository, promotedWaitlistRepository, promotedRecorder,
-			NO_OP_EVENT_PUBLISHER);
-		when(promotedRoomRepository.findById(roomId)).thenReturn(java.util.Optional.of(promotedRoom));
+			NO_OP_EVENT_PUBLISHER, new MockEnvironment());
+		when(promotedRoomRepository.findByIdForWrite(roomId)).thenReturn(java.util.Optional.of(promotedRoom));
 		when(promotedRoom.getHostUserId()).thenReturn(1L);
 		when(promotedRoom.getId()).thenReturn(roomId);
 		when(promotedRoom.getStartAt()).thenReturn(NOW.plusSeconds(3600));
@@ -433,6 +434,35 @@ class RoomParticipationCancelExecutorTest {
 	}
 
 	@Test
+	void 자동_승격이_없고_남은_모집_자리도_없으면_취소_이벤트를_기록하지_않는다() {
+		long roomId = 7L;
+		long participantUserId = 10L;
+		RoomRepository mockedRoomRepository = mock(RoomRepository.class);
+		ParticipationRepository mockedParticipationRepository = mock(ParticipationRepository.class);
+		RoomWaitlistRepository mockedWaitlistRepository = mock(RoomWaitlistRepository.class);
+		RoomChangeEventRecorder recorder = mock(RoomChangeEventRecorder.class);
+		Room room = mock(Room.class);
+		Participation participation = mock(Participation.class);
+		RoomParticipationCancelExecutor executor = new RoomParticipationCancelExecutor(
+			mockedRoomRepository, mockedParticipationRepository, mockedWaitlistRepository, recorder,
+			NO_OP_EVENT_PUBLISHER, new MockEnvironment());
+		when(mockedRoomRepository.findByIdForWrite(roomId)).thenReturn(java.util.Optional.of(room));
+		when(room.getHostUserId()).thenReturn(1L);
+		when(room.getId()).thenReturn(roomId);
+		when(room.getStartAt()).thenReturn(NOW.plusSeconds(3600));
+		when(room.getStatus()).thenReturn(RoomStatus.RECRUITING);
+		when(room.getRemainingRecruitmentSeats()).thenReturn(0);
+		when(participation.getStatus()).thenReturn(ParticipationStatus.ACTIVE);
+		when(mockedParticipationRepository.findByRoomIdAndUserId(roomId, participantUserId))
+			.thenReturn(java.util.Optional.of(participation));
+		when(mockedWaitlistRepository.findFirstWaitingByRoomId(roomId)).thenReturn(java.util.Optional.empty());
+
+		executor.cancelParticipation(participantUserId, roomId, NOW);
+
+		org.mockito.Mockito.verifyNoInteractions(recorder);
+	}
+
+	@Test
 	void 자동_승격은_실제_조건부_전이에_성공한_대기자만_수신자로_기록한다() {
 		long roomId = 8L;
 		long leavingUserId = 10L;
@@ -446,8 +476,8 @@ class RoomParticipationCancelExecutorTest {
 		RoomWaitlistCandidateProjection waiting = candidate(promotedUserId, 1L);
 		RoomParticipationCancelExecutor executor = new RoomParticipationCancelExecutor(
 			mockedRoomRepository, mockedParticipationRepository, mockedWaitlistRepository, recorder,
-			NO_OP_EVENT_PUBLISHER);
-		when(mockedRoomRepository.findById(roomId)).thenReturn(java.util.Optional.of(room));
+			NO_OP_EVENT_PUBLISHER, new MockEnvironment());
+		when(mockedRoomRepository.findByIdForWrite(roomId)).thenReturn(java.util.Optional.of(room));
 		when(room.getHostUserId()).thenReturn(1L);
 		when(room.getId()).thenReturn(roomId);
 		when(room.getStartAt()).thenReturn(NOW.plusSeconds(3600));
@@ -487,8 +517,8 @@ class RoomParticipationCancelExecutorTest {
 		RoomWaitlistCandidateProjection waiting = candidate(20L, 1L);
 		RoomParticipationCancelExecutor executor = new RoomParticipationCancelExecutor(
 			mockedRoomRepository, mockedParticipationRepository, mockedWaitlistRepository, recorder,
-			NO_OP_EVENT_PUBLISHER);
-		when(mockedRoomRepository.findById(roomId)).thenReturn(java.util.Optional.of(room));
+			NO_OP_EVENT_PUBLISHER, new MockEnvironment());
+		when(mockedRoomRepository.findByIdForWrite(roomId)).thenReturn(java.util.Optional.of(room));
 		when(room.getHostUserId()).thenReturn(hostUserId);
 		when(room.getId()).thenReturn(roomId);
 		when(room.getStartAt()).thenReturn(NOW.plusSeconds(3600));
@@ -527,8 +557,8 @@ class RoomParticipationCancelExecutorTest {
 		Participation participation = mock(Participation.class);
 		RoomParticipationCancelExecutor executor = new RoomParticipationCancelExecutor(
 			mockedRoomRepository, mockedParticipationRepository, mockedWaitlistRepository, recorder,
-			NO_OP_EVENT_PUBLISHER);
-		when(mockedRoomRepository.findById(roomId)).thenReturn(java.util.Optional.of(room));
+			NO_OP_EVENT_PUBLISHER, new MockEnvironment());
+		when(mockedRoomRepository.findByIdForWrite(roomId)).thenReturn(java.util.Optional.of(room));
 		when(room.getHostUserId()).thenReturn(1L);
 		when(room.getId()).thenReturn(roomId);
 		when(room.getStartAt()).thenReturn(NOW.plusSeconds(3600));

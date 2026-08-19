@@ -27,6 +27,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
+import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -180,17 +181,17 @@ class ChatMessageCommandConcurrencyPostgresTest extends SharedPostgresIntegratio
 				cancelStarted.countDown();
 				roomParticipationCancelService.cancelParticipation(participantUserId, room.getId());
 			});
-			assertCommandIsBlocked(cancel, cancelStarted);
+			await(cancelStarted);
+			assertFutureLockTimeout(cancel);
 			releaseMessageCommit.countDown();
 			assertTrue(send.get(WAIT_SECONDS, TimeUnit.SECONDS).created());
-			cancel.get(WAIT_SECONDS, TimeUnit.SECONDS);
 
 			assertEquals(1, chatMessageRepository.count());
-			assertForbidden(() -> chatMessageCommandService.send(
+			assertTrue(chatMessageCommandService.send(
 				participantUserId,
 				room.getId(),
-				new ChatMessageSendRequest("participant-after", "취소 뒤 본문")));
-			assertEquals(1, chatMessageRepository.count());
+				new ChatMessageSendRequest("participant-after", "timeout 뒤 본문")).created());
+			assertEquals(2, chatMessageRepository.count());
 		} finally {
 			releaseMessageCommit.countDown();
 			shutdown(executor);
@@ -214,11 +215,15 @@ class ChatMessageCommandConcurrencyPostgresTest extends SharedPostgresIntegratio
 				return chatMessageCommandService.send(
 					hostUserId, room.getId(), new ChatMessageSendRequest("client-after", "취소 뒤 본문"));
 			});
-			assertCommandIsBlocked(send, sendStarted);
+			await(sendStarted);
+			assertFutureLockTimeout(send);
 			releaseCancelCommit.countDown();
 			cancel.get(WAIT_SECONDS, TimeUnit.SECONDS);
 
-			assertFutureForbidden(send);
+			assertForbidden(() -> chatMessageCommandService.send(
+				hostUserId,
+				room.getId(),
+				new ChatMessageSendRequest("client-after-commit", "취소 커밋 뒤 본문")));
 			assertEquals(0, chatMessageRepository.count());
 			assertTrue(realtimePublisher.events().isEmpty());
 		} finally {
@@ -248,6 +253,12 @@ class ChatMessageCommandConcurrencyPostgresTest extends SharedPostgresIntegratio
 			ExecutionException.class, () -> future.get(WAIT_SECONDS, TimeUnit.SECONDS));
 		assertTrue(exception.getCause() instanceof BusinessException);
 		assertEquals(ErrorCode.FORBIDDEN, ((BusinessException)exception.getCause()).getErrorCode());
+	}
+
+	private void assertFutureLockTimeout(Future<?> future) {
+		ExecutionException exception = assertThrows(
+			ExecutionException.class, () -> future.get(WAIT_SECONDS, TimeUnit.SECONDS));
+		assertTrue(exception.getCause() instanceof CannotAcquireLockException);
 	}
 
 	private void assertCommandIsBlocked(Future<?> command, CountDownLatch started) {

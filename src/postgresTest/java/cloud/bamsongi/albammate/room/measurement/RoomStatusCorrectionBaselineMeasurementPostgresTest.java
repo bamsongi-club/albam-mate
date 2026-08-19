@@ -93,7 +93,7 @@ class RoomStatusCorrectionBaselineMeasurementPostgresTest {
 	}
 
 	@Test
-	void 작은_fixture는_현행_전체_Entity_단일_트랜잭션_경로의_입력과_결과를_기록한다() throws Exception {
+	void 작은_fixture는_현행_전체_Entity_ROOM별_독립_트랜잭션_경로의_입력과_결과를_기록한다() throws Exception {
 		MeasurementReport report = measure(SMALL);
 
 		assertEquals("SUCCESS", report.outcome());
@@ -358,12 +358,13 @@ class RoomStatusCorrectionBaselineMeasurementPostgresTest {
 		PgStatStatement begin = statements.stream()
 			.filter(statement -> statement.query().equals("BEGIN"))
 			.findFirst()
-			.orElseThrow(() -> new AssertionError("단일 일괄 트랜잭션 BEGIN 원자료가 없습니다."));
-		assertEquals(1L, begin.calls(), "단일 일괄 트랜잭션 BEGIN 호출 수");
+			.orElseThrow(() -> new AssertionError("ROOM별 독립 트랜잭션 BEGIN 원자료가 없습니다."));
+		assertEquals(expectedUpdateCount, begin.calls(), "ROOM별 독립 트랜잭션 BEGIN 호출 수");
 		PgStatStatement candidateQuery = statements.stream()
 			.filter(statement -> statement.query().startsWith("select ")
 				&& statement.query().contains("from rooms r1_0")
-				&& statement.query().contains("start_at"))
+				&& statement.query().contains("start_at")
+				&& statement.query().contains("order by r1_0.start_at,r1_0.id"))
 			.findFirst()
 			.orElseThrow(() -> new AssertionError("findDueRooms SQL 원자료가 없습니다."));
 		assertEquals(1L, candidateQuery.calls(), "재시도 없는 단일 일괄 트랜잭션의 후보 조회 횟수");

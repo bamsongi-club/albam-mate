@@ -104,7 +104,7 @@ class RoomStatusCorrectionBoundedCoordinatorTest {
 			verify(executor).correctRoom(40L, CUTOFF);
 			verify(progressStore, times(4)).advanceCursor(
 				any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), any(Instant.class), anyLong());
-			assertEquals(3, retrierAppender.list.size());
+			assertEquals(4, retrierAppender.list.size());
 			assertEquals(
 				"event=room_state_reconciliation_retry roomId=10 attempt=2 useCase=ROOM_STATUS_CORRECTION reasonCode=OPTIMISTIC_LOCK_CONFLICT",
 				fieldText(retrierAppender.list.get(0)));
@@ -114,6 +114,10 @@ class RoomStatusCorrectionBoundedCoordinatorTest {
 			assertEquals(
 				"event=room_state_reconciliation_retry roomId=10 attempt=3 useCase=ROOM_STATUS_CORRECTION reasonCode=OPTIMISTIC_LOCK_EXHAUSTED",
 				fieldText(retrierAppender.list.get(2)));
+			assertEquals(
+				"event=room_state_reconciliation_retry roomId=30 attempt=1 useCase=ROOM_STATUS_CORRECTION "
+					+ "reasonCode=UNEXPECTED_TECHNICAL_FAILURE sqlState=",
+				retrierAppender.list.get(3).getFormattedMessage());
 			assertEquals(1, coordinatorAppender.list.size());
 			assertEquals(
 				"event=room_status_reconciliation_room_failed roomId=30 useCase=ROOM_STATUS_CORRECTION reasonCode=UNEXPECTED_FAILURE",

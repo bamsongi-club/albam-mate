@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
+import java.sql.SQLException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -24,6 +25,7 @@ import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.room.entity.Room;
 import jakarta.persistence.OptimisticLockException;
+import jakarta.persistence.PessimisticLockException;
 
 class RoomOptimisticLockRetrierTest {
 
@@ -177,6 +179,57 @@ class RoomOptimisticLockRetrierTest {
 			}
 			assertTrue(appender.list.stream().allMatch(event -> event.getThrowableProxy() == null));
 			assertTrue(appender.list.stream().noneMatch(event -> fieldText(event).contains("민감한 예외 메시지")));
+		} finally {
+			detachLogAppender(appender);
+		}
+	}
+
+	@Test
+	void C_T3_잠금_timeout은_재시도하지_않고_내부_범주만_기록한다() {
+		AtomicInteger attempts = new AtomicInteger();
+		ListAppender<ILoggingEvent> appender = attachLogAppender();
+		try {
+			PessimisticLockException expected = new PessimisticLockException("lock timeout");
+			assertSame(expected, assertThrows(PessimisticLockException.class,
+				() -> retrier.execute(() -> {
+					attempts.incrementAndGet();
+					throw expected;
+				}, "room_waitlist_cancel_retry", 7L)));
+			assertEquals(1, attempts.get());
+			assertEquals(
+				"event=room_waitlist_cancel_retry roomId=7 attempt=1 useCase=ROOM_WAITLIST_CANCEL "
+					+ "reasonCode=LOCK_TIMEOUT sqlState=",
+				appender.list.getFirst().getFormattedMessage());
+		} finally {
+			detachLogAppender(appender);
+		}
+	}
+
+	@Test
+	void C_T3_SQLState_55P03은_직접_LOCK_TIMEOUT으로_분류한다() {
+		assertSqlStateTechnicalFailure("55P03", "LOCK_TIMEOUT");
+	}
+
+	@Test
+	void C_T3_SQLState_40P01은_직접_DEADLOCK으로_분류한다() {
+		assertSqlStateTechnicalFailure("40P01", "DEADLOCK");
+	}
+
+	private void assertSqlStateTechnicalFailure(String sqlState, String expectedReasonCode) {
+		AtomicInteger attempts = new AtomicInteger();
+		ListAppender<ILoggingEvent> appender = attachLogAppender();
+		try {
+			RuntimeException expected = new RuntimeException(new SQLException("controlled", sqlState));
+			assertSame(expected, assertThrows(RuntimeException.class,
+				() -> retrier.execute(() -> {
+					attempts.incrementAndGet();
+					throw expected;
+				}, "room_state_reconciliation_retry", null)));
+			assertEquals(1, attempts.get());
+			assertEquals(
+				"event=room_state_reconciliation_retry attempt=1 useCase=ROOM_STATUS_CORRECTION reasonCode="
+					+ expectedReasonCode + " sqlState=" + sqlState,
+				appender.list.getFirst().getFormattedMessage());
 		} finally {
 			detachLogAppender(appender);
 		}

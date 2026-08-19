@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
 
+import org.springframework.core.env.Environment;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -22,24 +23,35 @@ import cloud.bamsongi.albammate.room.repository.ParticipationRepository;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
 import cloud.bamsongi.albammate.room.repository.RoomWaitlistRepository;
 import cloud.bamsongi.albammate.room.repository.RoomWaitlistStateProjection;
-import lombok.AccessLevel;
-import lombok.NonNull;
-import lombok.RequiredArgsConstructor;
 
 /** 한 번의 대기 활성화를 최신 ROOM 상태 기준의 독립 트랜잭션에서 처리한다. */
 @Service
-@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
 class RoomWaitlistRegistrationExecutor {
 
-	@NonNull private final RoomRepository roomRepository;
-	@NonNull private final ParticipationRepository participationRepository;
-	@NonNull private final RoomWaitlistRepository roomWaitlistRepository;
+	private final RoomRepository roomRepository;
+	private final ParticipationRepository participationRepository;
+	private final RoomWaitlistRepository roomWaitlistRepository;
+	private final boolean postgresDatabase;
+
+	RoomWaitlistRegistrationExecutor(
+		RoomRepository roomRepository,
+		ParticipationRepository participationRepository,
+		RoomWaitlistRepository roomWaitlistRepository,
+		Environment environment) {
+		this.roomRepository = Objects.requireNonNull(roomRepository, "roomRepository");
+		this.participationRepository = Objects.requireNonNull(participationRepository, "participationRepository");
+		this.roomWaitlistRepository = Objects.requireNonNull(roomWaitlistRepository, "roomWaitlistRepository");
+		Objects.requireNonNull(environment, "environment");
+		String jdbcUrl = environment.getProperty("spring.datasource.url", "");
+		this.postgresDatabase = !jdbcUrl.startsWith("jdbc:h2:");
+	}
 
 	@Transactional(propagation = Propagation.REQUIRES_NEW)
 	public RoomWaitlistCommandService.RegistrationResult register(
 		long currentUserId, long roomId, Instant requestTime) {
 		Objects.requireNonNull(requestTime, "requestTime");
-		Room room = roomRepository.findById(roomId)
+		setLocalWriteLockTimeout();
+		Room room = roomRepository.findByIdForWrite(roomId)
 			.orElseThrow(() -> new BusinessException(ErrorCode.ROOM_NOT_FOUND));
 		Optional<Participation> participation = participationRepository.findByRoomIdAndUserId(roomId, currentUserId);
 		Optional<RoomWaitlistStateProjection> waitlist = roomWaitlistRepository
@@ -65,6 +77,12 @@ class RoomWaitlistRegistrationExecutor {
 			.findStateWithPositionByRoomIdAndUserId(roomId, currentUserId)
 			.orElseThrow(() -> new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR));
 		return new RoomWaitlistCommandService.RegistrationResult(toResponse(roomId, activated), true);
+	}
+
+	private void setLocalWriteLockTimeout() {
+		if (postgresDatabase) {
+			roomRepository.setLocalWriteLockTimeout();
+		}
 	}
 
 	private void validateEligibility(

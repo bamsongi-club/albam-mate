@@ -93,18 +93,19 @@ class RoomRejoinPromotionConcurrencyPostgresTest extends SharedPostgresIntegrati
 		EventCounts before = eventCounts(fixture.roomId());
 		PromotionRecipientCounts promotionRecipientsBefore = promotionRecipientCounts(fixture);
 		participationLookupGate.activate(fixture.roomId(), fixture.rejoiningUserId());
-		ExecutorService executor = Executors.newSingleThreadExecutor();
+		ExecutorService executor = Executors.newFixedThreadPool(2);
 		try {
 			Future<CommandResult> rejoinFuture = executor.submit(
 				() -> participate(fixture.rejoiningUserId(), fixture.roomId()));
 
 			participationLookupGate.awaitBlocked();
+			Future<?> cancellationFuture = executor.submit(
+				() -> roomParticipationCancelService.cancelParticipation(fixture.leavingUserId(), fixture.roomId()));
 			participationLookupGate.release();
 			assertEquals(
 				ErrorCode.CAPACITY_EXCEEDED,
 				rejoinFuture.get(WAIT_SECONDS, TimeUnit.SECONDS).errorCode());
-
-			roomParticipationCancelService.cancelParticipation(fixture.leavingUserId(), fixture.roomId());
+			cancellationFuture.get(WAIT_SECONDS, TimeUnit.SECONDS);
 		} finally {
 			participationLookupGate.release();
 			participationLookupGate.deactivate();
@@ -119,15 +120,22 @@ class RoomRejoinPromotionConcurrencyPostgresTest extends SharedPostgresIntegrati
 		RejoinPromotionFixture fixture = createFixture("rejoin-promotion-cancel-first");
 		EventCounts before = eventCounts(fixture.roomId());
 		PromotionRecipientCounts promotionRecipientsBefore = promotionRecipientCounts(fixture);
-		participationLookupGate.activate(fixture.roomId(), fixture.rejoiningUserId());
-		ExecutorService executor = Executors.newSingleThreadExecutor();
+		participationLookupGate.activate(fixture.roomId(), fixture.leavingUserId());
+		ExecutorService executor = Executors.newFixedThreadPool(2);
 		try {
-			Future<CommandResult> rejoinFuture = executor.submit(
-				() -> participate(fixture.rejoiningUserId(), fixture.roomId()));
-
+			Future<?> cancellationFuture = executor.submit(
+				() -> roomParticipationCancelService.cancelParticipation(fixture.leavingUserId(), fixture.roomId()));
 			participationLookupGate.awaitBlocked();
-			roomParticipationCancelService.cancelParticipation(fixture.leavingUserId(), fixture.roomId());
+
+			CountDownLatch rejoinStarted = new CountDownLatch(1);
+			Future<CommandResult> rejoinFuture = executor.submit(() -> {
+				rejoinStarted.countDown();
+				return participate(fixture.rejoiningUserId(), fixture.roomId());
+			});
+			assertTrue(rejoinStarted.await(WAIT_SECONDS, TimeUnit.SECONDS));
 			participationLookupGate.release();
+
+			cancellationFuture.get(WAIT_SECONDS, TimeUnit.SECONDS);
 			assertEquals(
 				ErrorCode.ALREADY_PARTICIPATING,
 				rejoinFuture.get(WAIT_SECONDS, TimeUnit.SECONDS).errorCode());

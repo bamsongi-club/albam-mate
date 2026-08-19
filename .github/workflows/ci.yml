@@ -232,6 +232,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Set up Java
@@ -246,6 +247,19 @@ jobs:
           cache-provider: basic
           cache-read-only: ${{ github.ref != 'refs/heads/develop' && github.ref != 'refs/heads/main' }}
           validate-wrappers: true
+
+      - name: Fetch recorded ROOM candidate source
+        shell: bash
+        run: |
+          candidate_source_sha="$(node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const document = readFileSync("docs/measurements/room-lock-strategy-comparison-contract.md", "utf8");
+            const section = document.split("## Final candidate C run manifest", 2)[1];
+            const json = section.match(/```json\s*([\s\S]*?)\s*```/)[1];
+            process.stdout.write(JSON.parse(json).candidateSourceSha);
+          ')"
+          git fetch --no-tags origin "$candidate_source_sha"
+          git cat-file -e "$candidate_source_sha^{commit}"
 
       - name: Test PostgreSQL shard
         shell: bash
@@ -545,6 +559,41 @@ jobs:
       - name: Test game catalog contracts
         run: node --test scripts/game-catalog/*.test.mjs
 
+  room-lock-provenance:
+    name: ROOM Lock Provenance
+    needs: changes
+    if: ${{ needs.changes.outputs.postgres_required == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Java
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Fetch recorded ROOM candidate source
+        shell: bash
+        run: |
+          candidate_source_sha="$(node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const document = readFileSync("docs/measurements/room-lock-strategy-comparison-contract.md", "utf8");
+            const section = document.split("## Final candidate C run manifest", 2)[1];
+            const json = section.match(/```json\s*([\s\S]*?)\s*```/)[1];
+            process.stdout.write(JSON.parse(json).candidateSourceSha);
+          ')"
+          git fetch --no-tags origin "$candidate_source_sha"
+          git cat-file -e "$candidate_source_sha^{commit}"
+      - name: Verify recorded ROOM lock provenance
+        run: >-
+          ./gradlew postgresTest
+          --tests "cloud.bamsongi.albammate.room.measurement.RoomLockStrategyComparisonPostgresTest.T1_기록된_provenance는_실행_runtime과_독립적으로_canonical_bundle을_검증한다"
+          --rerun --fail-fast --no-daemon --stacktrace
+
   ci-gate:
     name: CI Gate
     if: ${{ always() }}
@@ -556,6 +605,7 @@ jobs:
       - coverage-gate
       - frontend
       - docs
+      - room-lock-provenance
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
@@ -565,6 +615,7 @@ jobs:
         env:
           CHANGES_RESULT: ${{ needs.changes.result }}
           DOCS_RESULT: ${{ needs.docs.result }}
+          ROOM_LOCK_PROVENANCE_RESULT: ${{ needs.room-lock-provenance.result }}
           BACKEND_REQUIRED: ${{ needs.changes.outputs.backend }}
           POSTGRES_DECISION: ${{ needs.changes.outputs.postgres_decision }}
           POSTGRES_REQUIRED: ${{ needs.changes.outputs.postgres_required }}
@@ -584,7 +635,11 @@ jobs:
           if [[ "$CHANGES_RESULT" != "success" || "$DOCS_RESULT" != "success" ]]; then
             fail "Changes와 Docs는 항상 성공해야 합니다."
           fi
-
+          if [[ "$POSTGRES_REQUIRED" == "true" ]]; then
+            [[ "$ROOM_LOCK_PROVENANCE_RESULT" == "success" ]] || fail "ROOM Lock Provenance가 실패했습니다."
+          else
+            [[ "$ROOM_LOCK_PROVENANCE_RESULT" == "skipped" ]] || fail "PostgreSQL이 필요하지 않은데 ROOM Lock Provenance가 실행되었습니다."
+          fi
           if [[ "$BACKEND_REQUIRED" != "true" && "$BACKEND_REQUIRED" != "false" ]]; then
             fail "backend 경로 분류 결과가 없습니다."
           fi

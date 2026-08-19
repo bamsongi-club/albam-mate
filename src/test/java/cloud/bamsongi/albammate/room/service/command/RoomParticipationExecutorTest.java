@@ -22,6 +22,7 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.mock.env.MockEnvironment;
 
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
@@ -57,7 +58,7 @@ class RoomParticipationExecutorTest {
 	@Test
 	void 최신_방을_읽고_신규_참가_관계와_카운터를_저장한다() {
 		RoomParticipationExecutor executor = executor();
-		when(roomRepository.findById(ROOM_ID)).thenReturn(Optional.of(room));
+		when(roomRepository.findByIdForWrite(ROOM_ID)).thenReturn(Optional.of(room));
 		when(participationRepository.findByRoomIdAndUserId(ROOM_ID, USER_ID))
 			.thenReturn(Optional.empty());
 		when(room.getStatus()).thenReturn(RoomStatus.RECRUITING);
@@ -86,7 +87,7 @@ class RoomParticipationExecutorTest {
 	void 참가와_재참가_최종_성공은_주최자_수신자의_Outbox_이벤트를_기록한다() {
 		RoomParticipationExecutor executor = executor();
 		Participation canceledParticipation = org.mockito.Mockito.mock(Participation.class);
-		when(roomRepository.findById(ROOM_ID)).thenReturn(Optional.of(room));
+		when(roomRepository.findByIdForWrite(ROOM_ID)).thenReturn(Optional.of(room));
 		when(participationRepository.findByRoomIdAndUserId(ROOM_ID, USER_ID))
 			.thenReturn(Optional.empty(), Optional.of(canceledParticipation));
 		when(canceledParticipation.getStatus()).thenReturn(
@@ -120,7 +121,7 @@ class RoomParticipationExecutorTest {
 	@Test
 	void Outbox_기록_실패는_참가_명령을_성공으로_반환하지_않는다() {
 		RoomParticipationExecutor executor = executor();
-		when(roomRepository.findById(ROOM_ID)).thenReturn(Optional.of(room));
+		when(roomRepository.findByIdForWrite(ROOM_ID)).thenReturn(Optional.of(room));
 		when(participationRepository.findByRoomIdAndUserId(ROOM_ID, USER_ID))
 			.thenReturn(Optional.empty());
 		when(room.getStatus()).thenReturn(RoomStatus.RECRUITING);
@@ -161,7 +162,7 @@ class RoomParticipationExecutorTest {
 	@Test
 	void 취소된_방은_참가_저장_전에_ROOM_NOT_RECRUITING을_반환한다() {
 		RoomParticipationExecutor executor = executor();
-		when(roomRepository.findById(ROOM_ID)).thenReturn(Optional.of(room));
+		when(roomRepository.findByIdForWrite(ROOM_ID)).thenReturn(Optional.of(room));
 		when(participationRepository.findByRoomIdAndUserId(ROOM_ID, USER_ID))
 			.thenReturn(Optional.empty());
 		when(room.getStatus()).thenReturn(RoomStatus.CANCELED);
@@ -176,9 +177,30 @@ class RoomParticipationExecutorTest {
 	}
 
 	@Test
+	void 모집중이_아닌_방은_시작_전이어도_ROOM_NOT_RECRUITING을_반환한다() {
+		RoomParticipationExecutor executor = executor();
+		when(roomRepository.findByIdForWrite(ROOM_ID)).thenReturn(Optional.of(room));
+		when(participationRepository.findByRoomIdAndUserId(ROOM_ID, USER_ID))
+			.thenReturn(Optional.empty());
+		when(room.getStatus()).thenReturn(RoomStatus.CLOSED);
+		when(room.getHostUserId()).thenReturn(1L);
+		when(room.getActiveParticipantCount()).thenReturn(0);
+		when(room.getCapacity()).thenReturn(2);
+		when(room.getStartAt()).thenReturn(REQUEST_TIME.plusSeconds(3600));
+
+		BusinessException exception = assertThrows(
+			BusinessException.class,
+			() -> executor.participate(USER_ID, ROOM_ID, REQUEST_TIME));
+
+		assertEquals(ErrorCode.ROOM_NOT_RECRUITING, exception.getErrorCode());
+		verify(room).reconcileStateAt(REQUEST_TIME);
+		verify(participationRepository, never()).save(any(Participation.class));
+	}
+
+	@Test
 	void 없는_방은_참가_관계_조회와_저장_전에_ROOM_NOT_FOUND로_종료한다() {
 		RoomParticipationExecutor executor = executor();
-		when(roomRepository.findById(ROOM_ID)).thenReturn(Optional.empty());
+		when(roomRepository.findByIdForWrite(ROOM_ID)).thenReturn(Optional.empty());
 
 		BusinessException exception = assertThrows(
 			BusinessException.class,
@@ -190,6 +212,6 @@ class RoomParticipationExecutorTest {
 
 	private RoomParticipationExecutor executor() {
 		return new RoomParticipationExecutor(
-			roomRepository, participationRepository, roomChangeEventRecorder, eventPublisher);
+			roomRepository, participationRepository, roomChangeEventRecorder, eventPublisher, new MockEnvironment());
 	}
 }

@@ -6,6 +6,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,6 +35,7 @@ class RoomParticipationCancelExecutor {
 	private final RoomWaitlistRepository roomWaitlistRepository;
 	private final RoomChangeEventRecorder roomChangeEventRecorder;
 	private final ApplicationEventPublisher eventPublisher;
+	private final boolean postgresDatabase;
 
 	RoomParticipationCancelExecutor(
 		RoomRepository roomRepository,
@@ -41,12 +43,16 @@ class RoomParticipationCancelExecutor {
 		RoomWaitlistRepository roomWaitlistRepository,
 		RoomChangeEventRecorder roomChangeEventRecorder,
 		ApplicationEventPublisher eventPublisher,
+		Environment environment,
 		RoomWaitlistMetrics... ignoredMetrics) {
 		this.roomRepository = Objects.requireNonNull(roomRepository, "roomRepository");
 		this.participationRepository = Objects.requireNonNull(participationRepository, "participationRepository");
 		this.roomWaitlistRepository = Objects.requireNonNull(roomWaitlistRepository, "roomWaitlistRepository");
 		this.roomChangeEventRecorder = Objects.requireNonNull(roomChangeEventRecorder, "roomChangeEventRecorder");
 		this.eventPublisher = Objects.requireNonNull(eventPublisher, "eventPublisher");
+		Objects.requireNonNull(environment, "environment");
+		String jdbcUrl = environment.getProperty("spring.datasource.url", "");
+		this.postgresDatabase = !jdbcUrl.startsWith("jdbc:h2:");
 	}
 
 	/** 요청 시각의 방 상태를 보정한 뒤 활성 참가 관계를 취소하고 점유 인원을 갱신한다. */
@@ -63,8 +69,9 @@ class RoomParticipationCancelExecutor {
 		Objects.requireNonNull(requestTime, "requestTime");
 		Objects.requireNonNull(promotionAttemptedObserver, "promotionAttemptedObserver");
 
+		setLocalWriteLockTimeout();
 		Room room = roomRepository
-			.findById(roomId)
+			.findByIdForWrite(roomId)
 			.orElseThrow(() -> new BusinessException(ErrorCode.ROOM_NOT_FOUND));
 
 		room.reconcileStateAt(requestTime);
@@ -89,6 +96,12 @@ class RoomParticipationCancelExecutor {
 				new ParticipationCanceledEvent(room.getId(), requestTime), List.of(room.getHostUserId()));
 		}
 		return RoomParticipationResponse.from(room, ParticipationStatus.CANCELED);
+	}
+
+	private void setLocalWriteLockTimeout() {
+		if (postgresDatabase) {
+			roomRepository.setLocalWriteLockTimeout();
+		}
 	}
 
 	/** 현재 ROOM의 빈자리 하나에는 조건부 전이에 성공한 첫 대기자만 활성 참가로 만든다. */

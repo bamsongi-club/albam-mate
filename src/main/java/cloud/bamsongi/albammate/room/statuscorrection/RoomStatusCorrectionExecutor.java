@@ -3,7 +3,9 @@ package cloud.bamsongi.albammate.room.statuscorrection;
 import java.time.Instant;
 import java.util.Objects;
 
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,14 +23,22 @@ class RoomStatusCorrectionExecutor {
 	private final RoomRepository roomRepository;
 	private final RoomWaitlistRepository roomWaitlistRepository;
 	private final ApplicationEventPublisher eventPublisher;
+	private final ObjectProvider<RoomStatusCorrectionExecutor> executorProvider;
+	private final boolean postgresDatabase;
 
 	RoomStatusCorrectionExecutor(
 		RoomRepository roomRepository,
 		RoomWaitlistRepository roomWaitlistRepository,
-		ApplicationEventPublisher eventPublisher) {
+		ApplicationEventPublisher eventPublisher,
+		ObjectProvider<RoomStatusCorrectionExecutor> executorProvider,
+		Environment environment) {
 		this.roomRepository = Objects.requireNonNull(roomRepository, "roomRepository");
 		this.roomWaitlistRepository = Objects.requireNonNull(roomWaitlistRepository, "roomWaitlistRepository");
 		this.eventPublisher = Objects.requireNonNull(eventPublisher, "eventPublisher");
+		this.executorProvider = Objects.requireNonNull(executorProvider, "executorProvider");
+		Objects.requireNonNull(environment, "environment");
+		String jdbcUrl = environment.getProperty("spring.datasource.url", "");
+		this.postgresDatabase = !jdbcUrl.startsWith("jdbc:h2:");
 	}
 
 	/** 단건 보정 시도마다 최신 방을 다시 읽고, 없는 방은 후속 유스케이스가 판단하도록 건너뛴다. */
@@ -37,7 +47,7 @@ class RoomStatusCorrectionExecutor {
 		Objects.requireNonNull(roomId, "roomId");
 		Objects.requireNonNull(requestTime, "requestTime");
 
-		Room room = roomRepository.findById(roomId).orElse(null);
+		Room room = lockRoom(roomId);
 		if (room == null) {
 			return false;
 		}
@@ -46,17 +56,27 @@ class RoomStatusCorrectionExecutor {
 	}
 
 	/** due 조건에 맞는 방만 읽어 목록·내 모임 조회 전 상태를 일괄 보정한다. */
-	@Transactional(propagation = Propagation.REQUIRES_NEW)
 	public int correctDueRooms(Instant requestTime) {
 		Objects.requireNonNull(requestTime, "requestTime");
 		Instant finishedThreshold = requestTime.minus(Room.AUTOMATIC_FINISH_AFTER_START);
 		int changedCount = 0;
-		for (Room room : roomRepository.findDueRooms(requestTime, finishedThreshold)) {
-			if (correctRoom(room, requestTime)) {
+		for (Room candidate : roomRepository.findDueRooms(requestTime, finishedThreshold)) {
+			if (executorProvider.getObject().correctRoom(candidate.getId(), requestTime)) {
 				changedCount++;
 			}
 		}
 		return changedCount;
+	}
+
+	private Room lockRoom(Long roomId) {
+		setLocalWriteLockTimeout();
+		return roomRepository.findByIdForWrite(roomId).orElse(null);
+	}
+
+	private void setLocalWriteLockTimeout() {
+		if (postgresDatabase) {
+			roomRepository.setLocalWriteLockTimeout();
+		}
 	}
 
 	/** 한 ROOM의 상태와 시작 경계 대기열을 같은 트랜잭션에서 보정한다. */

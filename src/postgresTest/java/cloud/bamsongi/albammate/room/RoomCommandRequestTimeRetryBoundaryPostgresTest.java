@@ -3,23 +3,17 @@ package cloud.bamsongi.albammate.room;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.lang.reflect.InvocationHandler;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.lang.reflect.Proxy;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -27,15 +21,10 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.data.auditing.DateTimeProvider;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionDefinition;
-import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
-import cloud.bamsongi.albammate.room.entity.Room;
-import cloud.bamsongi.albammate.room.repository.RoomRepository;
 import cloud.bamsongi.albammate.room.service.command.RoomParticipationCancelService;
 import cloud.bamsongi.albammate.room.service.command.RoomParticipationService;
 import cloud.bamsongi.albammate.room.service.command.RoomWaitlistCommandService;
@@ -65,13 +54,10 @@ class RoomCommandRequestTimeRetryBoundaryPostgresTest extends SharedPostgresInte
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
 	@Autowired
-	private RetryBoundaryGate retryBoundaryGate;
-	@Autowired
 	private SteppingClock steppingClock;
 
 	@AfterEach
 	void tearDown() {
-		retryBoundaryGate.reset();
 		steppingClock.reset();
 		jdbcTemplate.execute("truncate table participations, room_waitlists, rooms, users restart identity cascade");
 	}
@@ -81,43 +67,26 @@ class RoomCommandRequestTimeRetryBoundaryPostgresTest extends SharedPostgresInte
 		long hostUserId = insertUser("retry-boundary-host@example.com");
 		long participantUserId = insertUser("retry-boundary-participant@example.com");
 		long roomId = insertRoom(hostUserId, REQUEST_TIME.plusSeconds(1));
-		retryBoundaryGate.changeStartAtAfterFirstRead(roomId, REQUEST_TIME.plusSeconds(30));
 
 		roomParticipationService.participate(participantUserId, roomId);
 
 		assertEquals(1, steppingClock.instantCallCount());
-		assertEquals(List.of(0L, 1L), retryBoundaryGate.readVersions());
-		assertEquals(2L, roomVersion(roomId));
+		assertEquals(1L, roomVersion(roomId));
 		assertEquals(1, activeParticipationCount(roomId, participantUserId));
 	}
 
 	@Test
-	void 최신_업무_오류는_첫_충돌_뒤_우선하고_세_번_충돌한_경우만_동시_수정_오류가_된다() {
+	void 최신_업무_오류는_비관락_경로에서_재시도하지_않고_즉시_반환된다() {
 		long hostUserId = insertUser("retry-priority-host@example.com");
 		long participantUserId = insertUser("retry-priority-participant@example.com");
-		long roomId = insertRoom(hostUserId, REQUEST_TIME.plusSeconds(1));
-		retryBoundaryGate.changeStartAtAfterFirstRead(roomId, REQUEST_TIME.minusSeconds(1));
+		long roomId = insertRoom(hostUserId, REQUEST_TIME.minusSeconds(1));
 
 		BusinessException businessException = assertThrows(
 			BusinessException.class,
 			() -> roomParticipationService.participate(participantUserId, roomId));
 
 		assertEquals(ErrorCode.ROOM_NOT_RECRUITING, businessException.getErrorCode());
-		assertEquals(List.of(0L, 1L), retryBoundaryGate.readVersions());
 		assertEquals(0, activeParticipationCount(roomId, participantUserId));
-
-		retryBoundaryGate.reset();
-		steppingClock.reset();
-		long exhaustedRoomId = insertRoom(hostUserId, REQUEST_TIME.plusSeconds(120));
-		retryBoundaryGate.conflictOnEveryRead(exhaustedRoomId);
-
-		BusinessException exhaustedException = assertThrows(
-			BusinessException.class,
-			() -> roomParticipationService.participate(participantUserId, exhaustedRoomId));
-
-		assertEquals(ErrorCode.ROOM_CONCURRENT_MODIFICATION, exhaustedException.getErrorCode());
-		assertEquals(List.of(0L, 1L, 2L), retryBoundaryGate.readVersions());
-		assertEquals(0, activeParticipationCount(exhaustedRoomId, participantUserId));
 	}
 
 	@Test
@@ -268,20 +237,6 @@ class RoomCommandRequestTimeRetryBoundaryPostgresTest extends SharedPostgresInte
 		DateTimeProvider fixedAuditingDateTimeProvider() {
 			return () -> Optional.of(REQUEST_TIME);
 		}
-
-		@Bean
-		RetryBoundaryGate retryBoundaryGate(PlatformTransactionManager transactionManager, JdbcTemplate jdbcTemplate) {
-			return new RetryBoundaryGate(transactionManager, jdbcTemplate);
-		}
-
-		@Bean(name = "retryBoundaryRoomRepository")
-		@Primary
-		RoomRepository retryBoundaryRoomRepository(
-			@Qualifier("roomRepository") RoomRepository delegate, RetryBoundaryGate retryBoundaryGate) {
-			InvocationHandler handler = new RetryBoundaryRoomRepositoryInvocationHandler(delegate, retryBoundaryGate);
-			return (RoomRepository)Proxy.newProxyInstance(
-				RoomRepository.class.getClassLoader(), new Class<?>[] {RoomRepository.class}, handler);
-		}
 	}
 
 	static final class SteppingClock extends Clock {
@@ -319,88 +274,4 @@ class RoomCommandRequestTimeRetryBoundaryPostgresTest extends SharedPostgresInte
 		}
 	}
 
-	static final class RetryBoundaryGate {
-
-		private final TransactionTemplate requiresNewTransaction;
-		private final JdbcTemplate jdbcTemplate;
-		private final List<Long> readVersions = new ArrayList<>();
-		private long roomId;
-		private Instant replacementStartAt;
-		private boolean conflictOnEveryRead;
-
-		RetryBoundaryGate(PlatformTransactionManager transactionManager, JdbcTemplate jdbcTemplate) {
-			this.jdbcTemplate = jdbcTemplate;
-			requiresNewTransaction = new TransactionTemplate(transactionManager);
-			requiresNewTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-		}
-
-		void changeStartAtAfterFirstRead(long roomId, Instant replacementStartAt) {
-			this.roomId = roomId;
-			this.replacementStartAt = replacementStartAt;
-			conflictOnEveryRead = false;
-		}
-
-		void conflictOnEveryRead(long roomId) {
-			this.roomId = roomId;
-			replacementStartAt = null;
-			conflictOnEveryRead = true;
-		}
-
-		void afterRead(long readRoomId, Optional<Room> room) {
-			if (readRoomId != roomId || room.isEmpty()) {
-				return;
-			}
-			readVersions.add(room.get().getVersion());
-			boolean shouldConflict = conflictOnEveryRead || readVersions.size() == 1;
-			if (!shouldConflict) {
-				return;
-			}
-			requiresNewTransaction.executeWithoutResult(status -> {
-				if (replacementStartAt == null) {
-					jdbcTemplate.update("update rooms set version = version + 1 where id = ?", roomId);
-					return;
-				}
-				jdbcTemplate.update("update rooms set start_at = ?, version = version + 1 where id = ?",
-					Timestamp.from(replacementStartAt), roomId);
-			});
-		}
-
-		List<Long> readVersions() {
-			return List.copyOf(readVersions);
-		}
-
-		void reset() {
-			readVersions.clear();
-			roomId = 0L;
-			replacementStartAt = null;
-			conflictOnEveryRead = false;
-		}
-	}
-
-	private static final class RetryBoundaryRoomRepositoryInvocationHandler implements InvocationHandler {
-
-		private final RoomRepository delegate;
-		private final RetryBoundaryGate retryBoundaryGate;
-
-		private RetryBoundaryRoomRepositoryInvocationHandler(RoomRepository delegate,
-			RetryBoundaryGate retryBoundaryGate) {
-			this.delegate = delegate;
-			this.retryBoundaryGate = retryBoundaryGate;
-		}
-
-		@Override
-		public Object invoke(Object proxy, Method method, Object[] arguments) throws Throwable {
-			try {
-				Object result = method.invoke(delegate, arguments);
-				if (method.getName().equals("findById") && arguments != null && arguments.length == 1
-					&& arguments[0] instanceof Long roomId && result instanceof Optional<?> optionalResult) {
-					@SuppressWarnings("unchecked") Optional<Room> room = (Optional<Room>)optionalResult;
-					retryBoundaryGate.afterRead(roomId, room);
-				}
-				return result;
-			} catch (InvocationTargetException exception) {
-				throw exception.getCause();
-			}
-		}
-	}
 }

@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.dao.CannotSerializeTransactionException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -58,7 +59,8 @@ class RoomWaitlistRegistrationCoordinatorTest {
 			assertEquals(1, appender.list.size());
 			assertEquals(Level.ERROR, appender.list.get(0).getLevel());
 			assertEquals("roomId=1 useCase=ROOM_WAITLIST_REGISTRATION "
-				+ "reasonCode=UNEXPECTED_DATABASE_FAILURE", appender.list.get(0).getFormattedMessage());
+				+ "attempt=1 reasonCode=UNEXPECTED_TECHNICAL_FAILURE sqlState=",
+				appender.list.get(0).getFormattedMessage());
 			assertTrue(appender.list.stream()
 				.noneMatch(event -> event.getFormattedMessage().contains(sensitiveMessage)));
 		} finally {
@@ -199,6 +201,98 @@ class RoomWaitlistRegistrationCoordinatorTest {
 			detachLogAppender(appender);
 		}
 	}
+
+	@Test
+	void T1_낙관_충돌_뒤_최신_업무_오류는_세번째_시도와_소진_로그보다_우선한다() {
+		RoomWaitlistRegistrationCoordinator coordinator = new RoomWaitlistRegistrationCoordinator(
+			Clock.fixed(REQUEST_TIME, ZoneOffset.UTC), executor);
+		BusinessException latestBusinessException = new BusinessException(ErrorCode.WAITLIST_NOT_AVAILABLE);
+		when(executor.register(eq(7L), eq(1L), any(Instant.class)))
+			.thenThrow(new ObjectOptimisticLockingFailureException(Room.class, 1L))
+			.thenThrow(latestBusinessException);
+		ListAppender<ILoggingEvent> appender = attachLogAppender();
+		try {
+			BusinessException exception = assertThrows(BusinessException.class, () -> coordinator.register(7L, 1L));
+
+			assertEquals(ErrorCode.WAITLIST_NOT_AVAILABLE, exception.getErrorCode());
+			verify(executor, times(2)).register(7L, 1L, REQUEST_TIME);
+			assertTrue(appender.list.stream().noneMatch(event -> event.getFormattedMessage().contains("EXHAUSTED")));
+			assertTrue(appender.list.stream().noneMatch(event -> event.getFormattedMessage().contains("attempt=3")));
+		} finally {
+			detachLogAppender(appender);
+		}
+	}
+
+	@Test
+	void T5_lock_timeout은_재시도하지_않고_500과_LOCK_TIMEOUT을_기록한다() {
+		RoomWaitlistRegistrationCoordinator coordinator = new RoomWaitlistRegistrationCoordinator(
+			Clock.fixed(REQUEST_TIME, ZoneOffset.UTC), executor);
+		CannotAcquireLockException lockTimeout = new CannotAcquireLockException(
+			"lock timeout", new SQLException("lock timeout", "55P03"));
+		when(executor.register(eq(7L), eq(1L), any(Instant.class))).thenThrow(lockTimeout);
+		ListAppender<ILoggingEvent> appender = attachLogAppender();
+		try {
+			BusinessException exception = assertThrows(BusinessException.class, () -> coordinator.register(7L, 1L));
+
+			assertEquals(ErrorCode.INTERNAL_SERVER_ERROR, exception.getErrorCode());
+			verify(executor).register(7L, 1L, REQUEST_TIME);
+			assertEquals("roomId=1 useCase=ROOM_WAITLIST_REGISTRATION "
+				+ "attempt=1 reasonCode=LOCK_TIMEOUT sqlState=55P03",
+				appender.list.getFirst().getFormattedMessage());
+		} finally {
+			detachLogAppender(appender);
+		}
+	}
+
+	@Test
+	void T6_deadlock은_재시도하지_않고_500과_DEADLOCK을_기록한다() {
+		RoomWaitlistRegistrationCoordinator coordinator = new RoomWaitlistRegistrationCoordinator(
+			Clock.fixed(REQUEST_TIME, ZoneOffset.UTC), executor);
+		CannotAcquireLockException deadlock = new CannotAcquireLockException(
+			"deadlock", new SQLException("deadlock", "40P01"));
+		when(executor.register(eq(7L), eq(1L), any(Instant.class))).thenThrow(deadlock);
+		ListAppender<ILoggingEvent> appender = attachLogAppender();
+		try {
+			BusinessException exception = assertThrows(BusinessException.class, () -> coordinator.register(7L, 1L));
+
+			assertEquals(ErrorCode.INTERNAL_SERVER_ERROR, exception.getErrorCode());
+			verify(executor).register(7L, 1L, REQUEST_TIME);
+			assertEquals("roomId=1 useCase=ROOM_WAITLIST_REGISTRATION "
+				+ "attempt=1 reasonCode=DEADLOCK sqlState=40P01",
+				appender.list.getFirst().getFormattedMessage());
+		} finally {
+			detachLogAppender(appender);
+		}
+	}
+
+	@Test
+	void 기술적_예외의_원인_유형을_구분해_기록한다() {
+		assertTechnicalReason(new SQLException("unknown state", "99999"), "UNEXPECTED_TECHNICAL_FAILURE", "99999");
+		assertTechnicalReason(new DeadlockFailure(), "DEADLOCK", "");
+		assertTechnicalReason(new LockTimeoutFailure(), "LOCK_TIMEOUT", "");
+		assertTechnicalReason(new PessimisticLockFailure(), "LOCK_TIMEOUT", "");
+	}
+
+	private void assertTechnicalReason(Throwable cause, String expectedReason, String expectedSqlState) {
+		RoomWaitlistRegistrationCoordinator coordinator = new RoomWaitlistRegistrationCoordinator(
+			Clock.fixed(REQUEST_TIME, ZoneOffset.UTC), executor);
+		CannotAcquireLockException failure = new CannotAcquireLockException("technical failure", cause);
+		when(executor.register(eq(7L), eq(1L), any(Instant.class))).thenThrow(failure);
+		ListAppender<ILoggingEvent> appender = attachLogAppender();
+		try {
+			assertThrows(BusinessException.class, () -> coordinator.register(7L, 1L));
+			assertTrue(appender.list.getFirst().getFormattedMessage().endsWith(
+				"reasonCode=" + expectedReason + " sqlState=" + expectedSqlState));
+		} finally {
+			detachLogAppender(appender);
+		}
+	}
+
+	private static final class DeadlockFailure extends RuntimeException {}
+
+	private static final class LockTimeoutFailure extends RuntimeException {}
+
+	private static final class PessimisticLockFailure extends RuntimeException {}
 
 	private DataIntegrityViolationException waitingQueueOrderConflict(String message) {
 		return waitingQueueOrderConflict(WAITING_QUEUE_ORDER_CONSTRAINT, message);

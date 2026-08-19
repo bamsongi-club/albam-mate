@@ -244,9 +244,11 @@ class RoomWaitlistApiIntegrationTest {
 	@Test
 	void T4_응답_조회가_실패하면_ROOM_claim과_WAITING_대기는_함께_롤백된다() {
 		responseReadFailureGate.failResponseReadFor(waitingUserId);
-		org.junit.jupiter.api.Assertions.assertThrows(
-			IllegalStateException.class,
+		BusinessException exception = org.junit.jupiter.api.Assertions.assertThrows(
+			BusinessException.class,
 			() -> roomWaitlistCommandService.register(waitingUserId, roomId));
+		org.junit.jupiter.api.Assertions.assertEquals(ErrorCode.INTERNAL_SERVER_ERROR, exception.getErrorCode());
+		org.junit.jupiter.api.Assertions.assertInstanceOf(IllegalStateException.class, exception.getCause());
 
 		org.junit.jupiter.api.Assertions.assertEquals(
 			0L, jdbcTemplate.queryForObject("select version from rooms where id = ?", Long.class, roomId));
@@ -562,7 +564,7 @@ class RoomWaitlistApiIntegrationTest {
 
 		@Override
 		public Object invoke(Object proxy, java.lang.reflect.Method method, Object[] arguments) throws Throwable {
-			if (method.getName().equals("findById")) {
+			if (method.getName().equals("findByIdForWrite")) {
 				roomStatusCorrectionFailureGate.beforeRoomLookup(arguments);
 			}
 			try {

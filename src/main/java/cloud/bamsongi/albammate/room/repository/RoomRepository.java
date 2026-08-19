@@ -39,6 +39,15 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
 		@Param("roomId")
 		Long roomId);
 
+	@Modifying
+	@Query(value = "set local lock_timeout = '100ms'", nativeQuery = true)
+	void setLocalWriteLockTimeout();
+
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("select room from Room room where room.id = :roomId")
+	Optional<Room> findByIdForWrite(@Param("roomId")
+	Long roomId);
+
 	@Query("""
 		select r.gameId as gameId, count(r.id) as roomCount
 		from Room r
@@ -115,8 +124,9 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
 		            where waitlist.id.roomId = room.id
 		              and waitlist.status = cloud.bamsongi.albammate.room.enums.RoomWaitlistStatus.WAITING
 		        ))
-		    or (room.status = cloud.bamsongi.albammate.room.enums.RoomStatus.CLOSED
-		        and room.startAt <= :finishedThreshold)
+			or (room.status = cloud.bamsongi.albammate.room.enums.RoomStatus.CLOSED
+			    and room.startAt <= :finishedThreshold)
+		order by room.startAt asc, room.id asc
 		""")
 	List<Room> findDueRooms(
 		@Param("requestTime")

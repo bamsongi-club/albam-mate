@@ -1,5 +1,6 @@
 package cloud.bamsongi.albammate.room.service;
 
+import java.sql.SQLException;
 import java.util.Objects;
 import java.util.function.IntConsumer;
 import java.util.function.Supplier;
@@ -36,6 +37,11 @@ public class RoomOptimisticLockRetrier {
 				return attempt.get();
 			} catch (OptimisticLockException | ObjectOptimisticLockingFailureException exception) {
 				lastConflict = exception;
+			} catch (BusinessException exception) {
+				throw exception;
+			} catch (RuntimeException exception) {
+				logTechnicalFailure(event, roomId, attemptNumber, exception);
+				throw exception;
 			}
 			if (attemptNumber < MAX_ATTEMPTS) {
 				int nextAttempt = attemptNumber + 1;
@@ -46,6 +52,54 @@ public class RoomOptimisticLockRetrier {
 
 		logRetry(event, roomId, MAX_ATTEMPTS, true);
 		throw new BusinessException(ErrorCode.ROOM_CONCURRENT_MODIFICATION, lastConflict);
+	}
+
+	private void logTechnicalFailure(String event, Long roomId, int attempt, RuntimeException exception) {
+		String reasonCode = resolveTechnicalReason(exception);
+		String sqlState = resolveSqlState(exception);
+		String useCase = resolveUseCase(event);
+		if (roomId == null) {
+			log.error("event={} attempt={} useCase={} reasonCode={} sqlState={}", event, attempt, useCase, reasonCode,
+				sqlState);
+			return;
+		}
+		log.error("event={} roomId={} attempt={} useCase={} reasonCode={} sqlState={}", event, roomId, attempt,
+			useCase, reasonCode, sqlState);
+	}
+
+	private String resolveSqlState(Throwable exception) {
+		Throwable cause = exception;
+		while (cause != null) {
+			if (cause instanceof SQLException sqlException) {
+				return Objects.requireNonNullElse(sqlException.getSQLState(), "");
+			}
+			cause = cause.getCause();
+		}
+		return "";
+	}
+
+	private String resolveTechnicalReason(Throwable exception) {
+		boolean lockTimeoutType = false;
+		Throwable cause = exception;
+		while (cause != null) {
+			if (cause instanceof SQLException sqlException) {
+				if ("40P01".equals(sqlException.getSQLState())) {
+					return "DEADLOCK";
+				}
+				if ("55P03".equals(sqlException.getSQLState())) {
+					return "LOCK_TIMEOUT";
+				}
+			}
+			String simpleName = cause.getClass().getSimpleName();
+			if (simpleName.contains("Deadlock")) {
+				return "DEADLOCK";
+			}
+			if (simpleName.contains("LockTimeout") || simpleName.contains("PessimisticLock")) {
+				lockTimeoutType = true;
+			}
+			cause = cause.getCause();
+		}
+		return lockTimeoutType ? "LOCK_TIMEOUT" : "UNEXPECTED_TECHNICAL_FAILURE";
 	}
 
 	private void logRetry(String event, Long roomId, int attempt, boolean exhausted) {

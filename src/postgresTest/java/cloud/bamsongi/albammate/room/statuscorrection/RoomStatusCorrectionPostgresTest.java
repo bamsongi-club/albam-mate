@@ -1,12 +1,11 @@
 package cloud.bamsongi.albammate.room.statuscorrection;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.Field;
-import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
@@ -15,16 +14,13 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -36,13 +32,12 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
+import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-import cloud.bamsongi.albammate.global.exception.BusinessException;
-import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.entity.RoomWaitlist;
 import cloud.bamsongi.albammate.room.entity.RoomWaitlistId;
@@ -56,7 +51,7 @@ import cloud.bamsongi.albammate.testsupport.SharedPostgresIntegrationSupport;
 
 @Testcontainers
 @SpringBootTest
-@Import(RoomStatusCorrectionPostgresTest.StatusCorrectionTestConfiguration.class)
+@Import(RoomStatusCorrectionPostgresTest.DueRoomTransactionBoundaryTestConfiguration.class)
 class RoomStatusCorrectionPostgresTest extends SharedPostgresIntegrationSupport {
 
 	private static final Instant START_AT = Instant.parse("2026-07-28T00:00:00Z");
@@ -72,11 +67,11 @@ class RoomStatusCorrectionPostgresTest extends SharedPostgresIntegrationSupport 
 	private RoomWaitlistRepository roomWaitlistRepository;
 
 	@Autowired
-	private RoomReadGate roomReadGate;
-	@Autowired
 	private JdbcTemplate jdbcTemplate;
 	@Autowired
 	private PlatformTransactionManager transactionManager;
+	@Autowired
+	private DueRoomTransactionGate dueRoomTransactionGate;
 
 	private final List<Long> roomIds = new ArrayList<>();
 	private final List<RoomWaitlistId> waitlistIds = new ArrayList<>();
@@ -156,82 +151,95 @@ class RoomStatusCorrectionPostgresTest extends SharedPostgresIntegrationSupport 
 	}
 
 	@Test
-	void 낙관락_충돌_후_coordinator는_최신_종료_상태를_독립_트랜잭션에서_다시_읽는다() throws Exception {
+	void 비관락_충돌은_상태_보정을_실패시키고_ROOM을_부분변경하지_않는다() throws Exception {
 		Room room = saveRoom(START_AT);
 		Long versionBefore = currentRoom(room.getId()).getVersion();
+		CountDownLatch roomLocked = new CountDownLatch(1);
+		CountDownLatch releaseLock = new CountDownLatch(1);
 		ExecutorService executor = Executors.newSingleThreadExecutor();
-		roomReadGate.activate(room.getId());
+		Future<?> lockHolder = executor.submit(() -> holdRoomLock(room.getId(), roomLocked, releaseLock));
 
 		try {
-			Future<?> reconciliation = executor.submit(() -> coordinator.correctRoom(room.getId(), START_AT));
-
-			roomReadGate.awaitFirstRead();
-
-			transactionTemplate()
-				.executeWithoutResult(
-					status -> {
-						Room latestRoom = currentRoom(room.getId());
-						assertTrue(latestRoom.reconcileStateAt(FINISH_AT));
-					});
-			roomReadGate.releaseFirstAttempt();
-			reconciliation.get(5, TimeUnit.SECONDS);
-			roomReadGate.assertFirstAttemptThenRetry();
-
-			Room finalRoom = currentRoom(room.getId());
-			assertEquals(RoomStatus.FINISHED, finalRoom.getStatus());
-			assertEquals(versionBefore + 1, finalRoom.getVersion());
+			await(roomLocked);
+			assertThrows(CannotAcquireLockException.class, () -> coordinator.correctRoom(room.getId(), START_AT));
 		} finally {
-			try {
-				roomReadGate.releaseFirstAttempt();
-			} finally {
-				try {
-					executor.shutdown();
-					awaitTermination(executor);
-				} finally {
-					roomReadGate.deactivate();
-				}
-			}
+			releaseLock.countDown();
+			lockHolder.get(5, TimeUnit.SECONDS);
+			shutdown(executor);
 		}
+
+		Room finalRoom = currentRoom(room.getId());
+		assertEquals(RoomStatus.RECRUITING, finalRoom.getStatus());
+		assertEquals(versionBefore, finalRoom.getVersion());
 	}
 
 	@Test
-	void coordinator가_세_번_충돌하면_동시_수정_오류로_매핑한다() throws Exception {
+	void 비관락_실패_뒤_호출자가_재요청하면_최신_ROOM을_한_번만_보정한다() throws Exception {
 		Room room = saveRoom(START_AT);
 		Long versionBefore = currentRoom(room.getId()).getVersion();
+		CountDownLatch roomLocked = new CountDownLatch(1);
+		CountDownLatch releaseLock = new CountDownLatch(1);
 		ExecutorService executor = Executors.newSingleThreadExecutor();
-		roomReadGate.activateEveryAttempt(room.getId(), 3);
+		Future<?> lockHolder = executor.submit(() -> holdRoomLock(room.getId(), roomLocked, releaseLock));
 
 		try {
-			Future<?> reconciliation = executor.submit(() -> coordinator.correctRoom(room.getId(), START_AT));
-
-			for (int attempt = 1; attempt <= 3; attempt++) {
-				roomReadGate.awaitRead(attempt);
-				updateRoomTitleInSeparateTransaction(room.getId(), attempt);
-				roomReadGate.releaseAttempt(attempt);
-			}
-
-			ExecutionException executionException = assertThrows(
-				ExecutionException.class,
-				() -> reconciliation.get(5, TimeUnit.SECONDS));
-			BusinessException businessException = assertInstanceOf(BusinessException.class,
-				executionException.getCause());
-			assertEquals(ErrorCode.ROOM_CONCURRENT_MODIFICATION, businessException.getErrorCode());
-			roomReadGate.assertEveryAttemptConflicted();
-
-			Room finalRoom = currentRoom(room.getId());
-			assertEquals(RoomStatus.RECRUITING, finalRoom.getStatus());
-			assertEquals(versionBefore + 3, finalRoom.getVersion());
+			await(roomLocked);
+			assertThrows(CannotAcquireLockException.class, () -> coordinator.correctRoom(room.getId(), START_AT));
 		} finally {
-			try {
-				roomReadGate.releaseAllAttempts();
-			} finally {
-				try {
-					executor.shutdown();
-					awaitTermination(executor);
-				} finally {
-					roomReadGate.deactivate();
-				}
-			}
+			releaseLock.countDown();
+			lockHolder.get(5, TimeUnit.SECONDS);
+			shutdown(executor);
+		}
+
+		coordinator.correctRoom(room.getId(), START_AT);
+
+		Room finalRoom = currentRoom(room.getId());
+		assertEquals(RoomStatus.CLOSED, finalRoom.getStatus());
+		assertEquals(versionBefore + 1, finalRoom.getVersion());
+	}
+
+	@Test
+	void T1_ROOM_쓰기_잠금은_실제_PostgreSQL_transaction_local_100ms_timeout을_적용하고_트랜잭션_종료_뒤_초기화된다()
+		throws Exception {
+		Room room = saveRoom(START_AT);
+		CountDownLatch roomLocked = new CountDownLatch(1);
+		CountDownLatch releaseLock = new CountDownLatch(1);
+		ExecutorService executor = Executors.newSingleThreadExecutor();
+		Future<?> lockHolder = executor.submit(() -> holdRoomLock(room.getId(), roomLocked, releaseLock));
+
+		try {
+			await(roomLocked);
+			assertThrows(CannotAcquireLockException.class, () -> acquireRoomWriteLock(room.getId()));
+		} finally {
+			releaseLock.countDown();
+			lockHolder.get(5, TimeUnit.SECONDS);
+			shutdown(executor);
+		}
+
+		assertEquals("0", jdbcTemplate.queryForObject("show lock_timeout", String.class));
+	}
+
+	@Test
+	void T2_due_ROOM별_독립_트랜잭션은_다음_ROOM_대기_중_이전_ROOM_잠금을_보유하지_않는다()
+		throws Exception {
+		Room firstRoom = saveRoom(START_AT.minusSeconds(2));
+		Room secondRoom = saveRoom(START_AT.minusSeconds(1));
+		dueRoomTransactionGate.holdBetweenRooms(firstRoom.getId(), secondRoom.getId());
+		ExecutorService executor = Executors.newSingleThreadExecutor();
+		Future<Integer> correction = executor.submit(() -> coordinator.correctDueRooms(START_AT));
+
+		try {
+			dueRoomTransactionGate.awaitFirstRoomLock();
+			dueRoomTransactionGate.releaseFirstRoom();
+			dueRoomTransactionGate.awaitSecondRoomLockRequest();
+
+			assertDoesNotThrow(() -> acquireRoomWriteLock(firstRoom.getId()));
+
+			dueRoomTransactionGate.releaseSecondRoom();
+			assertEquals(2, correction.get(5, TimeUnit.SECONDS));
+		} finally {
+			dueRoomTransactionGate.releaseAll();
+			shutdown(executor);
 		}
 	}
 
@@ -239,15 +247,37 @@ class RoomStatusCorrectionPostgresTest extends SharedPostgresIntegrationSupport 
 		return new TransactionTemplate(transactionManager);
 	}
 
-	private void awaitTermination(ExecutorService executor) {
-		try {
-			if (executor.awaitTermination(5, TimeUnit.SECONDS)) {
-				return;
-			}
+	private void holdRoomLock(long roomId, CountDownLatch roomLocked, CountDownLatch releaseLock) {
+		transactionTemplate().executeWithoutResult(status -> {
+			roomRepository.findByIdForWrite(roomId).orElseThrow();
+			roomLocked.countDown();
+			await(releaseLock);
+		});
+	}
 
-			executor.shutdownNow();
-			assertTrue(
-				executor.awaitTermination(5, TimeUnit.SECONDS), "워커를 강제 종료한 뒤에도 종료되지 않았습니다.");
+	private void acquireRoomWriteLock(long roomId) {
+		transactionTemplate().executeWithoutResult(status -> {
+			roomRepository.setLocalWriteLockTimeout();
+			roomRepository.findByIdForWrite(roomId).orElseThrow();
+		});
+	}
+
+	private void await(CountDownLatch latch) {
+		try {
+			assertTrue(latch.await(5, TimeUnit.SECONDS), "동기화 지점에 도달하지 못했습니다.");
+		} catch (InterruptedException exception) {
+			Thread.currentThread().interrupt();
+			throw new AssertionError("동기화 지점 대기 중 인터럽트되었습니다.", exception);
+		}
+	}
+
+	private void shutdown(ExecutorService executor) {
+		executor.shutdown();
+		try {
+			if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
+				executor.shutdownNow();
+				assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS), "워커가 종료되지 않았습니다.");
+			}
 		} catch (InterruptedException exception) {
 			executor.shutdownNow();
 			Thread.currentThread().interrupt();
@@ -289,25 +319,6 @@ class RoomStatusCorrectionPostgresTest extends SharedPostgresIntegrationSupport 
 		field.set(room, status);
 	}
 
-	private void updateRoomTitleInSeparateTransaction(Long roomId, int attempt) {
-		transactionTemplate()
-			.executeWithoutResult(
-				status -> {
-					Room room = currentRoom(roomId);
-					assertEquals(RoomStatus.RECRUITING, room.getStatus());
-					room.update(
-						"PostgreSQL 상태 보정 방 " + attempt,
-						room.getDescription(),
-						room.getGameId(),
-						room.getExperienceLevel(),
-						room.isRulemasterLed(),
-						room.getStartAt(),
-						room.getPlace(),
-						room.getCapacity());
-					roomRepository.saveAndFlush(room);
-				});
-	}
-
 	private void assertStoredAsUtcTimestamptz(Long roomId, Instant expectedStartAt) {
 		assertEquals(
 			"timestamp with time zone",
@@ -335,167 +346,122 @@ class RoomStatusCorrectionPostgresTest extends SharedPostgresIntegrationSupport 
 	}
 
 	@TestConfiguration(proxyBeanMethods = false)
-	static class StatusCorrectionTestConfiguration {
+	static class DueRoomTransactionBoundaryTestConfiguration {
 
 		@Bean
-		RoomReadGate roomReadGate() {
-			return new RoomReadGate();
+		DueRoomTransactionGate dueRoomTransactionGate() {
+			return new DueRoomTransactionGate();
 		}
 
-		@Bean(name = "gatedRoomRepository")
+		@Bean
 		@Primary
-		RoomRepository gatedRoomRepository(
-			@Qualifier("roomRepository") RoomRepository delegate, RoomReadGate roomReadGate) {
-			InvocationHandler handler = new GateAwareRoomRepositoryInvocationHandler(delegate, roomReadGate);
+		RoomRepository dueRoomTransactionBoundaryRepository(
+			@Qualifier("roomRepository") RoomRepository delegate,
+			DueRoomTransactionGate dueRoomTransactionGate) {
 			return (RoomRepository)Proxy.newProxyInstance(
 				RoomRepository.class.getClassLoader(),
 				new Class<?>[] {RoomRepository.class},
-				handler);
-		}
-	}
-
-	private static final class GateAwareRoomRepositoryInvocationHandler
-		implements InvocationHandler {
-
-		private final RoomRepository delegate;
-		private final RoomReadGate roomReadGate;
-
-		private GateAwareRoomRepositoryInvocationHandler(
-			RoomRepository delegate, RoomReadGate roomReadGate) {
-			this.delegate = delegate;
-			this.roomReadGate = roomReadGate;
+				(proxy, method, arguments) -> invokeRepository(
+					delegate, dueRoomTransactionGate, method, arguments));
 		}
 
-		@Override
-		public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+		private Object invokeRepository(
+			RoomRepository delegate,
+			DueRoomTransactionGate dueRoomTransactionGate,
+			Method method,
+			Object[] arguments) throws Throwable {
+			Long roomId = findWriteLockRoomId(method, arguments);
+			if (roomId != null) {
+				dueRoomTransactionGate.beforeWriteLock(roomId);
+			}
 			try {
-				Object result = method.invoke(delegate, args);
-				if (method.getName().equals("findById")
-					&& args != null
-					&& args.length == 1
-					&& args[0] instanceof Long roomId
-					&& result instanceof Optional<?> optional) {
-					roomReadGate.afterFindById(roomId, optional.map(Room.class::cast));
+				Object result = method.invoke(delegate, arguments);
+				if (roomId != null) {
+					dueRoomTransactionGate.afterWriteLock(roomId);
 				}
 				return result;
 			} catch (InvocationTargetException exception) {
 				throw exception.getCause();
 			}
 		}
+
+		private Long findWriteLockRoomId(Method method, Object[] arguments) {
+			if (!method.getName().equals("findByIdForWrite")
+				|| arguments == null
+				|| arguments.length != 1
+				|| !(arguments[0] instanceof Long roomId)) {
+				return null;
+			}
+			return roomId;
+		}
 	}
 
-	static final class RoomReadGate {
+	static final class DueRoomTransactionGate {
 
-		private final AtomicReference<Scenario> activeScenario = new AtomicReference<>();
+		private final AtomicBoolean active = new AtomicBoolean();
+		private CountDownLatch firstRoomLocked;
+		private CountDownLatch releaseFirstRoom;
+		private CountDownLatch secondRoomLockRequested;
+		private CountDownLatch releaseSecondRoom;
+		private long firstRoomId;
+		private long secondRoomId;
 
-		void activate(long roomId) {
-			assertTrue(activeScenario.compareAndSet(null, new Scenario(roomId)));
+		void holdBetweenRooms(long firstRoomId, long secondRoomId) {
+			this.firstRoomId = firstRoomId;
+			this.secondRoomId = secondRoomId;
+			this.firstRoomLocked = new CountDownLatch(1);
+			this.releaseFirstRoom = new CountDownLatch(1);
+			this.secondRoomLockRequested = new CountDownLatch(1);
+			this.releaseSecondRoom = new CountDownLatch(1);
+			assertTrue(active.compareAndSet(false, true));
 		}
 
-		void activateEveryAttempt(long roomId, int attemptCount) {
-			assertTrue(activeScenario.compareAndSet(null, new Scenario(roomId, attemptCount)));
+		void beforeWriteLock(long roomId) {
+			if (active.get() && roomId == secondRoomId) {
+				secondRoomLockRequested.countDown();
+				await(releaseSecondRoom);
+			}
 		}
 
-		void afterFindById(long roomId, Optional<Room> room) {
-			Scenario scenario = activeScenario.get();
-			if (scenario == null || scenario.roomId != roomId) {
+		void afterWriteLock(long roomId) {
+			if (active.get() && roomId == firstRoomId) {
+				firstRoomLocked.countDown();
+				await(releaseFirstRoom);
+			}
+		}
+
+		void awaitFirstRoomLock() {
+			await(firstRoomLocked);
+		}
+
+		void releaseFirstRoom() {
+			releaseFirstRoom.countDown();
+		}
+
+		void awaitSecondRoomLockRequest() {
+			await(secondRoomLockRequested);
+		}
+
+		void releaseSecondRoom() {
+			releaseSecondRoom.countDown();
+		}
+
+		void releaseAll() {
+			if (!active.compareAndSet(true, false)) {
 				return;
 			}
-
-			int readOrder = scenario.readCount.incrementAndGet();
-			scenario.observedStatuses.add(room.orElseThrow().getStatus());
-			if (readOrder <= scenario.gatedAttemptCount) {
-				scenario.readGates.get(readOrder - 1).read.countDown();
-				await(scenario.readGates.get(readOrder - 1).release);
-			}
-		}
-
-		void awaitFirstRead() {
-			Scenario scenario = activeScenario.get();
-			assertTrue(scenario != null, "활성화된 읽기 게이트가 없습니다.");
-			awaitRead(1);
-		}
-
-		void releaseFirstAttempt() {
-			releaseAttempt(1);
-		}
-
-		void awaitRead(int attempt) {
-			Scenario scenario = activeScenario.get();
-			assertTrue(scenario != null, "활성화된 읽기 게이트가 없습니다.");
-			await(scenario.readGates.get(attempt - 1).read);
-		}
-
-		void releaseAttempt(int attempt) {
-			Scenario scenario = activeScenario.get();
-			if (scenario != null && attempt <= scenario.gatedAttemptCount) {
-				scenario.readGates.get(attempt - 1).release.countDown();
-			}
-		}
-
-		void releaseAllAttempts() {
-			Scenario scenario = activeScenario.get();
-			if (scenario != null) {
-				scenario.readGates.forEach(readGate -> readGate.release.countDown());
-			}
-		}
-
-		void assertFirstAttemptThenRetry() {
-			Scenario scenario = activeScenario.get();
-			assertTrue(scenario != null, "활성화된 읽기 게이트가 없습니다.");
-			assertEquals(2, scenario.readCount.get());
-			assertEquals(
-				List.of(RoomStatus.RECRUITING, RoomStatus.FINISHED), scenario.observedStatuses);
-		}
-
-		void assertEveryAttemptConflicted() {
-			Scenario scenario = activeScenario.get();
-			assertTrue(scenario != null, "활성화된 읽기 게이트가 없습니다.");
-			assertEquals(3, scenario.readCount.get());
-			assertEquals(
-				List.of(RoomStatus.RECRUITING, RoomStatus.RECRUITING, RoomStatus.RECRUITING),
-				scenario.observedStatuses);
-		}
-
-		void deactivate() {
-			activeScenario.set(null);
+			releaseFirstRoom.countDown();
+			releaseSecondRoom.countDown();
 		}
 
 		private void await(CountDownLatch latch) {
 			try {
-				assertTrue(latch.await(5, TimeUnit.SECONDS), "동기화 지점에 도달하지 못했습니다.");
+				assertTrue(latch.await(5, TimeUnit.SECONDS), "상태 보정 ROOM 잠금 동기화 지점에 도달하지 못했습니다.");
 			} catch (InterruptedException exception) {
 				Thread.currentThread().interrupt();
-				throw new AssertionError("동기화 대기 중 인터럽트되었습니다.", exception);
+				throw new AssertionError("상태 보정 ROOM 잠금 동기화 대기 중 인터럽트되었습니다.", exception);
 			}
-		}
-
-		private static final class Scenario {
-
-			private final long roomId;
-			private final int gatedAttemptCount;
-			private final List<ReadGate> readGates;
-			private final AtomicInteger readCount = new AtomicInteger();
-			private final List<RoomStatus> observedStatuses = new java.util.concurrent.CopyOnWriteArrayList<>();
-
-			private Scenario(long roomId) {
-				this(roomId, 1);
-			}
-
-			private Scenario(long roomId, int gatedAttemptCount) {
-				this.roomId = roomId;
-				this.gatedAttemptCount = gatedAttemptCount;
-				this.readGates = new ArrayList<>(gatedAttemptCount);
-				for (int attempt = 0; attempt < gatedAttemptCount; attempt++) {
-					readGates.add(new ReadGate());
-				}
-			}
-		}
-
-		private static final class ReadGate {
-
-			private final CountDownLatch read = new CountDownLatch(1);
-			private final CountDownLatch release = new CountDownLatch(1);
 		}
 	}
+
 }

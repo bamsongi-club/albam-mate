@@ -11,6 +11,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -25,6 +26,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
+import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
@@ -77,7 +79,8 @@ class RoomChatAccessGuardConcurrencyPostgresTest extends SharedPostgresIntegrati
 		assertGuardTransactionBlocksCommand(
 			participantUserId,
 			room.getId(),
-			() -> roomParticipationCancelService.cancelParticipation(participantUserId, room.getId()));
+			() -> roomParticipationCancelService.cancelParticipation(participantUserId, room.getId()),
+			true);
 
 		assertForbidden(participantUserId, room.getId());
 	}
@@ -91,7 +94,8 @@ class RoomChatAccessGuardConcurrencyPostgresTest extends SharedPostgresIntegrati
 		assertGuardTransactionBlocksCommand(
 			hostUserId,
 			room.getId(),
-			() -> roomStatusChangeService.cancelRoom(hostUserId, room.getId()));
+			() -> roomStatusChangeService.cancelRoom(hostUserId, room.getId()),
+			false);
 
 		assertForbidden(hostUserId, room.getId());
 	}
@@ -108,13 +112,14 @@ class RoomChatAccessGuardConcurrencyPostgresTest extends SharedPostgresIntegrati
 		assertGuardTransactionBlocksCommand(
 			hostUserId,
 			room.getId(),
-			() -> roomStatusChangeService.finishRoom(hostUserId, room.getId()));
+			() -> roomStatusChangeService.finishRoom(hostUserId, room.getId()),
+			false);
 
 		assertForbidden(hostUserId, room.getId());
 	}
 
 	private void assertGuardTransactionBlocksCommand(
-		long accessUserId, long roomId, Runnable command) throws Exception {
+		long accessUserId, long roomId, Runnable command, boolean lockTimeout) throws Exception {
 		CountDownLatch guardAccessed = new CountDownLatch(1);
 		CountDownLatch releaseGuard = new CountDownLatch(1);
 		CountDownLatch commandStarted = new CountDownLatch(1);
@@ -137,15 +142,29 @@ class RoomChatAccessGuardConcurrencyPostgresTest extends SharedPostgresIntegrati
 					command.run();
 				});
 			await(commandStarted);
-			assertCommandIsBlocked(commandFuture);
+			if (lockTimeout) {
+				assertFutureLockTimeout(commandFuture);
+			} else {
+				assertCommandIsBlocked(commandFuture);
+			}
 
 			releaseGuard.countDown();
 			guardFuture.get(WAIT_SECONDS, TimeUnit.SECONDS);
-			commandFuture.get(WAIT_SECONDS, TimeUnit.SECONDS);
+			if (lockTimeout) {
+				command.run();
+			} else {
+				commandFuture.get(WAIT_SECONDS, TimeUnit.SECONDS);
+			}
 		} finally {
 			releaseGuard.countDown();
 			shutdown(executor);
 		}
+	}
+
+	private void assertFutureLockTimeout(Future<?> commandFuture) {
+		ExecutionException exception = assertThrows(
+			ExecutionException.class, () -> commandFuture.get(WAIT_SECONDS, TimeUnit.SECONDS));
+		assertTrue(exception.getCause() instanceof CannotAcquireLockException);
 	}
 
 	private void assertCommandIsBlocked(Future<?> commandFuture) {

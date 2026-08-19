@@ -1,7 +1,9 @@
 package cloud.bamsongi.albammate.room.repository;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.lang.reflect.Method;
 import java.time.Instant;
 import java.util.EnumSet;
 import java.util.List;
@@ -15,6 +17,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +26,7 @@ import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
+import jakarta.persistence.LockModeType;
 
 @SpringBootTest
 @Transactional
@@ -201,5 +206,18 @@ class RoomRepositoryTest {
 			BASE_TIME.plusSeconds(300),
 			"테스트 장소",
 			3);
+	}
+
+	@Test
+	void C_T1_ROOM_쓰기_잠금은_transaction_local_100ms_timeout_직후에_획득한다() throws ReflectiveOperationException {
+		Method timeoutMethod = RoomRepository.class.getMethod("setLocalWriteLockTimeout");
+		Query timeoutQuery = timeoutMethod.getAnnotation(Query.class);
+		assertEquals(void.class, timeoutMethod.getReturnType());
+		assertTrue(timeoutQuery.nativeQuery());
+		assertEquals("set local lock_timeout = '100ms'", timeoutQuery.value());
+
+		Method lockMethod = RoomRepository.class.getMethod("findByIdForWrite", Long.class);
+		Lock lock = lockMethod.getAnnotation(Lock.class);
+		assertEquals(LockModeType.PESSIMISTIC_WRITE, lock.value());
 	}
 }

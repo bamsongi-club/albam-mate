@@ -5,26 +5,17 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.lang.reflect.InvocationHandler;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.lang.reflect.Proxy;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -72,12 +63,8 @@ class RoomWaitlistRegistrationConcurrencyPostgresTest extends SharedPostgresInte
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
 
-	@Autowired
-	private RoomVersionRaceGate roomVersionRaceGate;
-
 	@AfterEach
 	void tearDown() {
-		roomVersionRaceGate.deactivate();
 		jdbcTemplate.execute(
 			"truncate table chat_rooms, room_waitlists, participations, rooms, users restart identity cascade");
 	}
@@ -99,19 +86,10 @@ class RoomWaitlistRegistrationConcurrencyPostgresTest extends SharedPostgresInte
 		assertEquals(RoomStatus.CLOSED, fullRoom.getStatus());
 		assertEquals(fullRoom.getCapacity(), activeParticipantCountBeforeRegistration);
 
-		roomVersionRaceGate.activate(room.getId());
-		RoomWaitlistCommandService.RegistrationResult firstResult;
-		RoomWaitlistCommandService.RegistrationResult secondResult;
-		try {
-			List<RoomWaitlistCommandService.RegistrationResult> registrationResults = registerConcurrently(
-				firstApplicantId, secondApplicantId, room.getId());
-			firstResult = registrationResults.get(0);
-			secondResult = registrationResults.get(1);
-			roomVersionRaceGate.assertExactlyTwoInitialReadsOfOneVersion();
-			roomVersionRaceGate.assertOneVersionClaimConflictAndRetry();
-		} finally {
-			roomVersionRaceGate.deactivate();
-		}
+		List<RoomWaitlistCommandService.RegistrationResult> registrationResults = registerConcurrently(
+			firstApplicantId, secondApplicantId, room.getId());
+		RoomWaitlistCommandService.RegistrationResult firstResult = registrationResults.get(0);
+		RoomWaitlistCommandService.RegistrationResult secondResult = registrationResults.get(1);
 
 		assertWaitingRegistration(room.getId(), firstResult);
 		assertWaitingRegistration(room.getId(), secondResult);
@@ -347,142 +325,6 @@ class RoomWaitlistRegistrationConcurrencyPostgresTest extends SharedPostgresInte
 		@Primary
 		Clock fixedClock() {
 			return Clock.fixed(REQUEST_TIME, ZoneOffset.UTC);
-		}
-
-		@Bean
-		RoomVersionRaceGate roomVersionRaceGate() {
-			return new RoomVersionRaceGate();
-		}
-
-		@Bean(name = "gatedRoomRepository")
-		@Primary
-		RoomRepository gatedRoomRepository(
-			@Qualifier("roomRepository") RoomRepository delegate, RoomVersionRaceGate roomVersionRaceGate) {
-			InvocationHandler handler = new GateAwareRoomRepositoryInvocationHandler(delegate, roomVersionRaceGate);
-			return (RoomRepository)Proxy.newProxyInstance(
-				RoomRepository.class.getClassLoader(), new Class<?>[] {RoomRepository.class}, handler);
-		}
-	}
-
-	private static final class GateAwareRoomRepositoryInvocationHandler implements InvocationHandler {
-
-		private final RoomRepository delegate;
-		private final RoomVersionRaceGate roomVersionRaceGate;
-
-		private GateAwareRoomRepositoryInvocationHandler(
-			RoomRepository delegate, RoomVersionRaceGate roomVersionRaceGate) {
-			this.delegate = delegate;
-			this.roomVersionRaceGate = roomVersionRaceGate;
-		}
-
-		@Override
-		public Object invoke(Object proxy, Method method, Object[] arguments) throws Throwable {
-			try {
-				Object result = method.invoke(delegate, arguments);
-				afterRoomRepositoryMethod(method, arguments, result);
-				return result;
-			} catch (InvocationTargetException exception) {
-				throw exception.getCause();
-			}
-		}
-
-		private void afterRoomRepositoryMethod(Method method, Object[] arguments, Object result) {
-			if (method.getName().equals("findById")
-				&& arguments != null
-				&& arguments.length == 1
-				&& arguments[0] instanceof Long roomId
-				&& result instanceof Optional<?> optional) {
-				roomVersionRaceGate.afterInitialRoomRead(roomId, optional.map(Room.class::cast));
-			}
-			if (method.getName().equals("claimVersion")
-				&& arguments != null
-				&& arguments.length == 2
-				&& arguments[0] instanceof Long roomId
-				&& result instanceof Integer updatedRows) {
-				roomVersionRaceGate.afterVersionClaim(roomId, updatedRows);
-			}
-		}
-	}
-
-	static final class RoomVersionRaceGate {
-
-		private final AtomicReference<Scenario> activeScenario = new AtomicReference<>();
-
-		void activate(long roomId) {
-			assertTrue(activeScenario.compareAndSet(null, new Scenario(roomId)));
-		}
-
-		void afterInitialRoomRead(long roomId, Optional<Room> room) {
-			Scenario scenario = activeScenario.get();
-			if (scenario == null || scenario.roomId != roomId) {
-				return;
-			}
-
-			int readOrder = scenario.totalReadCount.getAndIncrement();
-			if (readOrder >= 2) {
-				return;
-			}
-
-			Long roomVersion = room.orElseThrow().getVersion();
-			assertNotNull(roomVersion);
-			scenario.initialReadCount.incrementAndGet();
-			scenario.observedVersions.add(roomVersion);
-			scenario.initialReads.countDown();
-			await(scenario.initialReads, "두 요청이 최초 ROOM version을 읽지 못했습니다.");
-		}
-
-		void afterVersionClaim(long roomId, int updatedRows) {
-			Scenario scenario = activeScenario.get();
-			if (scenario == null || scenario.roomId != roomId) {
-				return;
-			}
-
-			scenario.versionClaimAttemptCount.incrementAndGet();
-			if (updatedRows == 0) {
-				scenario.versionClaimConflictCount.incrementAndGet();
-			}
-		}
-
-		void assertExactlyTwoInitialReadsOfOneVersion() {
-			Scenario scenario = activeScenario.get();
-			assertNotNull(scenario);
-			assertEquals(2, scenario.initialReadCount.get());
-			assertEquals(1, scenario.observedVersions.size());
-		}
-
-		void assertOneVersionClaimConflictAndRetry() {
-			Scenario scenario = activeScenario.get();
-			assertNotNull(scenario);
-			assertEquals(1, scenario.versionClaimConflictCount.get());
-			assertEquals(3, scenario.versionClaimAttemptCount.get());
-		}
-
-		void deactivate() {
-			activeScenario.set(null);
-		}
-
-		private void await(CountDownLatch latch, String timeoutMessage) {
-			try {
-				assertTrue(latch.await(WAIT_SECONDS, TimeUnit.SECONDS), timeoutMessage);
-			} catch (InterruptedException exception) {
-				Thread.currentThread().interrupt();
-				throw new AssertionError("ROOM version 동기화 대기 중 인터럽트되었습니다.", exception);
-			}
-		}
-
-		private static final class Scenario {
-
-			private final long roomId;
-			private final CountDownLatch initialReads = new CountDownLatch(2);
-			private final AtomicInteger initialReadCount = new AtomicInteger();
-			private final AtomicInteger totalReadCount = new AtomicInteger();
-			private final Set<Long> observedVersions = ConcurrentHashMap.newKeySet();
-			private final AtomicInteger versionClaimAttemptCount = new AtomicInteger();
-			private final AtomicInteger versionClaimConflictCount = new AtomicInteger();
-
-			private Scenario(long roomId) {
-				this.roomId = roomId;
-			}
 		}
 	}
 }

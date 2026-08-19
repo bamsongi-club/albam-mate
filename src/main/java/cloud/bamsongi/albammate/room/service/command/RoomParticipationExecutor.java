@@ -6,6 +6,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,16 +32,21 @@ class RoomParticipationExecutor {
 	private final ParticipationRepository participationRepository;
 	private final RoomChangeEventRecorder roomChangeEventRecorder;
 	private final ApplicationEventPublisher eventPublisher;
+	private final boolean postgresDatabase;
 
 	RoomParticipationExecutor(
 		RoomRepository roomRepository,
 		ParticipationRepository participationRepository,
 		RoomChangeEventRecorder roomChangeEventRecorder,
-		ApplicationEventPublisher eventPublisher) {
+		ApplicationEventPublisher eventPublisher,
+		Environment environment) {
 		this.roomRepository = Objects.requireNonNull(roomRepository, "roomRepository");
 		this.participationRepository = Objects.requireNonNull(participationRepository, "participationRepository");
 		this.roomChangeEventRecorder = Objects.requireNonNull(roomChangeEventRecorder, "roomChangeEventRecorder");
 		this.eventPublisher = Objects.requireNonNull(eventPublisher, "eventPublisher");
+		Objects.requireNonNull(environment, "environment");
+		String jdbcUrl = environment.getProperty("spring.datasource.url", "");
+		this.postgresDatabase = !jdbcUrl.startsWith("jdbc:h2:");
 	}
 
 	/** 요청 시각의 방 상태를 보정한 뒤 신규 또는 취소된 참가 관계를 활성화한다. */
@@ -49,8 +55,7 @@ class RoomParticipationExecutor {
 		long currentUserId, long roomId, Instant requestTime) {
 		Objects.requireNonNull(requestTime, "requestTime");
 
-		Room room = roomRepository
-			.findById(roomId)
+		Room room = lockRoom(roomId)
 			.orElseThrow(() -> new BusinessException(ErrorCode.ROOM_NOT_FOUND));
 		Optional<Participation> existingParticipation = participationRepository.findByRoomIdAndUserId(roomId,
 			currentUserId);
@@ -75,6 +80,17 @@ class RoomParticipationExecutor {
 		eventPublisher.publishEvent(
 			new RoomParticipantChanged(room.getId(), currentUserId, RoomParticipantChanged.Kind.ENTERED, requestTime));
 		return RoomParticipationResponse.from(room, ParticipationStatus.ACTIVE);
+	}
+
+	private Optional<Room> lockRoom(long roomId) {
+		setLocalWriteLockTimeout();
+		return roomRepository.findByIdForWrite(roomId);
+	}
+
+	private void setLocalWriteLockTimeout() {
+		if (postgresDatabase) {
+			roomRepository.setLocalWriteLockTimeout();
+		}
 	}
 
 	private void validateParticipation(

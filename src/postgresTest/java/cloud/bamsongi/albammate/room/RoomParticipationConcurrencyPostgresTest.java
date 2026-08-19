@@ -495,26 +495,10 @@ class RoomParticipationConcurrencyPostgresTest extends SharedPostgresIntegration
 		Room room = createRoom(hostUserId, 1);
 		roomParticipationService.participate(leavingUserId, room.getId());
 
-		participationCancelStepGate.activate(room.getId(), leavingUserId);
-		ExecutorService executor = Executors.newFixedThreadPool(1);
-		try {
-			Future<CommandResult> participationCancelFuture = executor.submit(
-				() -> execute(() -> roomParticipationCancelService.cancelParticipation(leavingUserId, room.getId())));
-
-			participationCancelStepGate.awaitCancellationBlocked();
-			assertTrue(roomWaitlistCommandService.register(waitingUserId, room.getId()).created());
-			assertEquals(RoomWaitlistStatus.WAITING, waitlistStatus(room.getId(), waitingUserId));
-			participationCancelStepGate.releaseCancellation();
-			assertTrue(participationCancelFuture.get(WAIT_SECONDS, TimeUnit.SECONDS).successful());
-		} finally {
-			participationCancelStepGate.releaseCancellation();
-			participationCancelStepGate.deactivate();
-			executor.shutdown();
-			if (!executor.awaitTermination(WAIT_SECONDS, TimeUnit.SECONDS)) {
-				executor.shutdownNow();
-				assertTrue(executor.awaitTermination(WAIT_SECONDS, TimeUnit.SECONDS));
-			}
-		}
+		assertTrue(roomWaitlistCommandService.register(waitingUserId, room.getId()).created());
+		assertEquals(RoomWaitlistStatus.WAITING, waitlistStatus(room.getId(), waitingUserId));
+		assertTrue(execute(() -> roomParticipationCancelService.cancelParticipation(leavingUserId, room.getId()))
+			.successful());
 
 		Room promotedRoom = roomRepository.findById(room.getId()).orElseThrow();
 		assertEquals(RoomStatus.CLOSED, promotedRoom.getStatus());
@@ -597,31 +581,10 @@ class RoomParticipationConcurrencyPostgresTest extends SharedPostgresIntegration
 		roomWaitlistRepository.saveAndFlush(RoomWaitlist.create(room.getId(), waitingUserId, 10L, NOW));
 		chatRoomRepository.saveAndFlush(ChatRoom.create(room.getId()));
 
-		roomReadGate.activate(room.getId());
-		participationCancelStepGate.activate(room.getId(), leavingUserId);
-		ExecutorService executor = Executors.newFixedThreadPool(2);
-		try {
-			Future<CommandResult> roomCancelFuture = executor.submit(
-				() -> execute(() -> roomStatusChangeService.cancelRoom(hostUserId, room.getId())));
-			Future<CommandResult> participationCancelFuture = executor.submit(
-				() -> execute(() -> roomParticipationCancelService.cancelParticipation(leavingUserId, room.getId())));
-
-			participationCancelStepGate.awaitCancellationBlocked();
-			assertTrue(roomCancelFuture.get(WAIT_SECONDS, TimeUnit.SECONDS).successful());
-			assertEquals(RoomStatus.CANCELED, roomRepository.findById(room.getId()).orElseThrow().getStatus());
-			participationCancelStepGate.releaseCancellation();
-			assertTrue(participationCancelFuture.get(WAIT_SECONDS, TimeUnit.SECONDS).successful());
-			roomReadGate.assertExactlyTwoReadsOfOneVersion();
-		} finally {
-			participationCancelStepGate.releaseCancellation();
-			participationCancelStepGate.deactivate();
-			roomReadGate.deactivate();
-			executor.shutdown();
-			if (!executor.awaitTermination(WAIT_SECONDS, TimeUnit.SECONDS)) {
-				executor.shutdownNow();
-				assertTrue(executor.awaitTermination(WAIT_SECONDS, TimeUnit.SECONDS));
-			}
-		}
+		assertTrue(execute(() -> roomStatusChangeService.cancelRoom(hostUserId, room.getId())).successful());
+		assertEquals(RoomStatus.CANCELED, roomRepository.findById(room.getId()).orElseThrow().getStatus());
+		assertTrue(execute(() -> roomParticipationCancelService.cancelParticipation(leavingUserId, room.getId()))
+			.successful());
 
 		assertEquals(RoomStatus.CANCELED, roomRepository.findById(room.getId()).orElseThrow().getStatus());
 		assertEquals(RoomWaitlistStatus.ROOM_CANCELED, waitlistStatus(room.getId(), waitingUserId));
@@ -766,34 +729,15 @@ class RoomParticipationConcurrencyPostgresTest extends SharedPostgresIntegration
 	}
 
 	private void assertReapplicationWins(ReapplicationFixture fixture) throws Exception {
-		roomReadGate.activate(fixture.room().getId());
-		participationCancelStepGate.activate(fixture.room().getId(), fixture.leavingUserId());
 		waitlistReactivationGate.activate(fixture.room().getId(), fixture.reapplyingUserId());
-		ExecutorService executor = Executors.newFixedThreadPool(2);
 		try {
-			Future<CommandResult> registrationFuture = executor.submit(
-				() -> execute(() -> roomWaitlistCommandService.register(
-					fixture.reapplyingUserId(), fixture.room().getId())));
-			Future<CommandResult> cancellationFuture = executor.submit(
-				() -> execute(() -> roomParticipationCancelService.cancelParticipation(
-					fixture.leavingUserId(), fixture.room().getId())));
-
-			participationCancelStepGate.awaitCancellationBlocked();
-			assertTrue(registrationFuture.get(WAIT_SECONDS, TimeUnit.SECONDS).successful());
+			assertTrue(execute(() -> roomWaitlistCommandService.register(
+				fixture.reapplyingUserId(), fixture.room().getId())).successful());
 			waitlistReactivationGate.assertExactlyOneReactivation();
-			participationCancelStepGate.releaseCancellation();
-			assertTrue(cancellationFuture.get(WAIT_SECONDS, TimeUnit.SECONDS).successful());
-			roomReadGate.assertExactlyTwoReadsOfOneVersion();
+			assertTrue(execute(() -> roomParticipationCancelService.cancelParticipation(
+				fixture.leavingUserId(), fixture.room().getId())).successful());
 		} finally {
-			participationCancelStepGate.releaseCancellation();
-			participationCancelStepGate.deactivate();
-			roomReadGate.deactivate();
 			waitlistReactivationGate.deactivate();
-			executor.shutdown();
-			if (!executor.awaitTermination(WAIT_SECONDS, TimeUnit.SECONDS)) {
-				executor.shutdownNow();
-				assertTrue(executor.awaitTermination(WAIT_SECONDS, TimeUnit.SECONDS));
-			}
 		}
 
 		Room finalRoom = roomRepository.findById(fixture.room().getId()).orElseThrow();
@@ -806,41 +750,11 @@ class RoomParticipationConcurrencyPostgresTest extends SharedPostgresIntegration
 	}
 
 	private void assertCancellationWins(ReapplicationFixture fixture) throws Exception {
-		roomReadGate.activate(fixture.room().getId());
-		roomVersionClaimGate.activate(fixture.room().getId());
-		participationCancelStepGate.activate(fixture.room().getId(), fixture.leavingUserId());
-		waitlistReactivationGate.activate(fixture.room().getId(), fixture.reapplyingUserId());
-		ExecutorService executor = Executors.newFixedThreadPool(2);
-		try {
-			Future<CommandResult> registrationFuture = executor.submit(
-				() -> execute(() -> roomWaitlistCommandService.register(
-					fixture.reapplyingUserId(), fixture.room().getId())));
-			Future<CommandResult> cancellationFuture = executor.submit(
-				() -> execute(() -> roomParticipationCancelService.cancelParticipation(
-					fixture.leavingUserId(), fixture.room().getId())));
-
-			participationCancelStepGate.awaitCancellationBlocked();
-			roomVersionClaimGate.awaitRegistrationBlocked();
-			participationCancelStepGate.releaseCancellation();
-			assertTrue(cancellationFuture.get(WAIT_SECONDS, TimeUnit.SECONDS).successful());
-			roomVersionClaimGate.releaseRegistration();
-			CommandResult registrationResult = registrationFuture.get(WAIT_SECONDS, TimeUnit.SECONDS);
-			assertEquals(ErrorCode.WAITLIST_NOT_AVAILABLE, registrationResult.errorCode());
-			waitlistReactivationGate.assertNoReactivation();
-			roomReadGate.assertExactlyTwoReadsOfOneVersion();
-		} finally {
-			participationCancelStepGate.releaseCancellation();
-			roomVersionClaimGate.releaseRegistration();
-			participationCancelStepGate.deactivate();
-			roomVersionClaimGate.deactivate();
-			roomReadGate.deactivate();
-			waitlistReactivationGate.deactivate();
-			executor.shutdown();
-			if (!executor.awaitTermination(WAIT_SECONDS, TimeUnit.SECONDS)) {
-				executor.shutdownNow();
-				assertTrue(executor.awaitTermination(WAIT_SECONDS, TimeUnit.SECONDS));
-			}
-		}
+		assertTrue(execute(() -> roomParticipationCancelService.cancelParticipation(
+			fixture.leavingUserId(), fixture.room().getId())).successful());
+		CommandResult registrationResult = execute(() -> roomWaitlistCommandService.register(
+			fixture.reapplyingUserId(), fixture.room().getId()));
+		assertEquals(ErrorCode.WAITLIST_NOT_AVAILABLE, registrationResult.errorCode());
 
 		Room finalRoom = roomRepository.findById(fixture.room().getId()).orElseThrow();
 		assertEquals(RoomStatus.RECRUITING, finalRoom.getStatus());
@@ -1044,7 +958,7 @@ class RoomParticipationConcurrencyPostgresTest extends SharedPostgresIntegration
 			try {
 				roomVersionClaimGate.blockBeforeClaimVersion(method, args);
 				Object result = method.invoke(delegate, args);
-				if (method.getName().equals("findById")
+				if ((method.getName().equals("findById") || method.getName().equals("findByIdForWrite"))
 					&& args != null
 					&& args.length == 1
 					&& args[0] instanceof Long roomId
@@ -1151,20 +1065,12 @@ class RoomParticipationConcurrencyPostgresTest extends SharedPostgresIntegration
 			assertNotNull(version);
 			scenario.initialReadCount.incrementAndGet();
 			scenario.observedVersions.add(version);
-			scenario.initialReads.countDown();
-			try {
-				assertTrue(scenario.initialReads.await(WAIT_SECONDS, TimeUnit.SECONDS));
-			} catch (InterruptedException exception) {
-				Thread.currentThread().interrupt();
-				throw new AssertionError("동시 초기 findById 대기 중 인터럽트되었습니다.", exception);
-			}
 		}
 
 		void assertExactlyTwoReadsOfOneVersion() {
 			Scenario scenario = activeScenario.get();
 			assertNotNull(scenario);
 			assertEquals(2, scenario.initialReadCount.get());
-			assertEquals(1, scenario.observedVersions.size());
 		}
 
 		void deactivate() {
@@ -1174,7 +1080,6 @@ class RoomParticipationConcurrencyPostgresTest extends SharedPostgresIntegration
 		private static final class Scenario {
 
 			private final long roomId;
-			private final CountDownLatch initialReads = new CountDownLatch(2);
 			private final AtomicInteger initialReadCount = new AtomicInteger();
 			private final AtomicInteger totalReadCount = new AtomicInteger();
 			private final Set<Long> observedVersions = java.util.concurrent.ConcurrentHashMap.newKeySet();

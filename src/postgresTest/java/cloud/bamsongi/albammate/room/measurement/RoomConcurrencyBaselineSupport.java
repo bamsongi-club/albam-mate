@@ -23,6 +23,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -783,8 +785,17 @@ final class RoomConcurrencyBaselineSupport {
 		@Override
 		public Object invoke(Object proxy, Method method, Object[] arguments) throws Throwable {
 			try {
-				Object result = method.invoke(delegate, arguments);
-				if (method.getName().equals("findById")
+				Object result;
+				if (method.getName().equals("findByIdForWrite")
+					&& arguments != null
+					&& arguments.length == 1
+					&& arguments[0] instanceof Long roomId) {
+					// 기준선 측정은 낙관락 경로를 보존하므로 후보 C의 쓰기 잠금 조회를 일반 조회로 대체한다.
+					result = delegate.findById(roomId);
+				} else {
+					result = method.invoke(delegate, arguments);
+				}
+				if ((method.getName().equals("findById") || method.getName().equals("findByIdForWrite"))
 					&& arguments != null
 					&& arguments.length == 1
 					&& arguments[0] instanceof Long roomId
@@ -844,6 +855,10 @@ final class RoomConcurrencyBaselineSupport {
 
 	private static final class RetryLogCapture {
 
+		/** 기술 실패 로그만 {@code sqlState}로 끝나며, SQLSTATE를 알 수 없으면 값이 빈 문자열이다. */
+		private static final Pattern RETRY_LOG_PATTERN = Pattern.compile(
+			"^event=(\\S+)(?: roomId=(\\d+))? attempt=(\\d+) useCase=(\\S+) reasonCode=(\\S+)"
+				+ "(?: sqlState=(\\S*))?$");
 		private final Logger logger;
 		private final Level previousLevel;
 		private final ListAppender<ILoggingEvent> appender;
@@ -871,19 +886,31 @@ final class RoomConcurrencyBaselineSupport {
 		}
 
 		private static RetryLogRecord parse(ILoggingEvent event) {
-			Map<String, Object> fields = event.getKeyValuePairs().stream()
-				.collect(java.util.stream.Collectors.toMap(pair -> pair.key, pair -> pair.value));
-			if (!fields.keySet().equals(Set.of("event", "attempt", "useCase", "reasonCode"))
-				&& !fields.keySet().equals(Set.of("event", "roomId", "attempt", "useCase", "reasonCode"))) {
-				throw new AssertionError("재시도 구조화 field 계약이 다릅니다: " + fields);
+			Map<String, Object> fields = event.getKeyValuePairs() == null
+				? Map.of()
+				: event.getKeyValuePairs().stream()
+					.collect(java.util.stream.Collectors.toMap(pair -> pair.key, pair -> pair.value));
+			if (fields.keySet().equals(Set.of("event", "attempt", "useCase", "reasonCode"))
+				|| fields.keySet().equals(Set.of("event", "roomId", "attempt", "useCase", "reasonCode"))) {
+				Long roomId = fields.containsKey("roomId") ? ((Number)fields.get("roomId")).longValue() : null;
+				return new RetryLogRecord(
+					(String)fields.get("event"),
+					roomId,
+					((Number)fields.get("attempt")).intValue(),
+					(String)fields.get("useCase"),
+					(String)fields.get("reasonCode"),
+					event.getLevel());
 			}
-			Long roomId = fields.containsKey("roomId") ? ((Number)fields.get("roomId")).longValue() : null;
+			Matcher matcher = RETRY_LOG_PATTERN.matcher(event.getFormattedMessage());
+			if (!matcher.matches()) {
+				throw new AssertionError("재시도 로그 형식이 계약과 다릅니다: " + event.getFormattedMessage());
+			}
 			return new RetryLogRecord(
-				(String)fields.get("event"),
-				roomId,
-				((Number)fields.get("attempt")).intValue(),
-				(String)fields.get("useCase"),
-				(String)fields.get("reasonCode"),
+				matcher.group(1),
+				matcher.group(2) == null ? null : Long.valueOf(matcher.group(2)),
+				Integer.parseInt(matcher.group(3)),
+				matcher.group(4),
+				matcher.group(5),
 				event.getLevel());
 		}
 
