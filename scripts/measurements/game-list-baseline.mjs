@@ -18,6 +18,14 @@ const UPSTREAM_ADDRESS_HEADER_NAME = "x-albam-mate-upstream-address";
 const RUNNER_FILE = fileURLToPath(import.meta.url);
 const RUNNER_REPOSITORY = path.resolve(path.dirname(RUNNER_FILE), "../..");
 const RUNNER_RELATIVE_PATH = path.relative(RUNNER_REPOSITORY, RUNNER_FILE);
+const CANONICAL_DATASET_QUERIES = {
+  games: "select jsonb_build_array(id, bgg_id, name, english_name, alias, image_url, supported_player_count, tag, estimated_play_time, min_players, max_players, min_play_time_minutes, max_play_time_minutes, complexity, release_year, min_age, popularity_score)::text from games order by id",
+  gameMechanismRelations: "select jsonb_build_array(game_id, mechanism_id)::text from game_mechanism_relations order by game_id, mechanism_id",
+  gameThemeRelations: "select jsonb_build_array(game_id, theme_id)::text from game_theme_relations order by game_id, theme_id",
+  gameCategoryRelations: "select jsonb_build_array(game_id, category_id)::text from game_category_relations order by game_id, category_id",
+  gamePlayerPreferences: "select jsonb_build_array(game_id, player_count, is_recommended, is_best)::text from game_player_preferences order by game_id, player_count",
+  rooms: "select jsonb_build_array(id, game_id, room_type, extract(epoch from start_at), status)::text from rooms order by id",
+};
 
 function parseArgs(argv) {
   const options = {
@@ -26,6 +34,7 @@ function parseArgs(argv) {
     measuredRuns: DEFAULT_MEASURED_RUNS,
     datasetSize: DEFAULT_DATASET_SIZE,
     datasetManifest: null,
+    responseContract: "slice",
     requestTimeoutMs: DEFAULT_REQUEST_TIMEOUT_MS,
     serverCommit: null,
     serverContainers: [],
@@ -59,6 +68,9 @@ function parseArgs(argv) {
         break;
       case "--dataset-manifest":
         options.datasetManifest = next();
+        break;
+      case "--response-contract":
+        options.responseContract = responseContract(next(), argument);
         break;
       case "--request-timeout-ms":
         options.requestTimeoutMs = positiveInteger(next(), argument);
@@ -140,6 +152,13 @@ function sha256(raw, optionName) {
   return raw;
 }
 
+function responseContract(raw, optionName) {
+  if (raw !== "page" && raw !== "slice") {
+    throw new Error(`${optionName}은 page 또는 slice여야 합니다: ${raw}`);
+  }
+  return raw;
+}
+
 function printHelp() {
   console.log(`Usage: node scripts/measurements/game-list-baseline.mjs [options]\n\n` +
     `Options:\n` +
@@ -148,6 +167,7 @@ function printHelp() {
     `  --runs <n>                measured calls per scenario, >= 20 (default: ${DEFAULT_MEASURED_RUNS})\n` +
     `  --dataset-size <n>        loaded game row count (default: ${DEFAULT_DATASET_SIZE})\n` +
     `  --dataset-manifest <path> fixture row/ID fingerprint manifest (required)\n` +
+    `  --response-contract <type> page or slice response contract (default: ${options.responseContract})\n` +
     `  --request-timeout-ms <n>  timeout per HTTP request/body read (default: ${DEFAULT_REQUEST_TIMEOUT_MS})\n` +
     `  --server-commit <sha>     measured server 40-char commit SHA (required)\n` +
     `  --server-container <role=name>  app1/app2 measured Spring container (required twice)\n` +
@@ -231,7 +251,7 @@ async function fetchJson(url, requestTimeoutMs, expectedUpstreams) {
   }
 }
 
-function gameListResponseError(body, expectedPage = null) {
+function gameListResponseError(body, expectedPage = null, expectedResponseContract = "slice") {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     return "응답 envelope가 JSON object가 아닙니다.";
   }
@@ -252,13 +272,24 @@ function gameListResponseError(body, expectedPage = null) {
   if (!Number.isSafeInteger(page.size) || page.size <= 0) {
     return "응답 data.size가 1 이상의 정수가 아닙니다.";
   }
-  if (Object.hasOwn(page, "totalElements")) {
-    return "응답 data에 totalElements를 포함하면 안 됩니다.";
+  if (expectedResponseContract === "page") {
+    if (!Number.isSafeInteger(page.totalElements) || page.totalElements < 0) {
+      return "응답 data.totalElements가 0 이상의 정수가 아닙니다.";
+    }
+    if (!Number.isSafeInteger(page.totalPages) || page.totalPages < 0) {
+      return "응답 data.totalPages가 0 이상의 정수가 아닙니다.";
+    }
+  } else {
+    if (Object.hasOwn(page, "totalElements")) {
+      return "응답 data에 totalElements를 포함하면 안 됩니다.";
+    }
+    if (Object.hasOwn(page, "totalPages")) {
+      return "응답 data에 totalPages를 포함하면 안 됩니다.";
+    }
   }
-  if (Object.hasOwn(page, "totalPages")) {
-    return "응답 data에 totalPages를 포함하면 안 됩니다.";
-  }
-  const allowedFields = new Set(["content", "page", "size", "hasNext"]);
+  const allowedFields = expectedResponseContract === "page"
+    ? new Set(["content", "page", "size", "totalElements", "totalPages", "hasNext"])
+    : new Set(["content", "page", "size", "hasNext"]);
   const unexpectedFields = Object.keys(page).filter((field) => !allowedFields.has(field));
   if (unexpectedFields.length > 0) {
     return `응답 data에 허용하지 않는 필드가 있습니다: ${unexpectedFields.sort().join(", ")}`;
@@ -278,26 +309,55 @@ function gameListResponseError(body, expectedPage = null) {
   if (page.size !== expectedPage.size) {
     return `응답 data.size가 요청 size=${expectedPage.size}와 다릅니다: ${page.size}`;
   }
-  if (page.content.length > expectedPage.size) {
-    return `응답 data.content 길이가 요청 size를 초과합니다: expected<=${expectedPage.size}, actual=${page.content.length}`;
-  }
-  if (page.hasNext && page.content.length !== expectedPage.size) {
-    return `응답 data.hasNext가 true인데 content 길이가 요청 size와 다릅니다: expected=${expectedPage.size}, actual=${page.content.length}`;
-  }
-  if (expectedPage.expectedHasNext !== undefined && page.hasNext !== expectedPage.expectedHasNext) {
-    return `응답 data.hasNext가 ${expectedPage.datasetSize}건 fixture의 첫 페이지에서 ${expectedPage.expectedHasNext}여야 합니다: actual=${page.hasNext}`;
+  if (expectedResponseContract === "page") {
+    const expectedTotalPages = Math.ceil(page.totalElements / expectedPage.size);
+    if (page.totalPages !== expectedTotalPages) {
+      return `응답 data.totalPages가 totalElements/size와 일치하지 않습니다: expected=${expectedTotalPages}, actual=${page.totalPages}`;
+    }
+    const expectedContentLength = Math.min(
+      expectedPage.size,
+      Math.max(0, page.totalElements - (expectedPage.page * expectedPage.size)),
+    );
+    if (page.content.length !== expectedContentLength) {
+      return `응답 data.content 길이가 요청 page/size와 일치하지 않습니다: expected=${expectedContentLength}, actual=${page.content.length}`;
+    }
+    const expectedHasNext = expectedPage.page + 1 < expectedTotalPages;
+    if (page.hasNext !== expectedHasNext) {
+      return `응답 data.hasNext가 page/totalPages와 일치하지 않습니다: expected=${expectedHasNext}, actual=${page.hasNext}`;
+    }
+    if (expectedPage.expectedTotalElements !== undefined && page.totalElements !== expectedPage.expectedTotalElements) {
+      return `응답 data.totalElements가 ${expectedPage.datasetSize}건 fixture와 일치하지 않습니다: expected=${expectedPage.expectedTotalElements}, actual=${page.totalElements}`;
+    }
+  } else {
+    if (page.content.length > expectedPage.size) {
+      return `응답 data.content 길이가 요청 size를 초과합니다: expected<=${expectedPage.size}, actual=${page.content.length}`;
+    }
+    if (page.hasNext && page.content.length !== expectedPage.size) {
+      return `응답 data.hasNext가 true인데 content 길이가 요청 size와 다릅니다: expected=${expectedPage.size}, actual=${page.content.length}`;
+    }
+    if (expectedPage.expectedHasNext !== undefined && page.hasNext !== expectedPage.expectedHasNext) {
+      return `응답 data.hasNext가 ${expectedPage.datasetSize}건 fixture의 첫 페이지에서 ${expectedPage.expectedHasNext}여야 합니다: actual=${page.hasNext}`;
+    }
   }
   return null;
 }
 
-function pageMetadata(body) {
+function pageMetadata(body, responseContract) {
   const page = body.data;
-  return {
+  const metadata = {
     page: page.page,
     size: page.size,
     hasNext: page.hasNext,
     contentLength: page.content.length,
   };
+  if (responseContract === "page") {
+    return {
+      ...metadata,
+      totalElements: page.totalElements,
+      totalPages: page.totalPages,
+    };
+  }
+  return metadata;
 }
 
 function firstCode(response, label) {
@@ -308,7 +368,13 @@ function firstCode(response, label) {
   return code;
 }
 
-async function discoverScenarioValues(baseUrl, requestTimeoutMs, expectedDatasetSize, expectedUpstreams) {
+async function discoverScenarioValues(
+  baseUrl,
+  requestTimeoutMs,
+  expectedDatasetSize,
+  expectedUpstreams,
+  responseContract,
+) {
   const baseResponse = await fetchJson(
     `${baseUrl}/api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24`,
     requestTimeoutMs,
@@ -319,8 +385,10 @@ async function discoverScenarioValues(baseUrl, requestTimeoutMs, expectedDataset
     page: 0,
     size: 24,
     datasetSize: expectedDatasetSize,
-    expectedHasNext: expectedDatasetSize > 24,
-  });
+    ...(responseContract === "page"
+      ? { expectedTotalElements: expectedDatasetSize }
+      : { expectedHasNext: expectedDatasetSize > 24 }),
+  }, responseContract);
   if (baseResponseError) {
     throw new Error(`base discovery 응답 계약 불일치: ${baseResponseError}`);
   }
@@ -398,7 +466,7 @@ function scenarioUrl(baseUrl, scenario) {
   return `${baseUrl}/api/games?${params.toString()}`;
 }
 
-async function requestOnce(url, requestTimeoutMs, expectedPage, expectedUpstreams) {
+async function requestOnce(url, requestTimeoutMs, expectedPage, expectedUpstreams, responseContract) {
   const startedAt = performance.now();
   const controller = new AbortController();
   let timedOut = false;
@@ -437,11 +505,11 @@ async function requestOnce(url, requestTimeoutMs, expectedPage, expectedUpstream
         }
       }
       if (!error) {
-        const responseError = gameListResponseError(body, expectedPage);
+        const responseError = gameListResponseError(body, expectedPage, responseContract);
         if (responseError) {
           error = `응답 계약 불일치: ${responseError}`;
         } else {
-          responsePageMetadata = pageMetadata(body);
+          responsePageMetadata = pageMetadata(body, responseContract);
         }
       }
     }
@@ -507,6 +575,7 @@ async function measureScenario(
   requestTimeoutMs,
   expectedUpstreams,
   expectedDatasetSize,
+  responseContract,
 ) {
   const url = scenarioUrl(baseUrl, scenario);
   const expectedPage = {
@@ -521,7 +590,13 @@ async function measureScenario(
 
   try {
     for (let index = 0; index < warmUpRuns; index += 1) {
-      const warmUp = await requestOnce(url, requestTimeoutMs, expectedPage, expectedUpstreams);
+      const warmUp = await requestOnce(
+        url,
+        requestTimeoutMs,
+        expectedPage,
+        expectedUpstreams,
+        responseContract,
+      );
       if (warmUp.error) {
         throw new Error(`${scenario.name} warm-up 실패: ${warmUp.error}`);
       }
@@ -531,7 +606,13 @@ async function measureScenario(
     }
 
     for (let index = 0; index < measuredRuns; index += 1) {
-      const sample = await requestOnce(url, requestTimeoutMs, expectedPage, expectedUpstreams);
+      const sample = await requestOnce(
+        url,
+        requestTimeoutMs,
+        expectedPage,
+        expectedUpstreams,
+        responseContract,
+      );
       samples.push({ run: index + 1, ...sample });
       if (sample.error) {
         throw new Error(`${scenario.name} 실측 실패: run=${index + 1}, ${sample.error}`);
@@ -793,8 +874,8 @@ function fixtureManifest(options) {
   if (!manifest || typeof manifest !== "object" || Array.isArray(manifest)) {
     throw new Error("fixture manifest는 JSON object여야 합니다.");
   }
-  if (manifest.schemaVersion !== 1) {
-    throw new Error(`fixture manifest schemaVersion은 1이어야 합니다: ${manifest.schemaVersion}`);
+  if (manifest.schemaVersion !== 2) {
+    throw new Error(`fixture manifest schemaVersion은 2이어야 합니다: ${manifest.schemaVersion}`);
   }
   if (typeof manifest.fixtureId !== "string" || manifest.fixtureId.trim() === "") {
     throw new Error("fixture manifest fixtureId가 필요합니다.");
@@ -804,6 +885,10 @@ function fixtureManifest(options) {
   }
   const gameCount = positiveInteger(manifest.games.rowCount, "fixture manifest games.rowCount");
   const bggIdSetSha256 = sha256(manifest.games.bggIdSetSha256, "fixture manifest games.bggIdSetSha256");
+  const gamesCanonicalSha256 = sha256(
+    manifest.games.canonicalSha256,
+    "fixture manifest games.canonicalSha256",
+  );
   if (gameCount !== options.datasetSize) {
     throw new Error(
       `fixture manifest games.rowCount가 --dataset-size와 다릅니다: manifest=${gameCount}, option=${options.datasetSize}`,
@@ -830,12 +915,44 @@ function fixtureManifest(options) {
       "fixture manifest metadata.gamePlayerPreferences",
     ),
   };
+  const metadataCanonicalSha256 = {
+    gameMechanismRelations: sha256(
+      manifest.metadata.gameMechanismRelationsSha256,
+      "fixture manifest metadata.gameMechanismRelationsSha256",
+    ),
+    gameThemeRelations: sha256(
+      manifest.metadata.gameThemeRelationsSha256,
+      "fixture manifest metadata.gameThemeRelationsSha256",
+    ),
+    gameCategoryRelations: sha256(
+      manifest.metadata.gameCategoryRelationsSha256,
+      "fixture manifest metadata.gameCategoryRelationsSha256",
+    ),
+    gamePlayerPreferences: sha256(
+      manifest.metadata.gamePlayerPreferencesSha256,
+      "fixture manifest metadata.gamePlayerPreferencesSha256",
+    ),
+  };
+  if (!manifest.rooms || typeof manifest.rooms !== "object" || Array.isArray(manifest.rooms)) {
+    throw new Error("fixture manifest rooms object가 필요합니다.");
+  }
+  const roomCount = nonnegativeInteger(manifest.rooms.rowCount, "fixture manifest rooms.rowCount");
+  const roomsCanonicalSha256 = sha256(
+    manifest.rooms.canonicalSha256,
+    "fixture manifest rooms.canonicalSha256",
+  );
   return {
     fixtureId: manifest.fixtureId,
     manifestSha256: createHash("sha256").update(manifestText).digest("hex"),
     gameCount,
     bggIdSetSha256,
+    gamesCanonicalSha256,
     metadata,
+    metadataCanonicalSha256,
+    rooms: {
+      rowCount: roomCount,
+      canonicalSha256: roomsCanonicalSha256,
+    },
   };
 }
 
@@ -934,6 +1051,39 @@ function postgresMetadataCounts(containerId) {
   };
 }
 
+function canonicalRowsDigest(output) {
+  const rows = output.split(/\r?\n/u).filter((row) => row.length > 0);
+  const digest = createHash("sha256");
+  for (const row of rows) {
+    digest.update(`${row}\n`);
+  }
+  return {
+    rowCount: rows.length,
+    sha256: digest.digest("hex"),
+  };
+}
+
+function postgresCanonicalRows(containerId, queryName) {
+  const query = CANONICAL_DATASET_QUERIES[queryName];
+  let output;
+  try {
+    output = execFileSync(
+      "docker",
+      [
+        "exec",
+        containerId,
+        "sh",
+        "-c",
+        `PGAPPNAME=game-list-baseline-fixture-check psql -v ON_ERROR_STOP=1 -At -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c ${JSON.stringify(query)}`,
+      ],
+      { encoding: "utf8", maxBuffer: 256 * 1024 * 1024 },
+    );
+  } catch (error) {
+    throw new Error(`PostgreSQL fixture ${queryName} canonical row 조회 실패: ${errorMessage(error)}`);
+  }
+  return canonicalRowsDigest(output);
+}
+
 function currentDatasetProvenance(composeProject, fixture) {
   const postgresContainerId = composePostgresContainerId(composeProject);
   const observedGameCount = postgresGameCount(postgresContainerId);
@@ -959,10 +1109,54 @@ function currentDatasetProvenance(composeProject, fixture) {
       `PostgreSQL fixture metadata row count 불일치: expected=${JSON.stringify(fixture.metadata)}, actual=${JSON.stringify(metadata)}`,
     );
   }
+  const gamesCanonical = postgresCanonicalRows(postgresContainerId, "games");
+  if (gamesCanonical.rowCount !== observedGameCount) {
+    throw new Error(
+      `PostgreSQL fixture games canonical row 수 불일치: expected=${observedGameCount}, actual=${gamesCanonical.rowCount}`,
+    );
+  }
+  if (gamesCanonical.sha256 !== fixture.gamesCanonicalSha256) {
+    throw new Error(
+      `PostgreSQL fixture games canonical 지문 불일치: expected=${fixture.gamesCanonicalSha256}, actual=${gamesCanonical.sha256}`,
+    );
+  }
+  const metadataCanonicalSha256 = {};
+  for (const [queryName, expectedRowCount] of Object.entries(fixture.metadata)) {
+    const observed = postgresCanonicalRows(postgresContainerId, queryName);
+    if (observed.rowCount !== expectedRowCount) {
+      throw new Error(
+        `PostgreSQL fixture ${queryName} canonical row 수 불일치: expected=${expectedRowCount}, actual=${observed.rowCount}`,
+      );
+    }
+    const expectedSha256 = fixture.metadataCanonicalSha256[queryName];
+    if (observed.sha256 !== expectedSha256) {
+      throw new Error(
+        `PostgreSQL fixture ${queryName} canonical 지문 불일치: expected=${expectedSha256}, actual=${observed.sha256}`,
+      );
+    }
+    metadataCanonicalSha256[queryName] = observed.sha256;
+  }
+  const rooms = postgresCanonicalRows(postgresContainerId, "rooms");
+  if (rooms.rowCount !== fixture.rooms.rowCount) {
+    throw new Error(
+      `PostgreSQL fixture rooms canonical row 수 불일치: expected=${fixture.rooms.rowCount}, actual=${rooms.rowCount}`,
+    );
+  }
+  if (rooms.sha256 !== fixture.rooms.canonicalSha256) {
+    throw new Error(
+      `PostgreSQL fixture rooms canonical 지문 불일치: expected=${fixture.rooms.canonicalSha256}, actual=${rooms.sha256}`,
+    );
+  }
   return {
     observedGameCount,
     bggIdSetSha256: bggIds.bggIdSetSha256,
+    gamesCanonicalSha256: gamesCanonical.sha256,
     metadata,
+    metadataCanonicalSha256,
+    rooms: {
+      rowCount: rooms.rowCount,
+      canonicalSha256: rooms.sha256,
+    },
     postgresContainerId,
     postgresComposeProject: composeProject,
   };
@@ -974,7 +1168,7 @@ function assertDatasetProvenanceStable(startProvenance, fixture) {
     fixture,
   );
   if (JSON.stringify(endProvenance) !== JSON.stringify(startProvenance)) {
-    throw new Error("측정 중 PostgreSQL fixture provenance, games/metadata row count 또는 BGG ID 집합이 변경되어 성공 산출물을 만들 수 없습니다.");
+    throw new Error("측정 중 PostgreSQL fixture provenance, games/metadata/rooms canonical row 또는 BGG ID 집합이 변경되어 성공 산출물을 만들 수 없습니다.");
   }
   return endProvenance;
 }
@@ -1021,6 +1215,7 @@ function writeArtifacts(options, discovered, results, failure, runnerProvenance,
     serverCommit: serverProvenance?.commit ?? options.serverCommit,
     serverContainers: serverProvenance?.containers ?? [],
     proxyContainer: serverProvenance?.proxyContainer ?? null,
+    responseContract: options.responseContract,
     baseUrl: options.baseUrl,
     dataset: {
       fixtureId: fixture?.fixtureId ?? null,
@@ -1029,8 +1224,14 @@ function writeArtifacts(options, discovered, results, failure, runnerProvenance,
       observedGameCount: datasetProvenance?.observedGameCount ?? null,
       bggIdSetSha256: fixture?.bggIdSetSha256 ?? null,
       observedBggIdSetSha256: datasetProvenance?.bggIdSetSha256 ?? null,
+      gamesCanonicalSha256: fixture?.gamesCanonicalSha256 ?? null,
+      observedGamesCanonicalSha256: datasetProvenance?.gamesCanonicalSha256 ?? null,
       metadata: fixture?.metadata ?? null,
       observedMetadata: datasetProvenance?.metadata ?? null,
+      metadataCanonicalSha256: fixture?.metadataCanonicalSha256 ?? null,
+      observedMetadataCanonicalSha256: datasetProvenance?.metadataCanonicalSha256 ?? null,
+      rooms: fixture?.rooms ?? null,
+      observedRooms: datasetProvenance?.rooms ?? null,
       postgresContainerId: datasetProvenance?.postgresContainerId ?? null,
       postgresComposeProject: datasetProvenance?.postgresComposeProject ?? null,
     },
@@ -1068,6 +1269,7 @@ async function main() {
   console.log(`[game-list-740] target=${options.baseUrl}`);
   console.log(`[game-list-740] warm-up=${options.warmUpRuns}, measured=${options.measuredRuns}`);
   console.log(`[game-list-740] server-commit=${options.serverCommit}`);
+  console.log(`[game-list-740] response-contract=${options.responseContract}`);
   let discovered = null;
   const results = [];
   let failure = null;
@@ -1102,6 +1304,7 @@ async function main() {
       options.requestTimeoutMs,
       options.datasetSize,
       serverProvenance.containers,
+      options.responseContract,
     );
     console.log(`[game-list-740] discovered keyword=${JSON.stringify(discovered.keyword)}, theme=${discovered.theme}, mechanism=${discovered.mechanism}`);
 
@@ -1115,6 +1318,7 @@ async function main() {
         options.requestTimeoutMs,
         serverProvenance.containers,
         options.datasetSize,
+        options.responseContract,
       );
       results.push(result);
       if (result.status === "failed") {

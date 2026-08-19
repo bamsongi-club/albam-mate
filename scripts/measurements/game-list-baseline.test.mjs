@@ -19,6 +19,14 @@ const fixtureMetadata = {
   gameCategoryRelations: 2,
   gamePlayerPreferences: 5,
 };
+const fixtureCanonicalRows = {
+  games: Array.from({ length: fixtureDatasetSize }, (_, index) => `game-${index + 1}`),
+  gameMechanismRelations: ["mechanism-1", "mechanism-2", "mechanism-3"],
+  gameThemeRelations: ["theme-1", "theme-2", "theme-3", "theme-4"],
+  gameCategoryRelations: ["category-1", "category-2"],
+  gamePlayerPreferences: ["preference-1", "preference-2", "preference-3", "preference-4", "preference-5"],
+  rooms: ["room-1", "room-2"],
+};
 let dockerFixture;
 let datasetManifestFixture;
 
@@ -28,20 +36,38 @@ function bggIdSetSha256(ids) {
     .digest("hex");
 }
 
+function canonicalRowsSha256(rows) {
+  return createHash("sha256")
+    .update(rows.map((row) => `${row}\n`).join(""))
+    .digest("hex");
+}
+
 function createDatasetManifestFixture(
   ids = fixtureBggIds,
   metadata = fixtureMetadata,
+  canonicalRows = fixtureCanonicalRows,
 ) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "game-list-740-manifest-"));
   const manifestPath = path.join(root, "fixture.json");
   const manifestText = `${JSON.stringify({
-    schemaVersion: 1,
+    schemaVersion: 2,
     fixtureId: `test-${ids.length}`,
     games: {
       rowCount: ids.length,
       bggIdSetSha256: bggIdSetSha256(ids),
+      canonicalSha256: canonicalRowsSha256(canonicalRows.games),
     },
-    metadata,
+    metadata: {
+      ...metadata,
+      gameMechanismRelationsSha256: canonicalRowsSha256(canonicalRows.gameMechanismRelations),
+      gameThemeRelationsSha256: canonicalRowsSha256(canonicalRows.gameThemeRelations),
+      gameCategoryRelationsSha256: canonicalRowsSha256(canonicalRows.gameCategoryRelations),
+      gamePlayerPreferencesSha256: canonicalRowsSha256(canonicalRows.gamePlayerPreferences),
+    },
+    rooms: {
+      rowCount: canonicalRows.rooms.length,
+      canonicalSha256: canonicalRowsSha256(canonicalRows.rooms),
+    },
   }, null, 2)}\n`;
   fs.writeFileSync(manifestPath, manifestText, "utf8");
   return {
@@ -65,6 +91,7 @@ function startServer({
   hangDiscoveryPath = null,
   datasetSize = fixtureDatasetSize,
   responseSize = 24,
+  responseContract = "slice",
   measuredPageOverride = null,
   upstreamRole = "app1",
   upstreamAddress = "172.28.0.11:8080",
@@ -122,6 +149,10 @@ function startServer({
         size: effectiveResponseSize,
         hasNext: datasetSize > effectiveResponseSize,
       };
+      if (responseContract === "page") {
+        page.totalElements = datasetSize;
+        page.totalPages = Math.ceil(datasetSize / effectiveResponseSize);
+      }
       if (gameRequests >= 7 && measuredPageOverride) {
         Object.assign(page, measuredPageOverride);
       }
@@ -159,6 +190,7 @@ function createDockerFixture({
   databaseGameCounts = [databaseGameCount],
   databaseBggIds = fixtureBggIds,
   metadataCounts = fixtureMetadata,
+  databaseCanonicalRows = fixtureCanonicalRows,
 } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "game-list-740-docker-"));
   const configPath = path.join(root, "containers.json");
@@ -213,6 +245,7 @@ function createDockerFixture({
       gameCounts: databaseGameCounts,
       bggIds: databaseBggIds,
       metadataCounts,
+      canonicalRows: databaseCanonicalRows,
     },
   };
   fs.writeFileSync(configPath, JSON.stringify(records));
@@ -246,6 +279,31 @@ if (arguments[0] === "exec" && arguments[2] === "sh" && arguments[3] === "-c") {
   const record = Object.values(records).find((candidate) => candidate.id === arguments[1]);
   if (!record || record.labels["com.docker.compose.service"] !== "postgres") process.exit(2);
   const query = arguments[4] || "";
+  const canonicalRows = record.canonicalRows || {};
+  if (query.includes("jsonb_build_array") && query.includes("from games order by id")) {
+    process.stdout.write((canonicalRows.games || []).join("\\n") + "\\n");
+    process.exit(0);
+  }
+  if (query.includes("jsonb_build_array") && query.includes("game_mechanism_relations")) {
+    process.stdout.write((canonicalRows.gameMechanismRelations || []).join("\\n") + "\\n");
+    process.exit(0);
+  }
+  if (query.includes("jsonb_build_array") && query.includes("game_theme_relations")) {
+    process.stdout.write((canonicalRows.gameThemeRelations || []).join("\\n") + "\\n");
+    process.exit(0);
+  }
+  if (query.includes("jsonb_build_array") && query.includes("game_category_relations")) {
+    process.stdout.write((canonicalRows.gameCategoryRelations || []).join("\\n") + "\\n");
+    process.exit(0);
+  }
+  if (query.includes("jsonb_build_array") && query.includes("game_player_preferences")) {
+    process.stdout.write((canonicalRows.gamePlayerPreferences || []).join("\\n") + "\\n");
+    process.exit(0);
+  }
+  if (query.includes("jsonb_build_array") && query.includes("from rooms order by id")) {
+    process.stdout.write((canonicalRows.rooms || []).join("\\n") + "\\n");
+    process.exit(0);
+  }
   if (query.includes("select bgg_id from games order by bgg_id")) {
     process.stdout.write((record.bggIds || []).join("\\n") + "\\n");
     process.exit(0);
@@ -377,6 +435,7 @@ test("성공 산출물은 serverCommit과 runnerCommit 및 fixture fingerprint�
     assert.equal(result.status, 0, result.stderr);
     const report = readSingleReport(outputDirectory);
     assert.equal(report.status, "success");
+    assert.equal(report.responseContract, "slice");
     assert.equal(report.serverCommit, serverCommit);
     assert.match(report.runnerCommit, /^[0-9a-f]{40}$/u);
     assert.match(report.runnerFileSha256, /^[0-9a-f]{64}$/u);
@@ -416,15 +475,48 @@ test("성공 산출물은 serverCommit과 runnerCommit 및 fixture fingerprint�
       observedGameCount: fixtureDatasetSize,
       bggIdSetSha256: bggIdSetSha256(fixtureBggIds),
       observedBggIdSetSha256: bggIdSetSha256(fixtureBggIds),
+      gamesCanonicalSha256: canonicalRowsSha256(fixtureCanonicalRows.games),
+      observedGamesCanonicalSha256: canonicalRowsSha256(fixtureCanonicalRows.games),
       metadata: fixtureMetadata,
       observedMetadata: fixtureMetadata,
+      metadataCanonicalSha256: {
+        gameMechanismRelations: canonicalRowsSha256(fixtureCanonicalRows.gameMechanismRelations),
+        gameThemeRelations: canonicalRowsSha256(fixtureCanonicalRows.gameThemeRelations),
+        gameCategoryRelations: canonicalRowsSha256(fixtureCanonicalRows.gameCategoryRelations),
+        gamePlayerPreferences: canonicalRowsSha256(fixtureCanonicalRows.gamePlayerPreferences),
+      },
+      observedMetadataCanonicalSha256: {
+        gameMechanismRelations: canonicalRowsSha256(fixtureCanonicalRows.gameMechanismRelations),
+        gameThemeRelations: canonicalRowsSha256(fixtureCanonicalRows.gameThemeRelations),
+        gameCategoryRelations: canonicalRowsSha256(fixtureCanonicalRows.gameCategoryRelations),
+        gamePlayerPreferences: canonicalRowsSha256(fixtureCanonicalRows.gamePlayerPreferences),
+      },
+      rooms: {
+        rowCount: fixtureCanonicalRows.rooms.length,
+        canonicalSha256: canonicalRowsSha256(fixtureCanonicalRows.rooms),
+      },
+      observedRooms: {
+        rowCount: fixtureCanonicalRows.rooms.length,
+        canonicalSha256: canonicalRowsSha256(fixtureCanonicalRows.rooms),
+      },
       postgresContainerId: "4".repeat(64),
       postgresComposeProject: "albam-mate-771",
     });
     assert.deepEqual(report.endProvenance.dataset, {
       observedGameCount: fixtureDatasetSize,
       bggIdSetSha256: bggIdSetSha256(fixtureBggIds),
+      gamesCanonicalSha256: canonicalRowsSha256(fixtureCanonicalRows.games),
       metadata: fixtureMetadata,
+      metadataCanonicalSha256: {
+        gameMechanismRelations: canonicalRowsSha256(fixtureCanonicalRows.gameMechanismRelations),
+        gameThemeRelations: canonicalRowsSha256(fixtureCanonicalRows.gameThemeRelations),
+        gameCategoryRelations: canonicalRowsSha256(fixtureCanonicalRows.gameCategoryRelations),
+        gamePlayerPreferences: canonicalRowsSha256(fixtureCanonicalRows.gamePlayerPreferences),
+      },
+      rooms: {
+        rowCount: fixtureCanonicalRows.rooms.length,
+        canonicalSha256: canonicalRowsSha256(fixtureCanonicalRows.rooms),
+      },
       postgresContainerId: "4".repeat(64),
       postgresComposeProject: "albam-mate-771",
     });
@@ -443,6 +535,35 @@ test("성공 산출물은 serverCommit과 runnerCommit 및 fixture fingerprint�
       base: "app1",
       themes: "app1",
       mechanisms: "app1",
+    });
+  } finally {
+    await server.close();
+    fs.rmSync(outputDirectory, { recursive: true, force: true });
+  }
+});
+
+test("동일 runner가 Page 계약도 같은 fixture에서 검증한다", async () => {
+  const server = await startServer({ responseContract: "page" });
+  const outputDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "game-list-740-page-contract-"));
+  try {
+    const result = await runRunner(
+      server.baseUrl,
+      outputDirectory,
+      ["--response-contract", "page"],
+      os.tmpdir(),
+    );
+
+    assert.equal(result.status, 0, result.stderr);
+    const report = readSingleReport(outputDirectory);
+    assert.equal(report.status, "success");
+    assert.equal(report.responseContract, "page");
+    assert.deepEqual(report.results[0].samples[0].pageMetadata, {
+      page: 0,
+      size: 24,
+      hasNext: true,
+      contentLength: 24,
+      totalElements: fixtureDatasetSize,
+      totalPages: 2,
     });
   } finally {
     await server.close();
@@ -665,7 +786,18 @@ test("discovery 게임 목록 요청은 timeout 실패 artifact를 남긴다", a
     assert.deepEqual(report.endProvenance.dataset, {
       observedGameCount: fixtureDatasetSize,
       bggIdSetSha256: bggIdSetSha256(fixtureBggIds),
+      gamesCanonicalSha256: canonicalRowsSha256(fixtureCanonicalRows.games),
       metadata: fixtureMetadata,
+      metadataCanonicalSha256: {
+        gameMechanismRelations: canonicalRowsSha256(fixtureCanonicalRows.gameMechanismRelations),
+        gameThemeRelations: canonicalRowsSha256(fixtureCanonicalRows.gameThemeRelations),
+        gameCategoryRelations: canonicalRowsSha256(fixtureCanonicalRows.gameCategoryRelations),
+        gamePlayerPreferences: canonicalRowsSha256(fixtureCanonicalRows.gamePlayerPreferences),
+      },
+      rooms: {
+        rowCount: fixtureCanonicalRows.rooms.length,
+        canonicalSha256: canonicalRowsSha256(fixtureCanonicalRows.rooms),
+      },
       postgresContainerId: "4".repeat(64),
       postgresComposeProject: "albam-mate-771",
     });
@@ -777,6 +909,53 @@ test("manifest의 metadata row count와 PostgreSQL fixture가 다르면 성공 �
     await server.close();
     fs.rmSync(outputDirectory, { recursive: true, force: true });
     fs.rmSync(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test("canonical games·relation·rooms 지문이 다르면 성공 산출물을 만들지 않는다", async () => {
+  const cases = [
+    {
+      name: "games",
+      databaseCanonicalRows: {
+        ...fixtureCanonicalRows,
+        games: [...fixtureCanonicalRows.games.slice(0, -1), "changed-game"],
+      },
+      error: /games canonical 지문 불일치/u,
+    },
+    {
+      name: "relation",
+      databaseCanonicalRows: {
+        ...fixtureCanonicalRows,
+        gameThemeRelations: [...fixtureCanonicalRows.gameThemeRelations.slice(0, -1), "changed-theme"],
+      },
+      error: /gameThemeRelations canonical 지문 불일치/u,
+    },
+    {
+      name: "rooms",
+      databaseCanonicalRows: {
+        ...fixtureCanonicalRows,
+        rooms: [...fixtureCanonicalRows.rooms.slice(0, -1), "changed-room"],
+      },
+      error: /rooms canonical 지문 불일치/u,
+    },
+  ];
+
+  for (const testCase of cases) {
+    const server = await startServer();
+    const fixture = createDockerFixture({ databaseCanonicalRows: testCase.databaseCanonicalRows });
+    const outputDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "game-list-740-canonical-fingerprint-"));
+    try {
+      const result = await runRunner(server.baseUrl, outputDirectory, [], repositoryRoot, { env: fixture.env });
+
+      assert.notEqual(result.status, 0, testCase.name);
+      const report = readSingleReport(outputDirectory);
+      assert.equal(report.status, "failed", testCase.name);
+      assert.match(report.failure.message, testCase.error, testCase.name);
+    } finally {
+      await server.close();
+      fs.rmSync(outputDirectory, { recursive: true, force: true });
+      fs.rmSync(fixture.root, { recursive: true, force: true });
+    }
   }
 });
 

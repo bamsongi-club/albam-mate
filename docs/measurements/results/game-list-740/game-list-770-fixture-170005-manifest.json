@@ -1,15 +1,24 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "fixtureId": "game-list-170005-observed-2026-08-19",
   "games": {
     "rowCount": 170005,
-    "bggIdSetSha256": "75bcb893bcfef7f3b0a0de363e06037d332392c038ad5eb46c33de2b553c8744"
+    "bggIdSetSha256": "75bcb893bcfef7f3b0a0de363e06037d332392c038ad5eb46c33de2b553c8744",
+    "canonicalSha256": "a72c105d0c8affef5c6ffa402412fdd19bab40421248e69d6f1352980bde5fc0"
   },
   "metadata": {
     "gameMechanismRelations": 428488,
+    "gameMechanismRelationsSha256": "90fb78dc92e862ae56580f8e084675edec18f4c891962334fe9ad6073807bcbc",
     "gameThemeRelations": 461973,
+    "gameThemeRelationsSha256": "f87ae77ee80a1620bf85ccc919689882c68b809b19dc30517ce866e046591656",
     "gameCategoryRelations": 17337,
-    "gamePlayerPreferences": 263463
+    "gameCategoryRelationsSha256": "86c0025bdc1699d938eea93a2ac479b7e67b7a353c1cd3123c82e2703c9f665d",
+    "gamePlayerPreferences": 263463,
+    "gamePlayerPreferencesSha256": "3af8c769e2a626013a5a301162ede612a795d8b478aacf339ff1861fc3d276ea"
+  },
+  "rooms": {
+    "rowCount": 60,
+    "canonicalSha256": "d60b61a98c3f66f58ca174f34d71314890021c3a08ba07af4ac772f67ff69e72"
   },
   "lineage": {
     "status": "observed-fixture-fingerprint",
