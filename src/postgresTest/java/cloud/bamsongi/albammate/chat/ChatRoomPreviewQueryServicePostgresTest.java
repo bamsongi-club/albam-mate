@@ -31,10 +31,11 @@ import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
 
 /**
- * T1·T2: {@code ChatRoomLastMessageRow}(native @Query interface projection)가 실제 PostgreSQL JDBC
- * 드라이버가 반환하는 {@code created_at} 값을 Spring Data 인터페이스 projection으로 변환할 때 예외 없이
- * 동작하는지 검증한다(issue #881,
- * https://github.com/bamsongi-club/albam-mate/issues/881#issuecomment-5341884487).
+ * T1·T2: {@code ChatRoomLastMessageRow}가 실제 PostgreSQL JDBC 드라이버가 반환하는 {@code created_at} 값을
+ * 예외·정밀도 손실 없이 매핑하는지 검증한다(issue #881,
+ * https://github.com/bamsongi-club/albam-mate/issues/881#issuecomment-5341884487). 실제 HTTP 회귀
+ * 경로(참가자 인증, {@code GET /api/users/me/rooms?role=joined}, unreadCount)는
+ * {@code ChatRoomPreviewHttpPostgresTest}가 검증한다.
  */
 @Testcontainers
 @SpringBootTest(classes = AlbamMateApplication.class)
@@ -81,6 +82,20 @@ class ChatRoomPreviewQueryServicePostgresTest {
 	}
 
 	@Test
+	void T1_저장된_메시지_시각의_마이크로초_정밀도가_lastMessageAt에_그대로_보존된다() {
+		long hostUserId = insertUser("host");
+		Room room = createChatRoom(hostUserId);
+		Instant microPrecisionCreatedAt = NOW.plusNanos(123_456_000L);
+		insertMessage(room.getId(), hostUserId, "마이크로초 메시지", microPrecisionCreatedAt);
+
+		Map<Long, ChatRoomPreviewQuery.ChatRoomPreview> previews = chatRoomPreviewQueryService
+			.findPreviews(hostUserId, Set.of(room.getId()));
+
+		ChatRoomPreviewQuery.ChatRoomPreview preview = previews.get(room.getId());
+		assertEquals(microPrecisionCreatedAt, preview.lastMessageAt());
+	}
+
+	@Test
 	void T2_메시지가_없는_방은_실제_PostgreSQL에서도_빈_상태로_정상_응답한다() {
 		long hostUserId = insertUser("host");
 		Room room = createChatRoom(hostUserId);
@@ -103,6 +118,13 @@ class ChatRoomPreviewQueryServicePostgresTest {
 					chatRoomInternalId, senderUserId, "preview-pg-" + UUID.randomUUID(), contentPrefix + i,
 					NOW.plusSeconds(i)));
 		}
+	}
+
+	private void insertMessage(long roomId, long senderUserId, String content, Instant createdAt) {
+		long chatRoomInternalId = chatRoomRepository.findByRoomId(roomId).orElseThrow().getId();
+		chatMessageRepository.save(
+			ChatMessage.create(
+				chatRoomInternalId, senderUserId, "preview-pg-" + UUID.randomUUID(), content, createdAt));
 	}
 
 	private long insertUser(String nickname) {

@@ -10,22 +10,13 @@ import org.springframework.data.repository.query.Param;
 import cloud.bamsongi.albammate.chat.entity.ChatRoom;
 
 /**
- * 채팅 목록의 마지막 메시지·미읽음 개수를 방 개수와 무관하게 상수 회수의 배치 질의로 계산한다.
+ * 채팅 목록의 방별 미읽음 개수를 방 개수와 무관하게 상수 회수의 배치 질의로 계산한다.
  *
  * <p>{@code chat_rooms.room_id}(ROOM 공개 ID)로 직접 조인해, room 모듈에는 chat 내부 PK를 노출하지 않는다.
+ * 마지막 메시지 배치 조회는 {@link ChatRoomLastMessageRow}에 적은 근거에 따라
+ * {@code ChatRoomPreviewQueryService}가 {@code NamedParameterJdbcTemplate}으로 직접 수행한다.
  */
 public interface ChatRoomPreviewRepository extends Repository<ChatRoom, Long> {
-
-	@Query(value = """
-		SELECT cr.room_id AS roomId, cm.content AS content,
-		       CAST(EXTRACT(EPOCH FROM cm.created_at) * 1000 AS BIGINT) AS createdAtEpochMilli
-		FROM chat_rooms cr
-		JOIN chat_messages cm ON cm.chat_room_id = cr.id
-		WHERE cr.room_id IN (:roomIds)
-		  AND cm.id = (SELECT MAX(cm2.id) FROM chat_messages cm2 WHERE cm2.chat_room_id = cr.id)
-		""", nativeQuery = true)
-	List<ChatRoomLastMessageRow> findLastMessages(@Param("roomIds")
-	Set<Long> roomIds);
 
 	/**
 	 * 본인이 보낸 메시지는 제외한다({@code cm.sender_user_id <> :userId}). CHAT-06이 {@code message_type}·
