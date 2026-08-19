@@ -65,6 +65,9 @@ import cloud.bamsongi.albammate.room.service.command.RoomParticipationService;
 import cloud.bamsongi.albammate.room.service.command.RoomStatusChangeService;
 import cloud.bamsongi.albammate.room.service.command.RoomUpdateService;
 import cloud.bamsongi.albammate.room.service.command.RoomWaitlistCommandService;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import jakarta.persistence.OptimisticLockException;
 
 @Testcontainers
 @SpringBootTest
@@ -111,6 +114,12 @@ class RoomParticipationConcurrencyPostgresTest {
 	private ParticipationCancelStepGate participationCancelStepGate;
 
 	@Autowired
+	private PromotionRetryGate promotionRetryGate;
+
+	@Autowired
+	private MeterRegistry meterRegistry;
+
+	@Autowired
 	private RoomTerminalEventCounter roomTerminalEventCounter;
 
 	@Autowired
@@ -135,6 +144,7 @@ class RoomParticipationConcurrencyPostgresTest {
 		waitlistReactivationGate.deactivate();
 		participationWriteFailureGate.deactivate();
 		participationCancelStepGate.deactivate();
+		promotionRetryGate.deactivate();
 		roomTerminalEventCounter.clear();
 		jdbcTemplate.execute(
 			"truncate table chat_rooms, room_waitlists, participations, rooms, users restart identity cascade");
@@ -363,6 +373,58 @@ class RoomParticipationConcurrencyPostgresTest {
 			"select count(*) from notification_outbox_events where room_id = ? and event_type = 'WAITLIST_PROMOTED'",
 			Integer.class,
 			room.getId()));
+		assertRoomInvariant(room.getId());
+	}
+
+	@Test
+	void T3_승격_재시도_최종_성공은_accepted_한번_failed_0으로_기록한다() {
+		long hostUserId = insertUser("promotion-retry-success-host", "방장");
+		long leavingUserId = insertUser("promotion-retry-success-leaving", "취소자");
+		long waitingUserId = insertUser("promotion-retry-success-waiting", "대기자");
+		Room room = createRoom(hostUserId, 1);
+		roomParticipationService.participate(leavingUserId, room.getId());
+		roomWaitlistRepository.saveAndFlush(RoomWaitlist.create(room.getId(), waitingUserId, 10L, NOW));
+		double acceptedBefore = promotionCount("accepted");
+		double failedBefore = promotionCount("failed");
+
+		promotionRetryGate.activate(room.getId(), 1);
+		try {
+			roomParticipationCancelService.cancelParticipation(leavingUserId, room.getId());
+		} finally {
+			promotionRetryGate.deactivate();
+		}
+
+		assertEquals(acceptedBefore + 1.0, promotionCount("accepted"));
+		assertEquals(failedBefore, promotionCount("failed"));
+		assertEquals(RoomWaitlistStatus.PROMOTED, waitlistStatus(room.getId(), waitingUserId));
+		assertEquals(ParticipationStatus.ACTIVE, participationStatus(room.getId(), waitingUserId));
+		assertRoomInvariant(room.getId());
+	}
+
+	@Test
+	void T3_승격_재시도_소진은_failed_한번으로_기록한다() {
+		long hostUserId = insertUser("promotion-retry-failed-host", "방장");
+		long leavingUserId = insertUser("promotion-retry-failed-leaving", "취소자");
+		long waitingUserId = insertUser("promotion-retry-failed-waiting", "대기자");
+		Room room = createRoom(hostUserId, 1);
+		roomParticipationService.participate(leavingUserId, room.getId());
+		roomWaitlistRepository.saveAndFlush(RoomWaitlist.create(room.getId(), waitingUserId, 10L, NOW));
+		double acceptedBefore = promotionCount("accepted");
+		double failedBefore = promotionCount("failed");
+
+		promotionRetryGate.activate(room.getId(), 3);
+		try {
+			BusinessException exception = assertThrows(BusinessException.class,
+				() -> roomParticipationCancelService.cancelParticipation(leavingUserId, room.getId()));
+			assertEquals(ErrorCode.ROOM_CONCURRENT_MODIFICATION, exception.getErrorCode());
+		} finally {
+			promotionRetryGate.deactivate();
+		}
+
+		assertEquals(acceptedBefore, promotionCount("accepted"));
+		assertEquals(failedBefore + 1.0, promotionCount("failed"));
+		assertEquals(RoomWaitlistStatus.WAITING, waitlistStatus(room.getId(), waitingUserId));
+		assertEquals(ParticipationStatus.ACTIVE, participationStatus(room.getId(), leavingUserId));
 		assertRoomInvariant(room.getId());
 	}
 
@@ -674,6 +736,13 @@ class RoomParticipationConcurrencyPostgresTest {
 			roomId);
 	}
 
+	private double promotionCount(String outcome) {
+		Counter counter = meterRegistry.find("room.waitlist.operations")
+			.tags("operation", "promote", "outcome", outcome)
+			.counter();
+		return counter == null ? 0.0 : counter.count();
+	}
+
 	private ReapplicationFixture createCanceledWaitlistFixture(String emailPrefix) {
 		long hostUserId = insertUser(emailPrefix + "-host", "방장");
 		long leavingUserId = insertUser(emailPrefix + "-leaving", "취소자");
@@ -912,6 +981,11 @@ class RoomParticipationConcurrencyPostgresTest {
 		}
 
 		@Bean
+		PromotionRetryGate promotionRetryGate() {
+			return new PromotionRetryGate();
+		}
+
+		@Bean
 		RoomTerminalEventCounter roomTerminalEventCounter() {
 			return new RoomTerminalEventCounter();
 		}
@@ -948,9 +1022,10 @@ class RoomParticipationConcurrencyPostgresTest {
 		ParticipationRepository gatedParticipationRepository(
 			@Qualifier("participationRepository") ParticipationRepository delegate,
 			ParticipationWriteFailureGate participationWriteFailureGate,
-			ParticipationCancelStepGate participationCancelStepGate) {
+			ParticipationCancelStepGate participationCancelStepGate,
+			PromotionRetryGate promotionRetryGate) {
 			InvocationHandler handler = new GateAwareParticipationRepositoryInvocationHandler(
-				delegate, participationWriteFailureGate, participationCancelStepGate);
+				delegate, participationWriteFailureGate, participationCancelStepGate, promotionRetryGate);
 			return (ParticipationRepository)Proxy.newProxyInstance(
 				ParticipationRepository.class.getClassLoader(),
 				new Class<?>[] {ParticipationRepository.class},
@@ -1021,14 +1096,17 @@ class RoomParticipationConcurrencyPostgresTest {
 		private final ParticipationRepository delegate;
 		private final ParticipationWriteFailureGate participationWriteFailureGate;
 		private final ParticipationCancelStepGate participationCancelStepGate;
+		private final PromotionRetryGate promotionRetryGate;
 
 		private GateAwareParticipationRepositoryInvocationHandler(
 			ParticipationRepository delegate,
 			ParticipationWriteFailureGate participationWriteFailureGate,
-			ParticipationCancelStepGate participationCancelStepGate) {
+			ParticipationCancelStepGate participationCancelStepGate,
+			PromotionRetryGate promotionRetryGate) {
 			this.delegate = delegate;
 			this.participationWriteFailureGate = participationWriteFailureGate;
 			this.participationCancelStepGate = participationCancelStepGate;
+			this.promotionRetryGate = promotionRetryGate;
 		}
 
 		@Override
@@ -1042,6 +1120,14 @@ class RoomParticipationConcurrencyPostgresTest {
 					&& participationWriteFailureGate.consumeFailureWhenActive()) {
 					delegate.flush();
 					throw new DataIntegrityViolationException("테스트 전용 participation 저장 실패");
+				}
+				if (method.getName().equals("save")
+					&& args != null
+					&& args.length == 1
+					&& args[0] instanceof Participation participation
+					&& promotionRetryGate.consumeFailureWhenPromotionSaved(participation)) {
+					delegate.flush();
+					throw new OptimisticLockException("테스트 전용 승격 낙관 락 충돌");
 				}
 				return result;
 			} catch (InvocationTargetException exception) {
@@ -1307,6 +1393,42 @@ class RoomParticipationConcurrencyPostgresTest {
 			private Scenario(long roomId, long userId) {
 				this.roomId = roomId;
 				this.userId = userId;
+			}
+		}
+	}
+
+	static final class PromotionRetryGate {
+
+		private final AtomicReference<Scenario> activeScenario = new AtomicReference<>();
+
+		void activate(long roomId, int failureCount) {
+			assertTrue(activeScenario.compareAndSet(null, new Scenario(roomId, failureCount)));
+		}
+
+		boolean consumeFailureWhenPromotionSaved(Participation participation) {
+			Scenario scenario = activeScenario.get();
+			if (scenario == null
+				|| participation.getStatus() != ParticipationStatus.ACTIVE
+				|| participation.getRoom() == null
+				|| participation.getRoom().getId() == null
+				|| participation.getRoom().getId() != scenario.roomId) {
+				return false;
+			}
+			return scenario.remainingFailures.getAndDecrement() > 0;
+		}
+
+		void deactivate() {
+			activeScenario.set(null);
+		}
+
+		private static final class Scenario {
+
+			private final long roomId;
+			private final AtomicInteger remainingFailures;
+
+			private Scenario(long roomId, int failureCount) {
+				this.roomId = roomId;
+				this.remainingFailures = new AtomicInteger(failureCount);
 			}
 		}
 	}

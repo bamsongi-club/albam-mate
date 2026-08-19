@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -46,20 +48,20 @@ class RoomParticipationCancelServiceTest {
 	void 낙관_락_충돌_뒤_다음_독립_시도가_성공하면_취소_응답을_반환한다() {
 		RoomParticipationCancelService service = service();
 		RoomParticipationResponse expected = response();
-		when(executor.cancelParticipation(USER_ID, ROOM_ID, REQUEST_TIME))
+		when(executor.cancelParticipation(eq(USER_ID), eq(ROOM_ID), eq(REQUEST_TIME), any(Runnable.class)))
 			.thenThrow(new OptimisticLockException())
 			.thenReturn(expected);
 
 		assertSame(expected, service.cancelParticipation(USER_ID, ROOM_ID));
 
-		verify(executor, times(2)).cancelParticipation(USER_ID, ROOM_ID, REQUEST_TIME);
+		verify(executor, times(2)).cancelParticipation(eq(USER_ID), eq(ROOM_ID), eq(REQUEST_TIME), any(Runnable.class));
 	}
 
 	@Test
 	void 세_번_모두_낙관_락_충돌이면_마지막_원인을_보존한_409를_반환한다() {
 		RoomParticipationCancelService service = service();
 		OptimisticLockException third = new OptimisticLockException("third");
-		when(executor.cancelParticipation(USER_ID, ROOM_ID, REQUEST_TIME))
+		when(executor.cancelParticipation(eq(USER_ID), eq(ROOM_ID), eq(REQUEST_TIME), any(Runnable.class)))
 			.thenThrow(new OptimisticLockException("first"))
 			.thenThrow(new ObjectOptimisticLockingFailureException(Room.class, ROOM_ID))
 			.thenThrow(third);
@@ -72,7 +74,8 @@ class RoomParticipationCancelServiceTest {
 
 			assertEquals(ErrorCode.ROOM_CONCURRENT_MODIFICATION, exception.getErrorCode());
 			assertSame(third, exception.getCause());
-			verify(executor, times(3)).cancelParticipation(USER_ID, ROOM_ID, REQUEST_TIME);
+			verify(executor, times(3)).cancelParticipation(
+				eq(USER_ID), eq(ROOM_ID), eq(REQUEST_TIME), any(Runnable.class));
 			assertRetryLogs(appender, "event=room_participation_cancel_retry roomId=7");
 		} finally {
 			detachLogAppender(appender);
@@ -83,7 +86,8 @@ class RoomParticipationCancelServiceTest {
 	void 업무_오류는_재시도하지_않고_그대로_전달한다() {
 		RoomParticipationCancelService service = service();
 		BusinessException expected = new BusinessException(ErrorCode.PARTICIPATION_NOT_FOUND);
-		when(executor.cancelParticipation(USER_ID, ROOM_ID, REQUEST_TIME)).thenThrow(expected);
+		when(executor.cancelParticipation(eq(USER_ID), eq(ROOM_ID), eq(REQUEST_TIME), any(Runnable.class)))
+			.thenThrow(expected);
 
 		assertSame(
 			expected,
@@ -91,7 +95,7 @@ class RoomParticipationCancelServiceTest {
 				BusinessException.class,
 				() -> service.cancelParticipation(USER_ID, ROOM_ID)));
 
-		verify(executor).cancelParticipation(USER_ID, ROOM_ID, REQUEST_TIME);
+		verify(executor).cancelParticipation(eq(USER_ID), eq(ROOM_ID), eq(REQUEST_TIME), any(Runnable.class));
 	}
 
 	private RoomParticipationCancelService service() {
