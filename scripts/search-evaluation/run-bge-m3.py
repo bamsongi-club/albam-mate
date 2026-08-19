@@ -23,6 +23,9 @@ APPROVED_SOURCE_HASHES = {
     "queries": "93d3e79d5a04d9eb147830f513df960a564a7ff32a786441b6f9e59665901772",
     "displayMap": "b3e717225cc091712071506d24c7653823994ec6b9743b2a8c3532fa659b3ffc",
 }
+SEARCH_CANDIDATE_INPUT_KIND = "search-04-search-candidate-dense-input"
+SEARCH_CANDIDATE_APPROVAL_REFERENCE = "https://github.com/bamsongi-club/albam-mate/issues/885#issuecomment-5344383511"
+APPROVED_CANDIDATE_INPUT_CONTRACT_SHA256 = "6bfa028232c531e80db6f3fdc4d74708c4641d450e724301af684142091c70ca"
 APPROVED_MODEL_FILES = {
     "1_Pooling/config.json": "e54c164a07274f2eb45bb724f54a79d1efcc90c41573887cd9a29aeee0597352",
     "config.json": "26159e7ad065073448460117eb24b7a4572f6f4e78eadff65dc0a11c052449fa",
@@ -65,6 +68,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--search-text", type=Path, required=True)
     parser.add_argument("--display-map", type=Path, required=True)
     parser.add_argument("--queries", type=Path, required=True)
+    parser.add_argument("--input-contract", type=Path)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--device", default=None)
@@ -87,6 +91,40 @@ def load_model_artifact_manifest(path: Path) -> dict[str, Any]:
     if files != APPROVED_MODEL_FILES:
         raise ValueError("model artifact manifest file set does not match the approved snapshot")
     return manifest
+
+
+def load_input_contract(path: Path) -> dict[str, Any]:
+    contract = load_json(path)
+    if contract.get("schemaVersion") != 1 or contract.get("kind") != SEARCH_CANDIDATE_INPUT_KIND:
+        raise ValueError("invalid SEARCH-04 candidate input contract")
+    if contract.get("approvalReference") != SEARCH_CANDIDATE_APPROVAL_REFERENCE:
+        raise ValueError("SEARCH-04 candidate input contract approval reference is not the approved semantic-30 reference")
+    if sha256_file(path) != APPROVED_CANDIDATE_INPUT_CONTRACT_SHA256:
+        raise ValueError("SEARCH-04 candidate input contract checksum is not the approved semantic-30 contract")
+    source_git_head = contract.get("sourceGitHead")
+    if not isinstance(source_git_head, str) or not re.fullmatch(r"[0-9a-f]{40}", source_git_head):
+        raise ValueError("candidate input contract sourceGitHead must be a 40-character Git SHA")
+    source_hashes = contract.get("sourceHashes")
+    if not isinstance(source_hashes, dict) or set(source_hashes) != set(APPROVED_SOURCE_HASHES):
+        raise ValueError("candidate input contract sourceHashes are incomplete")
+    if any(not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{64}", value) for value in source_hashes.values()):
+        raise ValueError("candidate input contract sourceHashes must be SHA-256 values")
+    query_ids = contract.get("queryIds")
+    if (
+        not isinstance(query_ids, list)
+        or not query_ids
+        or len(query_ids) != len(set(query_ids))
+        or any(not isinstance(query_id, str) or not query_id for query_id in query_ids)
+    ):
+        raise ValueError("candidate input contract queryIds are invalid")
+    if not isinstance(contract.get("applyHardFilters"), bool):
+        raise ValueError("candidate input contract applyHardFilters must be boolean")
+    return {
+        "sourceGitHead": source_git_head,
+        "sourceHashes": source_hashes,
+        "queryIds": query_ids,
+        "applyHardFilters": contract["applyHardFilters"],
+    }
 
 
 def validate_model_artifact(model_path: Path, manifest_path: Path) -> str:
@@ -112,10 +150,17 @@ def validate_inputs(
     search_text: dict[str, Any],
     display_map: dict[str, Any],
     queries: list[dict[str, Any]],
-) -> tuple[list[dict[str, Any]], dict[int, dict[str, str | None]]]:
+    input_contract: dict[str, Any] | None = None,
+) -> tuple[list[dict[str, Any]], dict[int, dict[str, str | None]], dict[int, dict[str, Any]]]:
+    contract = input_contract or {
+        "sourceGitHead": APPROVED_SOURCE_GIT_HEAD,
+        "sourceHashes": APPROVED_SOURCE_HASHES,
+        "queryIds": list(PLAY_INTENT_QUERIES),
+        "applyHardFilters": False,
+    }
     if args.model_revision != MODEL_REVISION:
         raise ValueError("model revision is not the approved BGE-M3 snapshot")
-    if args.source_git_head != APPROVED_SOURCE_GIT_HEAD:
+    if args.source_git_head != contract["sourceGitHead"]:
         raise ValueError("source Git SHA is not the approved SEARCH-04 input snapshot")
     if not re.fullmatch(r"[0-9a-f]{40}", args.source_git_head):
         raise ValueError("--source-git-head must be a 40-character Git SHA")
@@ -127,7 +172,7 @@ def validate_inputs(
         ("queries", args.queries),
         ("displayMap", args.display_map),
     ):
-        if sha256_file(path) != APPROVED_SOURCE_HASHES[name]:
+        if sha256_file(path) != contract["sourceHashes"][name]:
             raise ValueError(f"{name} is not the approved SEARCH-04 input snapshot")
     games = search_text.get("games")
     if search_text.get("gameCount") != 1000 or not isinstance(games, list) or len(games) != 1000:
@@ -141,6 +186,7 @@ def validate_inputs(
     quality_ids = [member.get("gameId") for member in quality_members] if isinstance(quality_members, list) else []
     if len(quality_ids) != 1000 or set(quality_ids) != set(game_ids):
         raise ValueError("search_text gameId membership does not match the approved quality corpus")
+    quality_by_id = {member["gameId"]: member for member in quality_members}
     display_games = display_map.get("games")
     if display_map.get("gameCount") != 1000 or not isinstance(display_games, list) or len(display_games) != 1000:
         raise ValueError("display map must contain exactly 1,000 games")
@@ -152,15 +198,22 @@ def validate_inputs(
         display_by_id[game_id] = {"name": game.get("name"), "englishName": game.get("englishName")}
     if set(display_by_id) != set(game_ids):
         raise ValueError("display map gameId membership does not match search_text")
-    if len(queries) != 3 or {query.get("id") for query in queries} != {"Q-010", "Q-011", "Q-012"}:
-        raise ValueError("queries must contain Q-010, Q-011, Q-012")
+    expected_query_ids = set(contract["queryIds"])
+    if len(queries) != len(expected_query_ids) or {query.get("id") for query in queries} != expected_query_ids:
+        raise ValueError("queries do not match the approved candidate input contract")
     for query in queries:
         query_id = query.get("id")
-        if query.get("query") != PLAY_INTENT_QUERIES[query_id] or query.get("hardFilters") != {}:
-            raise ValueError("play-intent queries must match the approved text and have no hard filter")
-        if query.get("labelStatus") != "unjudged":
-            raise ValueError("unjudged play-intent queries cannot be treated as approved gold")
-    return games, display_by_id
+        if input_contract is None:
+            if query.get("query") != PLAY_INTENT_QUERIES[query_id] or query.get("hardFilters") != {}:
+                raise ValueError("play-intent queries must match the approved text and have no hard filter")
+            if query.get("labelStatus") != "unjudged":
+                raise ValueError("unjudged play-intent queries cannot be treated as approved gold")
+        else:
+            if not isinstance(query.get("hardFilters"), dict):
+                raise ValueError("candidate queries must provide hardFilters as an object")
+            if query.get("labelStatus") not in {"provisional", "unjudged"}:
+                raise ValueError("candidate queries cannot provide approved gold labels")
+    return games, display_by_id, quality_by_id
 
 
 def load_model(model_path: Path, device: str | None):
@@ -208,12 +261,37 @@ def encode(model, texts: list[str], batch_size: int):
     return vectors
 
 
-def rank_results(query_vectors, document_vectors, games, queries, display_by_id):
+def matches_hard_filters(member: dict[str, Any], hard_filters: dict[str, int]) -> bool:
+    if "minPlayers" in hard_filters:
+        if not isinstance(member.get("maxPlayers"), int) or member["maxPlayers"] < 1:
+            return False
+        if member["maxPlayers"] < hard_filters["minPlayers"]:
+            return False
+    if "maxPlayers" in hard_filters:
+        if not isinstance(member.get("minPlayers"), int) or member["minPlayers"] < 1:
+            return False
+        if member["minPlayers"] > hard_filters["maxPlayers"]:
+            return False
+    if "maxPlayTimeMinutes" in hard_filters:
+        if not isinstance(member.get("maxPlayTimeMinutes"), int) or member["maxPlayTimeMinutes"] < 1:
+            return False
+        if member["maxPlayTimeMinutes"] > hard_filters["maxPlayTimeMinutes"]:
+            return False
+    return True
+
+
+def rank_results(query_vectors, document_vectors, games, queries, display_by_id, quality_by_id, apply_hard_filters):
     scores = query_vectors @ document_vectors.T
     output = []
     for query_index, query in enumerate(queries):
+        candidate_indexes = range(len(games))
+        if apply_hard_filters:
+            candidate_indexes = [
+                index for index in candidate_indexes
+                if matches_hard_filters(quality_by_id[games[index]["gameId"]], query["hardFilters"])
+            ]
         order = sorted(
-            range(len(games)),
+            candidate_indexes,
             key=lambda index: (-float(scores[query_index, index]), games[index]["gameId"]),
         )[:TOP_K]
         ranked = [
@@ -253,7 +331,15 @@ def main() -> None:
     search_text = load_json(args.search_text)
     display_map = load_json(args.display_map)
     queries = load_json(args.queries)
-    games, display_by_id = validate_inputs(args, quality_corpus, search_text, display_map, queries)
+    input_contract = load_input_contract(args.input_contract) if args.input_contract else None
+    games, display_by_id, quality_by_id = validate_inputs(
+        args,
+        quality_corpus,
+        search_text,
+        display_map,
+        queries,
+        input_contract,
+    )
     model = load_model(args.model_path, args.device)
     document_vectors = encode(model, [game["searchText"] for game in games], args.batch_size)
     query_vectors = encode(model, [query["query"] for query in queries], args.batch_size)
@@ -282,7 +368,15 @@ def main() -> None:
         },
         "runtime": runtime_descriptor(model),
         "topK": TOP_K,
-        "queries": rank_results(query_vectors, document_vectors, games, queries, display_by_id),
+        "queries": rank_results(
+            query_vectors,
+            document_vectors,
+            games,
+            queries,
+            display_by_id,
+            quality_by_id,
+            input_contract["applyHardFilters"] if input_contract else False,
+        ),
     }
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(results, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

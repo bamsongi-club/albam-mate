@@ -23,7 +23,13 @@ export const RESULT_KIND = 'search-04-baseline-results';
 export const RULE_VERSION = 'search-04-lexical-sparse-v1';
 export const TRUSTED_INPUT_DESCRIPTOR_SHA256 = '4c4c22657d735bda8a109b5df12dd39eb7e9b80c786fdbb4efff670337eddf5b';
 export const TRUSTED_EVALUATION_MANIFEST_SHA256 = 'e604e12740730aa9cb713e4b3db34f5ce311bcfff0db651da463a81f997329d4';
+export const TRUSTED_SEMANTIC_QUERY_FIXTURE_SHA256 = '84522f97b196d12db33b082fc26529218555b9408a973e6b6da3577587387142';
 export const MODES = Object.freeze(['lexical', 'sparse']);
+
+const TRUSTED_SEMANTIC_QUERY_FIXTURE_PATH = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../docs/p2/search-evaluation/search-candidate-comparison/semantic-30-queries.json',
+);
 
 const FIELD_LABELS = Object.freeze({
     '게임명': 'name',
@@ -354,15 +360,15 @@ export function scoreCandidate({ mode, query, fields }) {
 export function matchesHardFilters(member, hardFilters = {}) {
     requireObject(member, 'quality corpus member');
     if (hardFilters.minPlayers !== undefined) {
-        requireInteger(member.maxPlayers, 'quality corpus member.maxPlayers');
+        if (!Number.isSafeInteger(member.maxPlayers) || member.maxPlayers < 1) return false;
         if (member.maxPlayers < hardFilters.minPlayers) return false;
     }
     if (hardFilters.maxPlayers !== undefined) {
-        requireInteger(member.minPlayers, 'quality corpus member.minPlayers');
+        if (!Number.isSafeInteger(member.minPlayers) || member.minPlayers < 1) return false;
         if (member.minPlayers > hardFilters.maxPlayers) return false;
     }
     if (hardFilters.maxPlayTimeMinutes !== undefined) {
-        requireInteger(member.maxPlayTimeMinutes, 'quality corpus member.maxPlayTimeMinutes');
+        if (!Number.isSafeInteger(member.maxPlayTimeMinutes) || member.maxPlayTimeMinutes < 1) return false;
         if (member.maxPlayTimeMinutes > hardFilters.maxPlayTimeMinutes) return false;
     }
     return true;
@@ -400,6 +406,7 @@ export function buildBaselineResults({
     searchTextBytes,
     pocManifest,
     pocManifestBytes,
+    queries = manifest.queries,
 }) {
     if (!MODES.includes(mode)) throw new Error(`지원하지 않는 baseline mode입니다: ${mode}`);
     validateEvaluationManifest(manifest);
@@ -415,7 +422,7 @@ export function buildBaselineResults({
 
     const corpusById = new Map(manifest.qualityCorpus.members.map((member) => [member.gameId, member]));
     const results = Object.fromEntries(
-        [...manifest.queries]
+        [...queries]
             .sort((left, right) => compareStrings(left.id, right.id))
             .map((query) => [query.id, rankQuery({
                 mode,
@@ -562,7 +569,17 @@ function loadTrustedEvaluationManifest(filePath) {
 
 function parseArgs(args) {
     const options = {};
-    const valueOptions = new Set(['mode', 'manifest', 'inputDescriptor', 'pocManifest', 'searchText', 'out']);
+    const valueOptions = new Set([
+        'mode',
+        'manifest',
+        'inputDescriptor',
+        'pocManifest',
+        'searchText',
+        'queries',
+        'queriesSha256',
+        'out',
+    ]);
+    const requiredOptions = new Set(['mode', 'manifest', 'inputDescriptor', 'pocManifest', 'searchText', 'out']);
     for (let index = 0; index < args.length; index += 1) {
         const argument = args[index];
         if (!argument.startsWith('--')) throw new Error(`알 수 없는 인자입니다: ${argument}`);
@@ -575,10 +592,46 @@ function parseArgs(args) {
         options[option] = value;
         index += 1;
     }
-    for (const option of valueOptions) {
+    for (const option of requiredOptions) {
         if (!options[option]) throw new Error(`--${option.replace(/[A-Z]/gu, (letter) => `-${letter.toLowerCase()}`)} 경로가 필요합니다.`);
     }
+    if ((options.queries === undefined) !== (options.queriesSha256 === undefined)) {
+        throw new Error('--queries와 --queries-sha256는 함께 지정해야 합니다.');
+    }
     return options;
+}
+
+function loadQueryFixture(filePath, expectedSha256) {
+    if (path.resolve(filePath) !== TRUSTED_SEMANTIC_QUERY_FIXTURE_PATH) {
+        throw new Error(`--queries는 커밋된 semantic-30 fixture 고정 경로만 사용할 수 있습니다: ${TRUSTED_SEMANTIC_QUERY_FIXTURE_PATH}`);
+    }
+    const bytes = readFileSync(filePath);
+    if (expectedSha256 !== TRUSTED_SEMANTIC_QUERY_FIXTURE_SHA256
+        || sha256(bytes) !== TRUSTED_SEMANTIC_QUERY_FIXTURE_SHA256) {
+        throw new Error('--queries checksum이 승인된 semantic fixture와 다릅니다.');
+    }
+    let queries;
+    try {
+        queries = JSON.parse(bytes.toString('utf8'));
+    } catch (error) {
+        throw new Error(`--queries JSON을 읽을 수 없습니다: ${error.message}`);
+    }
+    if (!Array.isArray(queries) || queries.length === 0) {
+        throw new Error('--queries는 비어 있지 않은 query 배열이어야 합니다.');
+    }
+    const queryIds = new Set();
+    for (const query of queries) {
+        if (query === null || typeof query !== 'object' || Array.isArray(query)
+            || typeof query.id !== 'string' || query.id.trim() === '' || queryIds.has(query.id)
+            || typeof query.query !== 'string' || query.query.trim() === '') {
+            throw new Error('--queries query id와 query 문구가 올바르지 않습니다.');
+        }
+        if (query.hardFilters === null || typeof query.hardFilters !== 'object' || Array.isArray(query.hardFilters)) {
+            throw new Error('--queries hardFilters는 object여야 합니다.');
+        }
+        queryIds.add(query.id);
+    }
+    return queries;
 }
 
 function assertOutputIsSeparate(outputPath, inputPaths) {
@@ -629,6 +682,7 @@ function main() {
         const inputDescriptorPath = path.resolve(options.inputDescriptor);
         const pocManifestPath = path.resolve(options.pocManifest);
         const searchTextPath = path.resolve(options.searchText);
+        const queriesPath = options.queries ? path.resolve(options.queries) : null;
         const outputPath = path.resolve(options.out);
         const manifest = loadTrustedEvaluationManifest(manifestPath);
         const inputDescriptor = readTrustedInputDescriptor(inputDescriptorPath);
@@ -636,11 +690,13 @@ function main() {
         const pocManifest = JSON.parse(pocManifestBytes.toString('utf8'));
         const searchTextBytes = readFileSync(searchTextPath);
         const searchTextArtifact = JSON.parse(searchTextBytes.toString('utf8'));
+        const queries = queriesPath ? loadQueryFixture(queriesPath, options.queriesSha256) : manifest.queries;
         const indirectInputPaths = [
             manifestPath,
             inputDescriptorPath,
             pocManifestPath,
             searchTextPath,
+            queriesPath,
             manifest.queriesPath && path.resolve(path.dirname(manifestPath), manifest.queriesPath),
             manifest.qualityCorpusPath && path.resolve(path.dirname(manifestPath), manifest.qualityCorpusPath),
             resolveReference(manifestPath, manifest.catalog.manifestReference),
@@ -655,6 +711,7 @@ function main() {
             searchTextBytes,
             pocManifest,
             pocManifestBytes,
+            queries,
         });
         const contents = renderResults(results);
         writeOutputAtomically(outputPath, contents);

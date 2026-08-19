@@ -36,6 +36,7 @@ const ALLOWED_SCOPE_PREFIXES = Object.freeze([
     "docs/adr/game/0072-search-quality-corpus-membership-and-versioning.md",
     "scripts/p2-search-evaluation.mjs",
     "scripts/p2-search-evaluation.test.mjs",
+    "scripts/search-evaluation/",
     ".github/workflows/ci.yml",
 ]);
 

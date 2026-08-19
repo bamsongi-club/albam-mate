@@ -5,4 +5,5 @@
 .githooks/* text eol=lf
 /docs/game-catalog/catalog-dataset-release.json text eol=lf
 /docs/p2/search-evaluation/*.json text eol=lf
+/docs/p2/search-evaluation/**/*.json text eol=lf
 /docs/p2/search-evaluation/lexical-sparse/**/*.json text eol=lf

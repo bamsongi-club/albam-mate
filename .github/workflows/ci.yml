@@ -460,8 +460,37 @@ jobs:
       - name: Check SEARCH-04 evaluation fixture
         run: node scripts/p2-search-evaluation.mjs --check --manifest docs/p2/search-evaluation/manifest.json
 
+      - name: Check SEARCH-04 semantic-30 comparison manifest
+        run: node scripts/search-evaluation/search-candidate-comparison.mjs --check --manifest docs/p2/search-evaluation/search-candidate-semantic-30-input.json
+
+      - name: Check SEARCH-04 semantic-30 committed artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          artifact_dir="$(mktemp -d)"
+          packet_path="$artifact_dir/packet.json"
+          metrics_path="$artifact_dir/metrics.json"
+          trap 'rm -rf "$artifact_dir"' EXIT
+          node scripts/search-evaluation/search-candidate-comparison.mjs \
+            --packet \
+            --manifest docs/p2/search-evaluation/search-candidate-semantic-30-input.json \
+            --out "$packet_path" >/dev/null
+          cmp -- "$packet_path" docs/p2/search-evaluation/search-candidate-comparison/semantic-30-human-judgement-packet.json
+          node scripts/search-evaluation/search-candidate-comparison.mjs \
+            --metrics \
+            --hybrid-rrf \
+            --manifest docs/p2/search-evaluation/search-candidate-semantic-30-input.json \
+            --out "$metrics_path" >/dev/null
+          cmp -- "$metrics_path" docs/p2/search-evaluation/search-candidate-comparison/semantic-30-metrics-pending.json
+
       - name: Test SEARCH-04 lexical sparse baseline
         run: node --test scripts/search-evaluation/lexical-sparse-baseline.test.mjs
+
+      - name: Test SEARCH-04 Dense BGE-M3 contract
+        run: python3 scripts/search-evaluation/run-bge-m3.test.py
+
+      - name: Test SEARCH-04 candidate comparison
+        run: node --test scripts/search-evaluation/search-candidate-comparison.test.mjs
 
       - name: Test monitoring contract checker
         run: node --test scripts/docs/check-monitoring-contract.test.mjs

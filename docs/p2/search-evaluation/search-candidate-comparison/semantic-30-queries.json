@@ -1,0 +1,593 @@
+[
+  {
+    "id": "Q-001",
+    "query": "서로의 말을 들으면서 누가 거짓말하고 있는지 의심하고 추리하는 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "analysisClass": "semantic-core",
+    "anchor": true,
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {},
+    "expectedGameIds": [],
+    "excludedGameIds": [],
+    "expectedReasons": {},
+    "judgementRubric": {
+      "relevant": "게임 설명이 query의 핵심 플레이 경험을 주된 방식으로 제공한다.",
+      "borderline": "일부 요소는 맞지만 query의 핵심 경험이 부차적이거나 불완전하다.",
+      "irrelevant": "query의 핵심 플레이 경험과 직접 관련이 없다."
+    }
+  },
+  {
+    "id": "Q-002",
+    "query": "그림이나 짧은 단서를 보고 다른 사람이 무슨 생각을 했는지 맞혀 가는 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "analysisClass": "semantic-core",
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {},
+    "expectedGameIds": [],
+    "excludedGameIds": [],
+    "expectedReasons": {},
+    "judgementRubric": {
+      "relevant": "게임 설명이 query의 핵심 플레이 경험을 주된 방식으로 제공한다.",
+      "borderline": "일부 요소는 맞지만 query의 핵심 경험이 부차적이거나 불완전하다.",
+      "irrelevant": "query의 핵심 플레이 경험과 직접 관련이 없다."
+    }
+  },
+  {
+    "id": "Q-003",
+    "query": "처음 하는 사람도 금방 이해하고 자연스럽게 웃고 떠들 수 있는 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "analysisClass": "semantic-core",
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {},
+    "expectedGameIds": [],
+    "excludedGameIds": [],
+    "expectedReasons": {},
+    "judgementRubric": {
+      "relevant": "게임 설명이 query의 핵심 플레이 경험을 주된 방식으로 제공한다.",
+      "borderline": "일부 요소는 맞지만 query의 핵심 경험이 부차적이거나 불완전하다.",
+      "irrelevant": "query의 핵심 플레이 경험과 직접 관련이 없다."
+    }
+  },
+  {
+    "id": "Q-004",
+    "query": "모두가 동시에 결정을 내려서 다른 사람이 무엇을 고를지 예상하는 재미가 있는 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "analysisClass": "semantic-core",
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {},
+    "expectedGameIds": [],
+    "excludedGameIds": [],
+    "expectedReasons": {},
+    "judgementRubric": {
+      "relevant": "게임 설명이 query의 핵심 플레이 경험을 주된 방식으로 제공한다.",
+      "borderline": "일부 요소는 맞지만 query의 핵심 경험이 부차적이거나 불완전하다.",
+      "irrelevant": "query의 핵심 플레이 경험과 직접 관련이 없다."
+    }
+  },
+  {
+    "id": "Q-005",
+    "query": "처음에는 할 수 있는 일이 적지만 플레이할수록 내 선택지와 능력이 점점 강해지는 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "analysisClass": "semantic-core",
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {},
+    "expectedGameIds": [],
+    "excludedGameIds": [],
+    "expectedReasons": {},
+    "judgementRubric": {
+      "relevant": "게임 설명이 query의 핵심 플레이 경험을 주된 방식으로 제공한다.",
+      "borderline": "일부 요소는 맞지만 query의 핵심 경험이 부차적이거나 불완전하다.",
+      "irrelevant": "query의 핵심 플레이 경험과 직접 관련이 없다."
+    }
+  },
+  {
+    "id": "Q-006",
+    "query": "한정된 행동 기회를 서로 먼저 차지하려고 경쟁해서 매 차례 계획을 바꿔야 하는 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "analysisClass": "semantic-core",
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {},
+    "expectedGameIds": [],
+    "excludedGameIds": [],
+    "expectedReasons": {},
+    "judgementRubric": {
+      "relevant": "게임 설명이 query의 핵심 플레이 경험을 주된 방식으로 제공한다.",
+      "borderline": "일부 요소는 맞지만 query의 핵심 경험이 부차적이거나 불완전하다.",
+      "irrelevant": "query의 핵심 플레이 경험과 직접 관련이 없다."
+    }
+  },
+  {
+    "id": "Q-007",
+    "query": "내가 하나를 선택하면 남은 선택지가 다른 사람에게 넘어가서 무엇을 남길지도 고민하게 되는 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "analysisClass": "semantic-core",
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {},
+    "expectedGameIds": [],
+    "excludedGameIds": [],
+    "expectedReasons": {},
+    "judgementRubric": {
+      "relevant": "게임 설명이 query의 핵심 플레이 경험을 주된 방식으로 제공한다.",
+      "borderline": "일부 요소는 맞지만 query의 핵심 경험이 부차적이거나 불완전하다.",
+      "irrelevant": "query의 핵심 플레이 경험과 직접 관련이 없다."
+    }
+  },
+  {
+    "id": "Q-008",
+    "query": "각자 잘하는 일이 다른 캐릭터를 맡아 힘을 합쳐 하나의 목표를 해결하는 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "analysisClass": "semantic-core",
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {},
+    "expectedGameIds": [],
+    "excludedGameIds": [],
+    "expectedReasons": {},
+    "judgementRubric": {
+      "relevant": "게임 설명이 query의 핵심 플레이 경험을 주된 방식으로 제공한다.",
+      "borderline": "일부 요소는 맞지만 query의 핵심 경험이 부차적이거나 불완전하다.",
+      "irrelevant": "query의 핵심 플레이 경험과 직접 관련이 없다."
+    }
+  },
+  {
+    "id": "Q-009",
+    "query": "서로 가진 정보를 나누고 의견을 맞춰야만 문제를 해결할 수 있는 협력 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "analysisClass": "semantic-core",
+    "anchor": true,
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {},
+    "expectedGameIds": [],
+    "excludedGameIds": [],
+    "expectedReasons": {},
+    "judgementRubric": {
+      "relevant": "게임 설명이 query의 핵심 플레이 경험을 주된 방식으로 제공한다.",
+      "borderline": "일부 요소는 맞지만 query의 핵심 경험이 부차적이거나 불완전하다.",
+      "irrelevant": "query의 핵심 플레이 경험과 직접 관련이 없다."
+    }
+  },
+  {
+    "id": "Q-010",
+    "query": "더 큰 보상을 노리고 계속 진행할지 지금 얻은 것을 지킬지 매번 고민하게 되는 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "analysisClass": "semantic-core",
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {},
+    "expectedGameIds": [],
+    "excludedGameIds": [],
+    "expectedReasons": {},
+    "judgementRubric": {
+      "relevant": "게임 설명이 query의 핵심 플레이 경험을 주된 방식으로 제공한다.",
+      "borderline": "일부 요소는 맞지만 query의 핵심 경험이 부차적이거나 불완전하다.",
+      "irrelevant": "query의 핵심 플레이 경험과 직접 관련이 없다."
+    }
+  },
+  {
+    "id": "Q-011",
+    "query": "필요한 것을 서로 교환하고 설득하면서 거래 조건을 만들어 가는 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "analysisClass": "semantic-core",
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {},
+    "expectedGameIds": [],
+    "excludedGameIds": [],
+    "expectedReasons": {},
+    "judgementRubric": {
+      "relevant": "게임 설명이 query의 핵심 플레이 경험을 주된 방식으로 제공한다.",
+      "borderline": "일부 요소는 맞지만 query의 핵심 경험이 부차적이거나 불완전하다.",
+      "irrelevant": "query의 핵심 플레이 경험과 직접 관련이 없다."
+    }
+  },
+  {
+    "id": "Q-012",
+    "query": "중요한 지역을 서로 차지하고 빼앗으면서 판 위의 주도권이 계속 바뀌는 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "analysisClass": "semantic-core",
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {},
+    "expectedGameIds": [],
+    "excludedGameIds": [],
+    "expectedReasons": {},
+    "judgementRubric": {
+      "relevant": "게임 설명이 query의 핵심 플레이 경험을 주된 방식으로 제공한다.",
+      "borderline": "일부 요소는 맞지만 query의 핵심 경험이 부차적이거나 불완전하다.",
+      "irrelevant": "query의 핵심 플레이 경험과 직접 관련이 없다."
+    }
+  },
+  {
+    "id": "Q-013",
+    "query": "상대가 다음에 무엇을 할지 읽어야 하고 작은 선택 하나가 승부에 크게 영향을 주는 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "analysisClass": "semantic-core",
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {},
+    "expectedGameIds": [],
+    "excludedGameIds": [],
+    "expectedReasons": {},
+    "judgementRubric": {
+      "relevant": "게임 설명이 query의 핵심 플레이 경험을 주된 방식으로 제공한다.",
+      "borderline": "일부 요소는 맞지만 query의 핵심 경험이 부차적이거나 불완전하다.",
+      "irrelevant": "query의 핵심 플레이 경험과 직접 관련이 없다."
+    }
+  },
+  {
+    "id": "Q-014",
+    "query": "흩어진 단서를 하나씩 연결해서 정답이나 사건의 전모를 밝혀내는 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "analysisClass": "semantic-core",
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {},
+    "expectedGameIds": [],
+    "excludedGameIds": [],
+    "expectedReasons": {},
+    "judgementRubric": {
+      "relevant": "게임 설명이 query의 핵심 플레이 경험을 주된 방식으로 제공한다.",
+      "borderline": "일부 요소는 맞지만 query의 핵심 경험이 부차적이거나 불완전하다.",
+      "irrelevant": "query의 핵심 플레이 경험과 직접 관련이 없다."
+    }
+  },
+  {
+    "id": "Q-015",
+    "query": "게임을 진행하면서 이야기가 이어지고 내가 내린 선택에 따라 이후 상황이 달라지는 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "analysisClass": "semantic-core",
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {},
+    "expectedGameIds": [],
+    "excludedGameIds": [],
+    "expectedReasons": {},
+    "judgementRubric": {
+      "relevant": "게임 설명이 query의 핵심 플레이 경험을 주된 방식으로 제공한다.",
+      "borderline": "일부 요소는 맞지만 query의 핵심 경험이 부차적이거나 불완전하다.",
+      "irrelevant": "query의 핵심 플레이 경험과 직접 관련이 없다."
+    }
+  },
+  {
+    "id": "Q-016",
+    "query": "조각이나 타일을 어디에 놓느냐에 따라 공간을 효율적으로 채우는 방법을 고민하는 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "analysisClass": "semantic-core",
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {},
+    "expectedGameIds": [],
+    "excludedGameIds": [],
+    "expectedReasons": {},
+    "judgementRubric": {
+      "relevant": "게임 설명이 query의 핵심 플레이 경험을 주된 방식으로 제공한다.",
+      "borderline": "일부 요소는 맞지만 query의 핵심 경험이 부차적이거나 불완전하다.",
+      "irrelevant": "query의 핵심 플레이 경험과 직접 관련이 없다."
+    }
+  },
+  {
+    "id": "Q-017",
+    "query": "서로 관련 있는 것들을 모아 조합을 완성할수록 더 많은 점수를 얻는 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "analysisClass": "semantic-core",
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {},
+    "expectedGameIds": [],
+    "excludedGameIds": [],
+    "expectedReasons": {},
+    "judgementRubric": {
+      "relevant": "게임 설명이 query의 핵심 플레이 경험을 주된 방식으로 제공한다.",
+      "borderline": "일부 요소는 맞지만 query의 핵심 경험이 부차적이거나 불완전하다.",
+      "irrelevant": "query의 핵심 플레이 경험과 직접 관련이 없다."
+    }
+  },
+  {
+    "id": "Q-018",
+    "query": "내가 가진 것이 좋은지 나쁜지 숨기면서 상대가 믿거나 포기하도록 유도하는 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "analysisClass": "semantic-core",
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {},
+    "expectedGameIds": [],
+    "excludedGameIds": [],
+    "expectedReasons": {},
+    "judgementRubric": {
+      "relevant": "게임 설명이 query의 핵심 플레이 경험을 주된 방식으로 제공한다.",
+      "borderline": "일부 요소는 맞지만 query의 핵심 경험이 부차적이거나 불완전하다.",
+      "irrelevant": "query의 핵심 플레이 경험과 직접 관련이 없다."
+    }
+  },
+  {
+    "id": "Q-019",
+    "query": "초반에 뒤처지더라도 한두 번의 좋은 판단으로 다시 따라잡을 기회가 있는 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "analysisClass": "semantic-core",
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {},
+    "expectedGameIds": [],
+    "excludedGameIds": [],
+    "expectedReasons": {},
+    "judgementRubric": {
+      "relevant": "게임 설명이 query의 핵심 플레이 경험을 주된 방식으로 제공한다.",
+      "borderline": "일부 요소는 맞지만 query의 핵심 경험이 부차적이거나 불완전하다.",
+      "irrelevant": "query의 핵심 플레이 경험과 직접 관련이 없다."
+    }
+  },
+  {
+    "id": "Q-020",
+    "query": "다른 사람을 직접 공격하기보다는 각자 계획을 발전시키면서 은근히 경쟁하는 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "analysisClass": "semantic-core",
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {},
+    "expectedGameIds": [],
+    "excludedGameIds": [],
+    "expectedReasons": {},
+    "judgementRubric": {
+      "relevant": "게임 설명이 query의 핵심 플레이 경험을 주된 방식으로 제공한다.",
+      "borderline": "일부 요소는 맞지만 query의 핵심 경험이 부차적이거나 불완전하다.",
+      "irrelevant": "query의 핵심 플레이 경험과 직접 관련이 없다."
+    }
+  },
+  {
+    "id": "Q-021",
+    "query": "서로 직접 싸우지는 않는데도 다른 사람의 선택 때문에 계속 긴장하게 되는 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "analysisClass": "contrast-hard-semantic",
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {},
+    "expectedGameIds": [],
+    "excludedGameIds": [],
+    "expectedReasons": {},
+    "judgementRubric": {
+      "relevant": "게임 설명이 query의 대조적 핵심 경험을 주된 방식으로 제공한다.",
+      "borderline": "긴장감이나 상호작용은 있지만 query의 대조 조건이 일부만 맞는다.",
+      "irrelevant": "query의 대조적 핵심 경험과 직접 관련이 없다."
+    }
+  },
+  {
+    "id": "Q-022",
+    "query": "혼자 조용히 생각하는 것보다 플레이하는 동안 계속 이야기하고 반응하는 재미가 큰 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "analysisClass": "contrast-hard-semantic",
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {},
+    "expectedGameIds": [],
+    "excludedGameIds": [],
+    "expectedReasons": {},
+    "judgementRubric": {
+      "relevant": "게임 설명이 query의 대조적 핵심 경험을 주된 방식으로 제공한다.",
+      "borderline": "대화나 반응은 있지만 query의 대조 조건이 일부만 맞는다.",
+      "irrelevant": "query의 대조적 핵심 경험과 직접 관련이 없다."
+    }
+  },
+  {
+    "id": "Q-023",
+    "query": "규칙은 금방 배울 수 있지만 몇 번 해볼수록 더 깊은 선택이 보이는 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "analysisClass": "contrast-hard-semantic",
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {},
+    "expectedGameIds": [],
+    "excludedGameIds": [],
+    "expectedReasons": {},
+    "judgementRubric": {
+      "relevant": "게임 설명이 query의 대조적 핵심 경험을 주된 방식으로 제공한다.",
+      "borderline": "배우기 쉽거나 전략적이지만 query의 두 조건이 모두 충분하지 않다.",
+      "irrelevant": "query의 대조적 핵심 경험과 직접 관련이 없다."
+    }
+  },
+  {
+    "id": "Q-024",
+    "query": "한 사람이 실수해도 바로 망하지 않고 서로 도와서 다시 상황을 풀어갈 수 있는 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "analysisClass": "contrast-hard-semantic",
+    "anchor": true,
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {},
+    "expectedGameIds": [],
+    "excludedGameIds": [],
+    "expectedReasons": {},
+    "judgementRubric": {
+      "relevant": "게임 설명이 query의 대조적 핵심 경험을 주된 방식으로 제공한다.",
+      "borderline": "협력이나 회복 가능성은 있지만 query의 대조 조건이 일부만 맞는다.",
+      "irrelevant": "query의 대조적 핵심 경험과 직접 관련이 없다."
+    }
+  },
+  {
+    "id": "Q-025",
+    "query": "내가 알고 있는 정보를 전부 말할 수 없어서 서로의 의도를 눈치로 맞춰야 하는 협력 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "analysisClass": "contrast-hard-semantic",
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {},
+    "expectedGameIds": [],
+    "excludedGameIds": [],
+    "expectedReasons": {},
+    "judgementRubric": {
+      "relevant": "게임 설명이 query의 대조적 핵심 경험을 주된 방식으로 제공한다.",
+      "borderline": "협력이나 정보 제한은 있지만 query의 대조 조건이 일부만 맞는다.",
+      "irrelevant": "query의 대조적 핵심 경험과 직접 관련이 없다."
+    }
+  },
+  {
+    "id": "Q-026",
+    "query": "네 명이서 30분 이내에 끝내고 처음 하는 사람도 부담 없이 즐길 수 있는 파티 게임",
+    "cohorts": [
+      "intent+hard filter"
+    ],
+    "analysisClass": "hybrid-hard-filter",
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {
+      "minPlayers": 4,
+      "maxPlayers": 4,
+      "maxPlayTimeMinutes": 30
+    },
+    "expectedGameIds": [],
+    "excludedGameIds": [],
+    "expectedReasons": {},
+    "judgementRubric": {
+      "relevant": "게임 설명이 query의 핵심 경험을 제공하고 hardFilters의 인원·시간 조건을 모두 만족한다.",
+      "borderline": "게임 설명의 핵심 경험은 일부 맞지만 의미 조건 또는 hardFilters가 불완전하다.",
+      "irrelevant": "게임 설명의 핵심 경험과 직접 관련이 없거나 hardFilters를 만족하지 않는다."
+    }
+  },
+  {
+    "id": "Q-027",
+    "query": "세 명 이상이 45분 안에 함께 목표를 해결할 수 있는 협력 게임",
+    "cohorts": [
+      "intent+hard filter"
+    ],
+    "analysisClass": "hybrid-hard-filter",
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {
+      "minPlayers": 3,
+      "maxPlayTimeMinutes": 45
+    },
+    "expectedGameIds": [],
+    "excludedGameIds": [],
+    "expectedReasons": {},
+    "judgementRubric": {
+      "relevant": "게임 설명이 query의 핵심 경험을 제공하고 hardFilters의 인원·시간 조건을 모두 만족한다.",
+      "borderline": "게임 설명의 핵심 경험은 일부 맞지만 의미 조건 또는 hardFilters가 불완전하다.",
+      "irrelevant": "게임 설명의 핵심 경험과 직접 관련이 없거나 hardFilters를 만족하지 않는다."
+    }
+  },
+  {
+    "id": "Q-028",
+    "query": "두세 명이 30분 이내에 즐기면서 서로 정보를 주고받는 것이 중요한 게임",
+    "cohorts": [
+      "intent+hard filter"
+    ],
+    "analysisClass": "hybrid-hard-filter",
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {
+      "minPlayers": 2,
+      "maxPlayers": 3,
+      "maxPlayTimeMinutes": 30
+    },
+    "expectedGameIds": [],
+    "excludedGameIds": [],
+    "expectedReasons": {},
+    "judgementRubric": {
+      "relevant": "게임 설명이 query의 핵심 경험을 제공하고 hardFilters의 인원·시간 조건을 모두 만족한다.",
+      "borderline": "게임 설명의 핵심 경험은 일부 맞지만 의미 조건 또는 hardFilters가 불완전하다.",
+      "irrelevant": "게임 설명의 핵심 경험과 직접 관련이 없거나 hardFilters를 만족하지 않는다."
+    }
+  },
+  {
+    "id": "Q-029",
+    "query": "다섯 명 이상이 30분 이내에 즐길 수 있고 사람들끼리 많이 이야기하며 웃을 수 있는 게임",
+    "cohorts": [
+      "intent+hard filter"
+    ],
+    "analysisClass": "hybrid-hard-filter",
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {
+      "minPlayers": 5,
+      "maxPlayTimeMinutes": 30
+    },
+    "expectedGameIds": [],
+    "excludedGameIds": [],
+    "expectedReasons": {},
+    "judgementRubric": {
+      "relevant": "게임 설명이 query의 핵심 경험을 제공하고 hardFilters의 인원·시간 조건을 모두 만족한다.",
+      "borderline": "게임 설명의 핵심 경험은 일부 맞지만 의미 조건 또는 hardFilters가 불완전하다.",
+      "irrelevant": "게임 설명의 핵심 경험과 직접 관련이 없거나 hardFilters를 만족하지 않는다."
+    }
+  },
+  {
+    "id": "Q-030",
+    "query": "두 명이 한 시간 안에 즐길 수 있고 규칙은 어렵지 않지만 생각할 거리는 충분한 전략 게임",
+    "cohorts": [
+      "intent+hard filter"
+    ],
+    "analysisClass": "hybrid-hard-filter",
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {
+      "minPlayers": 2,
+      "maxPlayers": 2,
+      "maxPlayTimeMinutes": 60
+    },
+    "expectedGameIds": [],
+    "excludedGameIds": [],
+    "expectedReasons": {},
+    "judgementRubric": {
+      "relevant": "게임 설명이 query의 핵심 경험을 제공하고 hardFilters의 인원·시간 조건을 모두 만족한다.",
+      "borderline": "게임 설명의 핵심 경험은 일부 맞지만 의미 조건 또는 hardFilters가 불완전하다.",
+      "irrelevant": "게임 설명의 핵심 경험과 직접 관련이 없거나 hardFilters를 만족하지 않는다."
+    }
+  }
+]

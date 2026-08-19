@@ -1,0 +1,4444 @@
+{
+  "schemaVersion": 1,
+  "kind": "search-04-dense-execution",
+  "sourceGitHead": "974e55a05be944a70fc157c30e3da0c7888883d3",
+  "model": {
+    "provider": "local",
+    "modelId": "BAAI/bge-m3",
+    "revision": "5617a9f61b028005a4858fdac845db406aefb181",
+    "dimension": 1024,
+    "pooling": "cls",
+    "normalized": true,
+    "prefix": "none",
+    "denseOnly": true,
+    "similarity": "normalized-dot"
+  },
+  "inputs": {
+    "qualityCorpusSha256": "0ce65a0ab500054c11548fe487afab8247b8f09282087f6db4d144d0783c87e8",
+    "searchTextSha256": "ec364be3a34268d1bb6d27e3c41e2cdd31852565eec79fa31faaacda17af4ece",
+    "querySha256": "84522f97b196d12db33b082fc26529218555b9408a973e6b6da3577587387142",
+    "displayMapSha256": "b3e717225cc091712071506d24c7653823994ec6b9743b2a8c3532fa659b3ffc",
+    "modelArtifactManifestSha256": "82bc00be0afb7daa72f89b3e7a7f14552b59466550a9eafa2f965b59e65cb708",
+    "corpusRows": 1000
+  },
+  "runtime": {
+    "python": "3.14.6",
+    "sentenceTransformers": "6.0.0",
+    "torch": "2.13.0",
+    "numpy": "2.5.2",
+    "device": "cpu"
+  },
+  "topK": 20,
+  "queries": [
+    {
+      "id": "Q-001",
+      "query": "서로의 말을 들으면서 누가 거짓말하고 있는지 의심하고 추리하는 게임",
+      "ranked": [
+        {
+          "rank": 1,
+          "gameId": 102181,
+          "score": 0.6265945434570312,
+          "name": " 덤불 속",
+          "englishName": " In a Grove"
+        },
+        {
+          "rank": 2,
+          "gameId": 346623,
+          "score": 0.6264552474021912,
+          "name": " 수스페크트 게임",
+          "englishName": " Suspect Game"
+        },
+        {
+          "rank": 3,
+          "gameId": 257743,
+          "score": 0.6254673600196838,
+          "name": " 사이 Whaaat?!",
+          "englishName": " Say Whaaat?!"
+        },
+        {
+          "rank": 4,
+          "gameId": 219215,
+          "score": 0.6233876943588257,
+          "name": " 우어에우오드스",
+          "englishName": " Werewords"
+        },
+        {
+          "rank": 5,
+          "gameId": 262543,
+          "score": 0.6133792996406555,
+          "name": " 와브엘엔그스",
+          "englishName": " Wavelength"
+        },
+        {
+          "rank": 6,
+          "gameId": 225694,
+          "score": 0.6075252890586853,
+          "name": " 데크르이프토",
+          "englishName": " Decrypto"
+        },
+        {
+          "rank": 7,
+          "gameId": 254640,
+          "score": 0.6057407855987549,
+          "name": " 주스트 온에",
+          "englishName": " Just One"
+        },
+        {
+          "rank": 8,
+          "gameId": 45,
+          "score": 0.6000751256942749,
+          "name": " 프어우도",
+          "englishName": " Perudo"
+        },
+        {
+          "rank": 9,
+          "gameId": 46213,
+          "score": 0.599092423915863,
+          "name": " 트엘에스트라션스",
+          "englishName": " Telestrations"
+        },
+        {
+          "rank": 10,
+          "gameId": 451594,
+          "score": 0.5986390113830566,
+          "name": " 육식동물 짓이야!",
+          "englishName": " A Carnivore Did It!"
+        },
+        {
+          "rank": 11,
+          "gameId": 163930,
+          "score": 0.5927207469940186,
+          "name": " 아브라카다...왓?",
+          "englishName": " Abracada...What?"
+        },
+        {
+          "rank": 12,
+          "gameId": 246784,
+          "score": 0.5883772373199463,
+          "name": " 크르이프티드",
+          "englishName": " Cryptid"
+        },
+        {
+          "rank": 13,
+          "gameId": 437781,
+          "score": 0.5883392095565796,
+          "name": " 디지트 코드",
+          "englishName": " Digit Code"
+        },
+        {
+          "rank": 14,
+          "gameId": 257527,
+          "score": 0.5854669213294983,
+          "name": " 트라프더블유오드스",
+          "englishName": " Trapwords"
+        },
+        {
+          "rank": 15,
+          "gameId": 105593,
+          "score": 0.5832375884056091,
+          "name": " 장난꾸러기 나방",
+          "englishName": " Cheating Moth"
+        },
+        {
+          "rank": 16,
+          "gameId": 330592,
+          "score": 0.5804513692855835,
+          "name": " 프앤트옴 인크",
+          "englishName": " Phantom Ink"
+        },
+        {
+          "rank": 17,
+          "gameId": 329839,
+          "score": 0.5766414999961853,
+          "name": " 소 크로브어!",
+          "englishName": " So Clover!"
+        },
+        {
+          "rank": 18,
+          "gameId": 466,
+          "score": 0.5750682353973389,
+          "name": " 인코그니토",
+          "englishName": " Inkognito"
+        },
+        {
+          "rank": 19,
+          "gameId": 130877,
+          "score": 0.5750678181648254,
+          "name": " 블러드 바운드",
+          "englishName": " Blood Bound"
+        },
+        {
+          "rank": 20,
+          "gameId": 156129,
+          "score": 0.5747171640396118,
+          "name": " 데세프션: 름어드어 인 흐온그 크온그",
+          "englishName": " Deception: Murder in Hong Kong"
+        }
+      ],
+      "hardFilterViolationGameIds": []
+    },
+    {
+      "id": "Q-002",
+      "query": "그림이나 짧은 단서를 보고 다른 사람이 무슨 생각을 했는지 맞혀 가는 게임",
+      "ranked": [
+        {
+          "rank": 1,
+          "gameId": 284108,
+          "score": 0.6934144496917725,
+          "name": " 피크쳐스",
+          "englishName": " Pictures"
+        },
+        {
+          "rank": 2,
+          "gameId": 347889,
+          "score": 0.6540533900260925,
+          "name": " 캐치 스케치",
+          "englishName": " Catch Sketch"
+        },
+        {
+          "rank": 3,
+          "gameId": 252526,
+          "score": 0.6340463161468506,
+          "name": " 피크트옴앤이아 (2판)",
+          "englishName": " Pictomania (Second Edition)"
+        },
+        {
+          "rank": 4,
+          "gameId": 262543,
+          "score": 0.6335527896881104,
+          "name": " 와브엘엔그스",
+          "englishName": " Wavelength"
+        },
+        {
+          "rank": 5,
+          "gameId": 257743,
+          "score": 0.6278402805328369,
+          "name": " 사이 Whaaat?!",
+          "englishName": " Say Whaaat?!"
+        },
+        {
+          "rank": 6,
+          "gameId": 46213,
+          "score": 0.6233196258544922,
+          "name": " 트엘에스트라션스",
+          "englishName": " Telestrations"
+        },
+        {
+          "rank": 7,
+          "gameId": 254640,
+          "score": 0.6176313757896423,
+          "name": " 주스트 온에",
+          "englishName": " Just One"
+        },
+        {
+          "rank": 8,
+          "gameId": 330592,
+          "score": 0.6166056394577026,
+          "name": " 프앤트옴 인크",
+          "englishName": " Phantom Ink"
+        },
+        {
+          "rank": 9,
+          "gameId": 98229,
+          "score": 0.6152434349060059,
+          "name": " 피크트옴앤이아",
+          "englishName": " Pictomania"
+        },
+        {
+          "rank": 10,
+          "gameId": 163930,
+          "score": 0.6070268154144287,
+          "name": " 아브라카다...왓?",
+          "englishName": " Abracada...What?"
+        },
+        {
+          "rank": 11,
+          "gameId": 225694,
+          "score": 0.6064871549606323,
+          "name": " 데크르이프토",
+          "englishName": " Decrypto"
+        },
+        {
+          "rank": 12,
+          "gameId": 322204,
+          "score": 0.6005762815475464,
+          "name": " 더블유오드 카프쳐",
+          "englishName": " Word Capture"
+        },
+        {
+          "rank": 13,
+          "gameId": 456619,
+          "score": 0.5998014807701111,
+          "name": " 브리트즈",
+          "englishName": " BLITZ"
+        },
+        {
+          "rank": 14,
+          "gameId": 1198,
+          "score": 0.5970728397369385,
+          "name": " 세트",
+          "englishName": " SET"
+        },
+        {
+          "rank": 15,
+          "gameId": 400995,
+          "score": 0.5934546589851379,
+          "name": " 퍼스펙티브스",
+          "englishName": " Perspectives"
+        },
+        {
+          "rank": 16,
+          "gameId": 39856,
+          "score": 0.5881730318069458,
+          "name": " 디크스이트",
+          "englishName": " Dixit"
+        },
+        {
+          "rank": 17,
+          "gameId": 12157,
+          "score": 0.5871808528900146,
+          "name": " 너도? 나도!",
+          "englishName": " Unanimo"
+        },
+        {
+          "rank": 18,
+          "gameId": 290236,
+          "score": 0.5818368196487427,
+          "name": " 크앤바스",
+          "englishName": " Canvas"
+        },
+        {
+          "rank": 19,
+          "gameId": 375651,
+          "score": 0.5804793834686279,
+          "name": " 스아트스 노트 아 하트",
+          "englishName": " That's Not a Hat"
+        },
+        {
+          "rank": 20,
+          "gameId": 329839,
+          "score": 0.579182505607605,
+          "name": " 소 크로브어!",
+          "englishName": " So Clover!"
+        }
+      ],
+      "hardFilterViolationGameIds": []
+    },
+    {
+      "id": "Q-003",
+      "query": "처음 하는 사람도 금방 이해하고 자연스럽게 웃고 떠들 수 있는 게임",
+      "ranked": [
+        {
+          "rank": 1,
+          "gameId": 203430,
+          "score": 0.5828537940979004,
+          "name": " 후지 플러시",
+          "englishName": " Fuji Flush"
+        },
+        {
+          "rank": 2,
+          "gameId": 347889,
+          "score": 0.5603594183921814,
+          "name": " 캐치 스케치",
+          "englishName": " Catch Sketch"
+        },
+        {
+          "rank": 3,
+          "gameId": 46213,
+          "score": 0.5597434639930725,
+          "name": " 트엘에스트라션스",
+          "englishName": " Telestrations"
+        },
+        {
+          "rank": 4,
+          "gameId": 420087,
+          "score": 0.559635579586029,
+          "name": " 프리프 7",
+          "englishName": " Flip 7"
+        },
+        {
+          "rank": 5,
+          "gameId": 159581,
+          "score": 0.5580647587776184,
+          "name": " 마스크맨",
+          "englishName": " Maskmen"
+        },
+        {
+          "rank": 6,
+          "gameId": 393325,
+          "score": 0.55363529920578,
+          "name": " 캡틴 프리프",
+          "englishName": " Captain Flip"
+        },
+        {
+          "rank": 7,
+          "gameId": 284108,
+          "score": 0.5517967939376831,
+          "name": " 피크쳐스",
+          "englishName": " Pictures"
+        },
+        {
+          "rank": 8,
+          "gameId": 424816,
+          "score": 0.5512673854827881,
+          "name": " 정고",
+          "englishName": " Jungo"
+        },
+        {
+          "rank": 9,
+          "gameId": 254640,
+          "score": 0.5508946180343628,
+          "name": " 주스트 온에",
+          "englishName": " Just One"
+        },
+        {
+          "rank": 10,
+          "gameId": 171,
+          "score": 0.5491558313369751,
+          "name": " 치에스스",
+          "englishName": " Chess"
+        },
+        {
+          "rank": 11,
+          "gameId": 193214,
+          "score": 0.5490755438804626,
+          "name": " 엠이프레 크어쿠스",
+          "englishName": " Meeple Circus"
+        },
+        {
+          "rank": 12,
+          "gameId": 129736,
+          "score": 0.5462161302566528,
+          "name": " 코크르오치 포크어 로얄",
+          "englishName": " Cockroach Poker Royal"
+        },
+        {
+          "rank": 13,
+          "gameId": 2536,
+          "score": 0.5454077124595642,
+          "name": " 바방크",
+          "englishName": " Vabanque"
+        },
+        {
+          "rank": 14,
+          "gameId": 12942,
+          "score": 0.5427854657173157,
+          "name": " 노 스앤크스!",
+          "englishName": " No Thanks!"
+        },
+        {
+          "rank": 15,
+          "gameId": 98229,
+          "score": 0.5420333743095398,
+          "name": " 피크트옴앤이아",
+          "englishName": " Pictomania"
+        },
+        {
+          "rank": 16,
+          "gameId": 117959,
+          "score": 0.5399094820022583,
+          "name": " 라스 베가스",
+          "englishName": " Las Vegas"
+        },
+        {
+          "rank": 17,
+          "gameId": 252526,
+          "score": 0.5398027896881104,
+          "name": " 피크트옴앤이아 (2판)",
+          "englishName": " Pictomania (Second Edition)"
+        },
+        {
+          "rank": 18,
+          "gameId": 266083,
+          "score": 0.5396881103515625,
+          "name": " 르.르.아.름.아.",
+          "englishName": " L.L.A.M.A."
+        },
+        {
+          "rank": 19,
+          "gameId": 165722,
+          "score": 0.5396025776863098,
+          "name": " 크라스크",
+          "englishName": " KLASK"
+        },
+        {
+          "rank": 20,
+          "gameId": 456619,
+          "score": 0.5387178063392639,
+          "name": " 브리트즈",
+          "englishName": " BLITZ"
+        }
+      ],
+      "hardFilterViolationGameIds": []
+    },
+    {
+      "id": "Q-004",
+      "query": "모두가 동시에 결정을 내려서 다른 사람이 무엇을 고를지 예상하는 재미가 있는 게임",
+      "ranked": [
+        {
+          "rank": 1,
+          "gameId": 257743,
+          "score": 0.6454507112503052,
+          "name": " 사이 Whaaat?!",
+          "englishName": " Say Whaaat?!"
+        },
+        {
+          "rank": 2,
+          "gameId": 411567,
+          "score": 0.6156689524650574,
+          "name": " 스에 그앤그",
+          "englishName": " The Gang"
+        },
+        {
+          "rank": 3,
+          "gameId": 254640,
+          "score": 0.6083766222000122,
+          "name": " 주스트 온에",
+          "englishName": " Just One"
+        },
+        {
+          "rank": 4,
+          "gameId": 262543,
+          "score": 0.5989826321601868,
+          "name": " 와브엘엔그스",
+          "englishName": " Wavelength"
+        },
+        {
+          "rank": 5,
+          "gameId": 46213,
+          "score": 0.5956698656082153,
+          "name": " 트엘에스트라션스",
+          "englishName": " Telestrations"
+        },
+        {
+          "rank": 6,
+          "gameId": 2536,
+          "score": 0.5953272581100464,
+          "name": " 바방크",
+          "englishName": " Vabanque"
+        },
+        {
+          "rank": 7,
+          "gameId": 446497,
+          "score": 0.5869148373603821,
+          "name": " 호트 스트르이크",
+          "englishName": " Hot Streak"
+        },
+        {
+          "rank": 8,
+          "gameId": 98229,
+          "score": 0.5865808129310608,
+          "name": " 피크트옴앤이아",
+          "englishName": " Pictomania"
+        },
+        {
+          "rank": 9,
+          "gameId": 246192,
+          "score": 0.5859076976776123,
+          "name": " 기즈모스",
+          "englishName": " Gizmos"
+        },
+        {
+          "rank": 10,
+          "gameId": 440540,
+          "score": 0.5843457579612732,
+          "name": " 타케 타임",
+          "englishName": " Take Time"
+        },
+        {
+          "rank": 11,
+          "gameId": 252526,
+          "score": 0.5842522978782654,
+          "name": " 피크트옴앤이아 (2판)",
+          "englishName": " Pictomania (Second Edition)"
+        },
+        {
+          "rank": 12,
+          "gameId": 163930,
+          "score": 0.5838903784751892,
+          "name": " 아브라카다...왓?",
+          "englishName": " Abracada...What?"
+        },
+        {
+          "rank": 13,
+          "gameId": 171,
+          "score": 0.5827870965003967,
+          "name": " 치에스스",
+          "englishName": " Chess"
+        },
+        {
+          "rank": 14,
+          "gameId": 434906,
+          "score": 0.5821143388748169,
+          "name": " 타그 트이엠",
+          "englishName": " Tag Team"
+        },
+        {
+          "rank": 15,
+          "gameId": 261614,
+          "score": 0.5814783573150635,
+          "name": " 너도? 나도! 파티",
+          "englishName": " Unanimo Party"
+        },
+        {
+          "rank": 16,
+          "gameId": 147614,
+          "score": 0.5804104804992676,
+          "name": " 크레이지 타임",
+          "englishName": " Crazy Time"
+        },
+        {
+          "rank": 17,
+          "gameId": 140535,
+          "score": 0.5783827900886536,
+          "name": " 고려",
+          "englishName": " Koryŏ"
+        },
+        {
+          "rank": 18,
+          "gameId": 327778,
+          "score": 0.5774621963500977,
+          "name": " 이토",
+          "englishName": " ito"
+        },
+        {
+          "rank": 19,
+          "gameId": 395846,
+          "score": 0.5773837566375732,
+          "name": " 모조",
+          "englishName": " Mojo"
+        },
+        {
+          "rank": 20,
+          "gameId": 416851,
+          "score": 0.5772256851196289,
+          "name": " 캐슬 크옴보",
+          "englishName": " Castle Combo"
+        }
+      ],
+      "hardFilterViolationGameIds": []
+    },
+    {
+      "id": "Q-005",
+      "query": "처음에는 할 수 있는 일이 적지만 플레이할수록 내 선택지와 능력이 점점 강해지는 게임",
+      "ranked": [
+        {
+          "rank": 1,
+          "gameId": 126042,
+          "score": 0.5979278683662415,
+          "name": " 나션스",
+          "englishName": " Nations"
+        },
+        {
+          "rank": 2,
+          "gameId": 264647,
+          "score": 0.5954365730285645,
+          "name": " 아게 오프 시브일이자션",
+          "englishName": " Age of Civilization"
+        },
+        {
+          "rank": 3,
+          "gameId": 155703,
+          "score": 0.5869728326797485,
+          "name": " 에볼루션",
+          "englishName": " Evolution"
+        },
+        {
+          "rank": 4,
+          "gameId": 36218,
+          "score": 0.5858279466629028,
+          "name": " 도미니언",
+          "englishName": " Dominion"
+        },
+        {
+          "rank": 5,
+          "gameId": 40692,
+          "score": 0.5814369916915894,
+          "name": " 스엠알엘 월드",
+          "englishName": " Small World"
+        },
+        {
+          "rank": 6,
+          "gameId": 986,
+          "score": 0.5805116295814514,
+          "name": " 바벨",
+          "englishName": " Babel"
+        },
+        {
+          "rank": 7,
+          "gameId": 416851,
+          "score": 0.5804690718650818,
+          "name": " 캐슬 크옴보",
+          "englishName": " Castle Combo"
+        },
+        {
+          "rank": 8,
+          "gameId": 154203,
+          "score": 0.5796617269515991,
+          "name": " 임프어이알 개척자들",
+          "englishName": " Imperial Settlers"
+        },
+        {
+          "rank": 9,
+          "gameId": 162886,
+          "score": 0.5793116092681885,
+          "name": " 스피릿 아일랜드",
+          "englishName": " Spirit Island"
+        },
+        {
+          "rank": 10,
+          "gameId": 68448,
+          "score": 0.575413167476654,
+          "name": " 7 원더스",
+          "englishName": " 7 Wonders"
+        },
+        {
+          "rank": 11,
+          "gameId": 258242,
+          "score": 0.574519693851471,
+          "name": " 부동산 거물: 첫 번째 도시",
+          "englishName": " Magnate: The First City"
+        },
+        {
+          "rank": 12,
+          "gameId": 30549,
+          "score": 0.5729324221611023,
+          "name": " 팬데믹",
+          "englishName": " Pandemic"
+        },
+        {
+          "rank": 13,
+          "gameId": 140535,
+          "score": 0.5729231834411621,
+          "name": " 고려",
+          "englishName": " Koryŏ"
+        },
+        {
+          "rank": 14,
+          "gameId": 265736,
+          "score": 0.5719965696334839,
+          "name": " 트인이 타운스",
+          "englishName": " Tiny Towns"
+        },
+        {
+          "rank": 15,
+          "gameId": 167355,
+          "score": 0.571972131729126,
+          "name": " 네메시스",
+          "englishName": " Nemesis"
+        },
+        {
+          "rank": 16,
+          "gameId": 107529,
+          "score": 0.5716666579246521,
+          "name": " 킹덤 빌더",
+          "englishName": " Kingdom Builder"
+        },
+        {
+          "rank": 17,
+          "gameId": 155987,
+          "score": 0.5700278878211975,
+          "name": " 아브이스스",
+          "englishName": " Abyss"
+        },
+        {
+          "rank": 18,
+          "gameId": 174430,
+          "score": 0.5691708326339722,
+          "name": " 글룸헤이븐",
+          "englishName": " Gloomhaven"
+        },
+        {
+          "rank": 19,
+          "gameId": 395846,
+          "score": 0.5689712166786194,
+          "name": " 모조",
+          "englishName": " Mojo"
+        },
+        {
+          "rank": 20,
+          "gameId": 318184,
+          "score": 0.5678817629814148,
+          "name": " 임페리움: 크라스시크스",
+          "englishName": " Imperium: Classics"
+        }
+      ],
+      "hardFilterViolationGameIds": []
+    },
+    {
+      "id": "Q-006",
+      "query": "한정된 행동 기회를 서로 먼저 차지하려고 경쟁해서 매 차례 계획을 바꿔야 하는 게임",
+      "ranked": [
+        {
+          "rank": 1,
+          "gameId": 440540,
+          "score": 0.6345611214637756,
+          "name": " 타케 타임",
+          "englishName": " Take Time"
+        },
+        {
+          "rank": 2,
+          "gameId": 51,
+          "score": 0.618596613407135,
+          "name": " 리코치에트 로보트스",
+          "englishName": " Ricochet Robots"
+        },
+        {
+          "rank": 3,
+          "gameId": 147614,
+          "score": 0.6170150637626648,
+          "name": " 크레이지 타임",
+          "englishName": " Crazy Time"
+        },
+        {
+          "rank": 4,
+          "gameId": 155703,
+          "score": 0.6168686747550964,
+          "name": " 에볼루션",
+          "englishName": " Evolution"
+        },
+        {
+          "rank": 5,
+          "gameId": 171668,
+          "score": 0.6092081069946289,
+          "name": " 스에 그리즈즈레드",
+          "englishName": " The Grizzled"
+        },
+        {
+          "rank": 6,
+          "gameId": 254640,
+          "score": 0.6076352596282959,
+          "name": " 주스트 온에",
+          "englishName": " Just One"
+        },
+        {
+          "rank": 7,
+          "gameId": 300905,
+          "score": 0.605974018573761,
+          "name": " 토프 트엔",
+          "englishName": " Top Ten"
+        },
+        {
+          "rank": 8,
+          "gameId": 395846,
+          "score": 0.6058771014213562,
+          "name": " 모조",
+          "englishName": " Mojo"
+        },
+        {
+          "rank": 9,
+          "gameId": 456619,
+          "score": 0.6017515659332275,
+          "name": " 브리트즈",
+          "englishName": " BLITZ"
+        },
+        {
+          "rank": 10,
+          "gameId": 298069,
+          "score": 0.5990476012229919,
+          "name": " 쿠비토스",
+          "englishName": " Cubitos"
+        },
+        {
+          "rank": 11,
+          "gameId": 223770,
+          "score": 0.598629891872406,
+          "name": " 스트아투프스",
+          "englishName": " Startups"
+        },
+        {
+          "rank": 12,
+          "gameId": 243430,
+          "score": 0.5980321764945984,
+          "name": " 딜트!",
+          "englishName": " Dealt!"
+        },
+        {
+          "rank": 13,
+          "gameId": 387560,
+          "score": 0.5976625084877014,
+          "name": " 퍼치",
+          "englishName": " Perch"
+        },
+        {
+          "rank": 14,
+          "gameId": 291453,
+          "score": 0.5970770716667175,
+          "name": " 스크아우트",
+          "englishName": " SCOUT"
+        },
+        {
+          "rank": 15,
+          "gameId": 420498,
+          "score": 0.5953301191329956,
+          "name": " 언스토프파브레",
+          "englishName": " Unstoppable"
+        },
+        {
+          "rank": 16,
+          "gameId": 322204,
+          "score": 0.5947584509849548,
+          "name": " 더블유오드 카프쳐",
+          "englishName": " Word Capture"
+        },
+        {
+          "rank": 17,
+          "gameId": 334986,
+          "score": 0.5931538939476013,
+          "name": " 다이브르이크",
+          "englishName": " Daybreak"
+        },
+        {
+          "rank": 18,
+          "gameId": 7854,
+          "score": 0.5908425450325012,
+          "name": " 이인쉬",
+          "englishName": " YINSH"
+        },
+        {
+          "rank": 19,
+          "gameId": 257527,
+          "score": 0.589589536190033,
+          "name": " 트라프더블유오드스",
+          "englishName": " Trapwords"
+        },
+        {
+          "rank": 20,
+          "gameId": 434654,
+          "score": 0.5892600417137146,
+          "name": " 토이 배틀",
+          "englishName": " Toy Battle"
+        }
+      ],
+      "hardFilterViolationGameIds": []
+    },
+    {
+      "id": "Q-007",
+      "query": "내가 하나를 선택하면 남은 선택지가 다른 사람에게 넘어가서 무엇을 남길지도 고민하게 되는 게임",
+      "ranked": [
+        {
+          "rank": 1,
+          "gameId": 257743,
+          "score": 0.6294010877609253,
+          "name": " 사이 Whaaat?!",
+          "englishName": " Say Whaaat?!"
+        },
+        {
+          "rank": 2,
+          "gameId": 245655,
+          "score": 0.629328191280365,
+          "name": " 스에 킹스 드일엠마",
+          "englishName": " The King's Dilemma"
+        },
+        {
+          "rank": 3,
+          "gameId": 291453,
+          "score": 0.6061841249465942,
+          "name": " 스크아우트",
+          "englishName": " SCOUT"
+        },
+        {
+          "rank": 4,
+          "gameId": 39856,
+          "score": 0.6031494140625,
+          "name": " 디크스이트",
+          "englishName": " Dixit"
+        },
+        {
+          "rank": 5,
+          "gameId": 150376,
+          "score": 0.6029046177864075,
+          "name": " 드이드 오프 우인트어: 아 크로스스르오드스 게임",
+          "englishName": " Dead of Winter: A Crossroads Game"
+        },
+        {
+          "rank": 6,
+          "gameId": 188,
+          "score": 0.6011735200881958,
+          "name": " 고",
+          "englishName": " Go"
+        },
+        {
+          "rank": 7,
+          "gameId": 822,
+          "score": 0.6006050705909729,
+          "name": " 카르카손",
+          "englishName": " Carcassonne"
+        },
+        {
+          "rank": 8,
+          "gameId": 115,
+          "score": 0.5995899438858032,
+          "name": " 아임 스에 보스!",
+          "englishName": " I'm the Boss!"
+        },
+        {
+          "rank": 9,
+          "gameId": 38863,
+          "score": 0.5981343388557434,
+          "name": " 스에 리치 앤드 스에 그우드",
+          "englishName": " The Rich and the Good"
+        },
+        {
+          "rank": 10,
+          "gameId": 2536,
+          "score": 0.597948431968689,
+          "name": " 바방크",
+          "englishName": " Vabanque"
+        },
+        {
+          "rank": 11,
+          "gameId": 140535,
+          "score": 0.5974199771881104,
+          "name": " 고려",
+          "englishName": " Koryŏ"
+        },
+        {
+          "rank": 12,
+          "gameId": 256960,
+          "score": 0.59651780128479,
+          "name": " 파엑스 프앰어: 2판 판",
+          "englishName": " Pax Pamir: Second Edition"
+        },
+        {
+          "rank": 13,
+          "gameId": 902,
+          "score": 0.5956981778144836,
+          "name": " 메우트어어",
+          "englishName": " Meuterer"
+        },
+        {
+          "rank": 14,
+          "gameId": 68448,
+          "score": 0.5950175523757935,
+          "name": " 7 원더스",
+          "englishName": " 7 Wonders"
+        },
+        {
+          "rank": 15,
+          "gameId": 440540,
+          "score": 0.5948567986488342,
+          "name": " 타케 타임",
+          "englishName": " Take Time"
+        },
+        {
+          "rank": 16,
+          "gameId": 1125,
+          "score": 0.5934540033340454,
+          "name": " 빅 샷",
+          "englishName": " Big Shot"
+        },
+        {
+          "rank": 17,
+          "gameId": 346623,
+          "score": 0.5926671624183655,
+          "name": " 수스페크트 게임",
+          "englishName": " Suspect Game"
+        },
+        {
+          "rank": 18,
+          "gameId": 387560,
+          "score": 0.591937243938446,
+          "name": " 퍼치",
+          "englishName": " Perch"
+        },
+        {
+          "rank": 19,
+          "gameId": 261614,
+          "score": 0.5912725925445557,
+          "name": " 너도? 나도! 파티",
+          "englishName": " Unanimo Party"
+        },
+        {
+          "rank": 20,
+          "gameId": 395846,
+          "score": 0.5894104242324829,
+          "name": " 모조",
+          "englishName": " Mojo"
+        }
+      ],
+      "hardFilterViolationGameIds": []
+    },
+    {
+      "id": "Q-008",
+      "query": "각자 잘하는 일이 다른 캐릭터를 맡아 힘을 합쳐 하나의 목표를 해결하는 게임",
+      "ranked": [
+        {
+          "rank": 1,
+          "gameId": 440540,
+          "score": 0.6167715787887573,
+          "name": " 타케 타임",
+          "englishName": " Take Time"
+        },
+        {
+          "rank": 2,
+          "gameId": 254640,
+          "score": 0.5893096923828125,
+          "name": " 주스트 온에",
+          "englishName": " Just One"
+        },
+        {
+          "rank": 3,
+          "gameId": 334986,
+          "score": 0.5785114169120789,
+          "name": " 다이브르이크",
+          "englishName": " Daybreak"
+        },
+        {
+          "rank": 4,
+          "gameId": 373106,
+          "score": 0.5688116550445557,
+          "name": " 스크이 트이름",
+          "englishName": " Sky Team"
+        },
+        {
+          "rank": 5,
+          "gameId": 298047,
+          "score": 0.5672208666801453,
+          "name": " 름아브엘 언이테드",
+          "englishName": " Marvel United"
+        },
+        {
+          "rank": 6,
+          "gameId": 329839,
+          "score": 0.5672164559364319,
+          "name": " 소 크로브어!",
+          "englishName": " So Clover!"
+        },
+        {
+          "rank": 7,
+          "gameId": 316287,
+          "score": 0.5665930509567261,
+          "name": " 퀘스트",
+          "englishName": " Quest"
+        },
+        {
+          "rank": 8,
+          "gameId": 451594,
+          "score": 0.566070020198822,
+          "name": " 육식동물 짓이야!",
+          "englishName": " A Carnivore Did It!"
+        },
+        {
+          "rank": 9,
+          "gameId": 155068,
+          "score": 0.5609865188598633,
+          "name": " 아카디아 퀘스트",
+          "englishName": " Arcadia Quest"
+        },
+        {
+          "rank": 10,
+          "gameId": 327778,
+          "score": 0.5597846508026123,
+          "name": " 이토",
+          "englishName": " ito"
+        },
+        {
+          "rank": 11,
+          "gameId": 205637,
+          "score": 0.5586353540420532,
+          "name": " 아컴 호러: 스에 카드 게임",
+          "englishName": " Arkham Horror: The Card Game"
+        },
+        {
+          "rank": 12,
+          "gameId": 171668,
+          "score": 0.5584577918052673,
+          "name": " 스에 그리즈즈레드",
+          "englishName": " The Grizzled"
+        },
+        {
+          "rank": 13,
+          "gameId": 167355,
+          "score": 0.5582426190376282,
+          "name": " 네메시스",
+          "englishName": " Nemesis"
+        },
+        {
+          "rank": 14,
+          "gameId": 256960,
+          "score": 0.5581322312355042,
+          "name": " 파엑스 프앰어: 2판 판",
+          "englishName": " Pax Pamir: Second Edition"
+        },
+        {
+          "rank": 15,
+          "gameId": 300905,
+          "score": 0.556588888168335,
+          "name": " 토프 트엔",
+          "englishName": " Top Ten"
+        },
+        {
+          "rank": 16,
+          "gameId": 47,
+          "score": 0.5549017190933228,
+          "name": " 치인아타운",
+          "englishName": " Chinatown"
+        },
+        {
+          "rank": 17,
+          "gameId": 434906,
+          "score": 0.5544893741607666,
+          "name": " 타그 트이엠",
+          "englishName": " Tag Team"
+        },
+        {
+          "rank": 18,
+          "gameId": 1198,
+          "score": 0.552016019821167,
+          "name": " 세트",
+          "englishName": " SET"
+        },
+        {
+          "rank": 19,
+          "gameId": 411567,
+          "score": 0.5512118339538574,
+          "name": " 스에 그앤그",
+          "englishName": " The Gang"
+        },
+        {
+          "rank": 20,
+          "gameId": 352228,
+          "score": 0.5510874390602112,
+          "name": " 하크크라드",
+          "englishName": " HacKClaD"
+        }
+      ],
+      "hardFilterViolationGameIds": []
+    },
+    {
+      "id": "Q-009",
+      "query": "서로 가진 정보를 나누고 의견을 맞춰야만 문제를 해결할 수 있는 협력 게임",
+      "ranked": [
+        {
+          "rank": 1,
+          "gameId": 440540,
+          "score": 0.6576616764068604,
+          "name": " 타케 타임",
+          "englishName": " Take Time"
+        },
+        {
+          "rank": 2,
+          "gameId": 254640,
+          "score": 0.6430895924568176,
+          "name": " 주스트 온에",
+          "englishName": " Just One"
+        },
+        {
+          "rank": 3,
+          "gameId": 327778,
+          "score": 0.6409823894500732,
+          "name": " 이토",
+          "englishName": " ito"
+        },
+        {
+          "rank": 4,
+          "gameId": 329839,
+          "score": 0.6409692764282227,
+          "name": " 소 크로브어!",
+          "englishName": " So Clover!"
+        },
+        {
+          "rank": 5,
+          "gameId": 334986,
+          "score": 0.6167108416557312,
+          "name": " 다이브르이크",
+          "englishName": " Daybreak"
+        },
+        {
+          "rank": 6,
+          "gameId": 400995,
+          "score": 0.616631805896759,
+          "name": " 퍼스펙티브스",
+          "englishName": " Perspectives"
+        },
+        {
+          "rank": 7,
+          "gameId": 171668,
+          "score": 0.6115702986717224,
+          "name": " 스에 그리즈즈레드",
+          "englishName": " The Grizzled"
+        },
+        {
+          "rank": 8,
+          "gameId": 373106,
+          "score": 0.5922218561172485,
+          "name": " 스크이 트이름",
+          "englishName": " Sky Team"
+        },
+        {
+          "rank": 9,
+          "gameId": 150376,
+          "score": 0.5882589221000671,
+          "name": " 드이드 오프 우인트어: 아 크로스스르오드스 게임",
+          "englishName": " Dead of Winter: A Crossroads Game"
+        },
+        {
+          "rank": 10,
+          "gameId": 257743,
+          "score": 0.584314227104187,
+          "name": " 사이 Whaaat?!",
+          "englishName": " Say Whaaat?!"
+        },
+        {
+          "rank": 11,
+          "gameId": 261614,
+          "score": 0.5837662816047668,
+          "name": " 너도? 나도! 파티",
+          "englishName": " Unanimo Party"
+        },
+        {
+          "rank": 12,
+          "gameId": 262543,
+          "score": 0.5835212469100952,
+          "name": " 와브엘엔그스",
+          "englishName": " Wavelength"
+        },
+        {
+          "rank": 13,
+          "gameId": 205637,
+          "score": 0.5814829468727112,
+          "name": " 아컴 호러: 스에 카드 게임",
+          "englishName": " Arkham Horror: The Card Game"
+        },
+        {
+          "rank": 14,
+          "gameId": 284108,
+          "score": 0.5807420611381531,
+          "name": " 피크쳐스",
+          "englishName": " Pictures"
+        },
+        {
+          "rank": 15,
+          "gameId": 174430,
+          "score": 0.5804011821746826,
+          "name": " 글룸헤이븐",
+          "englishName": " Gloomhaven"
+        },
+        {
+          "rank": 16,
+          "gameId": 395846,
+          "score": 0.5786685347557068,
+          "name": " 모조",
+          "englishName": " Mojo"
+        },
+        {
+          "rank": 17,
+          "gameId": 244992,
+          "score": 0.5785385370254517,
+          "name": " 스에 름인드",
+          "englishName": " The Mind"
+        },
+        {
+          "rank": 18,
+          "gameId": 167355,
+          "score": 0.5777257680892944,
+          "name": " 네메시스",
+          "englishName": " Nemesis"
+        },
+        {
+          "rank": 19,
+          "gameId": 37111,
+          "score": 0.5769128203392029,
+          "name": " 바트트레스트아 그알아크티카: 스에 보드 게임",
+          "englishName": " Battlestar Galactica: The Board Game"
+        },
+        {
+          "rank": 20,
+          "gameId": 171273,
+          "score": 0.5759829878807068,
+          "name": " 푸세",
+          "englishName": " FUSE"
+        }
+      ],
+      "hardFilterViolationGameIds": []
+    },
+    {
+      "id": "Q-010",
+      "query": "더 큰 보상을 노리고 계속 진행할지 지금 얻은 것을 지킬지 매번 고민하게 되는 게임",
+      "ranked": [
+        {
+          "rank": 1,
+          "gameId": 181687,
+          "score": 0.5906018614768982,
+          "name": " 스에 프어수이트 오프 하프피니스",
+          "englishName": " The Pursuit of Happiness"
+        },
+        {
+          "rank": 2,
+          "gameId": 291453,
+          "score": 0.5875267386436462,
+          "name": " 스크아우트",
+          "englishName": " SCOUT"
+        },
+        {
+          "rank": 3,
+          "gameId": 85005,
+          "score": 0.5850340127944946,
+          "name": " 보스",
+          "englishName": " The Boss"
+        },
+        {
+          "rank": 4,
+          "gameId": 249259,
+          "score": 0.5844142436981201,
+          "name": " 워 치에스트",
+          "englishName": " War Chest"
+        },
+        {
+          "rank": 5,
+          "gameId": 333255,
+          "score": 0.5841136574745178,
+          "name": " 크이프 스에 히어로즈 아우트!",
+          "englishName": " Keep the Heroes Out!"
+        },
+        {
+          "rank": 6,
+          "gameId": 179071,
+          "score": 0.5828899145126343,
+          "name": " 더 그레이트 다이노소어 러시",
+          "englishName": " The Great Dinosaur Rush"
+        },
+        {
+          "rank": 7,
+          "gameId": 174430,
+          "score": 0.5824353098869324,
+          "name": " 글룸헤이븐",
+          "englishName": " Gloomhaven"
+        },
+        {
+          "rank": 8,
+          "gameId": 38863,
+          "score": 0.582364022731781,
+          "name": " 스에 리치 앤드 스에 그우드",
+          "englishName": " The Rich and the Good"
+        },
+        {
+          "rank": 9,
+          "gameId": 142379,
+          "score": 0.5818363428115845,
+          "name": " 이스케이프 프엘앤",
+          "englishName": " Escape Plan"
+        },
+        {
+          "rank": 10,
+          "gameId": 188,
+          "score": 0.5817469358444214,
+          "name": " 고",
+          "englishName": " Go"
+        },
+        {
+          "rank": 11,
+          "gameId": 33160,
+          "score": 0.5815878510475159,
+          "name": " 엔드이브오",
+          "englishName": " Endeavor"
+        },
+        {
+          "rank": 12,
+          "gameId": 395846,
+          "score": 0.5801370143890381,
+          "name": " 모조",
+          "englishName": " Mojo"
+        },
+        {
+          "rank": 13,
+          "gameId": 148228,
+          "score": 0.5799776315689087,
+          "name": " 스플렌더",
+          "englishName": " Splendor"
+        },
+        {
+          "rank": 14,
+          "gameId": 171668,
+          "score": 0.5799137949943542,
+          "name": " 스에 그리즈즈레드",
+          "englishName": " The Grizzled"
+        },
+        {
+          "rank": 15,
+          "gameId": 878,
+          "score": 0.5780689120292664,
+          "name": " 더블유야트트 이르프",
+          "englishName": " Wyatt Earp"
+        },
+        {
+          "rank": 16,
+          "gameId": 15512,
+          "score": 0.5780030488967896,
+          "name": " 디앰앤트",
+          "englishName": " Diamant"
+        },
+        {
+          "rank": 17,
+          "gameId": 126042,
+          "score": 0.5775719881057739,
+          "name": " 나션스",
+          "englishName": " Nations"
+        },
+        {
+          "rank": 18,
+          "gameId": 632,
+          "score": 0.5773214101791382,
+          "name": " 클라우드 나인",
+          "englishName": " Cloud 9"
+        },
+        {
+          "rank": 19,
+          "gameId": 346623,
+          "score": 0.5771608352661133,
+          "name": " 수스페크트 게임",
+          "englishName": " Suspect Game"
+        },
+        {
+          "rank": 20,
+          "gameId": 188920,
+          "score": 0.5763211846351624,
+          "name": " 스이스 워 오프 름인에: 스에 보드 게임",
+          "englishName": " This War of Mine: The Board Game"
+        }
+      ],
+      "hardFilterViolationGameIds": []
+    },
+    {
+      "id": "Q-011",
+      "query": "필요한 것을 서로 교환하고 설득하면서 거래 조건을 만들어 가는 게임",
+      "ranked": [
+        {
+          "rank": 1,
+          "gameId": 47,
+          "score": 0.6539086103439331,
+          "name": " 치인아타운",
+          "englishName": " Chinatown"
+        },
+        {
+          "rank": 2,
+          "gameId": 38863,
+          "score": 0.6270465850830078,
+          "name": " 스에 리치 앤드 스에 그우드",
+          "englishName": " The Rich and the Good"
+        },
+        {
+          "rank": 3,
+          "gameId": 12002,
+          "score": 0.6239980459213257,
+          "name": " 즈앰보",
+          "englishName": " Jambo"
+        },
+        {
+          "rank": 4,
+          "gameId": 34219,
+          "score": 0.6171660423278809,
+          "name": " 비브리오스",
+          "englishName": " Biblios"
+        },
+        {
+          "rank": 5,
+          "gameId": 115,
+          "score": 0.616450309753418,
+          "name": " 아임 스에 보스!",
+          "englishName": " I'm the Boss!"
+        },
+        {
+          "rank": 6,
+          "gameId": 13,
+          "score": 0.6163188815116882,
+          "name": " 카탄",
+          "englishName": " Catan"
+        },
+        {
+          "rank": 7,
+          "gameId": 902,
+          "score": 0.6107723712921143,
+          "name": " 메우트어어",
+          "englishName": " Meuterer"
+        },
+        {
+          "rank": 8,
+          "gameId": 8989,
+          "score": 0.6100770235061646,
+          "name": " 흐앤사",
+          "englishName": " Hansa"
+        },
+        {
+          "rank": 9,
+          "gameId": 30380,
+          "score": 0.6071211695671082,
+          "name": " 쿠바",
+          "englishName": " Cuba"
+        },
+        {
+          "rank": 10,
+          "gameId": 118,
+          "score": 0.6070147752761841,
+          "name": " 모드어느 아트",
+          "englishName": " Modern Art"
+        },
+        {
+          "rank": 11,
+          "gameId": 196340,
+          "score": 0.6050925254821777,
+          "name": " 요코흐앰아",
+          "englishName": " Yokohama"
+        },
+        {
+          "rank": 12,
+          "gameId": 39683,
+          "score": 0.6042459011077881,
+          "name": " 아트 스에 게이트스 오프 로이앤그",
+          "englishName": " At the Gates of Loyang"
+        },
+        {
+          "rank": 13,
+          "gameId": 24181,
+          "score": 0.6035687327384949,
+          "name": " 임프어이알",
+          "englishName": " Imperial"
+        },
+        {
+          "rank": 14,
+          "gameId": 338760,
+          "score": 0.6029072999954224,
+          "name": " 임프어이알 스트이름",
+          "englishName": " Imperial Steam"
+        },
+        {
+          "rank": 15,
+          "gameId": 9216,
+          "score": 0.6026584506034851,
+          "name": " 그오",
+          "englishName": " Goa"
+        },
+        {
+          "rank": 16,
+          "gameId": 19777,
+          "score": 0.6023270487785339,
+          "name": " 인드온에시아",
+          "englishName": " Indonesia"
+        },
+        {
+          "rank": 17,
+          "gameId": 334986,
+          "score": 0.6014466285705566,
+          "name": " 다이브르이크",
+          "englishName": " Daybreak"
+        },
+        {
+          "rank": 18,
+          "gameId": 33160,
+          "score": 0.6014239192008972,
+          "name": " 엔드이브오",
+          "englishName": " Endeavor"
+        },
+        {
+          "rank": 19,
+          "gameId": 329839,
+          "score": 0.6012639999389648,
+          "name": " 소 크로브어!",
+          "englishName": " So Clover!"
+        },
+        {
+          "rank": 20,
+          "gameId": 440540,
+          "score": 0.6011362075805664,
+          "name": " 타케 타임",
+          "englishName": " Take Time"
+        }
+      ],
+      "hardFilterViolationGameIds": []
+    },
+    {
+      "id": "Q-012",
+      "query": "중요한 지역을 서로 차지하고 빼앗으면서 판 위의 주도권이 계속 바뀌는 게임",
+      "ranked": [
+        {
+          "rank": 1,
+          "gameId": 33160,
+          "score": 0.6321195960044861,
+          "name": " 엔드이브오",
+          "englishName": " Endeavor"
+        },
+        {
+          "rank": 2,
+          "gameId": 5737,
+          "score": 0.6281064748764038,
+          "name": " 드옴에네",
+          "englishName": " Domaine"
+        },
+        {
+          "rank": 3,
+          "gameId": 154203,
+          "score": 0.6266162395477295,
+          "name": " 임프어이알 개척자들",
+          "englishName": " Imperial Settlers"
+        },
+        {
+          "rank": 4,
+          "gameId": 24181,
+          "score": 0.6256635785102844,
+          "name": " 임프어이알",
+          "englishName": " Imperial"
+        },
+        {
+          "rank": 5,
+          "gameId": 224,
+          "score": 0.6253154873847961,
+          "name": " 히스트오이 오프 스에 월드",
+          "englishName": " History of the World"
+        },
+        {
+          "rank": 6,
+          "gameId": 171,
+          "score": 0.6165626645088196,
+          "name": " 치에스스",
+          "englishName": " Chess"
+        },
+        {
+          "rank": 7,
+          "gameId": 9220,
+          "score": 0.6069055795669556,
+          "name": " 사보테어",
+          "englishName": " Saboteur"
+        },
+        {
+          "rank": 8,
+          "gameId": 144041,
+          "score": 0.6043254733085632,
+          "name": " 패치스토리",
+          "englishName": " Patchistory"
+        },
+        {
+          "rank": 9,
+          "gameId": 188,
+          "score": 0.6017283797264099,
+          "name": " 고",
+          "englishName": " Go"
+        },
+        {
+          "rank": 10,
+          "gameId": 13,
+          "score": 0.6007499694824219,
+          "name": " 카탄",
+          "englishName": " Catan"
+        },
+        {
+          "rank": 11,
+          "gameId": 155987,
+          "score": 0.6004480123519897,
+          "name": " 아브이스스",
+          "englishName": " Abyss"
+        },
+        {
+          "rank": 12,
+          "gameId": 154809,
+          "score": 0.6004055142402649,
+          "name": " 니프프온",
+          "englishName": " Nippon"
+        },
+        {
+          "rank": 13,
+          "gameId": 434654,
+          "score": 0.5989059805870056,
+          "name": " 토이 배틀",
+          "englishName": " Toy Battle"
+        },
+        {
+          "rank": 14,
+          "gameId": 40692,
+          "score": 0.5984216928482056,
+          "name": " 스엠알엘 월드",
+          "englishName": " Small World"
+        },
+        {
+          "rank": 15,
+          "gameId": 387560,
+          "score": 0.5975452065467834,
+          "name": " 퍼치",
+          "englishName": " Perch"
+        },
+        {
+          "rank": 16,
+          "gameId": 85005,
+          "score": 0.5973686575889587,
+          "name": " 보스",
+          "englishName": " The Boss"
+        },
+        {
+          "rank": 17,
+          "gameId": 986,
+          "score": 0.5971619486808777,
+          "name": " 바벨",
+          "englishName": " Babel"
+        },
+        {
+          "rank": 18,
+          "gameId": 1125,
+          "score": 0.5962717533111572,
+          "name": " 빅 샷",
+          "englishName": " Big Shot"
+        },
+        {
+          "rank": 19,
+          "gameId": 26,
+          "score": 0.5962175726890564,
+          "name": " 카르카손",
+          "englishName": " Age of Renaissance"
+        },
+        {
+          "rank": 20,
+          "gameId": 17396,
+          "score": 0.5955632328987122,
+          "name": " 름앤오에우브레",
+          "englishName": " Manoeuvre"
+        }
+      ],
+      "hardFilterViolationGameIds": []
+    },
+    {
+      "id": "Q-013",
+      "query": "상대가 다음에 무엇을 할지 읽어야 하고 작은 선택 하나가 승부에 크게 영향을 주는 게임",
+      "ranked": [
+        {
+          "rank": 1,
+          "gameId": 257743,
+          "score": 0.6246194243431091,
+          "name": " 사이 Whaaat?!",
+          "englishName": " Say Whaaat?!"
+        },
+        {
+          "rank": 2,
+          "gameId": 395846,
+          "score": 0.6192321181297302,
+          "name": " 모조",
+          "englishName": " Mojo"
+        },
+        {
+          "rank": 3,
+          "gameId": 2536,
+          "score": 0.6137693524360657,
+          "name": " 바방크",
+          "englishName": " Vabanque"
+        },
+        {
+          "rank": 4,
+          "gameId": 440540,
+          "score": 0.6100385785102844,
+          "name": " 타케 타임",
+          "englishName": " Take Time"
+        },
+        {
+          "rank": 5,
+          "gameId": 322204,
+          "score": 0.6067911982536316,
+          "name": " 더블유오드 카프쳐",
+          "englishName": " Word Capture"
+        },
+        {
+          "rank": 6,
+          "gameId": 40692,
+          "score": 0.6056593060493469,
+          "name": " 스엠알엘 월드",
+          "englishName": " Small World"
+        },
+        {
+          "rank": 7,
+          "gameId": 171,
+          "score": 0.6050797700881958,
+          "name": " 치에스스",
+          "englishName": " Chess"
+        },
+        {
+          "rank": 8,
+          "gameId": 300905,
+          "score": 0.6028280854225159,
+          "name": " 토프 트엔",
+          "englishName": " Top Ten"
+        },
+        {
+          "rank": 9,
+          "gameId": 387560,
+          "score": 0.6002798676490784,
+          "name": " 퍼치",
+          "englishName": " Perch"
+        },
+        {
+          "rank": 10,
+          "gameId": 85005,
+          "score": 0.5994452238082886,
+          "name": " 보스",
+          "englishName": " The Boss"
+        },
+        {
+          "rank": 11,
+          "gameId": 188,
+          "score": 0.5982642769813538,
+          "name": " 고",
+          "englishName": " Go"
+        },
+        {
+          "rank": 12,
+          "gameId": 411567,
+          "score": 0.5973685383796692,
+          "name": " 스에 그앤그",
+          "englishName": " The Gang"
+        },
+        {
+          "rank": 13,
+          "gameId": 254640,
+          "score": 0.5966343879699707,
+          "name": " 주스트 온에",
+          "englishName": " Just One"
+        },
+        {
+          "rank": 14,
+          "gameId": 41114,
+          "score": 0.5940260887145996,
+          "name": " 스에 레지스탕스",
+          "englishName": " The Resistance"
+        },
+        {
+          "rank": 15,
+          "gameId": 225694,
+          "score": 0.593786358833313,
+          "name": " 데크르이프토",
+          "englishName": " Decrypto"
+        },
+        {
+          "rank": 16,
+          "gameId": 249259,
+          "score": 0.5931549072265625,
+          "name": " 워 치에스트",
+          "englishName": " War Chest"
+        },
+        {
+          "rank": 17,
+          "gameId": 1125,
+          "score": 0.5929984450340271,
+          "name": " 빅 샷",
+          "englishName": " Big Shot"
+        },
+        {
+          "rank": 18,
+          "gameId": 1465,
+          "score": 0.592911958694458,
+          "name": " 위저드",
+          "englishName": " Wizard"
+        },
+        {
+          "rank": 19,
+          "gameId": 149155,
+          "score": 0.5907556414604187,
+          "name": " 드이드 름앤스 드라우",
+          "englishName": " Dead Man's Draw"
+        },
+        {
+          "rank": 20,
+          "gameId": 163930,
+          "score": 0.5905792713165283,
+          "name": " 아브라카다...왓?",
+          "englishName": " Abracada...What?"
+        }
+      ],
+      "hardFilterViolationGameIds": []
+    },
+    {
+      "id": "Q-014",
+      "query": "흩어진 단서를 하나씩 연결해서 정답이나 사건의 전모를 밝혀내는 게임",
+      "ranked": [
+        {
+          "rank": 1,
+          "gameId": 246784,
+          "score": 0.6369462609291077,
+          "name": " 크르이프티드",
+          "englishName": " Cryptid"
+        },
+        {
+          "rank": 2,
+          "gameId": 400995,
+          "score": 0.617844820022583,
+          "name": " 퍼스펙티브스",
+          "englishName": " Perspectives"
+        },
+        {
+          "rank": 3,
+          "gameId": 254640,
+          "score": 0.6160618662834167,
+          "name": " 주스트 온에",
+          "englishName": " Just One"
+        },
+        {
+          "rank": 4,
+          "gameId": 42215,
+          "score": 0.6115597486495972,
+          "name": " 토바고",
+          "englishName": " Tobago"
+        },
+        {
+          "rank": 5,
+          "gameId": 262543,
+          "score": 0.6099286079406738,
+          "name": " 와브엘엔그스",
+          "englishName": " Wavelength"
+        },
+        {
+          "rank": 6,
+          "gameId": 346623,
+          "score": 0.6055265665054321,
+          "name": " 수스페크트 게임",
+          "englishName": " Suspect Game"
+        },
+        {
+          "rank": 7,
+          "gameId": 329839,
+          "score": 0.6042523384094238,
+          "name": " 소 크로브어!",
+          "englishName": " So Clover!"
+        },
+        {
+          "rank": 8,
+          "gameId": 318977,
+          "score": 0.6039648652076721,
+          "name": " 미크르옴아크로: 크르임에 시티",
+          "englishName": " MicroMacro: Crime City"
+        },
+        {
+          "rank": 9,
+          "gameId": 257743,
+          "score": 0.600303053855896,
+          "name": " 사이 Whaaat?!",
+          "englishName": " Say Whaaat?!"
+        },
+        {
+          "rank": 10,
+          "gameId": 102181,
+          "score": 0.5978429317474365,
+          "name": " 덤불 속",
+          "englishName": " In a Grove"
+        },
+        {
+          "rank": 11,
+          "gameId": 330592,
+          "score": 0.5963901281356812,
+          "name": " 프앤트옴 인크",
+          "englishName": " Phantom Ink"
+        },
+        {
+          "rank": 12,
+          "gameId": 225694,
+          "score": 0.5942904353141785,
+          "name": " 데크르이프토",
+          "englishName": " Decrypto"
+        },
+        {
+          "rank": 13,
+          "gameId": 284108,
+          "score": 0.5920321345329285,
+          "name": " 피크쳐스",
+          "englishName": " Pictures"
+        },
+        {
+          "rank": 14,
+          "gameId": 46213,
+          "score": 0.5903149247169495,
+          "name": " 트엘에스트라션스",
+          "englishName": " Telestrations"
+        },
+        {
+          "rank": 15,
+          "gameId": 130877,
+          "score": 0.5897074937820435,
+          "name": " 블러드 바운드",
+          "englishName": " Blood Bound"
+        },
+        {
+          "rank": 16,
+          "gameId": 219215,
+          "score": 0.5877312421798706,
+          "name": " 우어에우오드스",
+          "englishName": " Werewords"
+        },
+        {
+          "rank": 17,
+          "gameId": 205637,
+          "score": 0.5868222713470459,
+          "name": " 아컴 호러: 스에 카드 게임",
+          "englishName": " Arkham Horror: The Card Game"
+        },
+        {
+          "rank": 18,
+          "gameId": 156129,
+          "score": 0.5861247777938843,
+          "name": " 데세프션: 름어드어 인 흐온그 크온그",
+          "englishName": " Deception: Murder in Hong Kong"
+        },
+        {
+          "rank": 19,
+          "gameId": 171668,
+          "score": 0.585728108882904,
+          "name": " 스에 그리즈즈레드",
+          "englishName": " The Grizzled"
+        },
+        {
+          "rank": 20,
+          "gameId": 224037,
+          "score": 0.5847864151000977,
+          "name": " 코드엔앰에스: 두에트",
+          "englishName": " Codenames: Duet"
+        }
+      ],
+      "hardFilterViolationGameIds": []
+    },
+    {
+      "id": "Q-015",
+      "query": "게임을 진행하면서 이야기가 이어지고 내가 내린 선택에 따라 이후 상황이 달라지는 게임",
+      "ranked": [
+        {
+          "rank": 1,
+          "gameId": 245655,
+          "score": 0.630620539188385,
+          "name": " 스에 킹스 드일엠마",
+          "englishName": " The King's Dilemma"
+        },
+        {
+          "rank": 2,
+          "gameId": 295486,
+          "score": 0.616532027721405,
+          "name": " 름이 시티",
+          "englishName": " My City"
+        },
+        {
+          "rank": 3,
+          "gameId": 155703,
+          "score": 0.6087464094161987,
+          "name": " 에볼루션",
+          "englishName": " Evolution"
+        },
+        {
+          "rank": 4,
+          "gameId": 174430,
+          "score": 0.6052981615066528,
+          "name": " 글룸헤이븐",
+          "englishName": " Gloomhaven"
+        },
+        {
+          "rank": 5,
+          "gameId": 188920,
+          "score": 0.6041568517684937,
+          "name": " 스이스 워 오프 름인에: 스에 보드 게임",
+          "englishName": " This War of Mine: The Board Game"
+        },
+        {
+          "rank": 6,
+          "gameId": 140535,
+          "score": 0.6021391749382019,
+          "name": " 고려",
+          "englishName": " Koryŏ"
+        },
+        {
+          "rank": 7,
+          "gameId": 126042,
+          "score": 0.6008595824241638,
+          "name": " 나션스",
+          "englishName": " Nations"
+        },
+        {
+          "rank": 8,
+          "gameId": 317985,
+          "score": 0.5986464023590088,
+          "name": " 베이온드 스에 스언",
+          "englishName": " Beyond the Sun"
+        },
+        {
+          "rank": 9,
+          "gameId": 249259,
+          "score": 0.5956659317016602,
+          "name": " 워 치에스트",
+          "englishName": " War Chest"
+        },
+        {
+          "rank": 10,
+          "gameId": 150376,
+          "score": 0.5922022461891174,
+          "name": " 드이드 오프 우인트어: 아 크로스스르오드스 게임",
+          "englishName": " Dead of Winter: A Crossroads Game"
+        },
+        {
+          "rank": 11,
+          "gameId": 224,
+          "score": 0.5919901132583618,
+          "name": " 히스트오이 오프 스에 월드",
+          "englishName": " History of the World"
+        },
+        {
+          "rank": 12,
+          "gameId": 291453,
+          "score": 0.5907884836196899,
+          "name": " 스크아우트",
+          "englishName": " SCOUT"
+        },
+        {
+          "rank": 13,
+          "gameId": 257743,
+          "score": 0.5901046395301819,
+          "name": " 사이 Whaaat?!",
+          "englishName": " Say Whaaat?!"
+        },
+        {
+          "rank": 14,
+          "gameId": 256960,
+          "score": 0.5889378786087036,
+          "name": " 파엑스 프앰어: 2판 판",
+          "englishName": " Pax Pamir: Second Edition"
+        },
+        {
+          "rank": 15,
+          "gameId": 28143,
+          "score": 0.5881368517875671,
+          "name": " 라세 프오 스에 갤럭시",
+          "englishName": " Race for the Galaxy"
+        },
+        {
+          "rank": 16,
+          "gameId": 346623,
+          "score": 0.5880375504493713,
+          "name": " 수스페크트 게임",
+          "englishName": " Suspect Game"
+        },
+        {
+          "rank": 17,
+          "gameId": 39856,
+          "score": 0.5863924622535706,
+          "name": " 디크스이트",
+          "englishName": " Dixit"
+        },
+        {
+          "rank": 18,
+          "gameId": 137269,
+          "score": 0.586039125919342,
+          "name": " 스프이리엄",
+          "englishName": " Spyrium"
+        },
+        {
+          "rank": 19,
+          "gameId": 115746,
+          "score": 0.585885763168335,
+          "name": " 워 오프 스에 르인그: 2판 판",
+          "englishName": " War of the Ring: Second Edition"
+        },
+        {
+          "rank": 20,
+          "gameId": 364655,
+          "score": 0.5855849981307983,
+          "name": " 크인프어에 크로니클스: 나이트스 프알르",
+          "englishName": " Kinfire Chronicles: Night's Fall"
+        }
+      ],
+      "hardFilterViolationGameIds": []
+    },
+    {
+      "id": "Q-016",
+      "query": "조각이나 타일을 어디에 놓느냐에 따라 공간을 효율적으로 채우는 방법을 고민하는 게임",
+      "ranked": [
+        {
+          "rank": 1,
+          "gameId": 822,
+          "score": 0.7079055905342102,
+          "name": " 카르카손",
+          "englishName": " Carcassonne"
+        },
+        {
+          "rank": 2,
+          "gameId": 188,
+          "score": 0.657148540019989,
+          "name": " 고",
+          "englishName": " Go"
+        },
+        {
+          "rank": 3,
+          "gameId": 47,
+          "score": 0.6515024304389954,
+          "name": " 치인아타운",
+          "englishName": " Chinatown"
+        },
+        {
+          "rank": 4,
+          "gameId": 171499,
+          "score": 0.6498879790306091,
+          "name": " 카카오",
+          "englishName": " Cacao"
+        },
+        {
+          "rank": 5,
+          "gameId": 9674,
+          "score": 0.649410605430603,
+          "name": " 인그엔이아우스",
+          "englishName": " Ingenious"
+        },
+        {
+          "rank": 6,
+          "gameId": 357563,
+          "score": 0.6466287970542908,
+          "name": " 아크로프올이스",
+          "englishName": " Akropolis"
+        },
+        {
+          "rank": 7,
+          "gameId": 295947,
+          "score": 0.6451571583747864,
+          "name": " 캐스캐디아",
+          "englishName": " Cascadia"
+        },
+        {
+          "rank": 8,
+          "gameId": 70,
+          "score": 0.6417784094810486,
+          "name": " 빅시티",
+          "englishName": " Big City"
+        },
+        {
+          "rank": 9,
+          "gameId": 358124,
+          "score": 0.6389611959457397,
+          "name": " 미스트스 오브어 카르카손",
+          "englishName": " Mists over Carcassonne"
+        },
+        {
+          "rank": 10,
+          "gameId": 31481,
+          "score": 0.6348075866699219,
+          "name": " 갤럭시 트루크어",
+          "englishName": " Galaxy Trucker"
+        },
+        {
+          "rank": 11,
+          "gameId": 363247,
+          "score": 0.6314752697944641,
+          "name": " 아줄: 마스터 치오크올아티어",
+          "englishName": " Azul: Master Chocolatier"
+        },
+        {
+          "rank": 12,
+          "gameId": 410991,
+          "score": 0.6308284401893616,
+          "name": " 르우오트",
+          "englishName": " Looot"
+        },
+        {
+          "rank": 13,
+          "gameId": 27833,
+          "score": 0.6291662454605103,
+          "name": " 스트이엠",
+          "englishName": " Steam"
+        },
+        {
+          "rank": 14,
+          "gameId": 387560,
+          "score": 0.628576397895813,
+          "name": " 퍼치",
+          "englishName": " Perch"
+        },
+        {
+          "rank": 15,
+          "gameId": 260180,
+          "score": 0.6282447576522827,
+          "name": " 프로제크트 엘",
+          "englishName": " Project L"
+        },
+        {
+          "rank": 16,
+          "gameId": 204583,
+          "score": 0.6281334757804871,
+          "name": " 크인그드옴인오",
+          "englishName": " Kingdomino"
+        },
+        {
+          "rank": 17,
+          "gameId": 2655,
+          "score": 0.6273017525672913,
+          "name": " 히베",
+          "englishName": " Hive"
+        },
+        {
+          "rank": 18,
+          "gameId": 163370,
+          "score": 0.6272633075714111,
+          "name": " 카르카손: 골드 러쉬",
+          "englishName": " Carcassonne: Gold Rush"
+        },
+        {
+          "rank": 19,
+          "gameId": 350184,
+          "score": 0.6260481476783752,
+          "name": " 이르스",
+          "englishName": " Earth"
+        },
+        {
+          "rank": 20,
+          "gameId": 163412,
+          "score": 0.6258583664894104,
+          "name": " 파트치더블유오크",
+          "englishName": " Patchwork"
+        }
+      ],
+      "hardFilterViolationGameIds": []
+    },
+    {
+      "id": "Q-017",
+      "query": "서로 관련 있는 것들을 모아 조합을 완성할수록 더 많은 점수를 얻는 게임",
+      "ranked": [
+        {
+          "rank": 1,
+          "gameId": 329839,
+          "score": 0.6295481324195862,
+          "name": " 소 크로브어!",
+          "englishName": " So Clover!"
+        },
+        {
+          "rank": 2,
+          "gameId": 1198,
+          "score": 0.619192898273468,
+          "name": " 세트",
+          "englishName": " SET"
+        },
+        {
+          "rank": 3,
+          "gameId": 416851,
+          "score": 0.6154589653015137,
+          "name": " 캐슬 크옴보",
+          "englishName": " Castle Combo"
+        },
+        {
+          "rank": 4,
+          "gameId": 254640,
+          "score": 0.6131908297538757,
+          "name": " 주스트 온에",
+          "englishName": " Just One"
+        },
+        {
+          "rank": 5,
+          "gameId": 163412,
+          "score": 0.6090743541717529,
+          "name": " 파트치더블유오크",
+          "englishName": " Patchwork"
+        },
+        {
+          "rank": 6,
+          "gameId": 183251,
+          "score": 0.6064099669456482,
+          "name": " 크아우바",
+          "englishName": " Karuba"
+        },
+        {
+          "rank": 7,
+          "gameId": 395846,
+          "score": 0.6058822870254517,
+          "name": " 모조",
+          "englishName": " Mojo"
+        },
+        {
+          "rank": 8,
+          "gameId": 463,
+          "score": 0.605413556098938,
+          "name": " 매직: 스에 가스어인그",
+          "englishName": " Magic: The Gathering"
+        },
+        {
+          "rank": 9,
+          "gameId": 257743,
+          "score": 0.6005184054374695,
+          "name": " 사이 Whaaat?!",
+          "englishName": " Say Whaaat?!"
+        },
+        {
+          "rank": 10,
+          "gameId": 183006,
+          "score": 0.5997853875160217,
+          "name": " 우인토",
+          "englishName": " Qwinto"
+        },
+        {
+          "rank": 11,
+          "gameId": 366683,
+          "score": 0.5994144082069397,
+          "name": " 르에스인그 로보트스",
+          "englishName": " Raising Robots"
+        },
+        {
+          "rank": 12,
+          "gameId": 173346,
+          "score": 0.5987960696220398,
+          "name": " 7 원더스 듀얼",
+          "englishName": " 7 Wonders Duel"
+        },
+        {
+          "rank": 13,
+          "gameId": 204583,
+          "score": 0.5954631567001343,
+          "name": " 크인그드옴인오",
+          "englishName": " Kingdomino"
+        },
+        {
+          "rank": 14,
+          "gameId": 5782,
+          "score": 0.5951772928237915,
+          "name": " 크올오에트토",
+          "englishName": " Coloretto"
+        },
+        {
+          "rank": 15,
+          "gameId": 72991,
+          "score": 0.5943804979324341,
+          "name": " 아스아아",
+          "englishName": " Asara"
+        },
+        {
+          "rank": 16,
+          "gameId": 220,
+          "score": 0.5933409929275513,
+          "name": " 히그흐 소시에트이",
+          "englishName": " High Society"
+        },
+        {
+          "rank": 17,
+          "gameId": 290236,
+          "score": 0.5903788805007935,
+          "name": " 크앤바스",
+          "englishName": " Canvas"
+        },
+        {
+          "rank": 18,
+          "gameId": 528,
+          "score": 0.5897615551948547,
+          "name": " 즈어트즈",
+          "englishName": " ZÈRTZ"
+        },
+        {
+          "rank": 19,
+          "gameId": 440540,
+          "score": 0.5878614783287048,
+          "name": " 타케 타임",
+          "englishName": " Take Time"
+        },
+        {
+          "rank": 20,
+          "gameId": 148228,
+          "score": 0.5874626040458679,
+          "name": " 스플렌더",
+          "englishName": " Splendor"
+        }
+      ],
+      "hardFilterViolationGameIds": []
+    },
+    {
+      "id": "Q-018",
+      "query": "내가 가진 것이 좋은지 나쁜지 숨기면서 상대가 믿거나 포기하도록 유도하는 게임",
+      "ranked": [
+        {
+          "rank": 1,
+          "gameId": 346623,
+          "score": 0.6002439856529236,
+          "name": " 수스페크트 게임",
+          "englishName": " Suspect Game"
+        },
+        {
+          "rank": 2,
+          "gameId": 38863,
+          "score": 0.5950679779052734,
+          "name": " 스에 리치 앤드 스에 그우드",
+          "englishName": " The Rich and the Good"
+        },
+        {
+          "rank": 3,
+          "gameId": 102181,
+          "score": 0.5947152972221375,
+          "name": " 덤불 속",
+          "englishName": " In a Grove"
+        },
+        {
+          "rank": 4,
+          "gameId": 45,
+          "score": 0.5863725543022156,
+          "name": " 프어우도",
+          "englishName": " Perudo"
+        },
+        {
+          "rank": 5,
+          "gameId": 257743,
+          "score": 0.5842872262001038,
+          "name": " 사이 Whaaat?!",
+          "englishName": " Say Whaaat?!"
+        },
+        {
+          "rank": 6,
+          "gameId": 271601,
+          "score": 0.5833404064178467,
+          "name": " 프이드 스에 크라크엔",
+          "englishName": " Feed the Kraken"
+        },
+        {
+          "rank": 7,
+          "gameId": 440540,
+          "score": 0.5830304622650146,
+          "name": " 타케 타임",
+          "englishName": " Take Time"
+        },
+        {
+          "rank": 8,
+          "gameId": 281144,
+          "score": 0.5826945900917053,
+          "name": " 인 스이스 와이 이 베크옴에 아 디크타트오",
+          "englishName": " In this way I become a DICTATOR"
+        },
+        {
+          "rank": 9,
+          "gameId": 316287,
+          "score": 0.5759970545768738,
+          "name": " 퀘스트",
+          "englishName": " Quest"
+        },
+        {
+          "rank": 10,
+          "gameId": 105593,
+          "score": 0.5713329911231995,
+          "name": " 장난꾸러기 나방",
+          "englishName": " Cheating Moth"
+        },
+        {
+          "rank": 11,
+          "gameId": 395846,
+          "score": 0.5705644488334656,
+          "name": " 모조",
+          "englishName": " Mojo"
+        },
+        {
+          "rank": 12,
+          "gameId": 9220,
+          "score": 0.5705360174179077,
+          "name": " 사보테어",
+          "englishName": " Saboteur"
+        },
+        {
+          "rank": 13,
+          "gameId": 128882,
+          "score": 0.5701321959495544,
+          "name": " 스에 레지스탕스: 아브알온",
+          "englishName": " The Resistance: Avalon"
+        },
+        {
+          "rank": 14,
+          "gameId": 466,
+          "score": 0.5700475573539734,
+          "name": " 인코그니토",
+          "englishName": " Inkognito"
+        },
+        {
+          "rank": 15,
+          "gameId": 284653,
+          "score": 0.5690541863441467,
+          "name": " 름인드 름그름트: 스에 프스이치이크 에스피온아게 “Game.”",
+          "englishName": " Mind MGMT: The Psychic Espionage “Game.”"
+        },
+        {
+          "rank": 16,
+          "gameId": 163930,
+          "score": 0.5678009986877441,
+          "name": " 아브라카다...왓?",
+          "englishName": " Abracada...What?"
+        },
+        {
+          "rank": 17,
+          "gameId": 39856,
+          "score": 0.5668842792510986,
+          "name": " 디크스이트",
+          "englishName": " Dixit"
+        },
+        {
+          "rank": 18,
+          "gameId": 411567,
+          "score": 0.5660959482192993,
+          "name": " 스에 그앤그",
+          "englishName": " The Gang"
+        },
+        {
+          "rank": 19,
+          "gameId": 257527,
+          "score": 0.563988208770752,
+          "name": " 트라프더블유오드스",
+          "englishName": " Trapwords"
+        },
+        {
+          "rank": 20,
+          "gameId": 327778,
+          "score": 0.5627211928367615,
+          "name": " 이토",
+          "englishName": " ito"
+        }
+      ],
+      "hardFilterViolationGameIds": []
+    },
+    {
+      "id": "Q-019",
+      "query": "초반에 뒤처지더라도 한두 번의 좋은 판단으로 다시 따라잡을 기회가 있는 게임",
+      "ranked": [
+        {
+          "rank": 1,
+          "gameId": 291453,
+          "score": 0.5824801921844482,
+          "name": " 스크아우트",
+          "englishName": " SCOUT"
+        },
+        {
+          "rank": 2,
+          "gameId": 26,
+          "score": 0.5695488452911377,
+          "name": " 카르카손",
+          "englishName": " Age of Renaissance"
+        },
+        {
+          "rank": 3,
+          "gameId": 165722,
+          "score": 0.5629178285598755,
+          "name": " 크라스크",
+          "englishName": " KLASK"
+        },
+        {
+          "rank": 4,
+          "gameId": 142379,
+          "score": 0.5604351162910461,
+          "name": " 이스케이프 프엘앤",
+          "englishName": " Escape Plan"
+        },
+        {
+          "rank": 5,
+          "gameId": 300905,
+          "score": 0.5596295595169067,
+          "name": " 토프 트엔",
+          "englishName": " Top Ten"
+        },
+        {
+          "rank": 6,
+          "gameId": 166286,
+          "score": 0.5577639937400818,
+          "name": " 9회말",
+          "englishName": " Bottom of the 9th"
+        },
+        {
+          "rank": 7,
+          "gameId": 395846,
+          "score": 0.5575734972953796,
+          "name": " 모조",
+          "englishName": " Mojo"
+        },
+        {
+          "rank": 8,
+          "gameId": 2536,
+          "score": 0.557479977607727,
+          "name": " 바방크",
+          "englishName": " Vabanque"
+        },
+        {
+          "rank": 9,
+          "gameId": 188,
+          "score": 0.5562447309494019,
+          "name": " 고",
+          "englishName": " Go"
+        },
+        {
+          "rank": 10,
+          "gameId": 343905,
+          "score": 0.5562218427658081,
+          "name": " 브우엔라케",
+          "englishName": " Boonlake"
+        },
+        {
+          "rank": 11,
+          "gameId": 322204,
+          "score": 0.5561277270317078,
+          "name": " 더블유오드 카프쳐",
+          "englishName": " Word Capture"
+        },
+        {
+          "rank": 12,
+          "gameId": 260605,
+          "score": 0.5559443831443787,
+          "name": " 크앰엘 우프 (2판)",
+          "englishName": " Camel Up (Second Edition)"
+        },
+        {
+          "rank": 13,
+          "gameId": 171,
+          "score": 0.5548393130302429,
+          "name": " 치에스스",
+          "englishName": " Chess"
+        },
+        {
+          "rank": 14,
+          "gameId": 153938,
+          "score": 0.5536109209060669,
+          "name": " 크앰엘 우프",
+          "englishName": " Camel Up"
+        },
+        {
+          "rank": 15,
+          "gameId": 159581,
+          "score": 0.553097128868103,
+          "name": " 마스크맨",
+          "englishName": " Maskmen"
+        },
+        {
+          "rank": 16,
+          "gameId": 51,
+          "score": 0.5502028465270996,
+          "name": " 리코치에트 로보트스",
+          "englishName": " Ricochet Robots"
+        },
+        {
+          "rank": 17,
+          "gameId": 258242,
+          "score": 0.5499665141105652,
+          "name": " 부동산 거물: 첫 번째 도시",
+          "englishName": " Magnate: The First City"
+        },
+        {
+          "rank": 18,
+          "gameId": 38863,
+          "score": 0.5490862727165222,
+          "name": " 스에 리치 앤드 스에 그우드",
+          "englishName": " The Rich and the Good"
+        },
+        {
+          "rank": 19,
+          "gameId": 7854,
+          "score": 0.5479506254196167,
+          "name": " 이인쉬",
+          "englishName": " YINSH"
+        },
+        {
+          "rank": 20,
+          "gameId": 5737,
+          "score": 0.5467218160629272,
+          "name": " 드옴에네",
+          "englishName": " Domaine"
+        }
+      ],
+      "hardFilterViolationGameIds": []
+    },
+    {
+      "id": "Q-020",
+      "query": "다른 사람을 직접 공격하기보다는 각자 계획을 발전시키면서 은근히 경쟁하는 게임",
+      "ranked": [
+        {
+          "rank": 1,
+          "gameId": 167355,
+          "score": 0.5637279152870178,
+          "name": " 네메시스",
+          "englishName": " Nemesis"
+        },
+        {
+          "rank": 2,
+          "gameId": 364073,
+          "score": 0.5554327964782715,
+          "name": " 스플렌더 듀얼",
+          "englishName": " Splendor Duel"
+        },
+        {
+          "rank": 3,
+          "gameId": 171,
+          "score": 0.5500927567481995,
+          "name": " 치에스스",
+          "englishName": " Chess"
+        },
+        {
+          "rank": 4,
+          "gameId": 371433,
+          "score": 0.5493229031562805,
+          "name": " 트어르오스카페",
+          "englishName": " Terrorscape"
+        },
+        {
+          "rank": 5,
+          "gameId": 431248,
+          "score": 0.5458831787109375,
+          "name": " 가문의 왕관",
+          "englishName": " For a Crown"
+        },
+        {
+          "rank": 6,
+          "gameId": 359871,
+          "score": 0.5456260442733765,
+          "name": " 아크스",
+          "englishName": " Arcs"
+        },
+        {
+          "rank": 7,
+          "gameId": 142379,
+          "score": 0.5451658368110657,
+          "name": " 이스케이프 프엘앤",
+          "englishName": " Escape Plan"
+        },
+        {
+          "rank": 8,
+          "gameId": 171668,
+          "score": 0.5445457100868225,
+          "name": " 스에 그리즈즈레드",
+          "englishName": " The Grizzled"
+        },
+        {
+          "rank": 9,
+          "gameId": 271601,
+          "score": 0.5441688299179077,
+          "name": " 프이드 스에 크라크엔",
+          "englishName": " Feed the Kraken"
+        },
+        {
+          "rank": 10,
+          "gameId": 334986,
+          "score": 0.5432617664337158,
+          "name": " 다이브르이크",
+          "englishName": " Daybreak"
+        },
+        {
+          "rank": 11,
+          "gameId": 440540,
+          "score": 0.542823076248169,
+          "name": " 타케 타임",
+          "englishName": " Take Time"
+        },
+        {
+          "rank": 12,
+          "gameId": 171273,
+          "score": 0.5427736043930054,
+          "name": " 푸세",
+          "englishName": " FUSE"
+        },
+        {
+          "rank": 13,
+          "gameId": 422732,
+          "score": 0.5426730513572693,
+          "name": " 에이전트 아브엔우에",
+          "englishName": " Agent Avenue"
+        },
+        {
+          "rank": 14,
+          "gameId": 12333,
+          "score": 0.5426021814346313,
+          "name": " 트와일라잇 스트러글",
+          "englishName": " Twilight Struggle"
+        },
+        {
+          "rank": 15,
+          "gameId": 155703,
+          "score": 0.5414333939552307,
+          "name": " 에볼루션",
+          "englishName": " Evolution"
+        },
+        {
+          "rank": 16,
+          "gameId": 188,
+          "score": 0.5408238172531128,
+          "name": " 고",
+          "englishName": " Go"
+        },
+        {
+          "rank": 17,
+          "gameId": 217020,
+          "score": 0.5408151149749756,
+          "name": " 광란의 푸드트럭: 이것은 요식업이 아닌 전쟁",
+          "englishName": " Truck Off: The Food Truck Frenzy"
+        },
+        {
+          "rank": 18,
+          "gameId": 434906,
+          "score": 0.5407893061637878,
+          "name": " 타그 트이엠",
+          "englishName": " Tag Team"
+        },
+        {
+          "rank": 19,
+          "gameId": 174430,
+          "score": 0.5398614406585693,
+          "name": " 글룸헤이븐",
+          "englishName": " Gloomhaven"
+        },
+        {
+          "rank": 20,
+          "gameId": 254640,
+          "score": 0.5396039485931396,
+          "name": " 주스트 온에",
+          "englishName": " Just One"
+        }
+      ],
+      "hardFilterViolationGameIds": []
+    },
+    {
+      "id": "Q-021",
+      "query": "서로 직접 싸우지는 않는데도 다른 사람의 선택 때문에 계속 긴장하게 되는 게임",
+      "ranked": [
+        {
+          "rank": 1,
+          "gameId": 257743,
+          "score": 0.589993953704834,
+          "name": " 사이 Whaaat?!",
+          "englishName": " Say Whaaat?!"
+        },
+        {
+          "rank": 2,
+          "gameId": 171668,
+          "score": 0.5853172540664673,
+          "name": " 스에 그리즈즈레드",
+          "englishName": " The Grizzled"
+        },
+        {
+          "rank": 3,
+          "gameId": 346623,
+          "score": 0.5830308198928833,
+          "name": " 수스페크트 게임",
+          "englishName": " Suspect Game"
+        },
+        {
+          "rank": 4,
+          "gameId": 150376,
+          "score": 0.5793532133102417,
+          "name": " 드이드 오프 우인트어: 아 크로스스르오드스 게임",
+          "englishName": " Dead of Winter: A Crossroads Game"
+        },
+        {
+          "rank": 5,
+          "gameId": 171,
+          "score": 0.5781440734863281,
+          "name": " 치에스스",
+          "englishName": " Chess"
+        },
+        {
+          "rank": 6,
+          "gameId": 167355,
+          "score": 0.573942244052887,
+          "name": " 네메시스",
+          "englishName": " Nemesis"
+        },
+        {
+          "rank": 7,
+          "gameId": 12333,
+          "score": 0.5728716850280762,
+          "name": " 트와일라잇 스트러글",
+          "englishName": " Twilight Struggle"
+        },
+        {
+          "rank": 8,
+          "gameId": 205637,
+          "score": 0.5683332681655884,
+          "name": " 아컴 호러: 스에 카드 게임",
+          "englishName": " Arkham Horror: The Card Game"
+        },
+        {
+          "rank": 9,
+          "gameId": 130877,
+          "score": 0.5671288967132568,
+          "name": " 블러드 바운드",
+          "englishName": " Blood Bound"
+        },
+        {
+          "rank": 10,
+          "gameId": 257527,
+          "score": 0.5660529732704163,
+          "name": " 트라프더블유오드스",
+          "englishName": " Trapwords"
+        },
+        {
+          "rank": 11,
+          "gameId": 188920,
+          "score": 0.5632613897323608,
+          "name": " 스이스 워 오프 름인에: 스에 보드 게임",
+          "englishName": " This War of Mine: The Board Game"
+        },
+        {
+          "rank": 12,
+          "gameId": 364073,
+          "score": 0.5628862977027893,
+          "name": " 스플렌더 듀얼",
+          "englishName": " Splendor Duel"
+        },
+        {
+          "rank": 13,
+          "gameId": 431248,
+          "score": 0.5627801418304443,
+          "name": " 가문의 왕관",
+          "englishName": " For a Crown"
+        },
+        {
+          "rank": 14,
+          "gameId": 102652,
+          "score": 0.5625366568565369,
+          "name": " 스엔트인엘스 오프 스에 름얼티브어세",
+          "englishName": " Sentinels of the Multiverse"
+        },
+        {
+          "rank": 15,
+          "gameId": 371433,
+          "score": 0.5624710321426392,
+          "name": " 트어르오스카페",
+          "englishName": " Terrorscape"
+        },
+        {
+          "rank": 16,
+          "gameId": 115746,
+          "score": 0.5619474053382874,
+          "name": " 워 오프 스에 르인그: 2판 판",
+          "englishName": " War of the Ring: Second Edition"
+        },
+        {
+          "rank": 17,
+          "gameId": 3955,
+          "score": 0.5619173049926758,
+          "name": " 브앤그!",
+          "englishName": " BANG!"
+        },
+        {
+          "rank": 18,
+          "gameId": 46213,
+          "score": 0.5617645382881165,
+          "name": " 트엘에스트라션스",
+          "englishName": " Telestrations"
+        },
+        {
+          "rank": 19,
+          "gameId": 174430,
+          "score": 0.5598788857460022,
+          "name": " 글룸헤이븐",
+          "englishName": " Gloomhaven"
+        },
+        {
+          "rank": 20,
+          "gameId": 140535,
+          "score": 0.5589784979820251,
+          "name": " 고려",
+          "englishName": " Koryŏ"
+        }
+      ],
+      "hardFilterViolationGameIds": []
+    },
+    {
+      "id": "Q-022",
+      "query": "혼자 조용히 생각하는 것보다 플레이하는 동안 계속 이야기하고 반응하는 재미가 큰 게임",
+      "ranked": [
+        {
+          "rank": 1,
+          "gameId": 254640,
+          "score": 0.579228937625885,
+          "name": " 주스트 온에",
+          "englishName": " Just One"
+        },
+        {
+          "rank": 2,
+          "gameId": 371433,
+          "score": 0.5736147165298462,
+          "name": " 트어르오스카페",
+          "englishName": " Terrorscape"
+        },
+        {
+          "rank": 3,
+          "gameId": 46213,
+          "score": 0.5574771761894226,
+          "name": " 트엘에스트라션스",
+          "englishName": " Telestrations"
+        },
+        {
+          "rank": 4,
+          "gameId": 261614,
+          "score": 0.5545445680618286,
+          "name": " 너도? 나도! 파티",
+          "englishName": " Unanimo Party"
+        },
+        {
+          "rank": 5,
+          "gameId": 329839,
+          "score": 0.554015576839447,
+          "name": " 소 크로브어!",
+          "englishName": " So Clover!"
+        },
+        {
+          "rank": 6,
+          "gameId": 346623,
+          "score": 0.5499226450920105,
+          "name": " 수스페크트 게임",
+          "englishName": " Suspect Game"
+        },
+        {
+          "rank": 7,
+          "gameId": 12157,
+          "score": 0.5400218367576599,
+          "name": " 너도? 나도!",
+          "englishName": " Unanimo"
+        },
+        {
+          "rank": 8,
+          "gameId": 171,
+          "score": 0.5394423007965088,
+          "name": " 치에스스",
+          "englishName": " Chess"
+        },
+        {
+          "rank": 9,
+          "gameId": 299169,
+          "score": 0.5393866300582886,
+          "name": " 스피크이",
+          "englishName": " Spicy"
+        },
+        {
+          "rank": 10,
+          "gameId": 174430,
+          "score": 0.5393657684326172,
+          "name": " 글룸헤이븐",
+          "englishName": " Gloomhaven"
+        },
+        {
+          "rank": 11,
+          "gameId": 307305,
+          "score": 0.5393363237380981,
+          "name": " Bullet♥︎",
+          "englishName": " Bullet♥︎"
+        },
+        {
+          "rank": 12,
+          "gameId": 262543,
+          "score": 0.5393350720405579,
+          "name": " 와브엘엔그스",
+          "englishName": " Wavelength"
+        },
+        {
+          "rank": 13,
+          "gameId": 39856,
+          "score": 0.5386700630187988,
+          "name": " 디크스이트",
+          "englishName": " Dixit"
+        },
+        {
+          "rank": 14,
+          "gameId": 153016,
+          "score": 0.5361617207527161,
+          "name": " 트엘에스트라션스: 12 프라이어 프아트이 팩",
+          "englishName": " Telestrations: 12 Player Party Pack"
+        },
+        {
+          "rank": 15,
+          "gameId": 420087,
+          "score": 0.5359420776367188,
+          "name": " 프리프 7",
+          "englishName": " Flip 7"
+        },
+        {
+          "rank": 16,
+          "gameId": 246192,
+          "score": 0.535009503364563,
+          "name": " 기즈모스",
+          "englishName": " Gizmos"
+        },
+        {
+          "rank": 17,
+          "gameId": 322204,
+          "score": 0.5345211625099182,
+          "name": " 더블유오드 카프쳐",
+          "englishName": " Word Capture"
+        },
+        {
+          "rank": 18,
+          "gameId": 171273,
+          "score": 0.5343206524848938,
+          "name": " 푸세",
+          "englishName": " FUSE"
+        },
+        {
+          "rank": 19,
+          "gameId": 274093,
+          "score": 0.534031093120575,
+          "name": " 쿼키 서킷",
+          "englishName": " Quirky Circuits"
+        },
+        {
+          "rank": 20,
+          "gameId": 244992,
+          "score": 0.5339993238449097,
+          "name": " 스에 름인드",
+          "englishName": " The Mind"
+        }
+      ],
+      "hardFilterViolationGameIds": []
+    },
+    {
+      "id": "Q-023",
+      "query": "규칙은 금방 배울 수 있지만 몇 번 해볼수록 더 깊은 선택이 보이는 게임",
+      "ranked": [
+        {
+          "rank": 1,
+          "gameId": 9209,
+          "score": 0.5981470346450806,
+          "name": " 티켓 토 라이드",
+          "englishName": " Ticket to Ride"
+        },
+        {
+          "rank": 2,
+          "gameId": 147614,
+          "score": 0.5919880867004395,
+          "name": " 크레이지 타임",
+          "englishName": " Crazy Time"
+        },
+        {
+          "rank": 3,
+          "gameId": 155703,
+          "score": 0.5863000750541687,
+          "name": " 에볼루션",
+          "englishName": " Evolution"
+        },
+        {
+          "rank": 4,
+          "gameId": 171,
+          "score": 0.5844236016273499,
+          "name": " 치에스스",
+          "englishName": " Chess"
+        },
+        {
+          "rank": 5,
+          "gameId": 2536,
+          "score": 0.5802664160728455,
+          "name": " 바방크",
+          "englishName": " Vabanque"
+        },
+        {
+          "rank": 6,
+          "gameId": 395846,
+          "score": 0.5791801810264587,
+          "name": " 모조",
+          "englishName": " Mojo"
+        },
+        {
+          "rank": 7,
+          "gameId": 420087,
+          "score": 0.5783798694610596,
+          "name": " 프리프 7",
+          "englishName": " Flip 7"
+        },
+        {
+          "rank": 8,
+          "gameId": 149155,
+          "score": 0.578240692615509,
+          "name": " 드이드 름앤스 드라우",
+          "englishName": " Dead Man's Draw"
+        },
+        {
+          "rank": 9,
+          "gameId": 291453,
+          "score": 0.5759296417236328,
+          "name": " 스크아우트",
+          "englishName": " SCOUT"
+        },
+        {
+          "rank": 10,
+          "gameId": 51,
+          "score": 0.5754695534706116,
+          "name": " 리코치에트 로보트스",
+          "englishName": " Ricochet Robots"
+        },
+        {
+          "rank": 11,
+          "gameId": 284108,
+          "score": 0.5749780535697937,
+          "name": " 피크쳐스",
+          "englishName": " Pictures"
+        },
+        {
+          "rank": 12,
+          "gameId": 1198,
+          "score": 0.5746973156929016,
+          "name": " 세트",
+          "englishName": " SET"
+        },
+        {
+          "rank": 13,
+          "gameId": 126042,
+          "score": 0.5738077163696289,
+          "name": " 나션스",
+          "englishName": " Nations"
+        },
+        {
+          "rank": 14,
+          "gameId": 68448,
+          "score": 0.5722850561141968,
+          "name": " 7 원더스",
+          "englishName": " 7 Wonders"
+        },
+        {
+          "rank": 15,
+          "gameId": 322204,
+          "score": 0.5721954107284546,
+          "name": " 더블유오드 카프쳐",
+          "englishName": " Word Capture"
+        },
+        {
+          "rank": 16,
+          "gameId": 456619,
+          "score": 0.5712769627571106,
+          "name": " 브리트즈",
+          "englishName": " BLITZ"
+        },
+        {
+          "rank": 17,
+          "gameId": 257743,
+          "score": 0.5708330869674683,
+          "name": " 사이 Whaaat?!",
+          "englishName": " Say Whaaat?!"
+        },
+        {
+          "rank": 18,
+          "gameId": 188,
+          "score": 0.5704716444015503,
+          "name": " 고",
+          "englishName": " Go"
+        },
+        {
+          "rank": 19,
+          "gameId": 440540,
+          "score": 0.5685335397720337,
+          "name": " 타케 타임",
+          "englishName": " Take Time"
+        },
+        {
+          "rank": 20,
+          "gameId": 358669,
+          "score": 0.5682126879692078,
+          "name": " 12칩 트릭",
+          "englishName": " 12 Chip Trick"
+        }
+      ],
+      "hardFilterViolationGameIds": []
+    },
+    {
+      "id": "Q-024",
+      "query": "한 사람이 실수해도 바로 망하지 않고 서로 도와서 다시 상황을 풀어갈 수 있는 게임",
+      "ranked": [
+        {
+          "rank": 1,
+          "gameId": 171668,
+          "score": 0.5911223292350769,
+          "name": " 스에 그리즈즈레드",
+          "englishName": " The Grizzled"
+        },
+        {
+          "rank": 2,
+          "gameId": 254640,
+          "score": 0.5802900791168213,
+          "name": " 주스트 온에",
+          "englishName": " Just One"
+        },
+        {
+          "rank": 3,
+          "gameId": 424816,
+          "score": 0.5794973373413086,
+          "name": " 정고",
+          "englishName": " Jungo"
+        },
+        {
+          "rank": 4,
+          "gameId": 440540,
+          "score": 0.5754965543746948,
+          "name": " 타케 타임",
+          "englishName": " Take Time"
+        },
+        {
+          "rank": 5,
+          "gameId": 300905,
+          "score": 0.5730887055397034,
+          "name": " 토프 트엔",
+          "englishName": " Top Ten"
+        },
+        {
+          "rank": 6,
+          "gameId": 420498,
+          "score": 0.5724533796310425,
+          "name": " 언스토프파브레",
+          "englishName": " Unstoppable"
+        },
+        {
+          "rank": 7,
+          "gameId": 411567,
+          "score": 0.5719664692878723,
+          "name": " 스에 그앤그",
+          "englishName": " The Gang"
+        },
+        {
+          "rank": 8,
+          "gameId": 395846,
+          "score": 0.5708496570587158,
+          "name": " 모조",
+          "englishName": " Mojo"
+        },
+        {
+          "rank": 9,
+          "gameId": 2536,
+          "score": 0.5702738165855408,
+          "name": " 바방크",
+          "englishName": " Vabanque"
+        },
+        {
+          "rank": 10,
+          "gameId": 150376,
+          "score": 0.5697514414787292,
+          "name": " 드이드 오프 우인트어: 아 크로스스르오드스 게임",
+          "englishName": " Dead of Winter: A Crossroads Game"
+        },
+        {
+          "rank": 11,
+          "gameId": 167355,
+          "score": 0.568053662776947,
+          "name": " 네메시스",
+          "englishName": " Nemesis"
+        },
+        {
+          "rank": 12,
+          "gameId": 334986,
+          "score": 0.5661382079124451,
+          "name": " 다이브르이크",
+          "englishName": " Daybreak"
+        },
+        {
+          "rank": 13,
+          "gameId": 142379,
+          "score": 0.5656875967979431,
+          "name": " 이스케이프 프엘앤",
+          "englishName": " Escape Plan"
+        },
+        {
+          "rank": 14,
+          "gameId": 37111,
+          "score": 0.5639360547065735,
+          "name": " 바트트레스트아 그알아크티카: 스에 보드 게임",
+          "englishName": " Battlestar Galactica: The Board Game"
+        },
+        {
+          "rank": 15,
+          "gameId": 393325,
+          "score": 0.5614240169525146,
+          "name": " 캡틴 프리프",
+          "englishName": " Captain Flip"
+        },
+        {
+          "rank": 16,
+          "gameId": 12942,
+          "score": 0.5612103343009949,
+          "name": " 노 스앤크스!",
+          "englishName": " No Thanks!"
+        },
+        {
+          "rank": 17,
+          "gameId": 31481,
+          "score": 0.5597625970840454,
+          "name": " 갤럭시 트루크어",
+          "englishName": " Galaxy Trucker"
+        },
+        {
+          "rank": 18,
+          "gameId": 446497,
+          "score": 0.5585910081863403,
+          "name": " 호트 스트르이크",
+          "englishName": " Hot Streak"
+        },
+        {
+          "rank": 19,
+          "gameId": 420087,
+          "score": 0.5583083629608154,
+          "name": " 프리프 7",
+          "englishName": " Flip 7"
+        },
+        {
+          "rank": 20,
+          "gameId": 271601,
+          "score": 0.5582325458526611,
+          "name": " 프이드 스에 크라크엔",
+          "englishName": " Feed the Kraken"
+        }
+      ],
+      "hardFilterViolationGameIds": []
+    },
+    {
+      "id": "Q-025",
+      "query": "내가 알고 있는 정보를 전부 말할 수 없어서 서로의 의도를 눈치로 맞춰야 하는 협력 게임",
+      "ranked": [
+        {
+          "rank": 1,
+          "gameId": 246784,
+          "score": 0.6196768283843994,
+          "name": " 크르이프티드",
+          "englishName": " Cryptid"
+        },
+        {
+          "rank": 2,
+          "gameId": 327778,
+          "score": 0.618687093257904,
+          "name": " 이토",
+          "englishName": " ito"
+        },
+        {
+          "rank": 3,
+          "gameId": 171668,
+          "score": 0.6180139183998108,
+          "name": " 스에 그리즈즈레드",
+          "englishName": " The Grizzled"
+        },
+        {
+          "rank": 4,
+          "gameId": 440540,
+          "score": 0.6164488792419434,
+          "name": " 타케 타임",
+          "englishName": " Take Time"
+        },
+        {
+          "rank": 5,
+          "gameId": 466,
+          "score": 0.6153478026390076,
+          "name": " 인코그니토",
+          "englishName": " Inkognito"
+        },
+        {
+          "rank": 6,
+          "gameId": 400995,
+          "score": 0.6131324172019958,
+          "name": " 퍼스펙티브스",
+          "englishName": " Perspectives"
+        },
+        {
+          "rank": 7,
+          "gameId": 329839,
+          "score": 0.6130709052085876,
+          "name": " 소 크로브어!",
+          "englishName": " So Clover!"
+        },
+        {
+          "rank": 8,
+          "gameId": 284653,
+          "score": 0.608839750289917,
+          "name": " 름인드 름그름트: 스에 프스이치이크 에스피온아게 “Game.”",
+          "englishName": " Mind MGMT: The Psychic Espionage “Game.”"
+        },
+        {
+          "rank": 9,
+          "gameId": 257743,
+          "score": 0.6066875457763672,
+          "name": " 사이 Whaaat?!",
+          "englishName": " Say Whaaat?!"
+        },
+        {
+          "rank": 10,
+          "gameId": 167355,
+          "score": 0.6053865551948547,
+          "name": " 네메시스",
+          "englishName": " Nemesis"
+        },
+        {
+          "rank": 11,
+          "gameId": 346623,
+          "score": 0.6049878597259521,
+          "name": " 수스페크트 게임",
+          "englishName": " Suspect Game"
+        },
+        {
+          "rank": 12,
+          "gameId": 353945,
+          "score": 0.6039144396781921,
+          "name": " 인필트레이터",
+          "englishName": " Infiltraitors"
+        },
+        {
+          "rank": 13,
+          "gameId": 262543,
+          "score": 0.6024546027183533,
+          "name": " 와브엘엔그스",
+          "englishName": " Wavelength"
+        },
+        {
+          "rank": 14,
+          "gameId": 150376,
+          "score": 0.5997105836868286,
+          "name": " 드이드 오프 우인트어: 아 크로스스르오드스 게임",
+          "englishName": " Dead of Winter: A Crossroads Game"
+        },
+        {
+          "rank": 15,
+          "gameId": 254640,
+          "score": 0.5981524586677551,
+          "name": " 주스트 온에",
+          "englishName": " Just One"
+        },
+        {
+          "rank": 16,
+          "gameId": 219215,
+          "score": 0.5931683778762817,
+          "name": " 우어에우오드스",
+          "englishName": " Werewords"
+        },
+        {
+          "rank": 17,
+          "gameId": 316287,
+          "score": 0.5929089784622192,
+          "name": " 퀘스트",
+          "englishName": " Quest"
+        },
+        {
+          "rank": 18,
+          "gameId": 257527,
+          "score": 0.5910317897796631,
+          "name": " 트라프더블유오드스",
+          "englishName": " Trapwords"
+        },
+        {
+          "rank": 19,
+          "gameId": 163930,
+          "score": 0.588188886642456,
+          "name": " 아브라카다...왓?",
+          "englishName": " Abracada...What?"
+        },
+        {
+          "rank": 20,
+          "gameId": 15062,
+          "score": 0.5823525786399841,
+          "name": " 섀도우 오브어 크앰엘오트",
+          "englishName": " Shadows over Camelot"
+        }
+      ],
+      "hardFilterViolationGameIds": []
+    },
+    {
+      "id": "Q-026",
+      "query": "네 명이서 30분 이내에 끝내고 처음 하는 사람도 부담 없이 즐길 수 있는 파티 게임",
+      "ranked": [
+        {
+          "rank": 1,
+          "gameId": 171273,
+          "score": 0.5972215533256531,
+          "name": " 푸세",
+          "englishName": " FUSE"
+        },
+        {
+          "rank": 2,
+          "gameId": 318243,
+          "score": 0.5817148089408875,
+          "name": " 히트스트어",
+          "englishName": " Hitster"
+        },
+        {
+          "rank": 3,
+          "gameId": 420087,
+          "score": 0.5779828429222107,
+          "name": " 프리프 7",
+          "englishName": " Flip 7"
+        },
+        {
+          "rank": 4,
+          "gameId": 147949,
+          "score": 0.5759862065315247,
+          "name": " 온에 나이트 얼티밋 우어에우올프",
+          "englishName": " One Night Ultimate Werewolf"
+        },
+        {
+          "rank": 5,
+          "gameId": 393325,
+          "score": 0.5643427968025208,
+          "name": " 캡틴 프리프",
+          "englishName": " Captain Flip"
+        },
+        {
+          "rank": 6,
+          "gameId": 12942,
+          "score": 0.5622714757919312,
+          "name": " 노 스앤크스!",
+          "englishName": " No Thanks!"
+        },
+        {
+          "rank": 7,
+          "gameId": 192291,
+          "score": 0.5593255758285522,
+          "name": " 수쉬이 고 프아트이!",
+          "englishName": " Sushi Go Party!"
+        },
+        {
+          "rank": 8,
+          "gameId": 446497,
+          "score": 0.5580452084541321,
+          "name": " 호트 스트르이크",
+          "englishName": " Hot Streak"
+        },
+        {
+          "rank": 9,
+          "gameId": 153016,
+          "score": 0.5551266074180603,
+          "name": " 트엘에스트라션스: 12 프라이어 프아트이 팩",
+          "englishName": " Telestrations: 12 Player Party Pack"
+        },
+        {
+          "rank": 10,
+          "gameId": 165950,
+          "score": 0.5546802878379822,
+          "name": " 브이스트이 브아",
+          "englishName": " Beasty Bar"
+        },
+        {
+          "rank": 11,
+          "gameId": 300905,
+          "score": 0.5520045161247253,
+          "name": " 토프 트엔",
+          "englishName": " Top Ten"
+        },
+        {
+          "rank": 12,
+          "gameId": 440540,
+          "score": 0.5493305325508118,
+          "name": " 타케 타임",
+          "englishName": " Take Time"
+        },
+        {
+          "rank": 13,
+          "gameId": 38453,
+          "score": 0.5492213368415833,
+          "name": " 스페이스 알어트",
+          "englishName": " Space Alert"
+        },
+        {
+          "rank": 14,
+          "gameId": 411567,
+          "score": 0.547247052192688,
+          "name": " 스에 그앤그",
+          "englishName": " The Gang"
+        },
+        {
+          "rank": 15,
+          "gameId": 416851,
+          "score": 0.5465099215507507,
+          "name": " 캐슬 크옴보",
+          "englishName": " Castle Combo"
+        },
+        {
+          "rank": 16,
+          "gameId": 161417,
+          "score": 0.5450251698493958,
+          "name": " Red7",
+          "englishName": " Red7"
+        },
+        {
+          "rank": 17,
+          "gameId": 117959,
+          "score": 0.5432702302932739,
+          "name": " 라스 베가스",
+          "englishName": " Las Vegas"
+        },
+        {
+          "rank": 18,
+          "gameId": 130877,
+          "score": 0.5419498085975647,
+          "name": " 블러드 바운드",
+          "englishName": " Blood Bound"
+        },
+        {
+          "rank": 19,
+          "gameId": 406854,
+          "score": 0.5418953895568848,
+          "name": " 오드인",
+          "englishName": " Odin"
+        },
+        {
+          "rank": 20,
+          "gameId": 234248,
+          "score": 0.5414260029792786,
+          "name": " 부두 프린스",
+          "englishName": " Voodoo Prince"
+        }
+      ],
+      "hardFilterViolationGameIds": []
+    },
+    {
+      "id": "Q-027",
+      "query": "세 명 이상이 45분 안에 함께 목표를 해결할 수 있는 협력 게임",
+      "ranked": [
+        {
+          "rank": 1,
+          "gameId": 440540,
+          "score": 0.649605393409729,
+          "name": " 타케 타임",
+          "englishName": " Take Time"
+        },
+        {
+          "rank": 2,
+          "gameId": 171273,
+          "score": 0.6301583051681519,
+          "name": " 푸세",
+          "englishName": " FUSE"
+        },
+        {
+          "rank": 3,
+          "gameId": 38453,
+          "score": 0.6287515759468079,
+          "name": " 스페이스 알어트",
+          "englishName": " Space Alert"
+        },
+        {
+          "rank": 4,
+          "gameId": 41114,
+          "score": 0.5794643759727478,
+          "name": " 스에 레지스탕스",
+          "englishName": " The Resistance"
+        },
+        {
+          "rank": 5,
+          "gameId": 359970,
+          "score": 0.5765827894210815,
+          "name": " 치알엘엔그어스!",
+          "englishName": " Challengers!"
+        },
+        {
+          "rank": 6,
+          "gameId": 223953,
+          "score": 0.5718504190444946,
+          "name": " 키트치엔 러시",
+          "englishName": " Kitchen Rush"
+        },
+        {
+          "rank": 7,
+          "gameId": 171668,
+          "score": 0.5695575475692749,
+          "name": " 스에 그리즈즈레드",
+          "englishName": " The Grizzled"
+        },
+        {
+          "rank": 8,
+          "gameId": 147949,
+          "score": 0.5648245215415955,
+          "name": " 온에 나이트 얼티밋 우어에우올프",
+          "englishName": " One Night Ultimate Werewolf"
+        },
+        {
+          "rank": 9,
+          "gameId": 134352,
+          "score": 0.5635823011398315,
+          "name": " 트워 르우름스 앤드 아 브우름",
+          "englishName": " Two Rooms and a Boom"
+        },
+        {
+          "rank": 10,
+          "gameId": 68448,
+          "score": 0.5632302165031433,
+          "name": " 7 원더스",
+          "englishName": " 7 Wonders"
+        },
+        {
+          "rank": 11,
+          "gameId": 327778,
+          "score": 0.5620563626289368,
+          "name": " 이토",
+          "englishName": " ito"
+        },
+        {
+          "rank": 12,
+          "gameId": 371433,
+          "score": 0.5591632127761841,
+          "name": " 트어르오스카페",
+          "englishName": " Terrorscape"
+        },
+        {
+          "rank": 13,
+          "gameId": 340216,
+          "score": 0.5589948296546936,
+          "name": " 헤레디티: 스완의 책",
+          "englishName": " Heredity: The Book of Swan"
+        },
+        {
+          "rank": 14,
+          "gameId": 260180,
+          "score": 0.5585349798202515,
+          "name": " 프로제크트 엘",
+          "englishName": " Project L"
+        },
+        {
+          "rank": 15,
+          "gameId": 257527,
+          "score": 0.5568382143974304,
+          "name": " 트라프더블유오드스",
+          "englishName": " Trapwords"
+        },
+        {
+          "rank": 16,
+          "gameId": 300905,
+          "score": 0.5561243891716003,
+          "name": " 토프 트엔",
+          "englishName": " Top Ten"
+        },
+        {
+          "rank": 17,
+          "gameId": 329839,
+          "score": 0.5547960996627808,
+          "name": " 소 크로브어!",
+          "englishName": " So Clover!"
+        },
+        {
+          "rank": 18,
+          "gameId": 413246,
+          "score": 0.5539597868919373,
+          "name": " 브옴브 부스트어스",
+          "englishName": " Bomb Busters"
+        },
+        {
+          "rank": 19,
+          "gameId": 130877,
+          "score": 0.5494389533996582,
+          "name": " 블러드 바운드",
+          "englishName": " Blood Bound"
+        },
+        {
+          "rank": 20,
+          "gameId": 274093,
+          "score": 0.5487998723983765,
+          "name": " 쿼키 서킷",
+          "englishName": " Quirky Circuits"
+        }
+      ],
+      "hardFilterViolationGameIds": []
+    },
+    {
+      "id": "Q-028",
+      "query": "두세 명이 30분 이내에 즐기면서 서로 정보를 주고받는 것이 중요한 게임",
+      "ranked": [
+        {
+          "rank": 1,
+          "gameId": 171273,
+          "score": 0.6327705979347229,
+          "name": " 푸세",
+          "englishName": " FUSE"
+        },
+        {
+          "rank": 2,
+          "gameId": 440540,
+          "score": 0.6105163097381592,
+          "name": " 타케 타임",
+          "englishName": " Take Time"
+        },
+        {
+          "rank": 3,
+          "gameId": 130877,
+          "score": 0.5935472846031189,
+          "name": " 블러드 바운드",
+          "englishName": " Blood Bound"
+        },
+        {
+          "rank": 4,
+          "gameId": 38453,
+          "score": 0.5862038135528564,
+          "name": " 스페이스 알어트",
+          "englishName": " Space Alert"
+        },
+        {
+          "rank": 5,
+          "gameId": 2655,
+          "score": 0.5686448812484741,
+          "name": " 히베",
+          "englishName": " Hive"
+        },
+        {
+          "rank": 6,
+          "gameId": 244992,
+          "score": 0.5666670799255371,
+          "name": " 스에 름인드",
+          "englishName": " The Mind"
+        },
+        {
+          "rank": 7,
+          "gameId": 521,
+          "score": 0.5626910328865051,
+          "name": " 크로크인올에",
+          "englishName": " Crokinole"
+        },
+        {
+          "rank": 8,
+          "gameId": 327778,
+          "score": 0.5606989860534668,
+          "name": " 이토",
+          "englishName": " ito"
+        },
+        {
+          "rank": 9,
+          "gameId": 178900,
+          "score": 0.5589022040367126,
+          "name": " 코드엔앰에스",
+          "englishName": " Codenames"
+        },
+        {
+          "rank": 10,
+          "gameId": 330592,
+          "score": 0.5564338564872742,
+          "name": " 프앤트옴 인크",
+          "englishName": " Phantom Ink"
+        },
+        {
+          "rank": 11,
+          "gameId": 68448,
+          "score": 0.5562320947647095,
+          "name": " 7 원더스",
+          "englishName": " 7 Wonders"
+        },
+        {
+          "rank": 12,
+          "gameId": 171668,
+          "score": 0.5534560680389404,
+          "name": " 스에 그리즈즈레드",
+          "englishName": " The Grizzled"
+        },
+        {
+          "rank": 13,
+          "gameId": 168435,
+          "score": 0.5534020066261292,
+          "name": " 베트더블유이엔 트워 시티즈",
+          "englishName": " Between Two Cities"
+        },
+        {
+          "rank": 14,
+          "gameId": 163412,
+          "score": 0.5533038377761841,
+          "name": " 파트치더블유오크",
+          "englishName": " Patchwork"
+        },
+        {
+          "rank": 15,
+          "gameId": 165722,
+          "score": 0.553056538105011,
+          "name": " 크라스크",
+          "englishName": " KLASK"
+        },
+        {
+          "rank": 16,
+          "gameId": 173090,
+          "score": 0.5506826639175415,
+          "name": " 스에 게임",
+          "englishName": " The Game"
+        },
+        {
+          "rank": 17,
+          "gameId": 329839,
+          "score": 0.5505276918411255,
+          "name": " 소 크로브어!",
+          "englishName": " So Clover!"
+        },
+        {
+          "rank": 18,
+          "gameId": 1198,
+          "score": 0.5499778389930725,
+          "name": " 세트",
+          "englishName": " SET"
+        },
+        {
+          "rank": 19,
+          "gameId": 338957,
+          "score": 0.5479103326797485,
+          "name": " 카에스아!: 세이제 르옴에 인 20 름인우테스!",
+          "englishName": " Caesar!: Seize Rome in 20 Minutes!"
+        },
+        {
+          "rank": 20,
+          "gameId": 347889,
+          "score": 0.5456587076187134,
+          "name": " 캐치 스케치",
+          "englishName": " Catch Sketch"
+        }
+      ],
+      "hardFilterViolationGameIds": []
+    },
+    {
+      "id": "Q-029",
+      "query": "다섯 명 이상이 30분 이내에 즐길 수 있고 사람들끼리 많이 이야기하며 웃을 수 있는 게임",
+      "ranked": [
+        {
+          "rank": 1,
+          "gameId": 46213,
+          "score": 0.5727218985557556,
+          "name": " 트엘에스트라션스",
+          "englishName": " Telestrations"
+        },
+        {
+          "rank": 2,
+          "gameId": 134352,
+          "score": 0.5712189078330994,
+          "name": " 트워 르우름스 앤드 아 브우름",
+          "englishName": " Two Rooms and a Boom"
+        },
+        {
+          "rank": 3,
+          "gameId": 153016,
+          "score": 0.5706993341445923,
+          "name": " 트엘에스트라션스: 12 프라이어 프아트이 팩",
+          "englishName": " Telestrations: 12 Player Party Pack"
+        },
+        {
+          "rank": 4,
+          "gameId": 171273,
+          "score": 0.5698168873786926,
+          "name": " 푸세",
+          "englishName": " FUSE"
+        },
+        {
+          "rank": 5,
+          "gameId": 299169,
+          "score": 0.5607262849807739,
+          "name": " 스피크이",
+          "englishName": " Spicy"
+        },
+        {
+          "rank": 6,
+          "gameId": 41114,
+          "score": 0.548857569694519,
+          "name": " 스에 레지스탕스",
+          "englishName": " The Resistance"
+        },
+        {
+          "rank": 7,
+          "gameId": 411567,
+          "score": 0.5454275608062744,
+          "name": " 스에 그앤그",
+          "englishName": " The Gang"
+        },
+        {
+          "rank": 8,
+          "gameId": 446497,
+          "score": 0.5452408194541931,
+          "name": " 호트 스트르이크",
+          "englishName": " Hot Streak"
+        },
+        {
+          "rank": 9,
+          "gameId": 12942,
+          "score": 0.5445070266723633,
+          "name": " 노 스앤크스!",
+          "englishName": " No Thanks!"
+        },
+        {
+          "rank": 10,
+          "gameId": 98229,
+          "score": 0.5428845882415771,
+          "name": " 피크트옴앤이아",
+          "englishName": " Pictomania"
+        },
+        {
+          "rank": 11,
+          "gameId": 393325,
+          "score": 0.5425898432731628,
+          "name": " 캡틴 프리프",
+          "englishName": " Captain Flip"
+        },
+        {
+          "rank": 12,
+          "gameId": 300905,
+          "score": 0.5420544743537903,
+          "name": " 토프 트엔",
+          "englishName": " Top Ten"
+        },
+        {
+          "rank": 13,
+          "gameId": 39856,
+          "score": 0.5407540798187256,
+          "name": " 디크스이트",
+          "englishName": " Dixit"
+        },
+        {
+          "rank": 14,
+          "gameId": 330592,
+          "score": 0.5358333587646484,
+          "name": " 프앤트옴 인크",
+          "englishName": " Phantom Ink"
+        },
+        {
+          "rank": 15,
+          "gameId": 284108,
+          "score": 0.5355846285820007,
+          "name": " 피크쳐스",
+          "englishName": " Pictures"
+        },
+        {
+          "rank": 16,
+          "gameId": 117959,
+          "score": 0.5347636938095093,
+          "name": " 라스 베가스",
+          "englishName": " Las Vegas"
+        },
+        {
+          "rank": 17,
+          "gameId": 153065,
+          "score": 0.5344268083572388,
+          "name": " 엘인코",
+          "englishName": " Linko"
+        },
+        {
+          "rank": 18,
+          "gameId": 347889,
+          "score": 0.5342480540275574,
+          "name": " 캐치 스케치",
+          "englishName": " Catch Sketch"
+        },
+        {
+          "rank": 19,
+          "gameId": 329839,
+          "score": 0.5340403914451599,
+          "name": " 소 크로브어!",
+          "englishName": " So Clover!"
+        },
+        {
+          "rank": 20,
+          "gameId": 420087,
+          "score": 0.5291037559509277,
+          "name": " 프리프 7",
+          "englishName": " Flip 7"
+        }
+      ],
+      "hardFilterViolationGameIds": []
+    },
+    {
+      "id": "Q-030",
+      "query": "두 명이 한 시간 안에 즐길 수 있고 규칙은 어렵지 않지만 생각할 거리는 충분한 전략 게임",
+      "ranked": [
+        {
+          "rank": 1,
+          "gameId": 440540,
+          "score": 0.5999390482902527,
+          "name": " 타케 타임",
+          "englishName": " Take Time"
+        },
+        {
+          "rank": 2,
+          "gameId": 322204,
+          "score": 0.5966821312904358,
+          "name": " 더블유오드 카프쳐",
+          "englishName": " Word Capture"
+        },
+        {
+          "rank": 3,
+          "gameId": 2655,
+          "score": 0.5965394377708435,
+          "name": " 히베",
+          "englishName": " Hive"
+        },
+        {
+          "rank": 4,
+          "gameId": 527,
+          "score": 0.5810070037841797,
+          "name": " 기프프",
+          "englishName": " GIPF"
+        },
+        {
+          "rank": 5,
+          "gameId": 223953,
+          "score": 0.572772204875946,
+          "name": " 키트치엔 러시",
+          "englishName": " Kitchen Rush"
+        },
+        {
+          "rank": 6,
+          "gameId": 447243,
+          "score": 0.5711692571640015,
+          "name": " 듀얼 프오 크아디아",
+          "englishName": " Duel for Cardia"
+        },
+        {
+          "rank": 7,
+          "gameId": 395846,
+          "score": 0.5674657821655273,
+          "name": " 모조",
+          "englishName": " Mojo"
+        },
+        {
+          "rank": 8,
+          "gameId": 68448,
+          "score": 0.5656229257583618,
+          "name": " 7 원더스",
+          "englishName": " 7 Wonders"
+        },
+        {
+          "rank": 9,
+          "gameId": 163412,
+          "score": 0.5612125992774963,
+          "name": " 파트치더블유오크",
+          "englishName": " Patchwork"
+        },
+        {
+          "rank": 10,
+          "gameId": 140934,
+          "score": 0.5601008534431458,
+          "name": " 아브오에트엄",
+          "englishName": " Arboretum"
+        },
+        {
+          "rank": 11,
+          "gameId": 371433,
+          "score": 0.5584816336631775,
+          "name": " 트어르오스카페",
+          "englishName": " Terrorscape"
+        },
+        {
+          "rank": 12,
+          "gameId": 168435,
+          "score": 0.5583438873291016,
+          "name": " 베트더블유이엔 트워 시티즈",
+          "englishName": " Between Two Cities"
+        },
+        {
+          "rank": 13,
+          "gameId": 130877,
+          "score": 0.5579479336738586,
+          "name": " 블러드 바운드",
+          "englishName": " Blood Bound"
+        },
+        {
+          "rank": 14,
+          "gameId": 257743,
+          "score": 0.5539659261703491,
+          "name": " 사이 Whaaat?!",
+          "englishName": " Say Whaaat?!"
+        },
+        {
+          "rank": 15,
+          "gameId": 302425,
+          "score": 0.5531532168388367,
+          "name": " 언로크!: 름이스이크 아드브엔쳐스",
+          "englishName": " Unlock!: Mythic Adventures"
+        },
+        {
+          "rank": 16,
+          "gameId": 291453,
+          "score": 0.5508081912994385,
+          "name": " 스크아우트",
+          "englishName": " SCOUT"
+        },
+        {
+          "rank": 17,
+          "gameId": 9209,
+          "score": 0.548625648021698,
+          "name": " 티켓 토 라이드",
+          "englishName": " Ticket to Ride"
+        },
+        {
+          "rank": 18,
+          "gameId": 353288,
+          "score": 0.5486201047897339,
+          "name": " 트레크크인그 스르아우그흐 히스트오이",
+          "englishName": " Trekking Through History"
+        },
+        {
+          "rank": 19,
+          "gameId": 157809,
+          "score": 0.5458871126174927,
+          "name": " 나션스: 스에 다이스 게임",
+          "englishName": " Nations: The Dice Game"
+        },
+        {
+          "rank": 20,
+          "gameId": 416851,
+          "score": 0.5451720952987671,
+          "name": " 캐슬 크옴보",
+          "englishName": " Castle Combo"
+        }
+      ],
+      "hardFilterViolationGameIds": []
+    }
+  ]
+}
