@@ -29,8 +29,8 @@ function readSuite(filePath) {
 }
 
 export function buildDurationManifest(resultDirectories) {
-  if (resultDirectories.length < 1) {
-    throw new Error("--results <JUnit 결과 디렉터리>가 하나 이상 필요합니다.");
+  if (resultDirectories.length !== 3) {
+    throw new Error("--results <JUnit 결과 디렉터리>가 정확히 3개 필요합니다.");
   }
   const samples = new Map();
   for (const directory of resultDirectories) {
