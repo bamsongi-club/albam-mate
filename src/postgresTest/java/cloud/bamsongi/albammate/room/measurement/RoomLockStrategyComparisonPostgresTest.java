@@ -120,6 +120,7 @@ class RoomLockStrategyComparisonPostgresTest {
 		MANIFEST_PATH,
 		RECEIPT_ARTIFACT_PATH,
 		RAW_ARTIFACT_PATH);
+	private static final String POST_MEASUREMENT_TOPOLOGY_PATH = "scripts/ci/postgres-test-topology.json";
 	private static final Set<String> POST_MEASUREMENT_TEST_CONTRACT_PATHS = Set.of(
 		"src/postgresTest/java/cloud/bamsongi/albammate/room/measurement/RoomLockStrategyComparisonPostgresTest.java",
 		"src/postgresTest/java/cloud/bamsongi/albammate/room/measurement/RoomConcurrencyBaselineSupport.java",
@@ -127,6 +128,13 @@ class RoomLockStrategyComparisonPostgresTest {
 	private static final Set<String> PROVENANCE_BUNDLE_WITH_TEST_CONTRACT_PATHS = java.util.stream.Stream.concat(
 		IMMUTABLE_ARTIFACT_BUNDLE_PATHS.stream(), POST_MEASUREMENT_TEST_CONTRACT_PATHS.stream())
 		.collect(Collectors.toUnmodifiableSet());
+	private static final Set<String> PROVENANCE_BUNDLE_WITH_TOPOLOGY_CONTRACT_PATHS = Set.of(
+		MANIFEST_PATH,
+		RECEIPT_ARTIFACT_PATH,
+		RAW_ARTIFACT_PATH,
+		POST_MEASUREMENT_TOPOLOGY_PATH,
+		"src/postgresTest/java/cloud/bamsongi/albammate/room/measurement/RoomLockStrategyComparisonPostgresTest.java",
+		"src/postgresTest/java/cloud/bamsongi/albammate/room/measurement/RoomWaitlistConcurrencyBaselinePostgresTest.java");
 	private static final Instant FIXED_TIME = RoomLockComparisonMeasurementContract.FIXED_TIME;
 	private static final String FIXTURE_SEED = RoomLockComparisonMeasurementContract.FIXTURE_SEED;
 	/** A/B/C가 동일하게 한 번씩 실행하는 T2 commit-order 표본 수다. */
@@ -1392,7 +1400,8 @@ class RoomLockStrategyComparisonPostgresTest {
 			.filter(file -> !file.isBlank())
 			.collect(java.util.stream.Collectors.toSet());
 		return changed.equals(IMMUTABLE_ARTIFACT_BUNDLE_PATHS)
-			|| changed.equals(PROVENANCE_BUNDLE_WITH_TEST_CONTRACT_PATHS);
+			|| changed.equals(PROVENANCE_BUNDLE_WITH_TEST_CONTRACT_PATHS)
+			|| changed.equals(PROVENANCE_BUNDLE_WITH_TOPOLOGY_CONTRACT_PATHS);
 	}
 
 	private String gitHead(Path repositoryRoot) throws Exception {

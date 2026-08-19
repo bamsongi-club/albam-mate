@@ -696,8 +696,8 @@ class RoomWaitlistConcurrencyBaselinePostgresTest {
 		assertTrue(retryLogs.stream().allMatch(this::hasExpectedAttempt));
 		assertTrue(retryLogs.stream().allMatch(log -> expectedUseCase(log.event()).equals(log.useCase())));
 		assertTrue(retryLogs.stream().allMatch(this::hasExpectedReasonCode));
-		assertTrue(retryLogs.stream().allMatch(log ->
-			log.retryAttempt() || log.exhaustedAttempt() || log.technicalFailure()));
+		assertTrue(
+			retryLogs.stream().allMatch(log -> log.retryAttempt() || log.exhaustedAttempt() || log.technicalFailure()));
 		assertTrue(retryLogs.stream()
 			.filter(RoomConcurrencyBaselineSupport.RetryLogRecord::exhaustedAttempt)
 			.allMatch(log -> log.attempt() == 3));

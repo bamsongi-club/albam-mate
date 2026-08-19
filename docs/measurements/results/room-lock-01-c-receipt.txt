@@ -1,10 +1,10 @@
 candidate=C
-sourceSha=f70facc0f87bf87e5b1be3d22808fedfa7d1166b
+sourceSha=1475f8adf7a3a45528c9a10cc84198a055ca2f80
 baseSha=49b960a1f7537574b39d67ff22df8890a3891ef6
-headSha=f70facc0f87bf87e5b1be3d22808fedfa7d1166b
+headSha=1475f8adf7a3a45528c9a10cc84198a055ca2f80
 command=.\gradlew.bat postgresTest --tests "cloud.bamsongi.albammate.room.measurement.RoomLockStrategyComparisonPostgresTest.*" --rerun --no-daemon --stacktrace
 runner=scripts/measurements/run-room-lock-comparison.ps1
 executionId=d7ade803a48c9b2f07d0d84e3f3358298dccab86bdbf956c91bebfb012bb6bca
 result=BUILD_SUCCESSFUL
 testCases=17
-rawArtifactDigest=8e08406782301e3cd17ea13fdc2830dda30b2bf7f18770998209c885e97883ef
+rawArtifactDigest=fd5e7cfb9a1558507c00305a3df9421b95c979c4228478e9642635d16d4b0c8e
