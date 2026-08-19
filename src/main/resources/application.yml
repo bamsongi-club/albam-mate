@@ -21,6 +21,24 @@ spring:
       max-file-size: 6MB
       max-request-size: 6MB
 app:
+
+  assistant:
+    enabled: false
+    provider: fake
+    model: gpt-5.6-luna
+    no-retention-verified: false
+    no-training-verified: false
+    store: false
+    policy-version: ${ALBAM_MATE_ASSISTANT_POLICY_VERSION:}
+    policy-url: ${ALBAM_MATE_ASSISTANT_POLICY_URL:}
+    pricing-snapshot: ${ALBAM_MATE_ASSISTANT_PRICING_SNAPSHOT:}
+    input-token-price-usd-per-million: ${ALBAM_MATE_ASSISTANT_INPUT_TOKEN_PRICE_USD_PER_MILLION:0}
+    output-token-price-usd-per-million: ${ALBAM_MATE_ASSISTANT_OUTPUT_TOKEN_PRICE_USD_PER_MILLION:0}
+    max-input-tokens: ${ALBAM_MATE_ASSISTANT_MAX_INPUT_TOKENS:4096}
+    max-output-tokens: ${ALBAM_MATE_ASSISTANT_MAX_OUTPUT_TOKENS:256}
+    reservation-cost-usd: 0.10
+    timeout: 10s
+    retry-count: 0
   profile-image:
     upload-dir: ${ALBAM_MATE_PROFILE_IMAGE_DIR:./uploads/profile}
   room:
