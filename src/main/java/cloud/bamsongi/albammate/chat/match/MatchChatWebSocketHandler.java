@@ -116,7 +116,9 @@ public class MatchChatWebSocketHandler implements WebSocketHandler, MatchChatRea
 				connectionRegistry.closeForPolicyViolation(connection.session);
 				return;
 			}
-			messageDeliveryService.deliverNewMessages(connection);
+			messageDeliveryService.deliverNewMessages(
+				connection,
+				() -> isDeliveryAccessValid(connection.session));
 		} catch (RuntimeException exception) {
 			metrics.recordDeliveryFailure();
 		} finally {

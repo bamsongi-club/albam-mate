@@ -17,6 +17,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -158,6 +159,29 @@ class MatchChatMessageDeliveryServiceTest {
 
 		verify(session, times(1)).sendMessage(any());
 		assertEquals(1L, connection.lastDeliveredMessageId.get());
+		verify(connectionRegistry, never()).closeForPolicyViolation(session);
+		verify(connectionRegistry, never()).closeForTransportFailure(any());
+	}
+
+	@Test
+	void T7_메시지_사이_접근_검증이_false면_남은_메시지를_보내지_않고_POLICY_VIOLATION으로_종료한다() throws Exception {
+		WebSocketSession session = mock(WebSocketSession.class);
+		when(session.isOpen()).thenReturn(true);
+		when(connectionRegistry.shouldStopDelivery(session)).thenReturn(false);
+		MatchChatPartyConnection connection = new MatchChatPartyConnection(
+			session, PARTY_ID, MATCH_CHAT_ROOM_ID, USER_ID, 0L);
+		MatchChatMessage message1 = userMessage(1L, USER_ID);
+		MatchChatMessage message2 = userMessage(2L, USER_ID);
+		when(matchChatMessageRepository.findByMatchChatRoomIdAndIdGreaterThanOrderByIdAsc(MATCH_CHAT_ROOM_ID, 0L))
+			.thenReturn(List.of(message1, message2));
+		stubSender(USER_ID);
+		AtomicInteger validationCount = new AtomicInteger();
+
+		deliveryService.deliverNewMessages(connection, () -> validationCount.getAndIncrement() == 0);
+
+		verify(session, times(1)).sendMessage(any());
+		assertEquals(1L, connection.lastDeliveredMessageId.get());
+		verify(connectionRegistry).closeForPolicyViolation(session);
 		verify(connectionRegistry, never()).closeForTransportFailure(any());
 	}
 

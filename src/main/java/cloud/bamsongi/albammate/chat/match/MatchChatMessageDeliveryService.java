@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -50,6 +51,15 @@ class MatchChatMessageDeliveryService {
 	 * <p>전송이 실패하면 그 메시지에서 멈추고 연결을 {@code SERVER_ERROR}로 종료하며 실패를 계측한다.
 	 */
 	void deliverNewMessages(MatchChatPartyConnection connection) {
+		deliverNewMessages(connection, () -> true);
+	}
+
+	/**
+	 * 각 메시지 전송 직전에 현재 연결의 세션·접근·Party 상태를 다시 판정한다.
+	 *
+	 * <p>판정이 실패하면 아직 보내지 않은 메시지는 노출하지 않고 연결을 {@code POLICY_VIOLATION}으로 종료한다.
+	 */
+	void deliverNewMessages(MatchChatPartyConnection connection, BooleanSupplier isDeliveryAccessValid) {
 		List<MatchChatMessage> newMessages = matchChatMessageRepository
 			.findByMatchChatRoomIdAndIdGreaterThanOrderByIdAsc(
 				connection.matchChatRoomId, connection.lastDeliveredMessageId.get());
@@ -70,6 +80,10 @@ class MatchChatMessageDeliveryService {
 		int delivered = 0;
 		for (MatchChatMessage message : newMessages) {
 			if (connectionRegistry.shouldStopDelivery(connection.session)) {
+				break;
+			}
+			if (!isDeliveryAccessValid.getAsBoolean()) {
+				connectionRegistry.closeForPolicyViolation(connection.session);
 				break;
 			}
 			MatchChatSender sender = sender(message, connection.partyId, participantRefs, nicknames);
