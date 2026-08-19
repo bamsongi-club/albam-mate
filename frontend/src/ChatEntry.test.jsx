@@ -277,6 +277,96 @@ describe('#427 T5 채팅 화면 이력 표시', () => {
   });
 });
 
+describe('#845 CHAT-06 입장·퇴장 시스템 메시지 화면 표시', () => {
+  it('시스템 메시지를 사용자 메시지와 다른 형태로 구분해 표시하고 서버가 준 문장을 그대로 렌더링한다', async () => {
+    vi.spyOn(api, 'getChatMessages').mockResolvedValue({
+      messages: [
+        { messageId: 1, roomId: 7, messageType: 'USER', clientMessageId: 'c1', sender: { nickname: '주최자' }, isMine: false, systemEvent: null, subject: null, content: '안녕하세요', createdAt: '2026-09-01T19:00:00+09:00' },
+        { messageId: 2, roomId: 7, messageType: 'SYSTEM', clientMessageId: null, sender: null, isMine: false, systemEvent: 'PARTICIPANT_ENTERED', subject: { nickname: '참가자' }, content: '참가자님이 입장했어요.', createdAt: '2026-09-01T19:01:00+09:00' }
+      ],
+      nextBeforeMessageId: null,
+      hasNext: false
+    });
+
+    const { container } = render(<ChatRoomView roomId="7" dataVersion={0} />);
+
+    await waitFor(() => expect(screen.getByText('참가자님이 입장했어요.')).toBeTruthy());
+    const systemNode = screen.getByText('참가자님이 입장했어요.');
+    expect(systemNode.className).toContain('chat-system');
+    expect(container.querySelectorAll('.chat-message')).toHaveLength(1);
+  });
+
+  it('시스템 메시지를 자신·상대 말풍선으로 오해하지 않고 발신자 아바타·재전송 UI를 붙이지 않는다', async () => {
+    vi.spyOn(api, 'getChatMessages').mockResolvedValue({
+      messages: [
+        { messageId: 1, roomId: 7, messageType: 'SYSTEM', sender: null, isMine: false, systemEvent: 'PARTICIPANT_LEFT', subject: { nickname: '테스터' }, content: '테스터님이 나갔어요.', createdAt: '2026-09-01T19:00:00+09:00' }
+      ],
+      nextBeforeMessageId: null,
+      hasNext: false
+    });
+
+    const { container } = render(<ChatRoomView roomId="7" dataVersion={1} me={{ id: 1, nickname: '테스터' }} />);
+
+    await waitFor(() => expect(screen.getByText('테스터님이 나갔어요.')).toBeTruthy());
+    expect(container.querySelector('[data-message-owner]')).toBeNull();
+    expect(container.querySelector('.chat-system .avatar')).toBeNull();
+    expect(container.querySelector('.chat-system button')).toBeNull();
+  });
+
+  it('서버 안내 문장을 일반 텍스트로만 렌더링하고 HTML·스크립트로 해석하지 않는다', async () => {
+    vi.spyOn(api, 'getChatMessages').mockResolvedValue({
+      messages: [
+        { messageId: 1, roomId: 7, messageType: 'SYSTEM', sender: null, isMine: false, systemEvent: 'PARTICIPANT_ENTERED', subject: { nickname: '<img src=x onerror=alert(1)>' }, content: '<img src=x onerror=alert(1)>님이 입장했어요.', createdAt: '2026-09-01T19:00:00+09:00' }
+      ],
+      nextBeforeMessageId: null,
+      hasNext: false
+    });
+
+    const { container } = render(<ChatRoomView roomId="7" dataVersion={0} />);
+
+    await waitFor(() => expect(screen.getByText('<img src=x onerror=alert(1)>님이 입장했어요.')).toBeTruthy());
+    expect(container.querySelector('.chat-log img')).toBeNull();
+  });
+
+  it('이력 조회와 실시간 수신에서 시스템 메시지가 사용자 메시지와 중복·누락 없이 시간순으로 섞인다', async () => {
+    const sockets = [];
+    class FakeWs {
+      constructor(url) { this.url = url; this.close = vi.fn(); sockets.push(this); }
+      open() { this.onopen?.(); }
+      message(payload) { this.onmessage?.({ data: JSON.stringify(payload) }); }
+    }
+    vi.stubGlobal('WebSocket', FakeWs);
+    vi.spyOn(api, 'getChatMessages').mockResolvedValue({
+      messages: [
+        { messageId: 1, roomId: 7, messageType: 'USER', sender: { nickname: '주최자' }, isMine: false, content: '첫 메시지', createdAt: '2026-09-01T19:00:00+09:00' }
+      ],
+      nextBeforeMessageId: null,
+      hasNext: false
+    });
+
+    render(<ChatRoomView roomId="7" dataVersion={0} />);
+    await waitFor(() => expect(sockets).toHaveLength(1));
+    sockets[0].open();
+    await act(async () => {
+      sockets[0].message({
+        eventId: 2,
+        type: 'MESSAGE_CREATED',
+        message: { messageId: 2, roomId: 7, messageType: 'SYSTEM', sender: null, isMine: false, systemEvent: 'PARTICIPANT_ENTERED', subject: { nickname: '참가자' }, content: '참가자님이 입장했어요.', createdAt: '2026-09-01T19:01:00+09:00' }
+      });
+      sockets[0].message({
+        eventId: 3,
+        type: 'MESSAGE_CREATED',
+        message: { messageId: 3, roomId: 7, messageType: 'USER', sender: { nickname: '참가자' }, isMine: false, content: '반가워요', createdAt: '2026-09-01T19:02:00+09:00' }
+      });
+    });
+
+    await waitFor(() => expect(screen.getByText('반가워요')).toBeTruthy());
+    const order = Array.from(document.querySelectorAll('.chat-log .chat-content, .chat-log .chat-system'))
+      .map((node) => node.textContent);
+    expect(order).toEqual(['첫 메시지', '참가자님이 입장했어요.', '반가워요']);
+  });
+});
+
 describe('#431 CHAT-03 실시간 수신·재연결', () => {
   function useFakeWebSocket() {
     FakeWebSocket.instances = [];
