@@ -6,7 +6,7 @@
 
 이 문서는 **측정/진단만** 다룬다. 인덱스 추가, 쿼리 변경, `Page` 계약 변경, 캐시, 프론트 로딩 전략은 #740 범위가 아니다.
 
-2026-08-19 실제 재측정 결과는 [최신 develop 결과](results/game-list-740/game-list-740-2026-08-19.md)에 기록했다. 원격 `develop` `69e595513378d9e0569f5b35221a7441f194f62e`을 반영한 server/runner commit `ccc6971da796131337e24fa2dd53303e1dcd46f4`에서 v4 DB를 다시 측정하고, 서버·proxy container/network provenance, 응답 upstream address, 고유 measurement ID가 있는 proxy access log, timestamp/PID/application name이 있는 SQL statement capture와 `EXPLAIN (ANALYZE, BUFFERS)`를 함께 보존했다.
+2026-08-19 실제 재측정 결과는 [최신 develop 결과](results/game-list-740/game-list-740-2026-08-19.md)에 기록했다. 원격 `develop` `69e595513378d9e0569f5b35221a7441f194f62e`을 반영한 server/runner commit `ccc6971da796131337e24fa2dd53303e1dcd46f4`에서 v4 DB를 다시 측정하고, 서버·proxy container/network provenance, 응답 upstream address, 고유 measurement ID가 있는 proxy access log, timestamp/PID/application name이 있는 SQL statement capture와 `EXPLAIN (ANALYZE, BUFFERS)`를 함께 보존했다. 이 기록은 #770 전 `Page` 계약의 Before baseline이며, Slice 전환 후 비교와 raw count 제거 근거는 [#770 Slice 실측](results/game-list-740/game-list-770-2026-08-19.md)에 분리해 보존한다.
 
 현재 evidence는 2026-08-19의 별도 runner 실행 3회 JSON/CSV 집합이다. 단일 batch의 빠른 p95를 canonical 값으로 고르지 않으며, batch별 편차와 실행 조건을 결과 문서에 함께 기록한다. `game-list-740-2026-08-18T14-36-38.069Z.json/csv`는 보강 전 runner의 역사 기록으로만 보존하며 #740 완료 근거에서 제외한다.
 
@@ -205,13 +205,13 @@ EXPLAIN (ANALYZE, BUFFERS, VERBOSE, FORMAT TEXT)
 - [x] 최신 `develop` 반영 server/runner로 v4 baseline 재실행, `runnerFileSha256`/`runnerSourceClean` 기록
 - [x] 서버 OCI revision label·동일 image ID·proxy Compose network·upstream 역할/address를 runner artifact에 기록하고 전후 대조
 - [x] 동일 조건의 별도 runner 실행 3회와 batch별 p50/p95 편차 기록
-- [ ] #770 Slice 계약에서 discovery timeout과 Compose PostgreSQL fixture count 전후 대조 검증
+- [x] #770 Slice 계약에서 discovery timeout과 Compose PostgreSQL fixture count 전후 대조 검증 ([#770 Slice 실측](results/game-list-740/game-list-770-2026-08-19.md))
 - [x] N+1/중복 query 여부 판정
 - [ ] #770 Slice content/validation/related 구간의 대표 실행계획 시간 기록
 - [x] 가장 느린 SQL의 `EXPLAIN (ANALYZE, BUFFERS)` 보존
 - [x] 기본 요청의 HTTP/upstream/controller/SQL 시간 창 대응 기록
-- [ ] #770 Slice 기본 요청 raw capture에 HTTP window·고유 proxy measurement ID·upstream 역할/address·PostgreSQL timestamp/PID/application name·content/related statement 보존
-- [ ] #770 Slice 기본 요청이 app count query 없이 `size + 1` content query를 사용하는지 숫자로 확인
+- [x] #770 Slice 기본 요청 raw capture에 HTTP window·고유 proxy measurement ID·upstream 역할/address·PostgreSQL timestamp/PID/application name·content/related statement 보존 ([capture](results/game-list-740/game-list-770-2026-08-19-base-request-capture.log))
+- [x] #770 Slice 기본 요청이 app count query 없이 `size + 1` content query를 사용하는지 숫자로 확인 ([capture](results/game-list-740/game-list-770-2026-08-19-base-request-capture.log))
 - [ ] 기본 요청 전체 잔여 구간의 세부 계측 및 후속 #770 단일 범위 승인
 - [ ] 개선은 별도 후속 이슈로 최소 범위만 생성
 
