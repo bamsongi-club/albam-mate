@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "campaignId": "ops02-20260819-044303",
+  "status": "completed-with-limitations",
+  "reportDisposition": "included",
+  "source": {
+    "appMergeSha": "d45ac020cf689bed679a8d7f11ebdf956eb7a800",
+    "infraDeploySha": "abb3dbc65f64d4e8a211076dd57ea999f9be2f82",
+    "infraPhaseRunnerSha": "52eca3724b5d21414a144e4b90a6eb98b65f33d4",
+    "infraCollectorSha": "6021714e22c6714eea8a719b49b741b9a144081a",
+    "backendImageDigest": "sha256:9b1219e7603ef769ebd67db91b23b519e61878252b45b4fcb58f61db5da172a3",
+    "webImageDigest": "sha256:95a7dbc5437938df168d02c0387aad2a146f98c4adf5e4233eaadddf96485cbf"
+  },
+  "fixture": {
+    "userCount": 100,
+    "notificationBacklogApplied": false
+  },
+  "window": {
+    "startedAt": "2026-08-18T19:44:48Z",
+    "finishedAt": "2026-08-18T20:11:13Z"
+  },
+  "phases": [
+    {"name": "baseline", "requestErrors": 0, "droppedIterations": 0, "medianMs": 9.1652095, "p95Ms": 11.06625625, "maxMs": 18.309249, "result": "PASS"},
+    {"name": "slow-request", "requestErrors": 0, "droppedIterations": 0, "medianMs": 1208.49221, "p95Ms": 1611.850152, "maxMs": 2014.590582, "result": "PASS"},
+    {"name": "db-pool-wait", "requestErrors": 0, "droppedIterations": 0, "medianMs": 16750.737758, "p95Ms": 19451.149343, "maxMs": 32677.808302, "result": "PASS"},
+    {"name": "recovery", "requestErrors": 0, "droppedIterations": 0, "medianMs": 7.8382145, "p95Ms": 10.55587425, "maxMs": 17.953817, "result": "PASS"}
+  ],
+  "validation": {
+    "status": "VALID",
+    "invalidReasonCount": 0,
+    "sanitizedNginxRows": 712,
+    "app2Upstream": {
+      "baseline": {"samples": 60, "medianSeconds": 0.009},
+      "slowRequest": {"samples": 121, "medianSeconds": 1.609},
+      "recovery": {"samples": 55, "medianSeconds": 0.008}
+    },
+    "hikariPendingMax": {
+      "baseline": 0,
+      "slowRequest": 0,
+      "dbPoolWait": {"app1": 35, "app2": 35},
+      "recovery": {"app1": 0, "app2": 0}
+    },
+    "alarms": {"described": 16, "ok": 12, "alarm": 4, "historyItemsInWindow": 0}
+  },
+  "artifacts": {
+    "rawEvidenceAvailability": "private-local-only",
+    "evidenceSha256": "3ebaa9ba44156711763f2fbba4cf91f5fad8bf7c4ca9ae423608867ba5d0d5b6",
+    "app2CleanupSha256": "95f4bed49265c0cf2fbf36ea5b70e75f920f126768df9134a530d4b778b451e2",
+    "postgresCleanupSha256": "52ff82c12b313b63bbd8f76a00e4312b11af18f5a77754a829f7664e1082fe9c",
+    "teardownResultSha256": "f831a9eaf7f81219ef5f5adbd8a87cdcb49efb496e174db7f6ec354dde1f2748"
+  },
+  "teardown": {
+    "status": "COMPLETED",
+    "terraformResourcesDestroyed": 103,
+    "terraformStateResources": 0,
+    "billableActiveEc2": 0,
+    "ebsVolumes": 0,
+    "elasticIps": 0,
+    "vpcs": 0,
+    "cloudWatchResources": 0,
+    "stackSsmParameters": 0
+  },
+  "limitations": [
+    "Four root disk alarms were ALARM because the deployed alarm requested dimensions absent from the live series; source was corrected but not redeployed.",
+    "The public PromQL label catalog was empty, so the final evidence used native CloudWatch Metrics Insights and MetricStat against the same bounded series.",
+    "OPS-02-AC5 is conditionally excluded until an external API or AI feature is deployed."
+  ]
+}
