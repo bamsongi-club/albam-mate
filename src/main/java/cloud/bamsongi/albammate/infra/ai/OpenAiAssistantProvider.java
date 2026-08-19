@@ -1,8 +1,6 @@
 package cloud.bamsongi.albammate.infra.ai;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -31,7 +29,6 @@ import tools.jackson.databind.ObjectMapper;
 final class OpenAiAssistantProvider implements AiProviderClient {
 
 	private static final String TOOL_NAME = "propose_game_room_intent";
-	private static final BigDecimal TOKENS_PER_MILLION = new BigDecimal("1000000");
 	private static final Set<String> ALLOWED_GAME_STYLES = Set.of(
 		"STRATEGY", "ABSTRACT_STRATEGY", "COLLECTIBLE", "FAMILY",
 		"CHILDREN", "THEMATIC", "PARTY", "WARGAME");
@@ -94,37 +91,30 @@ final class OpenAiAssistantProvider implements AiProviderClient {
 
 	@Override
 	public AiProviderResponse propose(AiProviderPayload request) {
-		if (!withinInputBudget(request)) {
-			return AiProviderResponse.failure(AiProviderFailure.INPUT_TOO_LARGE);
-		}
-		int inputTokens = 0;
-		int outputTokens = 0;
-		BigDecimal costUsd = BigDecimal.ZERO;
 		try {
 			ChatResponse response = chatModel.call(promptFor(request));
 			Usage usage = response.getMetadata().getUsage();
-			inputTokens = tokenCount(usage == null ? null : usage.getPromptTokens());
-			outputTokens = tokenCount(usage == null ? null : usage.getCompletionTokens());
-			costUsd = costEstimate(inputTokens, outputTokens);
+			int inputTokens = tokenCount(usage == null ? null : usage.getPromptTokens());
+			int outputTokens = tokenCount(usage == null ? null : usage.getCompletionTokens());
 			Generation generation = response.getResult();
 			String arguments = toolArguments(generation);
 			if (arguments == null) {
-				return AiProviderResponse.failure(AiProviderFailure.INVALID_SCHEMA, inputTokens, outputTokens, costUsd);
+				return AiProviderResponse.failure(AiProviderFailure.INVALID_SCHEMA);
 			}
 			JsonNode output = objectMapper.readTree(arguments);
 			if (!isValidOutput(output)) {
-				return AiProviderResponse.failure(AiProviderFailure.INVALID_SCHEMA, inputTokens, outputTokens, costUsd);
+				return AiProviderResponse.failure(AiProviderFailure.INVALID_SCHEMA);
 			}
 			return AiProviderResponse.success(
 				output.get("action").asText(),
 				styles(output.get("gameStyles")),
 				inputTokens,
 				outputTokens,
-				costUsd);
+				costEstimate(inputTokens, outputTokens));
 		} catch (JacksonException exception) {
-			return AiProviderResponse.failure(AiProviderFailure.INVALID_SCHEMA, inputTokens, outputTokens, costUsd);
+			return AiProviderResponse.failure(AiProviderFailure.INVALID_SCHEMA);
 		} catch (RuntimeException exception) {
-			return AiProviderResponse.failure(failureFor(exception), inputTokens, outputTokens, costUsd);
+			return AiProviderResponse.failure(failureFor(exception));
 		}
 	}
 
@@ -139,7 +129,6 @@ final class OpenAiAssistantProvider implements AiProviderClient {
 			.model(settings.model())
 			.timeout(settings.timeout())
 			.maxRetries(0)
-			.maxCompletionTokens(settings.maxOutputTokens())
 			.store(false)
 			.toolCallbacks(List.of(INTENT_TOOL))
 			.toolChoice("{\"type\":\"function\",\"function\":{\"name\":\"" + TOOL_NAME + "\"}}")
@@ -154,13 +143,6 @@ final class OpenAiAssistantProvider implements AiProviderClient {
 			+ "\nreferenceZoneId=" + request.referenceZoneId()
 			+ "\ncurrentUserSentence=" + request.currentUserSentence()
 			+ "\nmissingFields=" + String.join(",", request.missingFields());
-	}
-
-	private boolean withinInputBudget(AiProviderPayload request) {
-		int promptBytes = V1_INSTRUCTION.getBytes(StandardCharsets.UTF_8).length
-			+ TOOL_SCHEMA.getBytes(StandardCharsets.UTF_8).length
-			+ userText(request).getBytes(StandardCharsets.UTF_8).length;
-		return promptBytes <= settings.maxInputTokens();
 	}
 
 	private String toolArguments(Generation generation) {
@@ -214,11 +196,7 @@ final class OpenAiAssistantProvider implements AiProviderClient {
 	}
 
 	private BigDecimal costEstimate(int inputTokens, int outputTokens) {
-		BigDecimal inputCost = settings.inputTokenPriceUsdPerMillion()
-			.multiply(BigDecimal.valueOf(inputTokens));
-		BigDecimal outputCost = settings.outputTokenPriceUsdPerMillion()
-			.multiply(BigDecimal.valueOf(outputTokens));
-		return inputCost.add(outputCost).divide(TOKENS_PER_MILLION, 8, RoundingMode.CEILING);
+		return settings.reservationCostUsd();
 	}
 
 	private AiProviderFailure failureFor(Throwable exception) {
