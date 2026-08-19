@@ -11,6 +11,8 @@ on:
       - "scripts/game-catalog/measure-catalog-dataset-release.mjs"
       - "scripts/game-catalog/prepare-game-catalog.mjs"
       - "scripts/game-catalog/prepare-game-catalog.test.mjs"
+      - "scripts/game-catalog/extract-catalog-dataset-ids.mjs"
+      - "scripts/game-catalog/extract-catalog-dataset-ids.test.mjs"
       - "docs/game-catalog/SEARCH_04_CATALOG_DATASET_RELEASE.md"
       - ".github/workflows/catalog-dataset-release.yml"
   push:
@@ -23,6 +25,8 @@ on:
       - "scripts/game-catalog/measure-catalog-dataset-release.mjs"
       - "scripts/game-catalog/prepare-game-catalog.mjs"
       - "scripts/game-catalog/prepare-game-catalog.test.mjs"
+      - "scripts/game-catalog/extract-catalog-dataset-ids.mjs"
+      - "scripts/game-catalog/extract-catalog-dataset-ids.test.mjs"
       - "docs/game-catalog/SEARCH_04_CATALOG_DATASET_RELEASE.md"
       - ".github/workflows/catalog-dataset-release.yml"
   workflow_dispatch:
@@ -47,8 +51,12 @@ jobs:
       - name: Test execution manifest handoff
         run: node --test scripts/game-catalog/prepare-game-catalog.test.mjs
 
+      - name: Test catalog dataset id extraction
+        run: node --test scripts/game-catalog/extract-catalog-dataset-ids.test.mjs
+
       - name: Check release scripts syntax
         run: |
           node --check scripts/game-catalog/catalog-dataset-release-manifest.mjs
           node --check scripts/game-catalog/catalog-dataset-release-measurement.mjs
           node --check scripts/game-catalog/measure-catalog-dataset-release.mjs
+          node --check scripts/game-catalog/extract-catalog-dataset-ids.mjs
