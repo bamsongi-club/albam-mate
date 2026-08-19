@@ -14,19 +14,17 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import cloud.bamsongi.albammate.AlbamMateApplication;
 import cloud.bamsongi.albammate.chat.match.entity.MatchChatMessage;
 import cloud.bamsongi.albammate.chat.match.entity.MatchChatRoom;
 import cloud.bamsongi.albammate.chat.match.repository.MatchChatMessageRepository;
 import cloud.bamsongi.albammate.chat.match.repository.MatchChatRoomRepository;
+import cloud.bamsongi.albammate.testsupport.SharedPostgresIntegrationSupport;
 
 /**
  * CHAT-T1이 의존하는 {@link MatchChatRoom}·{@link MatchChatMessage} 정적 팩터리와 repository 매핑이
@@ -37,15 +35,9 @@ import cloud.bamsongi.albammate.chat.match.repository.MatchChatRoomRepository;
  */
 @Testcontainers
 @SpringBootTest(classes = AlbamMateApplication.class)
-class MatchChatPersistencePostgresTest {
+class MatchChatPersistencePostgresTest extends SharedPostgresIntegrationSupport {
 
-	private static final String POSTGRES_IMAGE = "postgres:18.4";
 	private static final Instant NOW = Instant.parse("2026-08-19T00:00:00Z");
-
-	@Container
-	@ServiceConnection
-	static final PostgreSQLContainer postgres = new PostgreSQLContainer(POSTGRES_IMAGE)
-		.withDatabaseName("albam_mate_match_chat_persistence_test");
 
 	@Autowired
 	private MatchChatRoomRepository matchChatRoomRepository;

@@ -11,11 +11,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
+import cloud.bamsongi.albammate.testsupport.SharedPostgresIntegrationSupport;
 import cloud.bamsongi.albammate.user.entity.User;
 import cloud.bamsongi.albammate.user.repository.UserRepository;
 
@@ -25,14 +23,7 @@ import cloud.bamsongi.albammate.user.repository.UserRepository;
  */
 @Testcontainers
 @SpringBootTest
-class UserSummaryProjectionPostgresTest {
-
-	private static final String POSTGRES_IMAGE = "postgres:18.4";
-
-	@Container
-	@ServiceConnection
-	static final PostgreSQLContainer postgres = new PostgreSQLContainer(POSTGRES_IMAGE)
-		.withDatabaseName("albam_mate_user_summary_projection_test");
+class UserSummaryProjectionPostgresTest extends SharedPostgresIntegrationSupport {
 
 	@Autowired
 	private UserRepository userRepository;

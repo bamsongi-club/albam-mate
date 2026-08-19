@@ -5,22 +5,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
+
+import cloud.bamsongi.albammate.testsupport.SharedPostgresIntegrationSupport;
 
 @Testcontainers
 @SpringBootTest
-class RoomWaitlistSchemaPostgresTest {
-
-	private static final String POSTGRES_IMAGE = "postgres:18.4";
-
-	@Container
-	@ServiceConnection
-	static final PostgreSQLContainer postgres = new PostgreSQLContainer(POSTGRES_IMAGE)
-		.withDatabaseName("albam_mate_waitlist_schema_test");
+class RoomWaitlistSchemaPostgresTest extends SharedPostgresIntegrationSupport {
 
 	@Autowired
 	private JdbcTemplate jdbcTemplate;

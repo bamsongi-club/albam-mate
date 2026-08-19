@@ -7,23 +7,15 @@ import java.time.Duration;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.session.MapSession;
 import org.springframework.session.MapSessionRepository;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
+
+import cloud.bamsongi.albammate.testsupport.SharedPostgresIntegrationSupport;
 
 @Testcontainers
 @SpringBootTest
-class SessionConfigurationPostgresTest {
-
-	private static final String POSTGRES_IMAGE = "postgres:18.4";
-
-	@Container
-	@ServiceConnection
-	static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(POSTGRES_IMAGE)
-		.withDatabaseName("session_configuration_test");
+class SessionConfigurationPostgresTest extends SharedPostgresIntegrationSupport {
 
 	@Autowired
 	private MapSessionRepository sessionRepository;

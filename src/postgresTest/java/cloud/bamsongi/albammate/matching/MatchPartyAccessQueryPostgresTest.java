@@ -8,26 +8,17 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import cloud.bamsongi.albammate.AlbamMateApplication;
 import cloud.bamsongi.albammate.matching.contract.MatchPartyAccessQuery;
 import cloud.bamsongi.albammate.matching.contract.MatchPartyChatAccess;
+import cloud.bamsongi.albammate.testsupport.SharedPostgresIntegrationSupport;
 
 @Testcontainers
 @SpringBootTest(classes = AlbamMateApplication.class)
-class MatchPartyAccessQueryPostgresTest {
-
-	private static final String POSTGRES_IMAGE = "postgres:18.4";
-
-	@Container
-	@ServiceConnection
-	static final PostgreSQLContainer postgres = new PostgreSQLContainer(POSTGRES_IMAGE)
-		.withDatabaseName("albam_mate_match_access_test");
+class MatchPartyAccessQueryPostgresTest extends SharedPostgresIntegrationSupport {
 
 	@Autowired
 	private MatchPartyAccessQuery accessQuery;

@@ -28,7 +28,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
@@ -39,12 +38,11 @@ import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import cloud.bamsongi.albammate.AlbamMateApplication;
 import cloud.bamsongi.albammate.global.security.currentuser.CurrentUserPrincipal;
+import cloud.bamsongi.albammate.testsupport.SharedPostgresIntegrationSupport;
 import cloud.bamsongi.albammate.user.contract.UserRowLockPort;
 import cloud.bamsongi.albammate.user.service.UserRowLockService;
 
@@ -52,14 +50,10 @@ import cloud.bamsongi.albammate.user.service.UserRowLockService;
 @SpringBootTest(classes = AlbamMateApplication.class)
 @AutoConfigureMockMvc
 @Import(MatchBlockPostgresTest.CoordinatedUserRowLockConfiguration.class)
-class MatchBlockPostgresTest {
+class MatchBlockPostgresTest extends SharedPostgresIntegrationSupport {
 
 	private static final Instant FIXED_TIME = Instant.parse("2026-08-19T00:00:00Z");
 	private static final long WAIT_SECONDS = 10L;
-
-	@Container
-	@ServiceConnection
-	static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:18.4");
 
 	@Autowired
 	private MockMvc mockMvc;

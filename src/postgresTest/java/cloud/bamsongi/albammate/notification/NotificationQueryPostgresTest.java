@@ -9,30 +9,23 @@ import java.time.OffsetDateTime;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import cloud.bamsongi.albammate.AlbamMateApplication;
 import cloud.bamsongi.albammate.notification.enums.NotificationType;
 import cloud.bamsongi.albammate.notification.repository.NotificationQueryRepository;
 import cloud.bamsongi.albammate.notification.service.query.NotificationQueryService;
+import cloud.bamsongi.albammate.testsupport.SharedPostgresIntegrationSupport;
 
 /** PostgreSQL transaction_timestamp 만료 경계와 현재 방 제목 투영을 검증한다. */
 @Testcontainers
 @SpringBootTest(classes = AlbamMateApplication.class)
-class NotificationQueryPostgresTest {
-
-	@Container
-	@ServiceConnection
-	static final PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:18.4")
-		.withDatabaseName("albam_mate_notification_query_test");
+class NotificationQueryPostgresTest extends SharedPostgresIntegrationSupport {
 
 	@Autowired
 	private JdbcTemplate jdbcTemplate;

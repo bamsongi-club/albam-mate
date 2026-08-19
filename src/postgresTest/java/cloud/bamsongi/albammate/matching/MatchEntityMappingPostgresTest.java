@@ -17,32 +17,23 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.ApplicationContext;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import cloud.bamsongi.albammate.AlbamMateApplication;
 import cloud.bamsongi.albammate.matching.entity.MatchPartyParticipant;
 import cloud.bamsongi.albammate.matching.entity.MatchPartyParticipantId;
 import cloud.bamsongi.albammate.matching.entity.MatchProposalMember;
 import cloud.bamsongi.albammate.matching.entity.MatchProposalMemberId;
+import cloud.bamsongi.albammate.testsupport.SharedPostgresIntegrationSupport;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.metamodel.EntityType;
 
 @Testcontainers
 @SpringBootTest(classes = AlbamMateApplication.class)
-class MatchEntityMappingPostgresTest {
-
-	private static final String POSTGRES_IMAGE = "postgres:18.4";
-
-	@Container
-	@ServiceConnection
-	static final PostgreSQLContainer postgres = new PostgreSQLContainer(POSTGRES_IMAGE)
-		.withDatabaseName("albam_mate_match_entity_test");
+class MatchEntityMappingPostgresTest extends SharedPostgresIntegrationSupport {
 
 	@Autowired
 	private EntityManager entityManager;
