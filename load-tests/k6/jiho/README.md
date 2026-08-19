@@ -19,9 +19,9 @@
 
 따라서 산출물은 합격·불합격이 아니라 **먼저 무너지는 역할과 그 시점의 조건**이다. "현재 규모에서 broker가 필요 없다"도 ADR-0030 재검토의 유효한 결론이다.
 
-### 이 측정이 답하지 않는 것
+### 기존 알림 혼합 측정이 답하지 않는 것
 
-ADR-0051은 성공 기준에서 "세션을 유지한 채 WebSocket을 열고 채팅을 보내는 부하"를 조회 부하와 구분해 언급한다. **현재 시나리오에는 채팅 WebSocket 부하가 없다.** 연결을 오래 붙드는 부하는 `-Xmx256m` 환경에서 메모리를 가장 많이 쓸 후보이므로, 여기서 나온 "먼저 무너지는 역할"은 **조회·알림 경로에 한정된 결론**이며 ADR-0051의 성공 기준을 전부 충족하지 않는다. 채팅 부하를 합친 판정은 별도 범위다.
+ADR-0051은 성공 기준에서 "세션을 유지한 채 WebSocket을 열고 채팅을 보내는 부하"를 조회 부하와 구분해 언급한다. `mixed-load-capacity.js`에는 채팅 WebSocket 부하가 없으므로 그 결과는 조회·알림 경로에 한정한다. 서비스 전체 대표 혼합과 안전 활성 동접은 별도 `system-active-ccu-capacity.js`로 측정하며, 기존 도메인별 시나리오의 격리 진단 결과와 합산하지 않는다.
 
 ## 부하 기준선 (1×)
 
@@ -46,6 +46,7 @@ ADR-0051은 성공 기준에서 "세션을 유지한 채 WebSocket을 열고 채
 | 인증 제한 계약 | `auth-rate-limit-contract.js` | IP·실패·XFF 제한이 맞는가 | 계약 불일치 0건 |
 | 알림 전달 계약 | `notification-delivery-contract.js` | 실제 참가·취소 Outbox가 유실·중복 없이 알림이 되는가 | 없음 |
 | **알림 혼합 부하** | `mixed-load-capacity.js` | 기준선 배수를 올릴 때 **어느 역할이 먼저 무너지는가** | 측정 구간 API 오류율·p95·drop |
+| **시스템 활성 동접** | `system-active-ccu-capacity.js` | 조회·채팅·대기열·알림·참가가 함께 동작할 때 안전 활성 동접은 어디인가 | 일반 API·채팅·WebSocket·drop·회복 |
 | 인증 용량 | `auth-capacity.js` | 로그인 도착률의 무릎이 어디인가 | 오류·1초 거절 1% 미만, p95 1초 이하, drop 0 |
 | 알림 polling 용량 | `notification-polling-capacity.js` | 읽기 경로만 격리했을 때 한계 (단독 진단) | 없음 |
 | 알림 fan-out 용량 | `notification-fanout-capacity.js` | 이벤트당·수신자당 relay 처리 비용 (외삽용 단가) | 없음 |
@@ -145,6 +146,7 @@ docker compose --env-file .env -f compose.local.yml exec -T postgres \
 | --- | --- |
 | 계약 3종 | 그대로 실행한다. `login-ip` case는 31회 로그인으로 제한을 일부러 건드리므로 Run 사이에 Redis를 비운다 |
 | `mixed-load-capacity` | `MIXED_LOAD_SMOKE=1`로 실행한다. `1`만 스모크를 활성화하며 빈 값·`0`·`false`는 공식 용량 Run으로 취급한다. 세션 5개·알림 이벤트 6건/분으로 고정되고 제한 상향 없이 돈다. 모든 VU가 미확인 개수와 알림 목록을 조회한다 |
+| `system-active-ccu-capacity` | `SYSTEM_CAPACITY_SMOKE=1`로 실행한다. 입력 동접과 무관하게 10 CCU·60초 측정·30초 회복으로 고정되며 용량 근거로 승격하지 않는다 |
 | `notification-polling-capacity`, `notification-fanout-capacity` | 기본값의 로그인 수가 제한 안에 들어가므로 아래 제한 상향만 적용하면 그대로 돈다 |
 | `auth-capacity` | 로그인 수가 제한을 크게 넘으므로 반드시 제한 상향이 필요하다 |
 
@@ -244,6 +246,25 @@ LOAD_TEST_USER_COUNT=640 \
 측정 구간의 대상 API별 오류율 1% 미만, p95 1초 이하와 `dropped_iterations=0`을 요구한다. 1× 대비 p95 2배 조건, 서버 전달 지연, backlog 수렴과 필수 관측 누락은 campaign 판정기가 결과 bundle을 함께 읽어 판정한다. 세션·fixture 준비 실패는 성능 실패가 아니라 Run 무효다.
 
 k6 호스트 자원도 확인 대상이다. 10×는 VU 3천 개를 띄우므로, 부하 발생기가 먼저 포화하면 측정값이 아니라 발생기 한계를 기록하게 된다.
+
+## 시스템 안전 활성 동접
+
+`system-active-ccu-capacity.js`는 등록 사용자나 로그인 세션 수가 아니라, 고정 행동을 계속 수행하는 활성 사용자 수를 측정한다. 공식 profile은 조회 60%, WebSocket 채팅 20%, 대기열·상세 10%, 알림 패널 나머지로 나누고 모든 활성 세션이 알림 미확인 수를 10초마다 조회한다. 참가·취소는 300 CCU당 알림 이벤트 25건/분 비율로 별도 arrival-rate scenario가 만든다.
+
+인프라 저장소에서 다음 실행기를 사용한다.
+
+```bash
+SYSTEM_CAPACITY_PROFILE_ACK=system-active-ccu-v1 \
+SYSTEM_ACTIVE_CCU=200 \
+LOAD_TEST_USER_COUNT=<manifest의 requiredUsers 이상> \
+./run-auth-notification.sh loadtest system-active-ccu-capacity
+```
+
+공식 Run은 워밍업 2분, 측정 10분, 쓰기·활성 부하 중단 뒤 회복 관찰 3분이다. 역할별 VU는 한 번의 긴 iteration으로 고정되어 한 사용자가 Run 중간에 다른 역할이나 fixture 계정으로 바뀌지 않는다. setup은 로그인 도착률을 용량 대상에서 분리하고, 전용 채팅 방·대기열·참가 이벤트 방을 만든 뒤 역할 간 겹치지 않는 세션만 scenario에 전달한다.
+
+공식 profile이 허용하는 입력은 `SYSTEM_CAPACITY_PROFILE_ACK`, `SYSTEM_ACTIVE_CCU`, `LOAD_TEST_USER_COUNT`, `ALBAM_MATE_RUN_ID`, `ALBAM_MATE_RELEASE`뿐이다. 로컬 예행은 `SYSTEM_CAPACITY_SMOKE=1`을 추가하며 10 CCU로 고정된다. `SYSTEM_` 접두사의 다른 환경 변수로 비율·기간·임계를 바꾸려 하면 시작 전에 실패한다.
+
+Run의 자동 threshold는 활성 VU 준비 완료, 일반 HTTP 오류율·p95, 채팅 HTTP p95·p99, WebSocket 연결·세션 정상률과 전달 지연, `dropped_iterations`, 외부 회복 probe를 판정한다. App·PostgreSQL·Redis 필수 지표, 부하 발생기 포화, Hikari pending·relay 회복은 인프라 실행기의 `judgment.json`이 함께 판정한다. smoke와 `INVALID` Run은 안전 동접 계산에 포함하지 않는다.
 
 ## 인증 용량 (단독 진단)
 
