@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: ${ALBAM_MATE_LOCAL_DB_PASSWORD:?ALBAM_MATE_LOCAL_DB_PASSWORD must be set}
       TZ: UTC
       PGTZ: UTC
-    command: ["postgres", "-c", "timezone=UTC"]
+    command: ["postgres", "-c", "timezone=UTC", "-c", "log_line_prefix=%m [%p] "]
     ports:
       - "127.0.0.1:${ALBAM_MATE_LOCAL_DB_PORT:?ALBAM_MATE_LOCAL_DB_PORT must be set}:5432"
     healthcheck:
@@ -37,6 +37,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        ALBAM_MATE_REVISION: ${ALBAM_MATE_REVISION:-unknown}
     restart: unless-stopped
     environment: &spring_environment
       SPRING_PROFILES_ACTIVE: local
@@ -67,7 +69,7 @@ services:
         aliases:
           - spring
     healthcheck: &spring_healthcheck
-      test: ["CMD", "wget", "--quiet", "--output-document=/dev/null", "http://127.0.0.1:8080/api/games?size=1"]
+      test: ["CMD", "wget", "--quiet", "--output-document=/dev/null", "http://127.0.0.1:8080/actuator/health"]
       interval: 10s
       timeout: 5s
       retries: 12

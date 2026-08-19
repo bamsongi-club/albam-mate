@@ -13,6 +13,7 @@ const DEFAULT_WARM_UP_RUNS = 5;
 const DEFAULT_MEASURED_RUNS = 20;
 const DEFAULT_DATASET_SIZE = 170005;
 const DEFAULT_REQUEST_TIMEOUT_MS = 30000;
+const UPSTREAM_HEADER_NAME = "x-albam-mate-upstream";
 const RUNNER_FILE = fileURLToPath(import.meta.url);
 const RUNNER_REPOSITORY = path.resolve(path.dirname(RUNNER_FILE), "../..");
 const RUNNER_RELATIVE_PATH = path.relative(RUNNER_REPOSITORY, RUNNER_FILE);
@@ -26,6 +27,7 @@ function parseArgs(argv) {
     datasetSha256: null,
     requestTimeoutMs: DEFAULT_REQUEST_TIMEOUT_MS,
     serverCommit: null,
+    serverContainers: [],
     outputDirectory: "docs/measurements/results/game-list-740",
   };
 
@@ -60,8 +62,16 @@ function parseArgs(argv) {
         options.requestTimeoutMs = positiveInteger(next(), argument);
         break;
       case "--server-commit":
-        options.serverCommit = commitSha(next(), argument);
+        options.serverCommit = fullCommitSha(next(), argument);
         break;
+      case "--server-container": {
+        const container = serverContainer(next(), argument);
+        if (options.serverContainers.some(({ role }) => role === container.role)) {
+          throw new Error(`${argument}에 ${container.role}을 두 번 지정할 수 없습니다.`);
+        }
+        options.serverContainers.push(container);
+        break;
+      }
       case "--output-directory":
         options.outputDirectory = next();
         break;
@@ -83,6 +93,9 @@ function parseArgs(argv) {
   if (!options.serverCommit) {
     throw new Error("--server-commit은 측정 대상 서버의 commit SHA가 필요합니다.");
   }
+  if (options.serverContainers.length !== 2) {
+    throw new Error("--server-container로 app1과 app2 Spring 컨테이너를 각각 지정해야 합니다.");
+  }
   return options;
 }
 
@@ -94,11 +107,19 @@ function positiveInteger(raw, optionName) {
   return value;
 }
 
-function commitSha(raw, optionName) {
-  if (!/^[0-9a-f]{7,40}$/u.test(raw)) {
-    throw new Error(`${optionName}은 7~40자리 소문자 hexadecimal commit SHA여야 합니다: ${raw}`);
+function fullCommitSha(raw, optionName) {
+  if (!/^[0-9a-f]{40}$/u.test(raw)) {
+    throw new Error(`${optionName}은 40자리 소문자 hexadecimal commit SHA여야 합니다: ${raw}`);
   }
   return raw;
+}
+
+function serverContainer(raw, optionName) {
+  const matched = /^(app1|app2)=(.+)$/u.exec(raw);
+  if (!matched) {
+    throw new Error(`${optionName}은 app1=<container> 또는 app2=<container> 형식이어야 합니다: ${raw}`);
+  }
+  return { role: matched[1], name: matched[2] };
 }
 
 function sha256(raw, optionName) {
@@ -117,11 +138,22 @@ function printHelp() {
     `  --dataset-size <n>        loaded game row count (default: ${DEFAULT_DATASET_SIZE})\n` +
     `  --dataset-sha256 <sha>    source dataset SHA-256 (required)\n` +
     `  --request-timeout-ms <n>  timeout per HTTP request/body read (default: ${DEFAULT_REQUEST_TIMEOUT_MS})\n` +
-    `  --server-commit <sha>     measured server commit SHA (required)\n` +
+    `  --server-commit <sha>     measured server 40-char commit SHA (required)\n` +
+    `  --server-container <role=name>  app1/app2 measured Spring container (required twice)\n` +
     `  --output-directory <dir>  result directory\n`);
 }
 
-async function fetchJson(url, requestTimeoutMs) {
+function upstreamRoleError(role, expectedUpstreamRoles) {
+  if (!role) {
+    return `응답 ${UPSTREAM_HEADER_NAME} 헤더가 없습니다.`;
+  }
+  if (!expectedUpstreamRoles.includes(role)) {
+    return `응답 ${UPSTREAM_HEADER_NAME}=${role}이 검증한 app1/app2 컨테이너와 일치하지 않습니다.`;
+  }
+  return null;
+}
+
+async function fetchJson(url, requestTimeoutMs, expectedUpstreamRoles) {
   const controller = new AbortController();
   let timedOut = false;
   const timeout = setTimeout(() => {
@@ -144,7 +176,12 @@ async function fetchJson(url, requestTimeoutMs) {
     if (!response.ok) {
       throw new Error(`${url} 호출 실패: status=${response.status}, body=${text.slice(0, 500)}`);
     }
-    return body;
+    const upstreamRole = response.headers.get(UPSTREAM_HEADER_NAME);
+    const upstreamError = upstreamRoleError(upstreamRole, expectedUpstreamRoles);
+    if (upstreamError) {
+      throw new Error(`${url} 응답 계약 불일치: ${upstreamError}`);
+    }
+    return { body, upstreamRole };
   } catch (error) {
     if (timedOut || error?.name === "AbortError") {
       throw new Error(`HTTP 요청 timeout (${requestTimeoutMs}ms): ${url}`);
@@ -235,11 +272,13 @@ function firstCode(response, label) {
   return code;
 }
 
-async function discoverScenarioValues(baseUrl, requestTimeoutMs, expectedDatasetSize) {
-  const base = await fetchJson(
+async function discoverScenarioValues(baseUrl, requestTimeoutMs, expectedDatasetSize, expectedUpstreamRoles) {
+  const baseResponse = await fetchJson(
     `${baseUrl}/api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24`,
     requestTimeoutMs,
+    expectedUpstreamRoles,
   );
+  const base = baseResponse.body;
   const baseResponseError = gameListResponseError(base, { page: 0, size: 24 });
   if (baseResponseError) {
     throw new Error(`base discovery 응답 계약 불일치: ${baseResponseError}`);
@@ -256,15 +295,20 @@ async function discoverScenarioValues(baseUrl, requestTimeoutMs, expectedDataset
     throw new Error("기본 목록 첫 페이지에서 keyword 시나리오용 게임명을 찾지 못했습니다.");
   }
 
-  const [themes, mechanisms] = await Promise.all([
-    fetchJson(`${baseUrl}/api/game-themes`, requestTimeoutMs),
-    fetchJson(`${baseUrl}/api/game-mechanisms`, requestTimeoutMs),
+  const [themesResponse, mechanismsResponse] = await Promise.all([
+    fetchJson(`${baseUrl}/api/game-themes`, requestTimeoutMs, expectedUpstreamRoles),
+    fetchJson(`${baseUrl}/api/game-mechanisms`, requestTimeoutMs, expectedUpstreamRoles),
   ]);
 
   return {
     keyword: keywordCandidate.trim(),
-    theme: firstCode(themes, "theme"),
-    mechanism: firstCode(mechanisms, "mechanism"),
+    theme: firstCode(themesResponse.body, "theme"),
+    mechanism: firstCode(mechanismsResponse.body, "mechanism"),
+    upstreamRoles: {
+      base: baseResponse.upstreamRole,
+      themes: themesResponse.upstreamRole,
+      mechanisms: mechanismsResponse.upstreamRole,
+    },
   };
 }
 
@@ -313,7 +357,7 @@ function scenarioUrl(baseUrl, scenario) {
   return `${baseUrl}/api/games?${params.toString()}`;
 }
 
-async function requestOnce(url, requestTimeoutMs, expectedPage) {
+async function requestOnce(url, requestTimeoutMs, expectedPage, expectedUpstreamRoles) {
   const startedAt = performance.now();
   const controller = new AbortController();
   let timedOut = false;
@@ -331,12 +375,22 @@ async function requestOnce(url, requestTimeoutMs, expectedPage) {
     const bytes = buffer.byteLength;
     let error = null;
     let responsePageMetadata = null;
+    let upstreamRole = null;
     if (response.status === 200) {
+      const candidateUpstreamRole = response.headers.get(UPSTREAM_HEADER_NAME);
+      const candidateUpstreamRoleError = upstreamRoleError(candidateUpstreamRole, expectedUpstreamRoles);
+      if (candidateUpstreamRoleError) {
+        error = `응답 계약 불일치: ${candidateUpstreamRoleError}`;
+      } else {
+        upstreamRole = candidateUpstreamRole;
+      }
       let body;
-      try {
-        body = JSON.parse(new TextDecoder().decode(buffer));
-      } catch {
-        error = "응답 body가 JSON이 아닙니다.";
+      if (!error) {
+        try {
+          body = JSON.parse(new TextDecoder().decode(buffer));
+        } catch {
+          error = "응답 body가 JSON이 아닙니다.";
+        }
       }
       if (!error) {
         const responseError = gameListResponseError(body, expectedPage);
@@ -352,6 +406,7 @@ async function requestOnce(url, requestTimeoutMs, expectedPage) {
       elapsedMs: performance.now() - startedAt,
       bytes,
       pageMetadata: responsePageMetadata,
+      upstreamRole,
       error,
     };
   } catch (error) {
@@ -363,6 +418,7 @@ async function requestOnce(url, requestTimeoutMs, expectedPage) {
       elapsedMs: performance.now() - startedAt,
       bytes: 0,
       pageMetadata: null,
+      upstreamRole: null,
       error: `${message}: ${url}`,
     };
   } finally {
@@ -395,7 +451,14 @@ function summarize(samples) {
   };
 }
 
-async function measureScenario(baseUrl, scenario, warmUpRuns, measuredRuns, requestTimeoutMs) {
+async function measureScenario(
+  baseUrl,
+  scenario,
+  warmUpRuns,
+  measuredRuns,
+  requestTimeoutMs,
+  expectedUpstreamRoles,
+) {
   const url = scenarioUrl(baseUrl, scenario);
   const expectedPage = {
     page: Number(scenario.params.page),
@@ -405,7 +468,7 @@ async function measureScenario(baseUrl, scenario, warmUpRuns, measuredRuns, requ
 
   try {
     for (let index = 0; index < warmUpRuns; index += 1) {
-      const warmUp = await requestOnce(url, requestTimeoutMs, expectedPage);
+      const warmUp = await requestOnce(url, requestTimeoutMs, expectedPage, expectedUpstreamRoles);
       if (warmUp.error) {
         throw new Error(`${scenario.name} warm-up 실패: ${warmUp.error}`);
       }
@@ -415,7 +478,7 @@ async function measureScenario(baseUrl, scenario, warmUpRuns, measuredRuns, requ
     }
 
     for (let index = 0; index < measuredRuns; index += 1) {
-      const sample = await requestOnce(url, requestTimeoutMs, expectedPage);
+      const sample = await requestOnce(url, requestTimeoutMs, expectedPage, expectedUpstreamRoles);
       samples.push({ run: index + 1, ...sample });
       if (sample.error) {
         throw new Error(`${scenario.name} 실측 실패: run=${index + 1}, ${sample.error}`);
@@ -507,12 +570,83 @@ function assertRunnerProvenanceStable(startProvenance) {
   }
 }
 
+function dockerInspect(containerName, format) {
+  try {
+    const value = execFileSync(
+      "docker",
+      ["inspect", "--format", format, containerName],
+      { encoding: "utf8" },
+    ).trim();
+    if (!value) {
+      throw new Error("빈 inspect 결과");
+    }
+    return value;
+  } catch (error) {
+    throw new Error(`Spring 컨테이너 ${containerName} inspect 실패: ${errorMessage(error)}`);
+  }
+}
+
+function serverContainerProvenance(container, expectedCommit) {
+  const containerId = dockerInspect(container.name, "{{.Id}}");
+  const imageId = dockerInspect(container.name, "{{.Image}}");
+  let labels;
+  try {
+    labels = JSON.parse(dockerInspect(container.name, "{{json .Config.Labels}}"));
+  } catch (error) {
+    throw new Error(`Spring 컨테이너 ${container.name} label을 읽지 못했습니다: ${errorMessage(error)}`);
+  }
+  if (!labels || typeof labels !== "object" || Array.isArray(labels)) {
+    throw new Error(`Spring 컨테이너 ${container.name} label이 object가 아닙니다.`);
+  }
+
+  const expectedService = container.role === "app1" ? "spring-1" : "spring-2";
+  if (labels["com.docker.compose.service"] !== expectedService) {
+    throw new Error(
+      `Spring 컨테이너 ${container.name}의 Compose service가 ${expectedService}이 아닙니다: ${labels["com.docker.compose.service"] ?? "missing"}`,
+    );
+  }
+  const revision = labels["org.opencontainers.image.revision"];
+  if (revision !== expectedCommit) {
+    throw new Error(
+      `Spring 컨테이너 ${container.name} image revision이 --server-commit과 다릅니다: expected=${expectedCommit}, actual=${revision ?? "missing"}`,
+    );
+  }
+  if (!/^sha256:[0-9a-f]{64}$/u.test(imageId)) {
+    throw new Error(`Spring 컨테이너 ${container.name} image ID가 SHA-256이 아닙니다: ${imageId}`);
+  }
+  return {
+    role: container.role,
+    containerId,
+    imageId,
+    imageRevision: revision,
+    composeProject: labels["com.docker.compose.project"] ?? null,
+    composeService: labels["com.docker.compose.service"],
+  };
+}
+
+function currentServerProvenance(options) {
+  const containers = [...options.serverContainers]
+    .sort((left, right) => left.role.localeCompare(right.role))
+    .map((container) => serverContainerProvenance(container, options.serverCommit));
+  if (new Set(containers.map((container) => container.imageId)).size !== 1) {
+    throw new Error("app1과 app2 Spring 컨테이너의 image ID가 서로 다릅니다.");
+  }
+  return { commit: options.serverCommit, containers };
+}
+
+function assertServerProvenanceStable(options, startProvenance) {
+  const endProvenance = currentServerProvenance(options);
+  if (JSON.stringify(endProvenance) !== JSON.stringify(startProvenance)) {
+    throw new Error("측정 중 Spring 컨테이너 revision 또는 image ID가 변경되어 성공 산출물을 만들 수 없습니다.");
+  }
+}
+
 function csvEscape(value) {
   const text = String(value);
   return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 
-function writeArtifacts(options, discovered, results, failure, runnerProvenance) {
+function writeArtifacts(options, discovered, results, failure, runnerProvenance, serverProvenance) {
   fs.mkdirSync(options.outputDirectory, { recursive: true });
   const timestamp = new Date().toISOString().replaceAll(":", "-");
   const baseName = `game-list-740-${timestamp}`;
@@ -526,7 +660,8 @@ function writeArtifacts(options, discovered, results, failure, runnerProvenance)
     runnerCommit: runnerProvenance?.commit ?? null,
     runnerFileSha256: runnerProvenance?.fileSha256 ?? null,
     runnerSourceClean: runnerProvenance?.sourceClean ?? null,
-    serverCommit: options.serverCommit,
+    serverCommit: serverProvenance?.commit ?? options.serverCommit,
+    serverContainers: serverProvenance?.containers ?? [],
     baseUrl: options.baseUrl,
     dataset: { gameCount: options.datasetSize, sha256: options.datasetSha256 },
     warmUpRuns: options.warmUpRuns,
@@ -566,6 +701,7 @@ async function main() {
   const results = [];
   let failure = null;
   let runnerProvenance = null;
+  let serverProvenance = null;
 
   try {
     runnerProvenance = currentRunnerProvenance();
@@ -573,7 +709,16 @@ async function main() {
     console.log(`[game-list-740] runner-commit=${runnerProvenance.commit}`);
     console.log(`[game-list-740] runner-file-sha256=${runnerProvenance.fileSha256}`);
 
-    discovered = await discoverScenarioValues(options.baseUrl, options.requestTimeoutMs, options.datasetSize);
+    serverProvenance = currentServerProvenance(options);
+    console.log(`[game-list-740] server-image-id=${serverProvenance.containers[0].imageId}`);
+
+    const expectedUpstreamRoles = serverProvenance.containers.map((container) => container.role);
+    discovered = await discoverScenarioValues(
+      options.baseUrl,
+      options.requestTimeoutMs,
+      options.datasetSize,
+      expectedUpstreamRoles,
+    );
     console.log(`[game-list-740] discovered keyword=${JSON.stringify(discovered.keyword)}, theme=${discovered.theme}, mechanism=${discovered.mechanism}`);
 
     for (const scenario of scenarios(discovered)) {
@@ -584,6 +729,7 @@ async function main() {
         options.warmUpRuns,
         options.measuredRuns,
         options.requestTimeoutMs,
+        expectedUpstreamRoles,
       );
       results.push(result);
       if (result.status === "failed") {
@@ -598,11 +744,12 @@ async function main() {
     }
 
     assertRunnerProvenanceStable(runnerProvenance);
+    assertServerProvenanceStable(options, serverProvenance);
   } catch (error) {
     failure = error;
   }
 
-  const artifacts = writeArtifacts(options, discovered, results, failure, runnerProvenance);
+  const artifacts = writeArtifacts(options, discovered, results, failure, runnerProvenance, serverProvenance);
   console.log(`[game-list-740] json=${artifacts.jsonPath}`);
   console.log(`[game-list-740] csv=${artifacts.csvPath}`);
   if (failure) {
