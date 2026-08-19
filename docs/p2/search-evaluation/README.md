@@ -79,6 +79,8 @@ Catalog Dataset Release 승인과 Search/Embedding Execution 승인은 분리합
 
 ## 검증
 
+Lexical·Sparse offline baseline의 입력 descriptor·검증·점수 규칙·공통 결과 형식은 [실행 규약](lexical-sparse-baseline.md)을 따른다.
+
 ### 구조 검증
 
 ```bash
