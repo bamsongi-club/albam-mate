@@ -167,7 +167,7 @@ function printHelp() {
     `  --runs <n>                measured calls per scenario, >= 20 (default: ${DEFAULT_MEASURED_RUNS})\n` +
     `  --dataset-size <n>        loaded game row count (default: ${DEFAULT_DATASET_SIZE})\n` +
     `  --dataset-manifest <path> fixture row/ID fingerprint manifest (required)\n` +
-    `  --response-contract <type> page or slice response contract (default: ${options.responseContract})\n` +
+    `  --response-contract <type> page or slice response contract (default: slice)\n` +
     `  --request-timeout-ms <n>  timeout per HTTP request/body read (default: ${DEFAULT_REQUEST_TIMEOUT_MS})\n` +
     `  --server-commit <sha>     measured server 40-char commit SHA (required)\n` +
     `  --server-container <role=name>  app1/app2 measured Spring container (required twice)\n` +

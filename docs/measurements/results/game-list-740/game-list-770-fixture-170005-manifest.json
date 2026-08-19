@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "fixtureId": "game-list-170005-observed-2026-08-19",
+  "fixtureId": "game-list-170005-local-2026-08-19-frozen",
   "games": {
     "rowCount": 170005,
     "bggIdSetSha256": "75bcb893bcfef7f3b0a0de363e06037d332392c038ad5eb46c33de2b553c8744",
@@ -18,10 +18,10 @@
   },
   "rooms": {
     "rowCount": 60,
-    "canonicalSha256": "d60b61a98c3f66f58ca174f34d71314890021c3a08ba07af4ac772f67ff69e72"
+    "canonicalSha256": "801ad410686ecd6cd5c8e1b75e0b90ee7574f6483b351d42d8b851d1f4682a16"
   },
   "lineage": {
-    "status": "observed-fixture-fingerprint",
-    "note": "Identifies the database snapshot used for this measurement. The preserved 01-games-full.sql has 175234 rows and a different BGG ID set, so this manifest does not claim v4 direct-import lineage."
+    "status": "frozen-local-fixture",
+    "note": "Identifies one local database snapshot for both Page and Slice measurements. Flyway local afterMigrate and scheduled tasks were disabled during measurement. The preserved 01-games-full.sql has 175234 rows and a different BGG ID set, so this manifest does not claim v4 direct-import lineage."
   }
 }
