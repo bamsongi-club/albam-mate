@@ -611,7 +611,6 @@ export function diagnoseBundle(values, context) {
   if (stage === 'after') {
     const summaryPath = artifactPath(bundle, ARTIFACTS.summary);
     summary = normalizeRoomSummary(readJson(summaryPath, 'k6 summary'));
-    writeFileSync(summaryPath, `${JSON.stringify(summary, null, 2)}\n`, 'utf8');
   }
   const evaluation = evaluateFixture(fixture, snapshot, stage, summary);
   const result = {
