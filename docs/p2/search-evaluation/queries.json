@@ -169,7 +169,7 @@
   },
   {
     "id": "Q-004",
-    "query": "스페이스 크루 이름 변형 1",
+    "query": "스페이스크루",
     "cohorts": [
       "exact/name variant"
     ],
@@ -200,7 +200,7 @@
   },
   {
     "id": "Q-005",
-    "query": "딥 씨 크루 이름 변형 2",
+    "query": "Deep Sea Crew",
     "cohorts": [
       "exact/name variant"
     ],
@@ -231,7 +231,7 @@
   },
   {
     "id": "Q-006",
-    "query": "하나비 이름 변형 3",
+    "query": "하나비게임",
     "cohorts": [
       "exact/name variant"
     ],
@@ -262,7 +262,7 @@
   },
   {
     "id": "Q-007",
-    "query": "더 마인드 이름 변형 4",
+    "query": "더마인드",
     "cohorts": [
       "exact/name variant"
     ],
@@ -293,7 +293,7 @@
   },
   {
     "id": "Q-008",
-    "query": "코드네임 이름 변형 5",
+    "query": "코드네임즈",
     "cohorts": [
       "exact/name variant"
     ],
@@ -324,7 +324,7 @@
   },
   {
     "id": "Q-009",
-    "query": "7 원더스 이름 변형 6",
+    "query": "세븐원더스",
     "cohorts": [
       "exact/name variant"
     ],
@@ -448,7 +448,7 @@
   },
   {
     "id": "Q-013",
-    "query": "4인 30분 이하 일꾼 놓기 후보 질의 1",
+    "query": "넷이서 빠르게 끝낼 수 있는 일꾼 놓기 게임 추천해줘",
     "cohorts": [
       "intent+hard filter"
     ],
@@ -483,7 +483,7 @@
   },
   {
     "id": "Q-014",
-    "query": "4인 30분 이하 일꾼 놓기 후보 질의 2",
+    "query": "일꾼을 배치하는 방식인데 4인용이고 30분 안에 끝나는 게임 있어?",
     "cohorts": [
       "intent+hard filter"
     ],
@@ -518,7 +518,7 @@
   },
   {
     "id": "Q-015",
-    "query": "4인 30분 이하 일꾼 놓기 후보 질의 3",
+    "query": "4명이서 짧게 즐기는 워커 플레이스먼트 게임",
     "cohorts": [
       "intent+hard filter"
     ],

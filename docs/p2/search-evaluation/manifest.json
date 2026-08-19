@@ -29,7 +29,7 @@
     "rollbackPolicy": "retain-previous-ready"
   },
   "queriesPath": "queries.json",
-  "queriesSha256": "b677c49139dc5cf1f9b210ee1c00800f86607cb9ecca242e9dbcdbc4fe008306",
+  "queriesSha256": "c2156c699b2c42d4363b50d1cfe30ae684997a7a4b30b043628a889f6e660f8a",
   "cohorts": {
     "exact/name variant": {
       "minimum": 1,
