@@ -9,8 +9,9 @@ import { fileURLToPath } from "node:url";
 
 const repositoryRoot = fileURLToPath(new URL("../../", import.meta.url));
 const runnerPath = fileURLToPath(new URL("./game-list-baseline.mjs", import.meta.url));
-const serverCommit = "abcdef1234567";
+const serverCommit = "a".repeat(40);
 const datasetSha256 = "d".repeat(64);
+let dockerFixture;
 
 function gameItems(count) {
   return Array.from(
@@ -27,10 +28,12 @@ function startServer({
   datasetSize = 170005,
   responseSize = 24,
   measuredPageOverride = null,
+  upstreamRole = "app1",
 } = {}) {
   let gameRequests = 0;
   const server = createServer((request, response) => {
     response.setHeader("content-type", "application/json");
+    response.setHeader("X-Albam-Mate-Upstream", upstreamRole);
 
     if (request.url?.startsWith("/api/game-themes")) {
       if (hangDiscoveryPath === "themes") {
@@ -110,12 +113,79 @@ function startServer({
   });
 }
 
+function createDockerFixture({
+  app1Revision = serverCommit,
+  app2Revision = serverCommit,
+  app1ImageId = `sha256:${"1".repeat(64)}`,
+  app2ImageId = app1ImageId,
+} = {}) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "game-list-740-docker-"));
+  const configPath = path.join(root, "containers.json");
+  const dockerPath = path.join(root, "docker");
+  const records = {
+    "app1-container": {
+      id: "1".repeat(64),
+      imageId: app1ImageId,
+      labels: {
+        "com.docker.compose.project": "albam-mate-771",
+        "com.docker.compose.service": "spring-1",
+        "org.opencontainers.image.revision": app1Revision,
+      },
+    },
+    "app2-container": {
+      id: "2".repeat(64),
+      imageId: app2ImageId,
+      labels: {
+        "com.docker.compose.project": "albam-mate-771",
+        "com.docker.compose.service": "spring-2",
+        "org.opencontainers.image.revision": app2Revision,
+      },
+    },
+  };
+  fs.writeFileSync(configPath, JSON.stringify(records));
+  fs.writeFileSync(dockerPath, `#!/usr/bin/env node
+const fs = require("node:fs");
+const records = JSON.parse(fs.readFileSync(process.env.GAME_LIST_DOCKER_FIXTURE, "utf8"));
+const [, , command, option, format, container] = process.argv;
+const record = records[container];
+if (command !== "inspect" || option !== "--format" || !record) {
+  process.exit(2);
+}
+const values = {
+  "{{.Id}}": record.id,
+  "{{.Image}}": record.imageId,
+  "{{json .Config.Labels}}": JSON.stringify(record.labels),
+};
+if (!(format in values)) {
+  process.exit(2);
+}
+process.stdout.write(values[format] + "\\n");
+`);
+  fs.chmodSync(dockerPath, 0o755);
+  return {
+    root,
+    env: {
+      ...process.env,
+      GAME_LIST_DOCKER_FIXTURE: configPath,
+      PATH: `${root}${path.delimiter}${process.env.PATH}`,
+    },
+  };
+}
+
+test.before(() => {
+  dockerFixture = createDockerFixture();
+});
+
+test.after(() => {
+  fs.rmSync(dockerFixture.root, { recursive: true, force: true });
+});
+
 function runRunner(
   baseUrl,
   outputDirectory,
   extraArguments = [],
   cwd = repositoryRoot,
-  { datasetSha = datasetSha256, script = runnerPath } = {},
+  { datasetSha = datasetSha256, script = runnerPath, env = dockerFixture.env } = {},
 ) {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [
@@ -124,11 +194,15 @@ function runRunner(
       baseUrl,
       "--server-commit",
       serverCommit,
+      "--server-container",
+      "app1=app1-container",
+      "--server-container",
+      "app2=app2-container",
       ...(datasetSha === null ? [] : ["--dataset-sha256", datasetSha]),
       "--output-directory",
       outputDirectory,
       ...extraArguments,
-    ], { cwd });
+    ], { cwd, env });
     let stdout = "";
     let stderr = "";
     child.stdout.on("data", (chunk) => { stdout += chunk; });
@@ -157,6 +231,24 @@ test("성공 산출물은 serverCommit과 runnerCommit 및 최신 170,005 datase
     assert.match(report.runnerCommit, /^[0-9a-f]{40}$/u);
     assert.match(report.runnerFileSha256, /^[0-9a-f]{64}$/u);
     assert.equal(report.runnerSourceClean, true);
+    assert.deepEqual(report.serverContainers, [
+      {
+        role: "app1",
+        containerId: "1".repeat(64),
+        imageId: `sha256:${"1".repeat(64)}`,
+        imageRevision: serverCommit,
+        composeProject: "albam-mate-771",
+        composeService: "spring-1",
+      },
+      {
+        role: "app2",
+        containerId: "2".repeat(64),
+        imageId: `sha256:${"1".repeat(64)}`,
+        imageRevision: serverCommit,
+        composeProject: "albam-mate-771",
+        composeService: "spring-2",
+      },
+    ]);
     assert.equal(report.dataset.gameCount, 170005);
     assert.equal(report.dataset.sha256, datasetSha256);
     assert.equal(report.results.length, 6);
@@ -168,6 +260,64 @@ test("성공 산출물은 serverCommit과 runnerCommit 및 최신 170,005 datase
       hasNext: true,
       contentLength: 24,
     });
+    assert.equal(report.results[0].samples[0].upstreamRole, "app1");
+    assert.deepEqual(report.discovered.upstreamRoles, {
+      base: "app1",
+      themes: "app1",
+      mechanisms: "app1",
+    });
+  } finally {
+    await server.close();
+    fs.rmSync(outputDirectory, { recursive: true, force: true });
+  }
+});
+
+test("서버 image revision 또는 image ID가 다르면 성공 산출물을 만들지 않는다", async () => {
+  const cases = [
+    {
+      name: "revision mismatch",
+      fixture: createDockerFixture({ app2Revision: "b".repeat(40) }),
+      error: /image revision이 --server-commit과 다릅니다/u,
+    },
+    {
+      name: "image ID mismatch",
+      fixture: createDockerFixture({ app2ImageId: `sha256:${"2".repeat(64)}` }),
+      error: /image ID가 서로 다릅니다/u,
+    },
+  ];
+
+  for (const testCase of cases) {
+    const server = await startServer();
+    const outputDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "game-list-740-server-provenance-"));
+    try {
+      const result = await runRunner(server.baseUrl, outputDirectory, [], os.tmpdir(), {
+        env: testCase.fixture.env,
+      });
+
+      assert.notEqual(result.status, 0, testCase.name);
+      const report = readSingleReport(outputDirectory);
+      assert.equal(report.status, "failed", testCase.name);
+      assert.deepEqual(report.results, [], testCase.name);
+      assert.match(report.failure.message, testCase.error, testCase.name);
+    } finally {
+      await server.close();
+      fs.rmSync(outputDirectory, { recursive: true, force: true });
+      fs.rmSync(testCase.fixture.root, { recursive: true, force: true });
+    }
+  }
+});
+
+test("검증한 Spring 역할이 아닌 응답은 성공 산출물을 만들지 않는다", async () => {
+  const server = await startServer({ upstreamRole: "unknown" });
+  const outputDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "game-list-740-upstream-role-"));
+  try {
+    const result = await runRunner(server.baseUrl, outputDirectory);
+
+    assert.notEqual(result.status, 0);
+    const report = readSingleReport(outputDirectory);
+    assert.equal(report.status, "failed");
+    assert.deepEqual(report.results, []);
+    assert.match(report.failure.message, /x-albam-mate-upstream=unknown/u);
   } finally {
     await server.close();
     fs.rmSync(outputDirectory, { recursive: true, force: true });
