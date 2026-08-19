@@ -22,4 +22,11 @@ public class MatchChatRoom extends BaseEntity {
 	private Long id;
 	@Column(name = "party_id", nullable = false)
 	private Long partyId;
+
+	/** partyId별로 하나만 존재해야 하는 MATCH 채팅방을 만든다. 멱등 저장은 호출자 repository가 소유한다. */
+	public static MatchChatRoom of(long partyId) {
+		MatchChatRoom room = new MatchChatRoom();
+		room.partyId = partyId;
+		return room;
+	}
 }
