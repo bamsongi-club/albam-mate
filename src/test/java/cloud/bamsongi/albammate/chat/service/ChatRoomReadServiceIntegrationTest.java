@@ -121,6 +121,32 @@ class ChatRoomReadServiceIntegrationTest {
 	}
 
 	@Test
+	void T4_upToMessageId가_null이면_VALIDATION_ERROR다() {
+		long hostUserId = insertUser("host");
+		Room room = createChatRoom(hostUserId);
+		insertMessages(room.getId(), hostUserId, 1);
+
+		BusinessException exception = assertThrows(
+			BusinessException.class,
+			() -> chatRoomReadService.markRead(hostUserId, room.getId(), null));
+
+		assertEquals(ErrorCode.VALIDATION_ERROR, exception.getErrorCode());
+	}
+
+	@Test
+	void T4_upToMessageId가_1보다_작으면_VALIDATION_ERROR다() {
+		long hostUserId = insertUser("host");
+		Room room = createChatRoom(hostUserId);
+		insertMessages(room.getId(), hostUserId, 1);
+
+		BusinessException exception = assertThrows(
+			BusinessException.class,
+			() -> chatRoomReadService.markRead(hostUserId, room.getId(), 0L));
+
+		assertEquals(ErrorCode.VALIDATION_ERROR, exception.getErrorCode());
+	}
+
+	@Test
 	void T7_주최자도_현재_ACTIVE_참가자도_아닌_사용자는_읽음_처리할_수_없다() {
 		long hostUserId = insertUser("host");
 		long outsiderUserId = insertUser("outsider");

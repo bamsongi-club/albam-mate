@@ -82,6 +82,26 @@ class ChatRoomPreviewQueryServiceIntegrationTest {
 	}
 
 	@Test
+	void T1_roomIds가_null이면_빈_Map을_반환한다() {
+		long hostUserId = insertUser("host");
+
+		Map<Long, ChatRoomPreviewQuery.ChatRoomPreview> previews = chatRoomPreviewQueryService
+			.findPreviews(hostUserId, null);
+
+		assertTrue(previews.isEmpty());
+	}
+
+	@Test
+	void T1_roomIds가_빈_Set이면_빈_Map을_반환한다() {
+		long hostUserId = insertUser("host");
+
+		Map<Long, ChatRoomPreviewQuery.ChatRoomPreview> previews = chatRoomPreviewQueryService
+			.findPreviews(hostUserId, Set.of());
+
+		assertTrue(previews.isEmpty());
+	}
+
+	@Test
 	void T2_다른_사용자의_메시지가_여러_건이어도_표시행은_하나이고_unreadCount는_정확한_건수다() {
 		long hostUserId = insertUser("host");
 		long participantUserId = insertUser("participant");
