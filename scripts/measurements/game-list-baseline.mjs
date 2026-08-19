@@ -252,11 +252,11 @@ function gameListResponseError(body, expectedPage = null) {
   if (!Number.isSafeInteger(page.size) || page.size <= 0) {
     return "응답 data.size가 1 이상의 정수가 아닙니다.";
   }
-  if (!Number.isSafeInteger(page.totalElements) || page.totalElements < 0) {
-    return "응답 data.totalElements가 0 이상의 정수가 아닙니다.";
+  if (Object.hasOwn(page, "totalElements")) {
+    return "응답 data에 totalElements를 포함하면 안 됩니다.";
   }
-  if (!Number.isSafeInteger(page.totalPages) || page.totalPages < 0) {
-    return "응답 data.totalPages가 0 이상의 정수가 아닙니다.";
+  if (Object.hasOwn(page, "totalPages")) {
+    return "응답 data에 totalPages를 포함하면 안 됩니다.";
   }
   if (typeof page.hasNext !== "boolean") {
     return "응답 data.hasNext가 boolean이 아닙니다.";
@@ -273,20 +273,14 @@ function gameListResponseError(body, expectedPage = null) {
   if (page.size !== expectedPage.size) {
     return `응답 data.size가 요청 size=${expectedPage.size}와 다릅니다: ${page.size}`;
   }
-  const expectedTotalPages = Math.ceil(page.totalElements / expectedPage.size);
-  if (page.totalPages !== expectedTotalPages) {
-    return `응답 data.totalPages가 totalElements/size와 일치하지 않습니다: expected=${expectedTotalPages}, actual=${page.totalPages}`;
+  if (page.content.length > expectedPage.size) {
+    return `응답 data.content 길이가 요청 size를 초과합니다: expected<=${expectedPage.size}, actual=${page.content.length}`;
   }
-  const expectedContentLength = Math.min(
-    expectedPage.size,
-    Math.max(0, page.totalElements - (expectedPage.page * expectedPage.size)),
-  );
-  if (page.content.length !== expectedContentLength) {
-    return `응답 data.content 길이가 요청 page/size와 일치하지 않습니다: expected=${expectedContentLength}, actual=${page.content.length}`;
+  if (page.hasNext && page.content.length !== expectedPage.size) {
+    return `응답 data.hasNext가 true인데 content 길이가 요청 size와 다릅니다: expected=${expectedPage.size}, actual=${page.content.length}`;
   }
-  const expectedHasNext = expectedPage.page + 1 < expectedTotalPages;
-  if (page.hasNext !== expectedHasNext) {
-    return `응답 data.hasNext가 page/totalPages와 일치하지 않습니다: expected=${expectedHasNext}, actual=${page.hasNext}`;
+  if (expectedPage.expectedHasNext !== undefined && page.hasNext !== expectedPage.expectedHasNext) {
+    return `응답 data.hasNext가 ${expectedPage.datasetSize}건 fixture의 첫 페이지에서 ${expectedPage.expectedHasNext}여야 합니다: actual=${page.hasNext}`;
   }
   return null;
 }
@@ -296,8 +290,6 @@ function pageMetadata(body) {
   return {
     page: page.page,
     size: page.size,
-    totalElements: page.totalElements,
-    totalPages: page.totalPages,
     hasNext: page.hasNext,
     contentLength: page.content.length,
   };
@@ -318,14 +310,14 @@ async function discoverScenarioValues(baseUrl, requestTimeoutMs, expectedDataset
     expectedUpstreams,
   );
   const base = baseResponse.body;
-  const baseResponseError = gameListResponseError(base, { page: 0, size: 24 });
+  const baseResponseError = gameListResponseError(base, {
+    page: 0,
+    size: 24,
+    datasetSize: expectedDatasetSize,
+    expectedHasNext: expectedDatasetSize > 24,
+  });
   if (baseResponseError) {
     throw new Error(`base discovery 응답 계약 불일치: ${baseResponseError}`);
-  }
-  if (base.data.totalElements !== expectedDatasetSize) {
-    throw new Error(
-      `base discovery dataset count 불일치: expected=${expectedDatasetSize}, actual=${base.data.totalElements}`,
-    );
   }
   const firstGame = base?.data?.content?.[0];
   const keywordCandidate = [firstGame?.name, firstGame?.englishName]
@@ -509,11 +501,16 @@ async function measureScenario(
   measuredRuns,
   requestTimeoutMs,
   expectedUpstreams,
+  expectedDatasetSize,
 ) {
   const url = scenarioUrl(baseUrl, scenario);
   const expectedPage = {
     page: Number(scenario.params.page),
     size: Number(scenario.params.size),
+    datasetSize: expectedDatasetSize,
+    ...(scenario.name === "base"
+      ? { expectedHasNext: expectedDatasetSize > Number(scenario.params.size) }
+      : {}),
   };
   const samples = [];
 
@@ -619,6 +616,7 @@ function assertRunnerProvenanceStable(startProvenance) {
   ) {
     throw new Error("측정 중 runner commit 또는 runner 파일이 변경되어 성공 산출물을 만들 수 없습니다.");
   }
+  return endProvenance;
 }
 
 function dockerInspect(containerName, format) {
@@ -747,6 +745,96 @@ function assertServerProvenanceStable(options, startProvenance) {
   if (JSON.stringify(endProvenance) !== JSON.stringify(startProvenance)) {
     throw new Error("측정 중 Spring 또는 proxy 컨테이너 provenance가 변경되어 성공 산출물을 만들 수 없습니다.");
   }
+  return endProvenance;
+}
+
+function composePostgresContainerId(composeProject) {
+  let output;
+  try {
+    output = execFileSync(
+      "docker",
+      [
+        "ps",
+        "--filter", `label=com.docker.compose.project=${composeProject}`,
+        "--filter", "label=com.docker.compose.service=postgres",
+        "--format", "{{.ID}}",
+      ],
+      { encoding: "utf8" },
+    );
+  } catch (error) {
+    throw new Error(`Compose project ${composeProject}의 postgres container를 찾지 못했습니다: ${errorMessage(error)}`);
+  }
+  const ids = output.trim().split(/\s+/u).filter(Boolean);
+  if (ids.length !== 1) {
+    throw new Error(`Compose project ${composeProject}의 postgres container는 정확히 하나여야 합니다: ${ids.length}개`);
+  }
+  return ids[0];
+}
+
+function postgresGameCount(containerId) {
+  let output;
+  try {
+    output = execFileSync(
+      "docker",
+      [
+        "exec",
+        containerId,
+        "sh",
+        "-c",
+        'PGAPPNAME=game-list-baseline-fixture-check psql -v ON_ERROR_STOP=1 -At -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "select count(*) from games"',
+      ],
+      { encoding: "utf8" },
+    ).trim();
+  } catch (error) {
+    throw new Error(`PostgreSQL fixture games row count 조회 실패: ${errorMessage(error)}`);
+  }
+  if (!/^[0-9]+$/u.test(output)) {
+    throw new Error(`PostgreSQL fixture games row count가 정수가 아닙니다: ${JSON.stringify(output)}`);
+  }
+  const count = Number(output);
+  if (!Number.isSafeInteger(count)) {
+    throw new Error(`PostgreSQL fixture games row count가 안전한 정수가 아닙니다: ${output}`);
+  }
+  return count;
+}
+
+function currentDatasetProvenance(composeProject, expectedGameCount) {
+  const postgresContainerId = composePostgresContainerId(composeProject);
+  const observedGameCount = postgresGameCount(postgresContainerId);
+  if (observedGameCount !== expectedGameCount) {
+    throw new Error(
+      `PostgreSQL fixture games row count 불일치: expected=${expectedGameCount}, actual=${observedGameCount}`,
+    );
+  }
+  return { observedGameCount, postgresContainerId, postgresComposeProject: composeProject };
+}
+
+function assertDatasetProvenanceStable(startProvenance, expectedGameCount) {
+  const endProvenance = currentDatasetProvenance(
+    startProvenance.postgresComposeProject,
+    expectedGameCount,
+  );
+  if (JSON.stringify(endProvenance) !== JSON.stringify(startProvenance)) {
+    throw new Error("측정 중 PostgreSQL fixture provenance 또는 games row count가 변경되어 성공 산출물을 만들 수 없습니다.");
+  }
+  return endProvenance;
+}
+
+function endProvenance(options, runnerProvenance, serverProvenance, datasetProvenance) {
+  const result = { runner: null, server: null, dataset: null, errors: [] };
+  const check = (scope, start, assertion) => {
+    if (!start) return;
+    try {
+      result[scope] = assertion();
+    } catch (error) {
+      result.errors.push({ scope, message: errorMessage(error) });
+    }
+  };
+
+  check("runner", runnerProvenance, () => assertRunnerProvenanceStable(runnerProvenance));
+  check("server", serverProvenance, () => assertServerProvenanceStable(options, serverProvenance));
+  check("dataset", datasetProvenance, () => assertDatasetProvenanceStable(datasetProvenance, options.datasetSize));
+  return result;
 }
 
 function csvEscape(value) {
@@ -754,7 +842,7 @@ function csvEscape(value) {
   return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 
-function writeArtifacts(options, discovered, results, failure, runnerProvenance, serverProvenance) {
+function writeArtifacts(options, discovered, results, failure, runnerProvenance, serverProvenance, datasetProvenance, finalProvenance) {
   fs.mkdirSync(options.outputDirectory, { recursive: true });
   const timestamp = new Date().toISOString().replaceAll(":", "-");
   const baseName = `game-list-740-${timestamp}`;
@@ -772,7 +860,14 @@ function writeArtifacts(options, discovered, results, failure, runnerProvenance,
     serverContainers: serverProvenance?.containers ?? [],
     proxyContainer: serverProvenance?.proxyContainer ?? null,
     baseUrl: options.baseUrl,
-    dataset: { gameCount: options.datasetSize, sha256: options.datasetSha256 },
+    dataset: {
+      gameCount: options.datasetSize,
+      observedGameCount: datasetProvenance?.observedGameCount ?? null,
+      sha256: options.datasetSha256,
+      postgresContainerId: datasetProvenance?.postgresContainerId ?? null,
+      postgresComposeProject: datasetProvenance?.postgresComposeProject ?? null,
+    },
+    endProvenance: finalProvenance,
     warmUpRuns: options.warmUpRuns,
     measuredRuns: options.measuredRuns,
     discovered,
@@ -811,6 +906,8 @@ async function main() {
   let failure = null;
   let runnerProvenance = null;
   let serverProvenance = null;
+  let datasetProvenance = null;
+  let finalProvenance = null;
 
   try {
     runnerProvenance = currentRunnerProvenance();
@@ -820,6 +917,12 @@ async function main() {
 
     serverProvenance = currentServerProvenance(options);
     console.log(`[game-list-740] server-image-id=${serverProvenance.containers[0].imageId}`);
+
+    datasetProvenance = currentDatasetProvenance(
+      serverProvenance.containers[0].composeProject,
+      options.datasetSize,
+    );
+    console.log(`[game-list-740] postgres-games=${datasetProvenance.observedGameCount}`);
 
     discovered = await discoverScenarioValues(
       options.baseUrl,
@@ -838,6 +941,7 @@ async function main() {
         options.measuredRuns,
         options.requestTimeoutMs,
         serverProvenance.containers,
+        options.datasetSize,
       );
       results.push(result);
       if (result.status === "failed") {
@@ -850,14 +954,32 @@ async function main() {
           `p95=${result.summary.p95Ms.toFixed(3)}ms max=${result.summary.maxMs.toFixed(3)}ms`,
       );
     }
-
-    assertRunnerProvenanceStable(runnerProvenance);
-    assertServerProvenanceStable(options, serverProvenance);
   } catch (error) {
     failure = error;
+  } finally {
+    finalProvenance = endProvenance(
+      options,
+      runnerProvenance,
+      serverProvenance,
+      datasetProvenance,
+    );
+    if (!failure && finalProvenance.errors.length > 0) {
+      failure = new Error(
+        `측정 종료 provenance 대조 실패: ${finalProvenance.errors.map((error) => `${error.scope}: ${error.message}`).join("; ")}`,
+      );
+    }
   }
 
-  const artifacts = writeArtifacts(options, discovered, results, failure, runnerProvenance, serverProvenance);
+  const artifacts = writeArtifacts(
+    options,
+    discovered,
+    results,
+    failure,
+    runnerProvenance,
+    serverProvenance,
+    datasetProvenance,
+    finalProvenance,
+  );
   console.log(`[game-list-740] json=${artifacts.jsonPath}`);
   console.log(`[game-list-740] csv=${artifacts.csvPath}`);
   if (failure) {

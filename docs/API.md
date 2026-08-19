@@ -1387,7 +1387,7 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 |---|---|
 | Method / Path | `GET /api/games` |
 | 인증 / CSRF | 선택 / 불필요. 유효한 `playedFilter` 사용 시 인증 필요 |
-| 성공 | `200 OK`, `data`: `PageResponse<GameListItem>` |
+| 성공 | `200 OK`, `data`: `GameListSliceResponse<GameListItem>` |
 
 #### Query Parameters
 
@@ -1452,7 +1452,18 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 - `recommendedPlayerCount`와 `bestPlayerCount`는 각각 BGG 투표에서 정규화한 양의 인원을 반복 전달하며 같은 목록 안에서 OR다. 가능 인원과 다른 의미이며 `4+` 결과는 해당 게임의 검증된 최대 가능 인원까지 확장된 관계로 판정한다.
 - `themeMatch`와 `mechanismMatch`는 각각 생략하면 `ANY`이고 대응하는 선택 코드 없이 보내도 유효하다. 두 모드는 독립적이며 테마·메커니즘 그룹과 다른 필터 종류 사이는 `AND`로 결합한다. 중복되거나 잘못된 match 값, 존재하지 않는 category/theme code, 0 이하 인원은 일부 유효 값이 함께 있어도 전체 요청을 `VALIDATION_ERROR`로 거절한다.
 - 인원·시간·최연소 참여자 나이·복잡도·카테고리·테마·추천/베스트·메커니즘 필터를 적용하면 해당 조건을 판정할 검증값이나 관계가 없는 게임은 제외한다. 필터를 생략하면 누락값이나 관계 부재만으로 제외하지 않는다.
-- 모든 필터를 적용한 뒤 전체 건수, `popularity_score DESC, name ASC, id ASC` 정렬과 페이지를 계산한다. `popularity_score`는 응답에 노출하지 않는 저장 파생값이다.
+- 모든 필터를 적용한 뒤 `popularity_score DESC, name ASC, id ASC` 고정 정렬과 페이지를 계산한다. 다음 항목 존재 여부는 size+1 Slice 조회의 `hasNext`로 반환하며 전체 건수는 계산하거나 노출하지 않는다. `popularity_score`는 응답에 노출하지 않는 저장 파생값이다.
+
+#### GameListSliceResponse
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| `content` | GameListItem[] | 현재 페이지 항목. 결과가 없으면 `[]` |
+| `page` | integer | 0부터 시작하는 현재 페이지 번호 |
+| `size` | integer | 적용된 페이지 크기 |
+| `hasNext` | boolean | 다음 페이지 존재 여부 |
+
+`totalElements`와 `totalPages`는 게임 목록 응답에 포함하지 않는다. 이 게임 전용 계약은 공통 `PageResponse`와 비게임 목록 API를 변경하지 않는다.
 
 `tag` 필터와 클라이언트 지정 `sort`는 지원하지 않는다.
 

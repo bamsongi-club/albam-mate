@@ -22,7 +22,7 @@ v4 ZIP의 SHA-256과 SQL 파일 checksum, import 순서, 측정 DB의 실제 row
 - 시나리오별 warm-up 5회 후 실측 20회 이상
 - p50/p95: nearest-rank 방식 `ceil(p * N)`
 - 각 실측은 순차 요청으로 실행하여 동시 부하가 baseline에 섞이지 않게 한다.
-- 200 응답은 요청한 `page=0`, `size=24`와 정확히 일치해야 하며, `content` 길이·`totalPages = ceil(totalElements / size)`·`hasNext`의 의미도 검증한다. 실제 page metadata는 각 raw sample JSON에 보존한다.
+- 200 응답은 요청한 `page=0`, `size=24`와 정확히 일치해야 하며, `content`·`page`·`size`·`hasNext` Slice 의미를 검증한다. `content`는 `size`를 넘지 않고 `hasNext=true`이면 `size`와 같아야 하며, 170,005건 기본 첫 페이지는 `hasNext=true`여야 한다. 목록 응답에는 `totalElements`·`totalPages`가 없어야 하며, 실제 Slice metadata는 각 raw sample JSON에 보존한다.
 
 ## 실행
 
@@ -54,7 +54,7 @@ node scripts/measurements/game-list-baseline.mjs \
   --proxy-container "$proxy_container"
 ```
 
-`--dataset-sha256`은 측정에 사용한 원본 데이터셋의 SHA-256을 반드시 명시한다. `--server-commit`은 40자리 SHA여야 하며, 정확히 두 `--server-container`(`app1`, `app2`)의 OCI revision label·동일 image ID·Compose project/network와 `--proxy-container`의 proxy service/network가 시작/종료 시점 모두 일치해야 한다. runner는 각 discovery/실측 응답의 `X-Albam-Mate-Upstream` 역할과 `X-Albam-Mate-Upstream-Address`를 inspect한 해당 Spring container network 주소에 대조한다. 러너를 실행한 작업 디렉터리의 commit, 러너 파일 SHA-256, 측정 전후 source clean 여부는 결과에 `runnerCommit`, `runnerFileSha256`, `runnerSourceClean`으로 별도 기록하며 `serverCommit`을 대신하지 않는다. 요청별 timeout은 기본 30초이며 `--request-timeout-ms`로 조정할 수 있고, 사전 discovery의 games/theme/mechanism 요청에도 동일하게 적용된다. 기본 discovery의 `data.totalElements`는 `--dataset-size`와 정확히 일치해야 하며, 불일치하면 expected/actual count를 포함한 failed artifact를 남긴다.
+`--dataset-sha256`은 측정에 사용한 원본 데이터셋의 SHA-256을 반드시 명시한다. `--server-commit`은 40자리 SHA여야 하며, 정확히 두 `--server-container`(`app1`, `app2`)의 OCI revision label·동일 image ID·Compose project/network와 `--proxy-container`의 proxy service/network가 시작/종료 시점 모두 일치해야 한다. runner는 각 discovery/실측 응답의 `X-Albam-Mate-Upstream` 역할과 `X-Albam-Mate-Upstream-Address`를 inspect한 해당 Spring container network 주소에 대조한다. 러너를 실행한 작업 디렉터리의 commit, 러너 파일 SHA-256, 측정 전후 source clean 여부는 결과에 `runnerCommit`, `runnerFileSha256`, `runnerSourceClean`으로 별도 기록하며 `serverCommit`을 대신하지 않는다. 요청별 timeout은 기본 30초이며 `--request-timeout-ms`로 조정할 수 있고, 사전 discovery의 games/theme/mechanism 요청에도 동일하게 적용된다. API의 목록 Slice에는 전체 건수가 없으므로, runner는 같은 Compose project의 PostgreSQL `games` row count를 시작·종료에 직접 대조해 `--dataset-size`와 일치하지 않으면 expected/actual count를 포함한 failed artifact를 남긴다. 이 직접 fixture 확인은 `PGAPPNAME=game-list-baseline-fixture-check`로 구분되어 앱 요청의 SQL capture와 섞이지 않는다.
 
 러너는 현재 데이터에서 유효한 값을 자동으로 선택한다.
 
@@ -70,7 +70,7 @@ node scripts/measurements/game-list-baseline.mjs \
 
 | 시나리오 | 목적 |
 | --- | --- |
-| `base` | 필터 없는 기본 목록의 content/count/sort 비용 |
+| `base` | 필터 없는 기본 목록의 content/Slice/sort 비용 |
 | `keyword` | `lower(name) like '%...%'` 경로 비용 |
 | `player-count` | 일반 컬럼 범위 조건 비용 |
 | `relation-theme-mechanism` | theme/mechanism correlated subquery 비용 |
@@ -87,12 +87,12 @@ GET /api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24
 
 은 현재 코드상 다음 경로를 지난다.
 
-1. `gameRepository.findAll(specification, pageable)`
-   - 페이지 content query
-   - `Page`의 total element 계산을 위한 count query
+1. `gameRepository.findBy(specification, query -> query.slice(pageable))`
+   - `size + 1` 페이지 content query로 다음 페이지 존재 여부 판정
+   - 전체 건수 count query 없음
 2. 현재 페이지의 game id 최대 24개를 대상으로 `findUpcomingRoomCounts(...)`
 3. `GameListItem.from(...)`으로 24개 DTO 조립
-4. `ApiResponse<PageResponse<...>>` JSON 직렬화
+4. `ApiResponse<GameListSliceResponse<...>>` JSON 직렬화
 
 기본 요청에는 mechanism/category/theme 코드 검증 쿼리가 없다. 해당 쿼리는 각 필터가 실제로 전달될 때만 수행한다. 익명 사용자이므로 `userPlayedGameRepository` 조회도 없다.
 
@@ -106,7 +106,7 @@ GET /api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24
 event=game_search_completed outcome=success resultCount=... durationMs=...
 ```
 
-이 `durationMs`는 `gameQueryService.findPage(...)`와 `PageResponse.from(...)`까지 측정하고, HTTP JSON 직렬화와 프록시 왕복은 포함하지 않는다.
+이 `durationMs`는 `gameQueryService.findPage(...)`와 `GameListSliceResponse.from(...)`까지 측정하고, HTTP JSON 직렬화와 프록시 왕복은 포함하지 않는다.
 
 따라서 같은 단일 요청을 기준으로 다음을 비교한다.
 
@@ -118,28 +118,28 @@ HTTP total time
 
 이 차이는 직렬화 시간의 완전한 단독 측정값은 아니므로 **serialization/network/proxy 잔여 구간**으로 기록한다. 잔여 구간이 병목 후보로 보일 때만 별도 JFR 또는 MVC instrumentation을 후속 측정한다.
 
-## SQL 개수와 N+1 확인
+## #770 전 Page 기반 SQL 개수와 N+1 역사 기록
 
-측정 실행에서는 Hibernate SQL 로그 또는 PostgreSQL statement 로그 중 하나를 사용해 요청 1회에 발생한 SQL을 보존한다. 기본 익명 요청의 코드상 기대치는 일반적으로 다음 3개 논리 쿼리다.
+아래 2026-08-19 capture는 #770 전 `Page` 계약에서 얻은 역사 진단 기록이다. 당시 기본 익명 요청의 코드상 기대치는 일반적으로 다음 3개 논리 쿼리였다. 이 count evidence는 현재 Slice 완료 근거로 사용하지 않는다.
 
 1. game content
 2. game count
 3. page game ids의 upcoming room count
 
-필터 시나리오에서는 mechanism/category/theme 유효성 검증용 count가 선행될 수 있다.
+필터 시나리오에서는 mechanism/category/theme 유효성 검증용 count가 선행될 수 있었다.
 
 확인할 것:
 
 - 동일 형태 SQL이 page content 개수에 비례해 반복되는가
 - 동일 relation 조회가 중복 실행되는가
-- count query가 content query와 비슷하거나 더 긴가
-- relation filter의 correlated `exists`/`count(distinct ...)`가 count query에도 그대로 들어가는가
+- count query가 content query와 비슷하거나 더 길었는가
+- relation filter의 correlated `exists`/`count(distinct ...)`가 count query에도 그대로 들어갔는가
 
 **SQL 개수를 추정값으로 완료 보고서에 쓰지 않는다. 실제 캡처 로그의 statement 수를 기록한다.**
 
-## content / count / related query 분해
+## #770 전 Page 기반 content / count / related query 분해
 
-`JpaSpecificationExecutor.findAll(specification, pageable)` 하나의 호출 안에서 content와 count가 실행되므로 Java 메서드 벽시계만으로 둘을 분리하면 안 된다.
+`JpaSpecificationExecutor.findAll(specification, pageable)` 하나의 호출 안에서 content와 count가 실행됐으므로 당시 Java 메서드 벽시계만으로 둘을 분리하면 안 됐다.
 
 분해 기준은 DB statement 로그다.
 
@@ -148,13 +148,15 @@ HTTP total time
 - room group/count + `game_id in (...)` → upcoming related query
 - 필터 코드 존재 검증 query → validation query
 
-각 SQL의 DB 실행 시간을 요청 단위로 합산한다. 기본 요청은 [동일 요청의 controller/SQL/HTTP capture](results/game-list-740/game-list-740-2026-08-19-base-request-capture.log)로 다음처럼 대응했다.
+당시 각 SQL의 DB 실행 시간을 요청 단위로 합산했다. 기본 요청은 [동일 요청의 controller/SQL/HTTP capture](results/game-list-740/game-list-740-2026-08-19-base-request-capture.log)로 다음처럼 대응했다.
 
 | evidence | HTTP total | controller | content | count | validation | related | SQL execute sum | controller - SQL | HTTP - controller |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | base request, 1 capture | 41.503ms | duration 미기록 | 0.646ms | 19.123ms | 0ms | 0.115ms | 19.884ms | 산출 안 함 | 산출 안 함 |
 
-따라서 이 capture에서 기본 요청의 DB statement 1순위는 `count`다. raw capture는 HTTP 시작/종료 시각, 고유 measurement ID의 단일 proxy `/api/games` access log, `X-Albam-Mate-Upstream: app2`와 inspect IP 대조, 해당 controller log, 하나의 PostgreSQL `app2` PID `56`의 content/count/related statement를 함께 보존한다. Spring은 host port를 publish하지 않고 health check도 game-list URL을 호출하지 않는다. 현재 console profile은 controller duration key-value를 내보내지 않으므로 `controller - SQL`과 `HTTP - controller` residual은 산출하지 않는다. HTTP p95는 20회 분포이고 위 분해는 단일 요청이므로 서로 같은 통계량처럼 비교하지 않는다.
+따라서 이 Page capture에서 기본 요청의 DB statement 1순위는 `count`였다. raw capture는 HTTP 시작/종료 시각, 고유 measurement ID의 단일 proxy `/api/games` access log, `X-Albam-Mate-Upstream: app2`와 inspect IP 대조, 해당 controller log, 하나의 PostgreSQL `app2` PID `56`의 content/count/related statement를 함께 보존한다. Spring은 host port를 publish하지 않고 health check도 game-list URL을 호출하지 않는다. 당시 console profile은 controller duration key-value를 내보내지 않았으므로 `controller - SQL`과 `HTTP - controller` residual은 산출하지 않았다. HTTP p95는 20회 분포이고 위 분해는 단일 요청이므로 서로 같은 통계량처럼 비교하지 않는다.
+
+현재 #770 Slice raw capture는 앱 요청에서 `size + 1` content query와 upcoming related query만 분류하며 app count statement가 없어야 한다. 필터 시나리오의 코드 검증 query는 별도로 분류한다. Compose PostgreSQL fixture의 `games` row count 직접 확인은 `PGAPPNAME=game-list-baseline-fixture-check`를 사용하므로 앱 요청 SQL 개수에 포함하지 않는다.
 
 relation filter의 `296.095ms` EXPLAIN은 기본 요청의 수치가 아니라 relation 시나리오 후보이며, 이 값을 근거로 #740의 기본 요청 후속 범위를 결정하지 않는다.
 
@@ -186,10 +188,10 @@ EXPLAIN (ANALYZE, BUFFERS, VERBOSE, FORMAT TEXT)
 - 기본 정렬은 `popularityScore DESC, name ASC, id ASC`이다.
 - keyword는 `lower(name) LIKE '%keyword%'` 형태다.
 - category/theme/mechanism/player preference/played filter는 correlated subquery를 사용한다.
-- `Page`를 유지하므로 결과 목록 외 total count 비용이 존재한다.
+- `Slice`는 `size + 1` content query로 다음 페이지 존재 여부를 판정하며 total count query를 수행하지 않는다.
 - 기본 익명 목록 DTO 생성 자체는 24건이고 relation collection을 순회하지 않는다.
 
-따라서 **17만 건 전체를 JSON으로 내려서 느리다**라는 가설은 현재 API 구조와 맞지 않는다. 한 페이지는 24건만 반환한다. 병목 후보는 우선 `170,005`건 모집합에서의 정렬/필터/content/count 실행계획과 relation filter의 subquery 비용으로 검증해야 한다.
+따라서 **17만 건 전체를 JSON으로 내려서 느리다**라는 가설은 현재 API 구조와 맞지 않는다. 한 페이지는 최대 24건을 반환한다. 병목 후보는 우선 `170,005`건 모집합에서의 정렬/필터/Slice content 실행계획과 relation filter의 subquery 비용으로 검증해야 한다.
 
 ## #740 완료 판정
 
@@ -203,13 +205,13 @@ EXPLAIN (ANALYZE, BUFFERS, VERBOSE, FORMAT TEXT)
 - [x] 최신 `develop` 반영 server/runner로 v4 baseline 재실행, `runnerFileSha256`/`runnerSourceClean` 기록
 - [x] 서버 OCI revision label·동일 image ID·proxy Compose network·upstream 역할/address를 runner artifact에 기록하고 전후 대조
 - [x] 동일 조건의 별도 runner 실행 3회와 batch별 p50/p95 편차 기록
-- [x] discovery timeout과 실제 `totalElements` 대조 검증
+- [ ] #770 Slice 계약에서 discovery timeout과 Compose PostgreSQL fixture count 전후 대조 검증
 - [x] N+1/중복 query 여부 판정
-- [x] content/count/validation/related 구간의 대표 실행계획 시간 기록
+- [ ] #770 Slice content/validation/related 구간의 대표 실행계획 시간 기록
 - [x] 가장 느린 SQL의 `EXPLAIN (ANALYZE, BUFFERS)` 보존
 - [x] 기본 요청의 HTTP/upstream/controller/SQL 시간 창 대응 기록
-- [x] 기본 요청 raw capture에 HTTP window·고유 proxy measurement ID·upstream 역할/address·PostgreSQL timestamp/PID/application name·content/count/related statement 보존
-- [x] 기본 요청의 DB statement 1순위(count) 숫자로 확인
+- [ ] #770 Slice 기본 요청 raw capture에 HTTP window·고유 proxy measurement ID·upstream 역할/address·PostgreSQL timestamp/PID/application name·content/related statement 보존
+- [ ] #770 Slice 기본 요청이 app count query 없이 `size + 1` content query를 사용하는지 숫자로 확인
 - [ ] 기본 요청 전체 잔여 구간의 세부 계측 및 후속 #770 단일 범위 승인
 - [ ] 개선은 별도 후속 이슈로 최소 범위만 생성
 

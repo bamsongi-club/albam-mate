@@ -9,11 +9,11 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.Slice;
+import org.springframework.data.domain.SliceImpl;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -59,9 +59,9 @@ public class GameQueryService {
 	 *
 	 * @param request HTTP 목록 요청
 	 * @param currentUserId 인증 사용자 ID. 비로그인 요청이면 {@code null}
-	 * @return 예정 모임 수가 포함된 게임 목록 페이지
+	 * @return 예정 모임 수가 포함된 게임 목록 Slice
 	 */
-	public Page<GameListItem> findPage(GameListRequest request, Long currentUserId) {
+	public Slice<GameListItem> findPage(GameListRequest request, Long currentUserId) {
 		Instant referenceTime = Instant.now(clock);
 		PlayedFilter playedFilter = request.getPlayedFilter();
 		if (playedFilter != null && currentUserId == null) {
@@ -98,7 +98,7 @@ public class GameQueryService {
 		}
 	}
 
-	private Page<GameListItem> findPage(
+	private Slice<GameListItem> findPage(
 		GameListSearchCriteria criteria, int page, int size, Long currentUserId, Instant referenceTime) {
 		Pageable pageable = PageRequest.of(
 			page,
@@ -111,16 +111,17 @@ public class GameQueryService {
 		if (criteria.isUpcomingOnly()) {
 			upcomingRoomCounts = upcomingRoomCountQuery.findUpcomingRoomCounts(referenceTime);
 			if (upcomingRoomCounts.isEmpty()) {
-				return Page.empty(pageable);
+			return new SliceImpl<>(List.of(), pageable, false);
 			}
 			criteria = criteria.withUpcomingGameIds(upcomingRoomCounts.keySet());
 		}
 
 		GameListSearchCriteria pageCriteria = criteria;
-		Page<Game> games = gameRepository.findAll(GameListSpecification.from(pageCriteria), pageable);
+		Slice<Game> games = gameRepository.findBy(
+			GameListSpecification.from(pageCriteria), query -> query.slice(pageable));
 		if (games.isEmpty()) {
 			// 조립할 게임이 없으므로 예정 모임 수와 해 본 게임 조회를 건너뛰고 페이지 메타데이터만 그대로 전달한다.
-			return new PageImpl<>(List.of(), pageable, games.getTotalElements());
+			return new SliceImpl<>(List.of(), pageable, games.hasNext());
 		}
 
 		if (!criteria.isUpcomingOnly()) {

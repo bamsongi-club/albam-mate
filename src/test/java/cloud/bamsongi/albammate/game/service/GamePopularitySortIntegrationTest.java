@@ -15,7 +15,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
-import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Slice;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import cloud.bamsongi.albammate.game.dto.GameListItem;
@@ -50,7 +50,7 @@ class GamePopularitySortIntegrationTest {
 		Game secondTie = saveGame(1002L, "알파", "1.000000");
 		Game lowerScore = saveGame(1003L, "가나다", "0.500000");
 
-		Page<GameListItem> result = gameQueryService.findPage(new GameListRequest(), null);
+		Slice<GameListItem> result = gameQueryService.findPage(new GameListRequest(), null);
 
 		assertEquals(List.of(firstTie.getId(), secondTie.getId(), lowerScore.getId()),
 			result.getContent().stream().map(GameListItem::id).toList());
@@ -67,10 +67,9 @@ class GamePopularitySortIntegrationTest {
 		request.setPage(0);
 		request.setSize(1);
 
-		Page<GameListItem> result = gameQueryService.findPage(request, null);
+		Slice<GameListItem> result = gameQueryService.findPage(request, null);
 
-		assertEquals(2, result.getTotalElements());
-		assertEquals(2, result.getTotalPages());
+		assertEquals(true, result.hasNext());
 		assertEquals(first.getId(), result.getContent().getFirst().id());
 		assertEquals(2001L, result.getContent().getFirst().bggId());
 		assertEquals("알파", result.getContent().getFirst().name());
