@@ -133,7 +133,7 @@ Lexical·Sparse offline baseline의 입력 descriptor·검증·점수 규칙·�
 ```bash
 node scripts/search-evaluation/search-candidate-comparison.mjs \
   --check \
-  --manifest /path/to/search-candidate-comparison-input.json
+  --manifest /path/to/search-candidate-semantic-30-input.json
 ```
 
 후보 간 query ID·문구·cohort·`analysisClass`·hard filter가 하나라도 다르면 비교를 중단한다. ID만 같고 query 문구가 다른 결과를 같은 질의로 취급하지 않으며, `expectedGameIds`·provisional ID를 qrels 대신 사용하지 않는다.
@@ -143,7 +143,7 @@ node scripts/search-evaluation/search-candidate-comparison.mjs \
 ```bash
 node scripts/search-evaluation/search-candidate-comparison.mjs \
   --packet \
-  --manifest /path/to/search-candidate-comparison-input.json \
+  --manifest /path/to/search-candidate-semantic-30-input.json \
   --out /tmp/search-04-candidate-judgement-packet.json
 ```
 
@@ -155,7 +155,7 @@ Hybrid/RRF는 필요할 때만 이미 검증된 ranked output에 `--hybrid-rrf`�
 node scripts/search-evaluation/search-candidate-comparison.mjs \
   --metrics \
   --hybrid-rrf \
-  --manifest /path/to/search-candidate-comparison-input.json \
+  --manifest /path/to/search-candidate-semantic-30-input.json \
   --judgements /path/to/approved-search-candidate-qrels.json \
   --out /tmp/search-04-candidate-comparison.json
 ```

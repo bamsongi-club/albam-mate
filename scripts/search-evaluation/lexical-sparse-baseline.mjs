@@ -23,7 +23,13 @@ export const RESULT_KIND = 'search-04-baseline-results';
 export const RULE_VERSION = 'search-04-lexical-sparse-v1';
 export const TRUSTED_INPUT_DESCRIPTOR_SHA256 = '4c4c22657d735bda8a109b5df12dd39eb7e9b80c786fdbb4efff670337eddf5b';
 export const TRUSTED_EVALUATION_MANIFEST_SHA256 = 'e604e12740730aa9cb713e4b3db34f5ce311bcfff0db651da463a81f997329d4';
+export const TRUSTED_SEMANTIC_QUERY_FIXTURE_SHA256 = '84522f97b196d12db33b082fc26529218555b9408a973e6b6da3577587387142';
 export const MODES = Object.freeze(['lexical', 'sparse']);
+
+const TRUSTED_SEMANTIC_QUERY_FIXTURE_PATH = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../docs/p2/search-evaluation/search-candidate-comparison/semantic-30-queries.json',
+);
 
 const FIELD_LABELS = Object.freeze({
     '게임명': 'name',
@@ -596,8 +602,12 @@ function parseArgs(args) {
 }
 
 function loadQueryFixture(filePath, expectedSha256) {
+    if (path.resolve(filePath) !== TRUSTED_SEMANTIC_QUERY_FIXTURE_PATH) {
+        throw new Error(`--queries는 커밋된 semantic-30 fixture 고정 경로만 사용할 수 있습니다: ${TRUSTED_SEMANTIC_QUERY_FIXTURE_PATH}`);
+    }
     const bytes = readFileSync(filePath);
-    if (!/^[a-f0-9]{64}$/u.test(expectedSha256) || sha256(bytes) !== expectedSha256) {
+    if (expectedSha256 !== TRUSTED_SEMANTIC_QUERY_FIXTURE_SHA256
+        || sha256(bytes) !== TRUSTED_SEMANTIC_QUERY_FIXTURE_SHA256) {
         throw new Error('--queries checksum이 승인된 semantic fixture와 다릅니다.');
     }
     let queries;

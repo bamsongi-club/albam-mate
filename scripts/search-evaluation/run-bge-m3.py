@@ -24,10 +24,8 @@ APPROVED_SOURCE_HASHES = {
     "displayMap": "b3e717225cc091712071506d24c7653823994ec6b9743b2a8c3532fa659b3ffc",
 }
 SEARCH_CANDIDATE_INPUT_KIND = "search-04-search-candidate-dense-input"
-SEARCH_CANDIDATE_APPROVAL_REFERENCES = frozenset({
-    "https://github.com/bamsongi-club/albam-mate/issues/885#issuecomment-5343789151",
-    "https://github.com/bamsongi-club/albam-mate/issues/885#issuecomment-5344383511",
-})
+SEARCH_CANDIDATE_APPROVAL_REFERENCE = "https://github.com/bamsongi-club/albam-mate/issues/885#issuecomment-5344383511"
+APPROVED_CANDIDATE_INPUT_CONTRACT_SHA256 = "6bfa028232c531e80db6f3fdc4d74708c4641d450e724301af684142091c70ca"
 APPROVED_MODEL_FILES = {
     "1_Pooling/config.json": "e54c164a07274f2eb45bb724f54a79d1efcc90c41573887cd9a29aeee0597352",
     "config.json": "26159e7ad065073448460117eb24b7a4572f6f4e78eadff65dc0a11c052449fa",
@@ -99,8 +97,10 @@ def load_input_contract(path: Path) -> dict[str, Any]:
     contract = load_json(path)
     if contract.get("schemaVersion") != 1 or contract.get("kind") != SEARCH_CANDIDATE_INPUT_KIND:
         raise ValueError("invalid SEARCH-04 candidate input contract")
-    if contract.get("approvalReference") not in SEARCH_CANDIDATE_APPROVAL_REFERENCES:
-        raise ValueError("SEARCH-04 candidate input contract approval reference is not #885")
+    if contract.get("approvalReference") != SEARCH_CANDIDATE_APPROVAL_REFERENCE:
+        raise ValueError("SEARCH-04 candidate input contract approval reference is not the approved semantic-30 reference")
+    if sha256_file(path) != APPROVED_CANDIDATE_INPUT_CONTRACT_SHA256:
+        raise ValueError("SEARCH-04 candidate input contract checksum is not the approved semantic-30 contract")
     source_git_head = contract.get("sourceGitHead")
     if not isinstance(source_git_head, str) or not re.fullmatch(r"[0-9a-f]{40}", source_git_head):
         raise ValueError("candidate input contract sourceGitHead must be a 40-character Git SHA")

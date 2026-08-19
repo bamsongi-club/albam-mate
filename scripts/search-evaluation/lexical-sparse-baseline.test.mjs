@@ -22,6 +22,7 @@ import {
     sha256,
     TRUSTED_EVALUATION_MANIFEST_SHA256,
     TRUSTED_INPUT_DESCRIPTOR_SHA256,
+    TRUSTED_SEMANTIC_QUERY_FIXTURE_SHA256,
     writeOutputAtomically,
 } from './lexical-sparse-baseline.mjs';
 import { loadManifest } from '../p2-search-evaluation.mjs';
@@ -48,6 +49,10 @@ const TRUSTED_RESULT_SHA256 = Object.freeze({
     sparse: '5bbf261860cf9141065111b5713bc1365691d4518c9169d75f7a8dc249c92d67',
 });
 const SCRIPT_PATH = path.join(path.dirname(TEST_FILE), 'lexical-sparse-baseline.mjs');
+const SEMANTIC_QUERY_PATH = path.join(
+    REPOSITORY_ROOT,
+    'docs/p2/search-evaluation/search-candidate-comparison/semantic-30-queries.json',
+);
 
 function fixture() {
     const manifest = loadManifest(MANIFEST_PATH);
@@ -129,6 +134,31 @@ test('명시한 semantic query fixture로 baseline 결과를 만들 수 있다',
     });
 
     assert.deepEqual(Object.keys(results), ['Q-CUSTOM']);
+});
+
+test('CLI는 승인된 semantic-30 query fixture 경로와 checksum만 허용한다', () => {
+    const directory = mkdtempSync(path.join(tmpdir(), 'search-04-baseline-query-fixture-'));
+    const copiedQueryPath = path.join(directory, 'semantic-30-queries.json');
+    const outputPath = path.join(directory, 'lexical-results.json');
+    try {
+        writeFileSync(copiedQueryPath, readFileSync(SEMANTIC_QUERY_PATH));
+        assert.throws(
+            () => execFileSync(process.execPath, [
+                SCRIPT_PATH,
+                '--mode', 'lexical',
+                '--manifest', MANIFEST_PATH,
+                '--input-descriptor', INPUT_DESCRIPTOR_PATH,
+                '--poc-manifest', POC_MANIFEST_PATH,
+                '--search-text', SEARCH_TEXT_PATH,
+                '--queries', copiedQueryPath,
+                '--queries-sha256', TRUSTED_SEMANTIC_QUERY_FIXTURE_SHA256,
+                '--out', outputPath,
+            ], { cwd: REPOSITORY_ROOT, encoding: 'utf8' }),
+            (error) => error.status === 1 && error.stderr.includes('고정 경로'),
+        );
+    } finally {
+        rmSync(directory, { recursive: true, force: true });
+    }
 });
 
 test('T2: Sparse baseline은 메커니즘·카테고리·테마 field만 신호로 사용한다', () => {
