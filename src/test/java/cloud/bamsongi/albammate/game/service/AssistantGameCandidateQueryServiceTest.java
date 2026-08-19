@@ -37,6 +37,20 @@ class AssistantGameCandidateQueryServiceTest {
 		assertEquals(List.of(11L, 12L, 13L), result.stream().map(candidate -> candidate.id()).toList());
 	}
 
+	@Test
+	void T5_플레이시간과_특정_게임_조건의_빈_후보는_랭킹_조회없이_종료한다() {
+		GameRepository gameRepository = org.mockito.Mockito.mock(GameRepository.class);
+		GameRankingQuery gameRankingQuery = org.mockito.Mockito.mock(GameRankingQuery.class);
+		when(gameRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class)))
+			.thenReturn(List.of());
+
+		var result = new AssistantGameCandidateQueryService(gameRepository, gameRankingQuery)
+			.findCandidates(new AssistantGameCandidateQuery.Criteria(
+				List.of("STRATEGY"), List.of(), List.of(), null, "UP_TO_10", 1001L, null));
+
+		assertEquals(List.of(), result);
+	}
+
 	private Game game(long bggId, long id, String name) {
 		Game game = GameFixture.valid(bggId, name);
 		ReflectionTestUtils.setField(game, "id", id);
