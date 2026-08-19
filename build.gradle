@@ -101,7 +101,7 @@ tasks.register('postgresTest', Test) {
 def testExecutionData = layout.buildDirectory.file('jacoco/test.exec')
 def postgresTestExecutionData = layout.buildDirectory.file('jacoco/postgresTest.exec')
 def mergedExecutionDataDirectory = layout.buildDirectory.dir('jacoco/merged')
-def mergedExecutionDataNames = ['test.exec', 'postgresTest-0.exec', 'postgresTest-1.exec']
+def mergedExecutionDataNames = ['test.exec', 'postgresTest-0.exec', 'postgresTest-1.exec', 'postgresTest-2.exec']
 def mergedExecutionData = files(mergedExecutionDataNames.collect { fileName ->
     mergedExecutionDataDirectory.map { directory -> directory.file(fileName) }
 })

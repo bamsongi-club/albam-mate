@@ -30,7 +30,10 @@ public record MyRoomListItem(
 	boolean waitlistable,
 	MyRole myRole,
 	ParticipationStatus participationStatus,
-	boolean chatAvailable) {
+	boolean chatAvailable,
+	String lastMessagePreview,
+	Instant lastMessageAt,
+	int unreadCount) {
 
 	public static MyRoomListItem from(
 		Room room,
@@ -38,7 +41,7 @@ public record MyRoomListItem(
 		RoomActionAvailability availability,
 		MyRole myRole,
 		ParticipationStatus participationStatus) {
-		return from(room, room.getStatus(), game, availability, myRole, participationStatus);
+		return from(room, room.getStatus(), game, availability, myRole, participationStatus, null, null, 0);
 	}
 
 	public static MyRoomListItem from(
@@ -48,6 +51,21 @@ public record MyRoomListItem(
 		RoomActionAvailability availability,
 		MyRole myRole,
 		ParticipationStatus participationStatus) {
+		return from(room, effectiveStatus, game, availability, myRole, participationStatus, null, null, 0);
+	}
+
+	/** CHAT-07 채팅 목록 마지막 메시지·미읽음 상태를 더해 항목을 조립한다. */
+	public static MyRoomListItem from(
+		Room room,
+		RoomStatus effectiveStatus,
+		GameSummary game,
+		RoomActionAvailability availability,
+		MyRole myRole,
+		ParticipationStatus participationStatus,
+		String lastMessagePreview,
+		Instant lastMessageAt,
+		int unreadCount) {
+		boolean chatAvailable = effectiveStatus.isChatAvailable();
 		return new MyRoomListItem(
 			room.getId(),
 			room.getRoomType(),
@@ -66,6 +84,9 @@ public record MyRoomListItem(
 			availability.waitlistable(),
 			myRole,
 			participationStatus,
-			effectiveStatus.isChatAvailable());
+			chatAvailable,
+			chatAvailable ? lastMessagePreview : null,
+			chatAvailable ? lastMessageAt : null,
+			chatAvailable ? unreadCount : 0);
 	}
 }

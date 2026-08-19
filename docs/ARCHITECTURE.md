@@ -203,7 +203,7 @@ MATCH 사용자 메시지 쓰기는 chat Command가 연 트랜잭션에서 `Matc
 
 listener는 안내를 저장하기 전에 같은 트랜잭션에서 `CHAT_SYSTEM_MESSAGE_ACTIVATION` 전역 gate를 읽고, 활성화 시각 이후의 사건만 저장한다. 이 비교는 판정 트랜잭션이 고정한 PostgreSQL 시각으로 하며, 이벤트가 전달한 애플리케이션 `Clock` 기준 `occurredAt`을 gate 비교에 쓰지 않는다([시계 도메인 경계](ERD.md#chat-06-혼합-버전-배포활성화rollback-순서)). 인스턴스별 설정으로 이 판정을 대신하지 않으므로 순차 배포 구간에도 모든 인스턴스가 같은 결론에 이른다. listener는 동기이며 원인 Executor의 트랜잭션에 참여한다. 별도 커밋·독립 트랜잭션·`AFTER_COMMIT` 지연 저장을 하지 않으므로 참가 전이와 안내는 함께 커밋되거나 함께 롤백된다. 저장 실패는 참가 요청 자체의 실패로 전파하며 재시도 큐·보정 스케줄러를 두지 않는다.
 
-잠금 순서는 기존 채팅 쓰기와 같은 `ROOMS → CHAT_ROOMS`다. 참가·참가 취소 Executor가 `ROOMS`를 갱신한 뒤 listener가 `CHAT_ROOMS`를 잠그고 `SYSTEM` 행을 append하므로, 사용자 메시지 저장 경로와 잠금 획득 순서가 같아 새로운 교착 조합을 만들지 않는다. 다만 참가·참가 취소가 이제 같은 방의 채팅방 append 잠금을 얻으므로, 메시지 전송과 새로 직렬화된다. 이는 방별 ID 순서를 지키기 위해 받아들이는 비용이며 관측 대상은 [CHAT-06 운영 측정](p2/chat.md#운영-측정)이 소유한다. 커밋 뒤 실시간 발행은 기존 `chat.contract.ChatRealtimePublisher`와 같은 `AFTER_COMMIT` 경로·같은 이벤트 타입을 사용하며 별도 채널을 만들지 않는다.
+잠금 순서는 기존 채팅 쓰기와 같은 `ROOMS → CHAT_ROOMS`다. 참가·참가 취소 Executor가 `ROOMS`를 갱신한 뒤 listener가 `CHAT_ROOMS`를 잠그고 `SYSTEM` 행을 append하므로, 사용자 메시지 저장 경로와 잠금 획득 순서가 같아 새로운 교착 조합을 만들지 않는다. 다만 참가·참가 취소가 이제 같은 방의 채팅방 append 잠금을 얻으므로, 메시지 전송과 새로 직렬화된다. 이는 방별 ID 순서를 지키기 위해 받아들이는 비용이며 관측 대상은 [CHAT-06 운영 측정](p2/chat.md#chat-06-운영-측정)이 소유한다. 커밋 뒤 실시간 발행은 기존 `chat.contract.ChatRealtimePublisher`와 같은 `AFTER_COMMIT` 경로·같은 이벤트 타입을 사용하며 별도 채널을 만들지 않는다.
 
 실시간 경로에서 응답을 조립하는 지점은 발행자가 아니다. `ChatMessageCommittedListener`는 `roomId`·`messageId` 신호만 발행하고, 그 신호를 받은 각 인스턴스의 `chat/websocket`이 PostgreSQL 행을 다시 읽어 응답을 만든다. 따라서 `SYSTEM` 행의 종류 구분·대상 프로필 조회·문장 조립은 이력 경로와 실시간 경로 **양쪽**에 있어야 한다.
 
@@ -228,6 +228,38 @@ flowchart LR
 ```
 
 한 응답 안의 같은 대상 사용자 ID는 한 번만 조회한다. 공개 프로필 조회 실패나 미존재는 이력 조회를 실패시키지 않고 대체 표시명으로 수렴한다. 안내 문장·닉네임·사용자 ID는 로그와 metric label에 남기지 않는다.
+
+### P2 CHAT-07 채팅 목록 미읽음 집계 흐름 (계획·미구현)
+
+> 이 절은 P2 `CHAT-07`의 승인된 목표 구조다. 아래 공개 계약은 아직 존재하지 않으며, 현재 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)로만 판정한다. 제품 규칙은 [CHAT-07 명세](p2/chat.md#chat-07-채팅-목록-마지막-메시지방별-미읽음-상태), 저장 계약은 [ERD](ERD.md#chat-07-읽음-커서-저장-계약), 선택 이유는 [ADR-0079](adr/chat/0079-chat-room-read-cursor-and-derived-unread-count.md)가 소유한다.
+
+`CHAT-07`은 새 트랜잭션 이벤트 흐름을 만들지 않는다. `CHAT-06`처럼 참가·참가 취소를 계기로 안내를 저장하는 계약과 달리, 읽음 커서는 사용자 요청(채팅 목록 조회, 읽음 처리 API 호출)에만 반응하는 조회·갱신 계약이다.
+
+| 계약 | 방향 | 책임 |
+| --- | --- | --- |
+| `chat.contract.ChatRoomPreviewQuery` | `room`이 호출하고 `chat`이 구현 | 요청한 `chatRoomId` 집합과 조회자 사용자 ID로, 방마다 마지막 메시지 미리보기·시각과 파생 미읽음 개수를 배치로 반환한다. 방 개수만큼 반복 호출하지 않는다 |
+| `POST /api/rooms/{roomId}/chat/read` | `chat` controller가 처리 | 요청자가 확인한 최신 지점(`upToMessageId`)까지 `CHAT_ROOM_READ_STATES` 커서를 전진시킨다 |
+
+`ChatRoomPreviewQuery`는 기존 `chat → room.contract`(CHAT-06 listener) 방향과 반대로 `room → chat.contract` 방향의 새 의존을 추가한다. 두 방향은 서로 다른 목적의 별도 인터페이스이므로 컴파일 순환은 만들지 않지만, `room`과 `chat`이 서로를 참조하는 유일한 사례가 된다는 점은 [ADR-0079](adr/chat/0079-chat-room-read-cursor-and-derived-unread-count.md)의 감수 비용으로 기록한다.
+
+`MyRoomQueryService`(`room/service/query`)는 기존 `RoomRepository.findMyRoomsAt` 조회 뒤, 페이지에 담긴 방들의 `chatRoomId` 집합으로 `ChatRoomPreviewQuery`를 한 번 호출해 `MyRoomListItem`의 `lastMessagePreview`·`lastMessageAt`·`unreadCount` 필드를 채운다. `chat`은 이 호출 안에서 `CHAT_MESSAGES`와 `CHAT_ROOM_READ_STATES`를 조회자 기준으로 조인·집계해 응답을 만들며, 방 하나당 별도 질의를 반복하지 않는다.
+
+읽음 처리는 원인 트랜잭션이 없는 단순 명령이다. `POST /api/rooms/{roomId}/chat/read`는 기존 채팅 접근 판정([채팅 공통 계약](API.md#채팅-공통-계약))을 그대로 통과한 뒤 `CHAT_ROOM_READ_STATES`를 `GREATEST` UPSERT로 갱신하고, 갱신된 커서와 시각을 반환한다. 이 갱신은 메시지 저장·실시간 전달과 다른 트랜잭션이며 채팅방 append 잠금을 함께 얻지 않는다.
+
+미읽음 개수는 저장이 아니라 조회 시점 계산이므로, 기존 실시간 전달 경로(`ChatMessageDeliveryService`, `ChatConnectionRegistry`)는 변경하지 않는다. WebSocket이 같은 메시지를 중복·역순으로 전달해도 `ChatRoomPreviewQuery`가 다시 계산하는 값은 항상 같다. 채팅 목록·상단 배지를 위한 새 전역 WebSocket 채널은 만들지 않으며, 화면은 조회 시점 값을 보여준다.
+
+```mermaid
+flowchart LR
+    myRoomQuery["MyRoomQueryService<br/>room/service/query"] --> previewQuery["chat.contract<br/>ChatRoomPreviewQuery"]
+    previewQuery --> readStates["CHAT_ROOM_READ_STATES 조회"]
+    previewQuery --> lastMsg["CHAT_MESSAGES 배치 집계<br/>마지막 메시지·COUNT"]
+    readStates --> unreadCalc["파생 unreadCount"]
+    lastMsg --> unreadCalc
+    unreadCalc --> myRoomItem["MyRoomListItem<br/>lastMessagePreview·unreadCount"]
+
+    readController["POST /chat-rooms/id/read"] --> accessCheck["채팅 공통 접근 판정"]
+    accessCheck --> upsert["CHAT_ROOM_READ_STATES<br/>GREATEST UPSERT"]
+```
 
 ### 패키지 구조
 

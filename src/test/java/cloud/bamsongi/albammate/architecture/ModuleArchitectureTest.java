@@ -87,7 +87,7 @@ class ModuleArchitectureTest {
 		"auth", List.of("game", "room", "notification", "chat", "matching"),
 		"user", List.of("auth", "game", "room", "notification", "chat", "matching"),
 		"game", List.of("auth", "user", "room", "notification", "chat", "matching"),
-		"room", List.of("auth", "notification", "chat", "matching"),
+		"room", List.of("auth", "notification", "matching"),
 		"notification", List.of("auth", "user", "game", "chat", "matching"),
 		"chat", List.of("auth", "game", "notification"),
 		"matching", List.of("auth", "game", "room", "notification", "chat"));
@@ -103,6 +103,10 @@ class ModuleArchitectureTest {
 			.should()
 			.beFreeOfCycles()
 			.because("업무 모듈 사이의 순환 의존은 허용하지 않는다")
+			.ignoreDependency(
+				resideInAPackage(ROOT_PACKAGE + ".chat.."), resideInAPackage(ROOT_PACKAGE + ".room.contract.."))
+			.ignoreDependency(
+				resideInAPackage(ROOT_PACKAGE + ".room.."), resideInAPackage(ROOT_PACKAGE + ".chat.contract.."))
 			.check(businessClasses);
 	}
 

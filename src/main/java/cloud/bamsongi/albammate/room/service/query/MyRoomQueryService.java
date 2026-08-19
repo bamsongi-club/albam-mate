@@ -13,6 +13,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
+import cloud.bamsongi.albammate.chat.contract.ChatRoomPreviewQuery;
 import cloud.bamsongi.albammate.game.contract.GameQuery;
 import cloud.bamsongi.albammate.game.contract.GameSummary;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
@@ -38,6 +39,7 @@ public class MyRoomQueryService {
 	@NonNull private final GameQuery gameQuery;
 	@NonNull private final Clock clock;
 	@NonNull private final RoomActionAvailabilityEvaluator roomActionAvailabilityEvaluator;
+	@NonNull private final ChatRoomPreviewQuery chatRoomPreviewQuery;
 
 	/** 역할 필터·중복 제거·고정 정렬이 적용된 내 모임 페이지를 반환한다. */
 	public PageResponse<MyRoomListItem> findPage(
@@ -50,6 +52,7 @@ public class MyRoomQueryService {
 			currentUserId, role, pageable, requestTime);
 		Page<Room> rooms = readResult.rooms();
 		Map<Long, GameSummary> gameSummaries = findGameSummaries(rooms);
+		Map<Long, ChatRoomPreviewQuery.ChatRoomPreview> previews = findChatPreviews(currentUserId, rooms);
 		return PageResponse.from(
 			rooms.map(
 				room -> {
@@ -63,14 +66,24 @@ public class MyRoomQueryService {
 							myRole == MyRole.HOST,
 							myRole == MyRole.JOINED,
 							false));
+					ChatRoomPreviewQuery.ChatRoomPreview preview = previews
+						.getOrDefault(room.getId(), ChatRoomPreviewQuery.ChatRoomPreview.EMPTY);
 					return MyRoomListItem.from(
 						room,
 						readResult.effectiveStatusFor(room),
 						getGameSummary(room, gameSummaries),
 						availability,
 						myRole,
-						myRole == MyRole.JOINED ? ParticipationStatus.ACTIVE : null);
+						myRole == MyRole.JOINED ? ParticipationStatus.ACTIVE : null,
+						preview.lastMessagePreview(),
+						preview.lastMessageAt(),
+						preview.unreadCount());
 				}));
+	}
+
+	private Map<Long, ChatRoomPreviewQuery.ChatRoomPreview> findChatPreviews(Long currentUserId, Page<Room> rooms) {
+		Set<Long> roomIds = rooms.stream().map(Room::getId).collect(Collectors.toSet());
+		return roomIds.isEmpty() ? Map.of() : chatRoomPreviewQuery.findPreviews(currentUserId, roomIds);
 	}
 
 	private Map<Long, GameSummary> findGameSummaries(Page<Room> rooms) {

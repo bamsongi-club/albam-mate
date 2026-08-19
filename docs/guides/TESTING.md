@@ -129,12 +129,13 @@ macOS·Linux:
 
 각 게이트는 담당 Test 태스크의 JaCoCo 실행 데이터만 사용한다. `build/jacoco`의 모든 `.exec`를 읽으면 이번에 실행하지 않은 suite의 과거 결과가 남아 테스트 변경·삭제 뒤에도 분기를 덮는 거짓 통과가 생길 수 있다.
 
-CI의 shard 병합 태스크는 다음 세 파일이 모두 존재하고 비어 있지 않을 때만 실행된다. 테스트를 직접 실행하지 않으며, 같은 SHA의 main class를 컴파일한 뒤 execution data를 합산한다.
+CI의 shard 병합 태스크는 다음 네 파일이 모두 존재하고 비어 있지 않을 때만 실행된다. 테스트를 직접 실행하지 않으며, 같은 SHA의 main class를 컴파일한 뒤 execution data를 합산한다.
 
 ```text
 build/jacoco/merged/test.exec
 build/jacoco/merged/postgresTest-0.exec
 build/jacoco/merged/postgresTest-1.exec
+build/jacoco/merged/postgresTest-2.exec
 ```
 
 ```sh
@@ -166,10 +167,10 @@ CI는 `Changes`에서 변경 경로를 먼저 나눈 뒤 PostgreSQL 필요 여�
 
 - 모든 백엔드 변경의 `Backend Fast`: 애플리케이션 조립, H2 `test`, Spotless와 모든 Java source set의 Checkstyle. `not-required`에는 전체 및 변경 패키지 H2 커버리지 게이트도 적용
 - `required`·`needs-review`의 `Local Multi Runtime`: 프록시, Spring 두 대, PostgreSQL과 Redis를 사용하는 교차 인스턴스 세션
-- `required`·`needs-review`의 `PostgreSQL 1/2`, `PostgreSQL 2/2`: source set의 테스트 클래스를 소스 크기 기준으로 균등 분할한 PostgreSQL 검증
-- `required`·`needs-review`의 `Coverage Gate`: H2와 두 PostgreSQL shard의 execution data를 합산하는 정본 커버리지 게이트
+- `required`·`needs-review`의 `PostgreSQL 1/3`, `PostgreSQL 2/3`, `PostgreSQL 3/3`: source set의 테스트 클래스를 소스 크기 기준으로 균등 분할한 PostgreSQL 검증
+- `required`·`needs-review`의 `Coverage Gate`: H2와 세 PostgreSQL shard의 execution data를 합산하는 정본 커버리지 게이트
 
-확실한 `not-required`에서는 `Local Multi Runtime`, PostgreSQL shard와 합산 `Coverage Gate`를 생략한다. 이 경로는 PostgreSQL 의미를 바꾸지 않는 것으로 확정된 변경에만 허용하고, H2 전체 테스트·컨벤션·전체 및 변경 패키지 커버리지 최소선은 그대로 적용한다. `Backend Fast`와 실행된 PostgreSQL shard는 execution data를 이름이 겹치지 않는 artifact로 전달한다. `Coverage Gate`는 필요한 세 입력 중 하나라도 없거나 비어 있으면 실패하고, 테스트를 다시 실행하지 않은 채 합산 리포트와 패키지 규칙 대상을 판정한다. shard별 JUnit XML과 HTML은 실행시간 재조정과 실패 분석을 위해 14일간 보관한다.
+확실한 `not-required`에서는 `Local Multi Runtime`, PostgreSQL shard와 합산 `Coverage Gate`를 생략한다. 이 경로는 PostgreSQL 의미를 바꾸지 않는 것으로 확정된 변경에만 허용하고, H2 전체 테스트·컨벤션·전체 및 변경 패키지 커버리지 최소선은 그대로 적용한다. `Backend Fast`와 실행된 PostgreSQL shard는 execution data를 이름이 겹치지 않는 artifact로 전달한다. `Coverage Gate`는 필요한 네 입력 중 하나라도 없거나 비어 있으면 실패하고, 테스트를 다시 실행하지 않은 채 합산 리포트와 패키지 규칙 대상을 판정한다. shard별 JUnit XML과 HTML은 실행시간 재조정과 실패 분석을 위해 14일간 보관한다.
 
 수동 실행, 빈 변경 집합, build·workflow·런타임 변경, 분류기 오류처럼 생략을 확정할 수 없는 경우는 `needs-review`로 기록하고 기존 전체 Docker 검증을 실행한다. 분류 실패가 검증 생략으로 이어지지 않는다.
 
