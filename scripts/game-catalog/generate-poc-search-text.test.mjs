@@ -12,6 +12,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
+import { renderMechanismUpsertSql } from './mechanism-catalog.mjs';
+
 const SCRIPT = new URL('./generate-poc-search-text.mjs', import.meta.url);
 const DATASET_SOURCE = new URL('../../docs/game-catalog/catalog-dataset-release.json', import.meta.url);
 const TEMPLATE = '게임명: {name}\n영문명: {englishName}\n메커니즘: {mechanisms}\n카테고리: {categories}\n테마: {themes}\n설명: {description}';
@@ -49,17 +51,24 @@ function withFixture(run) {
             kind: 'poc-search-text-execution',
             approved: true,
             testOnly: false,
+            approval: {
+                reviewedBy: 'catalog-reviewer',
+                reviewedAt: '2026-08-19T00:00:00Z',
+                references: ['https://github.com/bamsongi-club/albam-mate/issues/833'],
+            },
             datasetRelease: {
                 manifestPath: 'catalog-dataset-release.json',
                 releaseId: datasetManifest.releaseId,
                 datasetId: datasetManifest.datasetId,
                 manifestSha256: sha256(datasetContents),
             },
-            approvedFields: ['name', 'englishName', 'alias', 'description', 'detailDescription', 'category', 'theme', 'mechanism'],
+            approvedFields: ['name', 'englishName', 'description', 'detailDescription'],
             approvedProcessingScopes: ['search-text-assembly'],
-            corpus: { path: 'quality-corpus.json', sha256: sha256(corpusContents) },
+            sources: { corpus: { path: 'quality-corpus.json', sha256: sha256(corpusContents), rows: 1000 } },
+            outputs: { searchText: { path: 'search-text.json', sha256: '0'.repeat(64), rows: 1000 } },
             searchTextTemplate: TEMPLATE,
         };
+        manifest.outputs.searchText.sha256 = expectedSearchTextArtifactSha256(manifest);
         const manifestPath = join(root, 'poc-manifest.json');
         writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
         return run({ root, artifactsRoot, corpusPath, datasetPath, datasetContents, manifestPath, manifest, corpus });
@@ -90,7 +99,7 @@ function buildGamesSql() {
     const rows = Array.from({ length: 999 }, (_, index) => {
         const id = index + 1;
         if (id === 1) {
-            return "(1, '디 마허', 'Die Macher', '디 마허', '3~5명', '240분', '짧은 설명', '자세한 설명')";
+            return "(1, '디 마허', 'Die Macher', '마허 별칭', '3~5명', '240분', '짧은 설명', '자세한 설명')";
         }
         return `(${id}, '게임 ${id}', NULL, NULL, '2~4명', '30분', NULL, NULL)`;
     });
@@ -102,8 +111,17 @@ function buildGamesSql() {
 
 function buildMetadataSql() {
     return [
-        "INSERT INTO game_mechanisms (bgg_mechanism_id, name_ko) VALUES (10, '액션 포인트');",
-        'INSERT INTO game_mechanism_relation_source (bgg_id, bgg_mechanism_id) VALUES (1, 10);',
+        renderMechanismUpsertSql([{
+            bgg_mechanism_id: 10,
+            code: 'ACTION_POINT',
+            name_ko: '액션 포인트',
+            name_en: 'Action Points',
+            description_ko: '행동 점수를 사용합니다.',
+            featured_order: null,
+            source_reference: 'https://boardgamegeek.com/',
+            reviewed_by: 'catalog-reviewer',
+            reviewed_at: '2026-08-19T00:00:00Z',
+        }], [{ bgg_id: 1, bgg_mechanism_id: 10 }]),
         "insert into game_themes(bgg_theme_id,name_ko) values (20,'정치');",
         'with desired(bgg_id,bgg_theme_id) as (values (1,20)) insert into game_theme_relations select * from desired;',
         "insert into game_categories(code,name_ko) values ('STRATEGY','전략');",
@@ -122,20 +140,26 @@ test('T2: CLI는 승인 v4 release·01/02 artifact·Top 1000 corpus를 검증한
     const out = join(fixture.root, 'search-text.json');
     runCli({ ...fixture, out });
     const result = JSON.parse(readFileSync(out, 'utf8'));
+    assert.equal(sha256(readFileSync(out)), fixture.manifest.outputs.searchText.sha256);
+    assert.notEqual(result.searchTextSha256, fixture.manifest.outputs.searchText.sha256);
     assert.equal(result.gameCount, 1000);
     assert.equal(result.datasetRelease.releaseId, 'bgg-catalog-170k-v4-2026-08-19');
-    assert.equal(result.games[0].searchText, ['게임명: 디 마허', '영문명: Die Macher', '메커니즘: 액션 포인트', '카테고리: 전략', '테마: 정치', '설명: 짧은 설명, 자세한 설명'].join('\n'));
+    assert.equal(result.games[0].searchText, ['게임명: 디 마허', '영문명: Die Macher', '설명: 짧은 설명, 자세한 설명'].join('\n'));
     assert.ok(!result.games[0].searchText.includes('3~5명'));
     assert.ok(!result.games[0].searchText.includes('240분'));
+    assert.ok(!result.games[0].searchText.includes('마허 별칭'));
+    assert.ok(!result.games[0].searchText.includes('액션 포인트'));
+    assert.ok(!result.games[0].searchText.includes('전략'));
+    assert.ok(!result.games[0].searchText.includes('정치'));
     assert.equal(result.games.at(-1).searchText, '게임명: 두번째 INSERT 게임\n설명: 두번째 설명, 두번째 상세 설명');
 }));
 
 test('T3: 동일 입력은 바이트 동일한 search-text.json과 checksum을 만든다', () => withFixture((fixture) => {
-    const first = join(fixture.root, 'first.json');
-    const second = join(fixture.root, 'second.json');
+    const first = join(fixture.root, 'search-text.json');
+    const second = first;
     runCli({ ...fixture, out: first });
-    runCli({ ...fixture, out: second });
     const firstContents = readFileSync(first);
+    runCli({ ...fixture, out: second });
     const secondContents = readFileSync(second);
     assert.deepEqual(firstContents, secondContents);
     assert.equal(JSON.parse(firstContents).searchTextSha256, JSON.parse(secondContents).searchTextSha256);
@@ -145,7 +169,7 @@ test('T4: allowlist 밖 minPlayers와 변조된 release·artifact·corpus는 생
     const out = join(fixture.root, 'search-text.json');
     fixture.manifest.approvedFields.push('minPlayers');
     writeFileSync(fixture.manifestPath, `${JSON.stringify(fixture.manifest, null, 2)}\n`);
-    assert.throws(() => runCli({ ...fixture, out }), /trusted profile/u);
+    assert.throws(() => runCli({ ...fixture, out }), /does not map/u);
     assert.equal(false, readFileExists(out));
 
     fixture.manifest.approvedFields.pop();
@@ -165,8 +189,50 @@ test('T4: allowlist 밖 minPlayers와 변조된 release·artifact·corpus는 생
 
     writeFileSync(join(fixture.artifactsRoot, '01-games-full.sql'), buildGamesSql());
     writeFileSync(fixture.corpusPath, '{}\n');
-    assert.throws(() => runCli({ ...fixture, out }), /corpus\.sha256/u);
+    assert.throws(() => runCli({ ...fixture, out }), /sources\.corpus\.sha256/u);
+
+    writeFileSync(fixture.corpusPath, `${JSON.stringify(fixture.corpus, null, 2)}\n`);
+    fixture.manifest.sources.corpus.sha256 = sha256(readFileSync(fixture.corpusPath));
+    fixture.manifest.outputs.searchText.sha256 = 'd'.repeat(64);
+    writeFileSync(fixture.manifestPath, `${JSON.stringify(fixture.manifest, null, 2)}\n`);
+    assert.throws(() => runCli({ ...fixture, out }), /outputs\.searchText\.sha256/u);
+    assert.equal(false, readFileExists(out));
+
+    fixture.manifest.outputs.searchText.sha256 = expectedSearchTextArtifactSha256(fixture.manifest);
+    fixture.manifest.outputs.searchText.rows = 999;
+    writeFileSync(fixture.manifestPath, `${JSON.stringify(fixture.manifest, null, 2)}\n`);
+    assert.throws(() => runCli({ ...fixture, out }), /outputs\.searchText\.rows/u);
+    assert.equal(false, readFileExists(out));
 }));
+
+function expectedSearchTextArtifactSha256(manifest) {
+    const games = Array.from({ length: 1000 }, (_, index) => {
+        const gameId = index + 1;
+        if (gameId === 1) {
+            return { gameId, searchText: '게임명: 디 마허\n영문명: Die Macher\n설명: 짧은 설명, 자세한 설명' };
+        }
+        if (gameId === 1000) {
+            return { gameId, searchText: '게임명: 두번째 INSERT 게임\n설명: 두번째 설명, 두번째 상세 설명' };
+        }
+        return { gameId, searchText: `게임명: 게임 ${gameId}` };
+    });
+    const canonicalGames = Buffer.from(`${JSON.stringify(games)}\n`, 'utf8');
+    const artifact = {
+        schemaVersion: 1,
+        kind: 'poc-search-text',
+        datasetRelease: {
+            releaseId: manifest.datasetRelease.releaseId,
+            datasetId: manifest.datasetRelease.datasetId,
+            manifestSha256: manifest.datasetRelease.manifestSha256,
+        },
+        corpus: manifest.sources.corpus,
+        approvedFields: manifest.approvedFields,
+        gameCount: games.length,
+        searchTextSha256: sha256(canonicalGames),
+        games,
+    };
+    return sha256(Buffer.from(`${JSON.stringify(artifact, null, 2)}\n`, 'utf8'));
+}
 
 function readFileExists(path) {
     try {

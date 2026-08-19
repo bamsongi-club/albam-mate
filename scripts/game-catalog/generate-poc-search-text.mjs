@@ -59,7 +59,7 @@ export function renderSearchTextArtifact({ manifest, games }) {
             datasetId: manifest.datasetRelease.datasetId,
             manifestSha256: manifest.datasetRelease.manifestSha256,
         },
-        corpus: manifest.corpus,
+        corpus: manifest.sources.corpus,
         approvedFields: SEARCH_TEXT_FIELD_ORDER.filter((field) => manifest.approvedFields.includes(field)),
         gameCount: games.length,
         searchTextSha256: sha256(Buffer.from(canonicalGames, 'utf8')),
@@ -117,7 +117,7 @@ function parseGames(sql, wanted) {
 function parseMetadata(sql) {
     sql = Buffer.isBuffer(sql) ? sql.toString('utf8') : String(sql);
     return {
-        mechanisms: parseDictionary(sql, 'game_mechanisms', 'bgg_mechanism_id', true),
+        mechanisms: parseMechanismDictionary(sql),
         themes: parseDictionary(sql, 'game_themes', 'bgg_theme_id', true),
         categories: parseDictionary(sql, 'game_categories', 'code', false),
         mechanismRelations: parseRelations(sql, MECHANISM_RELATION_MARKER, true, 'mechanism'),
@@ -126,20 +126,37 @@ function parseMetadata(sql) {
     };
 }
 
+function parseMechanismDictionary(sql) {
+    const source = parseDictionaryIfPresent(sql, 'mechanism_catalog_source', 'bgg_mechanism_id', true);
+    if (source !== null) {
+        if (source.size === 0) throw new Error('missing mechanism_catalog_source dictionary');
+        return source;
+    }
+    return parseDictionary(sql, 'game_mechanisms', 'bgg_mechanism_id', true);
+}
+
 function parseDictionary(sql, table, idField, numeric) {
+    const entries = parseDictionaryIfPresent(sql, table, idField, numeric);
+    if (!entries || entries.size === 0) throw new Error(`missing ${table} dictionary`);
+    return entries;
+}
+
+function parseDictionaryIfPresent(sql, table, idField, numeric) {
     const marker = new RegExp(`insert\\s+into\\s+${table}\\s*\\(`, 'giu');
     const entries = new Map();
+    let found = false;
     for (const match of sql.matchAll(marker)) {
+        found = true;
         const columns = readTuple(sql, match.index + match[0].length - 1);
         const index = toIndex(columns.values);
         if (!(idField in index) || !('name_ko' in index)) throw new Error(`${table} dictionary is missing required columns`);
+        if (!/^values\b/iu.test(sql.slice(skipWhitespace(sql, columns.nextIndex)))) continue;
         for (const row of readValuesTuples(sql, columns.nextIndex).values) {
             const id = numeric ? positiveInteger(row[index[idField]], `${table}.${idField}`) : nonEmptyString(row[index[idField]], `${table}.${idField}`);
             entries.set(id, nonEmptyString(row[index.name_ko], `${table}.name_ko`));
         }
     }
-    if (entries.size === 0) throw new Error(`missing ${table} dictionary`);
-    return entries;
+    return found ? entries : null;
 }
 
 function parseRelations(sql, marker, numeric, label) {
@@ -268,8 +285,8 @@ function main() {
     const options = parseOptions(process.argv.slice(2));
     const poc = readJson(options.manifest, 'poc manifest');
     const datasetPath = resolveReference(options.manifest, poc.value.datasetRelease?.manifestPath, 'datasetRelease.manifestPath');
-    const corpusPath = resolveReference(options.manifest, poc.value.corpus?.path, 'corpus.path');
-    if (realpathSync(options.corpus) !== corpusPath) throw new Error('--corpus must match manifest.corpus.path');
+    const corpusPath = resolveReference(options.manifest, poc.value.sources?.corpus?.path, 'sources.corpus.path');
+    if (realpathSync(options.corpus) !== corpusPath) throw new Error('--corpus must match manifest.sources.corpus.path');
     const dataset = readJson(datasetPath, 'dataset release manifest');
     const corpus = readJson(corpusPath, 'corpus');
     const artifacts = validateArtifactFiles(dataset.value, options.artifactsRoot);
@@ -277,7 +294,18 @@ function main() {
     validateCatalogDatasetReleaseManifest(dataset.value, { actualArtifacts: artifacts });
     validatePocSearchTextManifest(poc.value, { datasetManifest: dataset.value, actualManifestSha256: sha256(dataset.contents), actualCorpusSha256: sha256(corpus.contents) });
     const games = generatePocSearchText({ manifest: poc.value, datasetManifest: dataset.value, actualManifestSha256: sha256(dataset.contents), corpus: corpus.value, actualCorpusSha256: sha256(corpus.contents), gamesSql: artifacts['01'].contents, metadataSql: artifacts['02'].contents });
+    assertExpectedOutput(options.out, options.manifest, poc.value, games);
     writeFileSync(options.out, renderSearchTextArtifact({ manifest: poc.value, games }), 'utf8');
+}
+
+function assertExpectedOutput(out, manifestPath, manifest, games) {
+    const expectedPath = resolve(dirname(manifestPath), manifest.outputs.searchText.path);
+    if (resolve(out) !== expectedPath) throw new Error('--out must match outputs.searchText.path');
+    if (manifest.outputs.searchText.rows !== games.length) throw new Error('outputs.searchText.rows does not match canonical output');
+    const artifact = renderSearchTextArtifact({ manifest, games });
+    if (manifest.outputs.searchText.sha256 !== sha256(Buffer.from(artifact, 'utf8'))) {
+        throw new Error('outputs.searchText.sha256 does not match canonical output');
+    }
 }
 
 function assertOutputIsSeparate(out, inputs) {
