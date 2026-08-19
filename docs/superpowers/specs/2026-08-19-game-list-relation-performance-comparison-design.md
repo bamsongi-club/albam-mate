@@ -51,7 +51,7 @@ Slice 전환 후 6개 HTTP 시나리오의 tail은 batch마다 크게 흔들렸�
 | --- | --- | --- | --- |
 | V0 | 현재 Slice 그대로 | count 제거 뒤의 실제 기준선 | relation/complex fan-out은 유지된다. |
 | V1 | relation query shape만 변경 | 관계 테이블에서 시작하는 semi-join 또는 DB 내부 후보 교집합으로 per-game correlated 확인을 줄일 수 있다. | `ANY`·`ALL`, 복수 theme/mechanism, 다른 필터와의 AND, 정렬·페이지 경계 의미가 달라질 수 있다. |
-| V2 | `game_theme_relations(theme_id, game_id)` 복합 인덱스만 추가 | theme code에서 game ID를 찾는 역방향 relation 접근을 index-only에 가깝게 만들 수 있다. | 인덱스 크기·쓰기 비용·Flyway 배포 비용이 생기며, 기존 query shape만으로는 효과가 작을 수 있다. |
+| V2 | 기존 `theme_id` 단일 인덱스를 `game_theme_relations(theme_id, game_id)` 복합 인덱스로 교체 | theme code에서 game ID를 찾는 역방향 relation 접근을 index-only에 가깝게 만들 수 있다. | 인덱스 크기·쓰기 비용·Flyway 배포 비용이 생기며, 기존 query shape만으로는 효과가 작을 수 있다. |
 | V3 | V1과 V2를 함께 적용 | 좁힌 query shape가 복합 인덱스를 실제 접근 경로로 쓸 때 추가 이득이 있는지 확인한다. | 원인 분리가 어려우므로 V1/V2 단독 결과 없이 채택하지 않는다. |
 
 V1은 relation code를 relation ID로 해석한 뒤, DB 안에서 relation 테이블 기반 후보를 semi-join 또는 교집합으로 만들고 game 필터·정렬을 적용한다. 어느 relation을 선행할지는 고정된 `theme` 가정이 아니라 실제 plan의 후보 수와 선택도에 따라 정한다. `ALL`은 요청한 code 수와 일치하는 relation만 남기고, `ANY`는 하나 이상을 만족하는 relation만 남겨 현재 의미를 보존한다.
