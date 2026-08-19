@@ -60,7 +60,8 @@ public final class AiProviderIntentExtractor implements AssistantIntentExtractor
 		if (!settings.readyForCall()) {
 			return failure(AssistantIntentStatus.NOT_ENABLED);
 		}
-		if (containsSensitiveInput(request.currentUserSentence())) {
+		if (containsSensitiveInput(request.currentUserSentence())
+			|| request.missingFields().stream().anyMatch(this::containsSensitiveInput)) {
 			return failure(AssistantIntentStatus.SENSITIVE_INPUT_REJECTED);
 		}
 		Instant startedAt = clock.instant();
@@ -87,7 +88,7 @@ public final class AiProviderIntentExtractor implements AssistantIntentExtractor
 		AssistantIntentExtraction result = response.succeeded()
 			? success(response, startedAt)
 			: failure(statusFor(response.failure()), response, startedAt, chargedCostUsd);
-		AiQuotaCompletionStatus completionStatus = completeQuota(reservation, chargedCostUsd);
+		AiQuotaCompletionStatus completionStatus = completeOnce(reservation, chargedCostUsd);
 		if (completionStatus == AiQuotaCompletionStatus.UNAVAILABLE) {
 			quotaLedger.scheduleCompletionRetry(reservation, chargedCostUsd);
 			result = failure(AssistantIntentStatus.SERVICE_UNAVAILABLE, response, startedAt, chargedCostUsd);
@@ -96,14 +97,6 @@ public final class AiProviderIntentExtractor implements AssistantIntentExtractor
 			usageEventSink.record(result.usage());
 		}
 		return result;
-	}
-
-	private AiQuotaCompletionStatus completeQuota(AiQuotaReservation reservation, BigDecimal costUsd) {
-		AiQuotaCompletionStatus status = completeOnce(reservation, costUsd);
-		if (status == AiQuotaCompletionStatus.UNAVAILABLE) {
-			return completeOnce(reservation, costUsd);
-		}
-		return status;
 	}
 
 	private AiQuotaCompletionStatus completeOnce(AiQuotaReservation reservation, BigDecimal costUsd) {
