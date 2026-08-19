@@ -62,6 +62,9 @@ class MatchBlockHttpIntegrationTest {
 		mockMvc.perform(get("/api/matches/blocks").param("page", "-1").with(authenticationFor(blockerUserId)))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
+		mockMvc.perform(get("/api/matches/blocks").param("size", "0").with(authenticationFor(blockerUserId)))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
 		mockMvc.perform(get("/api/matches/blocks").param("size", "101").with(authenticationFor(blockerUserId)))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
@@ -87,15 +90,56 @@ class MatchBlockHttpIntegrationTest {
 			.andExpect(jsonPath("$.data.blockedUser.userId").doesNotExist());
 		assertBlockCount(requesterUserId, blockedUserId, 1);
 
+		String expectedBlocks = blockSnapshot();
+		mockMvc.perform(blockPut(partyId, blockedRef))
+			.andExpect(status().isUnauthorized())
+			.andExpect(jsonPath("$.code").value(ErrorCode.UNAUTHENTICATED.getCode()));
+		assertBlockSnapshotEquals(expectedBlocks);
+
+		mockMvc.perform(blockPut(partyId, blockedRef).with(authenticationFor(requesterUserId)))
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.code").value(ErrorCode.CSRF_TOKEN_INVALID.getCode()));
+		assertBlockSnapshotEquals(expectedBlocks);
+		mockMvc.perform(blockPut(partyId, blockedRef)
+			.with(authenticationFor(requesterUserId)).with(csrf().useInvalidToken()))
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.code").value(ErrorCode.CSRF_TOKEN_INVALID.getCode()));
+		assertBlockSnapshotEquals(expectedBlocks);
+
+		mockMvc.perform(put("/api/matches/parties/{partyId}/participants/{participantRef}/block", "not-a-number", blockedRef)
+			.with(authenticationFor(requesterUserId)).with(csrf()))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
+		assertBlockSnapshotEquals(expectedBlocks);
+
+		mockMvc.perform(blockPut(0L, blockedRef).with(authenticationFor(requesterUserId)).with(csrf()))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
+		assertBlockSnapshotEquals(expectedBlocks);
+
+		mockMvc.perform(put("/api/matches/parties/{partyId}/participants/{participantRef}/block", partyId, "not-a-uuid")
+			.with(authenticationFor(requesterUserId)).with(csrf()))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
+		assertBlockSnapshotEquals(expectedBlocks);
+
+		mockMvc.perform(blockPut(9_999_999L, UUID.randomUUID()).with(authenticationFor(outsiderUserId)).with(csrf()))
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.code").value(ErrorCode.FORBIDDEN.getCode()));
+		assertBlockSnapshotEquals(expectedBlocks);
+
 		mockMvc.perform(blockPut(partyId, blockedRef).with(authenticationFor(outsiderUserId)).with(csrf()))
 			.andExpect(status().isForbidden())
 			.andExpect(jsonPath("$.code").value(ErrorCode.FORBIDDEN.getCode()));
+		assertBlockSnapshotEquals(expectedBlocks);
 		mockMvc.perform(blockPut(partyId, UUID.randomUUID()).with(authenticationFor(requesterUserId)).with(csrf()))
 			.andExpect(status().isNotFound())
 			.andExpect(jsonPath("$.code").value(ErrorCode.MATCH_PARTICIPANT_NOT_FOUND.getCode()));
+		assertBlockSnapshotEquals(expectedBlocks);
 		mockMvc.perform(blockPut(partyId, requesterRef).with(authenticationFor(requesterUserId)).with(csrf()))
 			.andExpect(status().isForbidden())
 			.andExpect(jsonPath("$.code").value(ErrorCode.FORBIDDEN.getCode()));
+		assertBlockSnapshotEquals(expectedBlocks);
 		assertBlockCount(requesterUserId, requesterUserId, 0);
 	}
 
@@ -201,6 +245,16 @@ class MatchBlockHttpIntegrationTest {
 			"select count(*) from match_blocks where blocker_user_id = ? and blocked_user_id = ?",
 			Integer.class, blockerUserId, blockedUserId);
 		org.junit.jupiter.api.Assertions.assertEquals(expectedCount, blockCount);
+	}
+
+	private String blockSnapshot() {
+		return jdbcTemplate.queryForList(
+			"select id, blocker_user_id, blocked_user_id, created_at from match_blocks order by id")
+			.toString();
+	}
+
+	private void assertBlockSnapshotEquals(String expectedBlocks) {
+		org.junit.jupiter.api.Assertions.assertEquals(expectedBlocks, blockSnapshot());
 	}
 
 	private RequestPostProcessor authenticationFor(long userId) {

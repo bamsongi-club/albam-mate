@@ -1,9 +1,11 @@
 package cloud.bamsongi.albammate.matching;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.Instant;
@@ -42,6 +44,8 @@ class MatchBlockQueryServiceTest {
 		assertEquals(2, result.content().size());
 		assertEquals("첫대상", result.content().getFirst().blockedUser().nickname());
 		verify(userQuery).findPublicProfilesByIds(List.of(2L, 3L));
+		verify(userQuery, never()).findPublicProfileById(anyLong());
+		verifyNoMoreInteractions(userQuery);
 	}
 
 	@Test
@@ -56,7 +60,8 @@ class MatchBlockQueryServiceTest {
 		var result = service.findPage(1L, 1, 10);
 
 		assertEquals(0, result.content().size());
-		verifyNoInteractions(userQuery);
+		verify(userQuery, never()).findPublicProfileById(anyLong());
+		verifyNoMoreInteractions(userQuery);
 	}
 
 	private MatchBlock block(long blockId, long blockerUserId, long blockedUserId) {
