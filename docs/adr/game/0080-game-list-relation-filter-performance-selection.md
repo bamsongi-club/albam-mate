@@ -3,7 +3,7 @@
 - 상태: 승인됨
 - 작성일: 2026-08-19
 - 결정일: 2026-08-19
-- 관련: [#770 게임 목록 Slice 전환](https://github.com/bamsongi-club/albam-mate/issues/770), [#863 게임 목록 동시 부하·자원·오류율 검증](https://github.com/bamsongi-club/albam-mate/issues/863), [게임 목록 17만 건 기준선](../../measurements/game-list-740-baseline.md), [relation·complex 후보 비교 설계](../../superpowers/specs/2026-08-19-game-list-relation-performance-comparison-design.md), [ADR-0050: 게임 메타데이터 카탈로그와 상세 필터](0050-game-metadata-catalog-and-filters.md)
+- 관련: [#770 게임 목록 Slice 전환](https://github.com/bamsongi-club/albam-mate/issues/770), [#867 relation·complex 후보 비교](https://github.com/bamsongi-club/albam-mate/issues/867), [#863 게임 목록 동시 부하·자원·오류율 검증](https://github.com/bamsongi-club/albam-mate/issues/863), [게임 목록 17만 건 기준선](../../measurements/game-list-740-baseline.md), [relation·complex 후보 비교 설계](../../superpowers/specs/2026-08-19-game-list-relation-performance-comparison-design.md), [ADR-0050: 게임 메타데이터 카탈로그와 상세 필터](0050-game-metadata-catalog-and-filters.md)
 - 대체 대상: 없음
 - 후속 ADR: 없음
 
@@ -115,6 +115,7 @@ HTTP p50/p95/max와 한 번 실행한 `EXPLAIN ANALYZE` execution time은 같은
 - [#770 Slice 실측 결과](../../measurements/results/game-list-740/game-list-770-2026-08-19.md)
 - [relation·complex 후보 비교 설계](../../superpowers/specs/2026-08-19-game-list-relation-performance-comparison-design.md)
 - [#770 게임 목록 Slice 전환](https://github.com/bamsongi-club/albam-mate/issues/770)
+- [#867 relation·complex 후보 비교](https://github.com/bamsongi-club/albam-mate/issues/867)
 - [#863 게임 목록 동시 부하·자원·오류율 검증](https://github.com/bamsongi-club/albam-mate/issues/863)
 
 ## 검증
@@ -122,7 +123,7 @@ HTTP p50/p95/max와 한 번 실행한 `EXPLAIN ANALYZE` execution time은 같은
 - 상태: 미검증
 - 근거: 없음
 - 미검증:
-  - 독립 performance issue의 최신 전체 T1~T5 승인과 V1/V2/V3 구현·H2/PostgreSQL 회귀 테스트
+  - [#867](https://github.com/bamsongi-club/albam-mate/issues/867)의 최신 전체 T1~T5 승인과 V1/V2/V3 구현·H2/PostgreSQL 회귀 테스트
   - 동일 fixture·runner SHA의 16개 valid raw artifact와 comparator 선택 결과
   - 여섯 scenario SQL capture, relation·complex content plan, base exact count 부재 capture
   - 선택된 candidate의 PostgreSQL migration pre-flight와 [#863](https://github.com/bamsongi-club/albam-mate/issues/863) 동시 부하·자원·오류율 결과
