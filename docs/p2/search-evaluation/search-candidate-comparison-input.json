@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "kind": "search-04-search-candidate-comparison-input",
+  "featureId": "SEARCH-04",
+  "approvalReference": "https://github.com/bamsongi-club/albam-mate/issues/885#issuecomment-5343789151",
+  "evaluationProfile": "development-seed",
+  "inputContract": {
+    "path": "search-candidate-comparison/dense-input-contract.json",
+    "sha256": "6aa335c412551e1c0290d2b697483dceee94e42fe3da13135ed38bece5a10dae"
+  },
+  "searchText": {
+    "path": "dense-bge-m3/search-text-top1000.json",
+    "sha256": "ec364be3a34268d1bb6d27e3c41e2cdd31852565eec79fa31faaacda17af4ece"
+  },
+  "candidates": [
+    {
+      "name": "lexical",
+      "sourcePullRequest": 884,
+      "rerunScope": "#885 common 15-query fixture",
+      "queryFixture": {
+        "path": "queries.json",
+        "sha256": "7dae3cdd6b36756dd6b210c6dc1c0121cad9ec197187246dd607b1eb130a2b2f"
+      },
+      "results": {
+        "path": "search-candidate-comparison/lexical-results.json",
+        "sha256": "b20965faf427ad56584323831b6a8588e2ce3576621abc739bbae06360c4ea07"
+      }
+    },
+    {
+      "name": "sparse",
+      "sourcePullRequest": 884,
+      "rerunScope": "#885 common 15-query fixture",
+      "queryFixture": {
+        "path": "queries.json",
+        "sha256": "7dae3cdd6b36756dd6b210c6dc1c0121cad9ec197187246dd607b1eb130a2b2f"
+      },
+      "results": {
+        "path": "search-candidate-comparison/sparse-results.json",
+        "sha256": "5bbf261860cf9141065111b5713bc1365691d4518c9169d75f7a8dc249c92d67"
+      }
+    },
+    {
+      "name": "dense-bge-m3",
+      "sourcePullRequest": 878,
+      "rerunScope": "#885 common 15-query fixture",
+      "queryFixture": {
+        "path": "queries.json",
+        "sha256": "7dae3cdd6b36756dd6b210c6dc1c0121cad9ec197187246dd607b1eb130a2b2f"
+      },
+      "results": {
+        "path": "search-candidate-comparison/dense-results.json",
+        "sha256": "c71009c265d5606fb9bc9cc9bf8f23a3c7589fa364164ac4d5f0f4c6a09be907"
+      }
+    }
+  ]
+}

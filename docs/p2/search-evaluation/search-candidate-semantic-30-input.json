@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "kind": "search-04-search-candidate-comparison-input",
+  "featureId": "SEARCH-04",
+  "approvalReference": "https://github.com/bamsongi-club/albam-mate/issues/885#issuecomment-5344383511",
+  "evaluationProfile": "semantic-30-v1",
+  "fixtureProfile": {
+    "rows": 30,
+    "primaryAnalysisClass": "semantic-core",
+    "separateAnalysisClasses": [
+      "contrast-hard-semantic",
+      "hybrid-hard-filter"
+    ],
+    "anchorQueryIds": [
+      "Q-001",
+      "Q-009",
+      "Q-024"
+    ],
+    "humanQrelsRequired": true,
+    "qualityReady": false
+  },
+  "inputContract": {
+    "path": "search-candidate-comparison/semantic-30-dense-input-contract.json",
+    "sha256": "6bfa028232c531e80db6f3fdc4d74708c4641d450e724301af684142091c70ca"
+  },
+  "searchText": {
+    "path": "dense-bge-m3/search-text-top1000.json",
+    "sha256": "ec364be3a34268d1bb6d27e3c41e2cdd31852565eec79fa31faaacda17af4ece"
+  },
+  "candidates": [
+    {
+      "name": "lexical",
+      "sourcePullRequest": 884,
+      "rerunScope": "#885 semantic-30-v1 common fixture",
+      "queryFixture": {
+        "path": "search-candidate-comparison/semantic-30-queries.json",
+        "sha256": "84522f97b196d12db33b082fc26529218555b9408a973e6b6da3577587387142"
+      },
+      "results": {
+        "path": "search-candidate-comparison/semantic-30-lexical-results.json",
+        "sha256": "52c3a4c8d8bb834bf12eebe999f76cd5aa7b7a78827500db4626ca4ee920eec8"
+      }
+    },
+    {
+      "name": "sparse",
+      "sourcePullRequest": 884,
+      "rerunScope": "#885 semantic-30-v1 common fixture",
+      "queryFixture": {
+        "path": "search-candidate-comparison/semantic-30-queries.json",
+        "sha256": "84522f97b196d12db33b082fc26529218555b9408a973e6b6da3577587387142"
+      },
+      "results": {
+        "path": "search-candidate-comparison/semantic-30-sparse-results.json",
+        "sha256": "839b30f7e845b4a1af8b7750b01c36a7c3b63e4cedf10af0cff4456309eac26f"
+      }
+    },
+    {
+      "name": "dense-bge-m3",
+      "sourcePullRequest": 878,
+      "rerunScope": "#885 semantic-30-v1 common fixture",
+      "queryFixture": {
+        "path": "search-candidate-comparison/semantic-30-queries.json",
+        "sha256": "84522f97b196d12db33b082fc26529218555b9408a973e6b6da3577587387142"
+      },
+      "results": {
+        "path": "search-candidate-comparison/semantic-30-dense-results.json",
+        "sha256": "d156b0b9d1982bd383acd8b197502b2867b07f4e671f29b3f3906f98a29f7783"
+      }
+    }
+  ]
+}

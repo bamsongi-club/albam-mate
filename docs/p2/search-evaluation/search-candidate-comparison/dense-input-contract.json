@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "kind": "search-04-search-candidate-dense-input",
+  "approvalReference": "https://github.com/bamsongi-club/albam-mate/issues/885#issuecomment-5343789151",
+  "sourceGitHead": "974e55a05be944a70fc157c30e3da0c7888883d3",
+  "evaluationProfile": "development-seed",
+  "sourceHashes": {
+    "qualityCorpus": "0ce65a0ab500054c11548fe487afab8247b8f09282087f6db4d144d0783c87e8",
+    "searchText": "ec364be3a34268d1bb6d27e3c41e2cdd31852565eec79fa31faaacda17af4ece",
+    "queries": "7dae3cdd6b36756dd6b210c6dc1c0121cad9ec197187246dd607b1eb130a2b2f",
+    "displayMap": "b3e717225cc091712071506d24c7653823994ec6b9743b2a8c3532fa659b3ffc"
+  },
+  "sources": {
+    "qualityCorpus": {
+      "path": "../quality-corpus.json",
+      "sha256": "0ce65a0ab500054c11548fe487afab8247b8f09282087f6db4d144d0783c87e8",
+      "rows": 1000
+    },
+    "searchText": {
+      "path": "../dense-bge-m3/search-text-top1000.json",
+      "sha256": "ec364be3a34268d1bb6d27e3c41e2cdd31852565eec79fa31faaacda17af4ece",
+      "rows": 1000
+    },
+    "queries": {
+      "path": "../queries.json",
+      "sha256": "7dae3cdd6b36756dd6b210c6dc1c0121cad9ec197187246dd607b1eb130a2b2f",
+      "rows": 15
+    },
+    "displayMap": {
+      "path": "../dense-bge-m3/display-map-top1000.json",
+      "sha256": "b3e717225cc091712071506d24c7653823994ec6b9743b2a8c3532fa659b3ffc",
+      "rows": 1000
+    },
+    "modelArtifactManifest": {
+      "path": "../dense-bge-m3/model-artifact-manifest.json",
+      "sha256": "82bc00be0afb7daa72f89b3e7a7f14552b59466550a9eafa2f965b59e65cb708",
+      "rows": 10
+    }
+  },
+  "queryIds": [
+    "Q-001",
+    "Q-002",
+    "Q-003",
+    "Q-004",
+    "Q-005",
+    "Q-006",
+    "Q-007",
+    "Q-008",
+    "Q-009",
+    "Q-010",
+    "Q-011",
+    "Q-012",
+    "Q-013",
+    "Q-014",
+    "Q-015"
+  ],
+  "applyHardFilters": true,
+  "topK": 20,
+  "model": {
+    "provider": "local",
+    "modelId": "BAAI/bge-m3",
+    "revision": "5617a9f61b028005a4858fdac845db406aefb181",
+    "dimension": 1024,
+    "pooling": "cls",
+    "normalized": true,
+    "denseOnly": true,
+    "similarity": "normalized-dot"
+  }
+}

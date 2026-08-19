@@ -8,7 +8,8 @@
 
 - profile: `development-seed`
 - 상태: `draft`
-- fixture: 15 query + 대표 anchor 3개
+- canonical fixture: 15 query + 대표 anchor 3개
+- #885 비교 fixture: 별도 `semantic-30-v1` 30 query
 - BoardLife mapping: `provisional`
 
 따라서 현재 fixture/validator 성공은 **SEARCH-04 최종 품질 승인이나 `quality-ready`를 의미하지 않습니다.**
@@ -72,6 +73,8 @@ Final Quality Evaluation 완료 전에는 SEARCH-04 최종 검색 방식, produc
 - `manifest.json`: profile, catalog release, quality corpus release, checksum, cohort, approval gate
 - `quality-corpus.json`: pinned ranking snapshot/hash, mapping·dedupe·정렬·target N 규칙과 fixture 참조 membership projection
 - `queries.json`: query, cohort, hard filter, expected/excluded game ID, relevance reason, source/version
+- `search-candidate-semantic-30-input.json`: #885 `semantic-30-v1` 후보 비교 manifest
+- `search-candidate-comparison/semantic-30-queries.json`: 의미기반 30 query와 `semantic-core`·`contrast-hard-semantic`·`hybrid-hard-filter` 분류
 - `queriesSha256`·`qualityCorpusSha256`: 원자료 변경 감지용 SHA-256
 - `manifest.index`: corpus version/checksum과 `BUILDING → READY` 또는 `FAILED`, 실패 시 이전 `READY` 유지 규칙
 
@@ -91,7 +94,7 @@ Catalog Dataset Release 승인과 Search/Embedding Execution 승인은 분리합
 - 경계: Q-010~Q-012는 사람 판정 전 `unjudged`이며, 이 결과는 quality-ready·finalist·production model 승인으로 해석하지 않는다.
 - gold 준비: 후보 설명을 붙인 독립 사람 판정 packet은 다음 명령으로 생성한다. packet의 `grade`는 두 사람이 독립적으로 0·1·2를 채운 뒤 불일치 시 제3 판정으로 합의해야 하며, 빈 packet은 gold qrels가 아니다.
 - 현재 packet: [`dense-bge-m3/gold-judgement-packet.json`](dense-bge-m3/gold-judgement-packet.json)은 3개 query·60개 후보의 설명만 포함하며 아직 gold qrels가 아니다.
-- 현재 #866 결과가 없으므로 Hybrid/RRF와 최종 검색 방식 선택은 `deferred`다.
+- #884의 15개 query fixture와 #878의 3개 Dense query fixture는 기존 evidence로 보존하며, 공통 방식 비교에는 사용하지 않는다. #885에서 승인한 `semantic-30-v1`은 별도 동일 fixture로 Lexical·Sparse·Dense를 재실행했지만, 독립 human qrels 전까지 Hybrid/RRF와 최종 검색 방식 선택은 `pending`이다.
 
 실행 manifest와 모든 입력·출력 checksum은 [`dense-bge-m3/manifest.json`](dense-bge-m3/manifest.json)에 보존한다. 승인된 로컬 모델 snapshot과 고정된 [`model-artifact-manifest.json`](dense-bge-m3/model-artifact-manifest.json)을 준비한 뒤 다음 명령으로 새 results를 생성한다. 모델 파일과 입력 manifest가 승인 snapshot과 다르면 실행을 거부한다.
 
@@ -122,6 +125,42 @@ node --test scripts/search-evaluation/dense-bge-m3-execution.test.mjs
 ```
 
 Lexical·Sparse offline baseline의 입력 descriptor·검증·점수 규칙·공통 결과 형식은 [실행 규약](lexical-sparse-baseline.md)을 따른다.
+
+### #885 후보 종합 비교
+
+후보 종합 비교기는 [`scripts/search-evaluation/search-candidate-comparison.mjs`](../../../scripts/search-evaluation/search-candidate-comparison.mjs)다. 비교 전에 각 후보의 query fixture, 결과 파일과 SHA-256을 입력 manifest의 descriptor로 검증한다.
+
+```bash
+node scripts/search-evaluation/search-candidate-comparison.mjs \
+  --check \
+  --manifest /path/to/search-candidate-comparison-input.json
+```
+
+후보 간 query ID·문구·cohort·`analysisClass`·hard filter가 하나라도 다르면 비교를 중단한다. ID만 같고 query 문구가 다른 결과를 같은 질의로 취급하지 않으며, `expectedGameIds`·provisional ID를 qrels 대신 사용하지 않는다.
+
+사람 판정 packet은 검증된 후보 Top-K union의 공개 catalog evidence만 포함하고 model·score·source rank를 숨긴다.
+
+```bash
+node scripts/search-evaluation/search-candidate-comparison.mjs \
+  --packet \
+  --manifest /path/to/search-candidate-comparison-input.json \
+  --out /tmp/search-04-candidate-judgement-packet.json
+```
+
+독립 판정자 2명의 0·1·2 grade와 불일치 시 제3 판정 consensus가 `approved` 된 뒤에만 `--metrics`가 Recall@10·MRR@10·nDCG@10·hard-filter violation을 계산한다. 지표가 준비되어도 최종 방식은 자동 선택하지 않고 선택·탈락 근거를 별도로 기록한다.
+
+Hybrid/RRF는 필요할 때만 이미 검증된 ranked output에 `--hybrid-rrf`를 붙여 한 번 추가한다. 결합 규칙은 고정 `RRF k=60`, 동일 query의 기존 후보 union, `score DESC·gameId ASC` tie-break이며 새 후보를 생성하거나 결과에 맞춰 파라미터를 튜닝하지 않는다.
+
+```bash
+node scripts/search-evaluation/search-candidate-comparison.mjs \
+  --metrics \
+  --hybrid-rrf \
+  --manifest /path/to/search-candidate-comparison-input.json \
+  --judgements /path/to/approved-search-candidate-qrels.json \
+  --out /tmp/search-04-candidate-comparison.json
+```
+
+`semantic-30-v1` 실행 manifest는 [`search-candidate-semantic-30-input.json`](search-candidate-semantic-30-input.json)이다. 승인된 fixture SHA-256은 `84522f97b196d12db33b082fc26529218555b9408a973e6b6da3577587387142`이며, 결과는 `search-candidate-comparison/semantic-30-lexical-results.json`, `semantic-30-sparse-results.json`, `semantic-30-dense-results.json`에 보존한다. blind packet은 30 query·1,369 candidate row이며 후보명·score·source rank를 숨긴다. 현재 qrels가 없어 metrics/RRF report는 `pending-human-judgement`, 방식 선택은 null이다.
 
 ### 구조 검증
 

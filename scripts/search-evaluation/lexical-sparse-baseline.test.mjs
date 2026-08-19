@@ -113,6 +113,24 @@ test('T1: 같은 pinned 입력의 lexical baseline은 결정적 ranked ID와 che
     assert.deepEqual(tieBreak.rankedGameIds, [1, 2]);
 });
 
+test('명시한 semantic query fixture로 baseline 결과를 만들 수 있다', () => {
+    const data = fixture();
+    const customQuery = {
+        ...data.manifest.queries[0],
+        id: 'Q-CUSTOM',
+        query: '의미 기반 협력 게임',
+        hardFilters: {},
+    };
+    const results = buildBaselineResults({
+        ...data,
+        mode: 'lexical',
+        manifestPath: MANIFEST_PATH,
+        queries: [customQuery],
+    });
+
+    assert.deepEqual(Object.keys(results), ['Q-CUSTOM']);
+});
+
 test('T2: Sparse baseline은 메커니즘·카테고리·테마 field만 신호로 사용한다', () => {
     const data = fixture();
     const results = runBaseline(data, 'sparse');
@@ -223,6 +241,18 @@ test('T4: 숫자·시간 hard filter는 점수 신호와 분리되고 결과에�
         ]),
     });
     assert.deepEqual(timeResults.rankedGameIds, [2]);
+
+    const unknownTimeResults = rankQuery({
+        mode: 'lexical',
+        query: { query: '스페이스크루 30분 이하', hardFilters: { maxPlayTimeMinutes: 30 } },
+        games: [
+            { gameId: 1, searchText: '게임명: 스페이스크루' },
+        ],
+        corpusById: new Map([
+            [1, { gameId: 1, minPlayers: 1, maxPlayers: 4, maxPlayTimeMinutes: null }],
+        ]),
+    });
+    assert.deepEqual(unknownTimeResults.rankedGameIds, []);
 
     const maxPlayersResults = rankQuery({
         mode: 'lexical',

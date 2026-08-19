@@ -463,6 +463,9 @@ jobs:
       - name: Test SEARCH-04 lexical sparse baseline
         run: node --test scripts/search-evaluation/lexical-sparse-baseline.test.mjs
 
+      - name: Test SEARCH-04 candidate comparison
+        run: node --test scripts/search-evaluation/search-candidate-comparison.test.mjs
+
       - name: Test monitoring contract checker
         run: node --test scripts/docs/check-monitoring-contract.test.mjs
 

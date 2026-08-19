@@ -365,6 +365,8 @@ test("검색 평가 범위를 벗어난 변경 파일을 거절한다", () => {
         "docs/p2/search-evaluation/quality-corpus.json",
         "scripts/p2-search-evaluation.mjs",
         "scripts/p2-search-evaluation.test.mjs",
+        "scripts/search-evaluation/search-candidate-comparison.mjs",
+        "scripts/search-evaluation/search-candidate-comparison.test.mjs",
         ".github/workflows/ci.yml",
     ]));
     assert.throws(
