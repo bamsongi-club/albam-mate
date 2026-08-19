@@ -18,6 +18,7 @@ function startServer({
   hangMeasuredRequest = false,
   hangDiscoveryPath = null,
   datasetSize = 170005,
+  responseSize = 24,
 } = {}) {
   let gameRequests = 0;
   const server = createServer((request, response) => {
@@ -54,15 +55,19 @@ function startServer({
       if (hangMeasuredRequest && gameRequests === 7) {
         return;
       }
+      const totalPages = Math.ceil(datasetSize / responseSize);
       response.end(JSON.stringify({
         status: 200,
         data: {
-          content: [{ name: "Catan", englishName: "Catan" }],
+          content: Array.from(
+            { length: Math.min(datasetSize, responseSize) },
+            () => ({ name: "Catan", englishName: "Catan" }),
+          ),
           page: 0,
-          size: 24,
+          size: responseSize,
           totalElements: datasetSize,
-          totalPages: Math.ceil(datasetSize / 24),
-          hasNext: false,
+          totalPages,
+          hasNext: totalPages > 1,
         },
       }));
       return;
@@ -136,6 +141,14 @@ test("성공 산출물은 serverCommit과 runnerCommit 및 최신 170,005 datase
     assert.equal(report.dataset.gameCount, 170005);
     assert.equal(report.dataset.sha256, datasetSha256);
     assert.equal(report.results.length, 6);
+    assert.deepEqual(report.results[0].samples[0].pageMetadata, {
+      page: 0,
+      size: 24,
+      totalElements: 170005,
+      totalPages: Math.ceil(170005 / 24),
+      hasNext: true,
+      contentLength: 24,
+    });
   } finally {
     await server.close();
     fs.rmSync(outputDirectory, { recursive: true, force: true });
@@ -187,6 +200,23 @@ test("200 응답의 game list 계약이 다르면 실패 sample을 보존한다"
     assert.equal(report.status, "failed");
     assert.equal(report.results[0].samples.at(-1).status, 200);
     assert.match(report.results[0].samples.at(-1).error, /응답 계약 불일치/u);
+  } finally {
+    await server.close();
+    fs.rmSync(outputDirectory, { recursive: true, force: true });
+  }
+});
+
+test("요청한 page/size와 다른 200 응답은 실패 sample을 보존한다", async () => {
+  const server = await startServer({ responseSize: 10 });
+  const outputDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "game-list-740-page-size-mismatch-"));
+  try {
+    const result = await runRunner(server.baseUrl, outputDirectory);
+
+    assert.notEqual(result.status, 0);
+    const report = readSingleReport(outputDirectory);
+    assert.equal(report.status, "failed");
+    assert.equal(report.results[0].samples.at(-1).status, 200);
+    assert.match(report.results[0].samples.at(-1).error, /data.size가 요청 size=24와 다릅니다/u);
   } finally {
     await server.close();
     fs.rmSync(outputDirectory, { recursive: true, force: true });

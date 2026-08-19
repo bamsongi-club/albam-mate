@@ -155,7 +155,7 @@ async function fetchJson(url, requestTimeoutMs) {
   }
 }
 
-function gameListResponseError(body) {
+function gameListResponseError(body, expectedPage = null) {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     return "응답 envelope가 JSON object가 아닙니다.";
   }
@@ -188,7 +188,43 @@ function gameListResponseError(body) {
   if (page.content.some((item) => !item || typeof item !== "object" || Array.isArray(item))) {
     return "응답 data.content의 game item이 object가 아닙니다.";
   }
+  if (!expectedPage) {
+    return null;
+  }
+  if (page.page !== expectedPage.page) {
+    return `응답 data.page가 요청 page=${expectedPage.page}와 다릅니다: ${page.page}`;
+  }
+  if (page.size !== expectedPage.size) {
+    return `응답 data.size가 요청 size=${expectedPage.size}와 다릅니다: ${page.size}`;
+  }
+  const expectedTotalPages = Math.ceil(page.totalElements / expectedPage.size);
+  if (page.totalPages !== expectedTotalPages) {
+    return `응답 data.totalPages가 totalElements/size와 일치하지 않습니다: expected=${expectedTotalPages}, actual=${page.totalPages}`;
+  }
+  const expectedContentLength = Math.min(
+    expectedPage.size,
+    Math.max(0, page.totalElements - (expectedPage.page * expectedPage.size)),
+  );
+  if (page.content.length !== expectedContentLength) {
+    return `응답 data.content 길이가 요청 page/size와 일치하지 않습니다: expected=${expectedContentLength}, actual=${page.content.length}`;
+  }
+  const expectedHasNext = expectedPage.page + 1 < expectedTotalPages;
+  if (page.hasNext !== expectedHasNext) {
+    return `응답 data.hasNext가 page/totalPages와 일치하지 않습니다: expected=${expectedHasNext}, actual=${page.hasNext}`;
+  }
   return null;
+}
+
+function pageMetadata(body) {
+  const page = body.data;
+  return {
+    page: page.page,
+    size: page.size,
+    totalElements: page.totalElements,
+    totalPages: page.totalPages,
+    hasNext: page.hasNext,
+    contentLength: page.content.length,
+  };
 }
 
 function firstCode(response, label) {
@@ -204,7 +240,7 @@ async function discoverScenarioValues(baseUrl, requestTimeoutMs, expectedDataset
     `${baseUrl}/api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24`,
     requestTimeoutMs,
   );
-  const baseResponseError = gameListResponseError(base);
+  const baseResponseError = gameListResponseError(base, { page: 0, size: 24 });
   if (baseResponseError) {
     throw new Error(`base discovery 응답 계약 불일치: ${baseResponseError}`);
   }
@@ -277,7 +313,7 @@ function scenarioUrl(baseUrl, scenario) {
   return `${baseUrl}/api/games?${params.toString()}`;
 }
 
-async function requestOnce(url, requestTimeoutMs) {
+async function requestOnce(url, requestTimeoutMs, expectedPage) {
   const startedAt = performance.now();
   const controller = new AbortController();
   let timedOut = false;
@@ -294,6 +330,7 @@ async function requestOnce(url, requestTimeoutMs) {
     const buffer = await response.arrayBuffer();
     const bytes = buffer.byteLength;
     let error = null;
+    let responsePageMetadata = null;
     if (response.status === 200) {
       let body;
       try {
@@ -302,9 +339,11 @@ async function requestOnce(url, requestTimeoutMs) {
         error = "응답 body가 JSON이 아닙니다.";
       }
       if (!error) {
-        const responseError = gameListResponseError(body);
+        const responseError = gameListResponseError(body, expectedPage);
         if (responseError) {
           error = `응답 계약 불일치: ${responseError}`;
+        } else {
+          responsePageMetadata = pageMetadata(body);
         }
       }
     }
@@ -312,6 +351,7 @@ async function requestOnce(url, requestTimeoutMs) {
       status: response.status,
       elapsedMs: performance.now() - startedAt,
       bytes,
+      pageMetadata: responsePageMetadata,
       error,
     };
   } catch (error) {
@@ -322,6 +362,7 @@ async function requestOnce(url, requestTimeoutMs) {
       status: null,
       elapsedMs: performance.now() - startedAt,
       bytes: 0,
+      pageMetadata: null,
       error: `${message}: ${url}`,
     };
   } finally {
@@ -356,11 +397,15 @@ function summarize(samples) {
 
 async function measureScenario(baseUrl, scenario, warmUpRuns, measuredRuns, requestTimeoutMs) {
   const url = scenarioUrl(baseUrl, scenario);
+  const expectedPage = {
+    page: Number(scenario.params.page),
+    size: Number(scenario.params.size),
+  };
   const samples = [];
 
   try {
     for (let index = 0; index < warmUpRuns; index += 1) {
-      const warmUp = await requestOnce(url, requestTimeoutMs);
+      const warmUp = await requestOnce(url, requestTimeoutMs, expectedPage);
       if (warmUp.error) {
         throw new Error(`${scenario.name} warm-up 실패: ${warmUp.error}`);
       }
@@ -370,7 +415,7 @@ async function measureScenario(baseUrl, scenario, warmUpRuns, measuredRuns, requ
     }
 
     for (let index = 0; index < measuredRuns; index += 1) {
-      const sample = await requestOnce(url, requestTimeoutMs);
+      const sample = await requestOnce(url, requestTimeoutMs, expectedPage);
       samples.push({ run: index + 1, ...sample });
       if (sample.error) {
         throw new Error(`${scenario.name} 실측 실패: run=${index + 1}, ${sample.error}`);
