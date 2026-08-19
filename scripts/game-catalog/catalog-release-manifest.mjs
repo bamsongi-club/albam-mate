@@ -1,3 +1,9 @@
+import {
+    isDescriptionInputRequired,
+    isDescriptionProvenanceRequired,
+    validateDescriptionProvenance,
+} from "./description-quality.mjs";
+
 const REQUIRED_INPUTS = [
     'catalog',
     'names',
@@ -16,6 +22,7 @@ const REQUIRED_COVERAGE = [
 
 const REQUIRED_SOURCES = ['games', 'ranks'];
 const REQUIRED_OUTPUTS = ['serviceCatalog', 'upsertSql'];
+const REQUIRED_RENDERED_DESCRIPTION_FIELDS = ['description', 'detail_description'];
 const REQUIRED_PROCESSING_SCOPES = [
     'service-load',
     'search-text-assembly',
@@ -28,7 +35,15 @@ const WINDOWS_RESERVED_RELEASE_ID_PATTERN = /^(?:con|prn|aux|nul|com[1-9]|lpt[1-
 const UTC_INSTANT_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/u;
 const FIELD_NAME_PATTERN = /^[a-z][A-Za-z0-9_]{0,63}$/u;
 
-export function validateApprovedReleaseManifest(manifest, { actualInputs, actualOutputs } = {}) {
+export function validateApprovedReleaseManifest(
+    manifest,
+    {
+        actualInputs,
+        actualDescriptionInput,
+        actualOutputs,
+        requiredProcessingScopes = [],
+    } = {},
+) {
     assertObject(manifest, 'release manifest');
     assertEqual(manifest.schemaVersion, 1, 'schemaVersion must be 1');
     assertString(manifest.releaseId, 'releaseId');
@@ -48,7 +63,25 @@ export function validateApprovedReleaseManifest(manifest, { actualInputs, actual
     assertSafeIdentifier(manifest.datasetId, 'datasetId');
     validateApproval(manifest.approval);
     const approvedFields = validateStringArray(manifest.approvedFields, 'approvedFields');
-    validateProcessingScopes(manifest.approvedProcessingScopes);
+    const missingRenderedDescriptionFields = REQUIRED_RENDERED_DESCRIPTION_FIELDS.filter(
+        (field) => !approvedFields.includes(field),
+    );
+    if (missingRenderedDescriptionFields.length > 0) {
+        throw new Error(
+            `approvedFields must include rendered description fields: ${missingRenderedDescriptionFields.join(', ')}`,
+        );
+    }
+    if (isDescriptionProvenanceRequired(manifest, requiredProcessingScopes)) {
+        const descriptionProvenanceErrors = validateDescriptionProvenance(manifest);
+        if (descriptionProvenanceErrors.length > 0) {
+            throw new Error(descriptionProvenanceErrors[0].message);
+        }
+    }
+    if (isDescriptionInputRequired(manifest, requiredProcessingScopes) && actualDescriptionInput === undefined) {
+        throw new Error('description 처리 release는 실제 description input checksum·행수가 필요합니다.');
+    }
+    const approvedProcessingScopes = validateProcessingScopes(manifest.approvedProcessingScopes);
+    validateRequiredProcessingScopes(approvedProcessingScopes, requiredProcessingScopes);
     validateSearchText(manifest.search_text, approvedFields);
     validateEmbedding(manifest.embedding);
 
@@ -75,10 +108,30 @@ export function validateApprovedReleaseManifest(manifest, { actualInputs, actual
     if (actualInputs !== undefined) {
         compareArtifacts(manifest.sources, actualInputs, 'sources');
     }
+    if (actualDescriptionInput !== undefined) {
+        compareArtifact(
+            manifest.inputs.descriptions,
+            actualDescriptionInput,
+            'inputs.descriptions',
+        );
+    }
     if (actualOutputs !== undefined) {
         compareArtifacts(manifest.outputs, actualOutputs, 'outputs');
     }
     return manifest;
+}
+
+function compareArtifact(declared, actual, field) {
+    assertObject(actual, `actual ${field}`);
+    if (actual.fileName !== fileNameFromPath(declared.path)) {
+        throw new Error(`${field}.fileName does not match actual artifact`);
+    }
+    if (actual.sha256 !== declared.sha256) {
+        throw new Error(`${field}.sha256 does not match actual artifact`);
+    }
+    if (actual.rows !== declared.rows) {
+        throw new Error(`${field}.rows does not match actual artifact`);
+    }
 }
 
 function validateApproval(approval) {
@@ -134,6 +187,19 @@ function validateProcessingScopes(scopes) {
     if (missingScopes.length > 0) {
         throw new Error(
             `approvedProcessingScopes must include: ${missingScopes.join(', ')}`,
+        );
+    }
+    return values;
+}
+
+function validateRequiredProcessingScopes(approvedScopes, requiredScopes) {
+    if (!Array.isArray(requiredScopes)) {
+        throw new Error('requiredProcessingScopes must be an array');
+    }
+    const missingScopes = requiredScopes.filter((scope) => !approvedScopes.includes(scope));
+    if (missingScopes.length > 0) {
+        throw new Error(
+            `approvedProcessingScopes must include required scopes: ${missingScopes.join(', ')}`,
         );
     }
 }

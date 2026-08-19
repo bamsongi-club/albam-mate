@@ -1,6 +1,13 @@
 import { createHash } from "node:crypto";
 import { basename } from "node:path";
 
+import {
+    analyzeDescriptionQuality,
+    DESCRIPTION_FIELDS,
+    isDescriptionProvenanceRequired,
+    validateDescriptionProvenance,
+} from "./description-quality.mjs";
+
 export const CATALOG_FIELDS = [
     "bgg_id",
     "name",
@@ -90,7 +97,9 @@ export function analyzeCatalog({
     const catalog = normalizedGames
         .sort((left, right) => left.bgg_id - right.bgg_id);
     errors.push(...validateSelectionCounts(manifest, gameRows.length, catalog.length, catalog));
-    const warnings = qualityWarnings(validGameRows, rankByBggId);
+    const descriptionQuality = analyzeDescriptionQuality(validGameRows);
+    const warnings = qualityWarnings(validGameRows, rankByBggId, descriptionQuality);
+    errors.push(...blockingDescriptionErrors(warnings));
     const checks = checkSummary(validGameRows, rankByBggId);
     const acceptedWarnings = new Set(
         Array.isArray(manifest?.review?.acceptedWarnings)
@@ -113,6 +122,7 @@ export function analyzeCatalog({
         ranksCount: rankRows.length,
         errors,
         warnings,
+        descriptionQuality,
         checks,
         releaseYears: releaseYearSummary(validGameRows, rankByBggId),
         searchNumericFields: searchNumericFieldSummary(validGameRows),
@@ -179,7 +189,7 @@ function checkSummary(games, rankByBggId) {
     };
 }
 
-function qualityWarnings(games, rankByBggId) {
+function qualityWarnings(games, rankByBggId, descriptionQuality) {
     const warnings = [];
     const versionCollisions = possibleVersionCollisions(games, rankByBggId);
     if (versionCollisions.length > 0) {
@@ -194,6 +204,14 @@ function qualityWarnings(games, rankByBggId) {
     const correlationWarning = suspiciousComplexityRankCorrelation(games, rankByBggId);
     if (correlationWarning) {
         warnings.push(correlationWarning);
+    }
+    const mixedWarning = mixedDescriptions(descriptionQuality);
+    if (mixedWarning) {
+        warnings.push(mixedWarning);
+    }
+    const untranslatedWarning = untranslatedDescriptions(descriptionQuality);
+    if (untranslatedWarning) {
+        warnings.push(untranslatedWarning);
     }
     if (games.length < 20) {
         return warnings;
@@ -228,6 +246,67 @@ function qualityWarnings(games, rankByBggId) {
         0.5,
     );
     return warnings;
+}
+
+function mixedDescriptions(descriptionQuality) {
+    const findings = [];
+    for (const field of DESCRIPTION_FIELDS) {
+        for (const finding of descriptionQuality.fields[field].samples.mixed) {
+            findings.push({ bgg_id: finding.bgg_id, field, sample: finding.sample });
+        }
+    }
+    if (findings.length === 0) {
+        return null;
+    }
+    return {
+        code: "MIXED_DESCRIPTION",
+        blocking: true,
+        message:
+            "영문 문장에 한글 단어만 부분 치환된 설명은 정상 한국어 설명으로 취급하지 않습니다.",
+        rowCount: descriptionQuality.rowCounts.mixed,
+        fieldCount: DESCRIPTION_FIELDS.reduce(
+            (count, field) => count + descriptionQuality.fields[field].counts.mixed,
+            0,
+        ),
+        sample: findings.slice(0, 10),
+    };
+}
+
+function untranslatedDescriptions(descriptionQuality) {
+    const findings = [];
+    for (const field of DESCRIPTION_FIELDS) {
+        for (const state of ["english", "other"]) {
+            for (const finding of descriptionQuality.fields[field].samples[state]) {
+                findings.push({ bgg_id: finding.bgg_id, field, sample: finding.sample });
+            }
+        }
+    }
+    if (findings.length === 0) {
+        return null;
+    }
+    return {
+        code: "UNTRANSLATED_DESCRIPTION",
+        message:
+            "설명 필드가 영문 원문이거나 언어를 판정할 수 없습니다. " +
+            "승인된 원문 provenance가 없으면 적재할 수 없습니다.",
+        rowCount: descriptionQuality.rowCounts.untranslated,
+        fieldCount: DESCRIPTION_FIELDS.reduce(
+            (count, field) => count + descriptionQuality.fields[field].counts.english
+                + descriptionQuality.fields[field].counts.other,
+            0,
+        ),
+        sample: findings.slice(0, 10),
+    };
+}
+
+function blockingDescriptionErrors(warnings) {
+    return warnings
+        .filter(({ blocking }) => blocking)
+        .map(({ blocking, ...warning }) => ({
+            ...warning,
+            code: `${warning.code}_BLOCKED`,
+            message: `${warning.message} 적재 산출물을 만들지 않습니다.`,
+        }));
 }
 
 function suspiciousComplexityRankCorrelation(games, rankByBggId) {
@@ -841,6 +920,9 @@ function validateManifest(manifest, gamesPath, gamesContents, ranksPath, ranksCo
             code: "INCOMPLETE_FIELD_SOURCES",
             message: "모든 적재 필드의 출처 규칙이 필요합니다.",
         });
+    }
+    if (isDescriptionProvenanceRequired(manifest)) {
+        errors.push(...validateDescriptionProvenance(manifest));
     }
     if (
         !isoTimestamp(manifest.review?.reviewedAt) ||

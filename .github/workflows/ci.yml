@@ -503,6 +503,9 @@ jobs:
       - name: Check ROOM-09d measurement report
         run: node scripts/measurements/room09-measurement-report.mjs --check
 
+      - name: Test game catalog contracts
+        run: node --test scripts/game-catalog/*.test.mjs
+
   ci-gate:
     name: CI Gate
     if: ${{ always() }}

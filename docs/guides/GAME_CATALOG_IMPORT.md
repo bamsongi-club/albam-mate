@@ -4,6 +4,41 @@
 
 입력 JSON의 `supported_player_count`는 게임 규칙상 플레이 가능한 인원 범위다. 이용자 평가 기반 추천 인원·최적 인원과는 구분한다.
 
+## 0. 설명 언어·출처 게이트
+
+`description`과 `detail_description`은 `korean`, `english`, `mixed`, `other`, `missing`으로 결정적으로 분류한다. 분류기 `description-language-v2`는 완전한 영문 문장이나 일반 영문 구문과 한국어가 섞인 값을 `mixed`로 차단하고, 강한 Title Case 게임명·고유명사·약어·숫자·기호만 예외적으로 허용한다. 영문 문장에 한글 단어만 부분 치환된 `mixed` 값은 승인 경고로 수용할 수 없으며, `MIXED_DESCRIPTION_BLOCKED`로 적재 산출물을 차단한다.
+
+영문 원문을 유지하는 것은 해당 원문이 승인 범위에 있고 manifest에 필드별 source와 processing 상태가 기록된 경우에만 허용한다. 임의 번역·요약·재작성으로 한국어처럼 보이게 만든 값은 검증된 원천과 별도 승인 없이는 적재하지 않는다. `quality-report.json`의 `descriptionQuality`와 `provenance`가 이 판정을 재현한다.
+
+이미 검수한 한국어 설명을 기존 카탈로그에 덧씌울 때도 승인 provenance manifest를 함께 넘긴다. 입력은 `[{ "bgg_id": 1, "description": "...", "detail_description": "..." }]` 형태이며, 두 필드가 모두 정상 한국어로 판정된 행만 내보낸다.
+
+```sh
+node scripts/game-catalog/translate-descriptions.mjs \
+  --source /path/to/approved-bgg-descriptions.json \
+  --manifest /path/to/approved-description-translation-release.json \
+  --out /path/to/korean-descriptions.json \
+  --dry-run
+
+node scripts/game-catalog/export-korean-descriptions.mjs \
+  --input /path/to/korean-descriptions.json \
+  --manifest /path/to/approved-description-manifest.json \
+  --out /path/to/08-upsert-korean-descriptions.sql
+```
+
+provenance가 없거나 `status`가 `approved`가 아니면 SQL을 만들지 않는다. 산출물은 `bgg_id` 오름차순 단일 트랜잭션이라 같은 입력이면 항상 같은 파일이 나온다. 실제 DB 실행은 승인된 source·checksum·적재 순서를 다시 확인한 뒤 별도로 수행한다.
+
+이 export와 `translate-descriptions.mjs`는 `approved: true`, `testOnly: false`, `releaseId`, `datasetId`, `approval`, `approvedFields`, `approvedProcessingScopes`, 전체 `inputs`·`coverage`·`sources`·`outputs`, 필드별 description provenance를 포함한 구체 실행 release manifest만 받는다. 입력 파일의 basename·SHA-256·행 수도 `inputs.descriptions`와 일치해야 한다. 정책 ADR 승인이나 warning 수용만으로는 이 gate를 우회할 수 없으며, 번역·재작성은 각각 `description-translation`·`description-correction` scope가 없으면 차단한다.
+
+첨부 SQL처럼 PostgreSQL을 실행하지 않고 행 수와 설명 품질을 재측정할 때는 streaming parser를 사용한다.
+
+```sh
+node scripts/game-catalog/parse-game-catalog-sql.mjs \
+  --sql /path/to/01-games-full.sql \
+  --out /path/to/sql-quality-report.json
+```
+
+이 parser는 escaped quote, 문자열 내부 comma·괄호·개행·`NULL`·backslash와 여러 `INSERT` statement를 해석하지만 SQL을 실행하지 않는다. 결과의 `source.sha256`, 행 수, 고유 `bgg_id` 수와 `descriptionQuality.classifierVersion`을 함께 보관한다.
+
 ## 1. 초안 검수
 
 manifest 없이 실행해 파일 체크섬, BGG 매핑과 품질 경고를 먼저 확인한다. 검수가 끝나기 전에는 `quality-report.json`만 생성되고 종료 코드는 실패다.
@@ -14,6 +49,8 @@ node scripts/game-catalog/prepare-game-catalog.mjs \
   --ranks /path/to/boardgames_ranks07-24.csv \
   --out build/game-catalog/2026-07-24-draft
 ```
+
+description 번역·재작성 release를 실행 manifest로 넘길 때는 `--description-input`으로 manifest의 `inputs.descriptions`와 같은 원문 JSON을 함께 지정한다. runner는 이 파일의 basename·SHA-256·행 수가 일치할 때만 산출물을 만든다.
 
 ## 2. 출처·검수 기록
 
@@ -26,6 +63,9 @@ node scripts/game-catalog/prepare-game-catalog.mjs \
 - 변환 도구가 포함된 전체 Git commit SHA
 - 검수일·검수자
 - 사람이 확인하고 수용한 품질 경고 코드
+- `provenance.descriptionFields`의 필드별 source, sourceVersion, processing, status, reviewedBy, reviewedAt
+
+`MIXED_DESCRIPTION`은 승인 경고로 수용하지 않는다. `UNTRANSLATED_DESCRIPTION`을 수용하려면 출처가 확인된 원문이라는 필드별 provenance와 별도 검수 근거가 있어야 한다.
 - AI·embedding을 사용하는 배치라면 `releaseId`·`datasetId`, `approvedFields`, `approvedProcessingScopes`, `approval.references`, model/provider·index version과 `sources`·`outputs`의 checksum·행 수
 
 여기서 판본은 같은 게임의 개정·재판 등 출시 형태를 뜻하며 확장판과 구분한다.

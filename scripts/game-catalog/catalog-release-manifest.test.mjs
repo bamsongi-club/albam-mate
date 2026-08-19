@@ -8,6 +8,30 @@ test('승인 release manifest는 필수 입력과 coverage를 보존한다', () 
     assert.deepEqual(validateApprovedReleaseManifest(manifest), manifest);
 });
 
+test('description 처리와 무관한 기존 승인 release는 provenance 없이도 하위 호환된다', () => {
+    const manifest = validManifest();
+    delete manifest.provenance;
+
+    assert.doesNotThrow(() => validateApprovedReleaseManifest(manifest));
+});
+
+test('description 처리 release는 실제 description input checksum과 행 수를 요구한다', () => {
+    const manifest = validManifest();
+    manifest.approvedProcessingScopes.push('description-translation');
+
+    assert.throws(
+        () => validateApprovedReleaseManifest(manifest),
+        /실제 description input/u,
+    );
+    assert.doesNotThrow(() => validateApprovedReleaseManifest(manifest, {
+        actualDescriptionInput: {
+            fileName: 'artifact.json',
+            sha256: 'a'.repeat(64),
+            rows: 1,
+        },
+    }));
+});
+
 test('승인되지 않았거나 test-only인 manifest는 차단한다', () => {
     assert.throws(
         () => validateApprovedReleaseManifest({ ...validManifest(), approved: false }),
@@ -91,6 +115,17 @@ test('dataset·AI allowlist·search_text·embedding provenance가 없으면 차�
     assert.throws(
         () => validateApprovedReleaseManifest(missingEmbeddingOutput),
         /embedding\.output\.sha256/u,
+    );
+});
+
+test('renderer가 출력하는 설명 필드는 approvedFields allowlist에 포함되어야 한다', () => {
+    const manifest = validManifest();
+    manifest.approvedFields = ['name', 'english_name', 'alias', 'tag'];
+    manifest.search_text.fields = ['name', 'english_name'];
+
+    assert.throws(
+        () => validateApprovedReleaseManifest(manifest),
+        /approvedFields.*description.*detail_description/u,
     );
 });
 
@@ -218,6 +253,12 @@ function validManifest() {
                 rows: 2,
             },
         },
+        provenance: {
+            descriptionFields: {
+                description: descriptionProvenance(),
+                detail_description: descriptionProvenance(),
+            },
+        },
         outputs: {
             serviceCatalog: {
                 path: 'service-catalog.json',
@@ -230,5 +271,16 @@ function validManifest() {
                 rows: 2,
             },
         },
+    };
+}
+
+function descriptionProvenance() {
+    return {
+        source: 'approved test catalog',
+        sourceVersion: 'test-description-v1',
+        processing: 'human-reviewed',
+        status: 'approved',
+        reviewedBy: 'albam-mate-team',
+        reviewedAt: '2026-08-13T00:00:00Z',
     };
 }
