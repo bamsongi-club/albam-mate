@@ -10,6 +10,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import com.zaxxer.hikari.HikariDataSource;
+
 @Testcontainers
 @SpringBootTest
 class SharedPostgresDatabaseCleanerPostgresTest extends SharedPostgresIntegrationSupport {
@@ -22,6 +24,7 @@ class SharedPostgresDatabaseCleanerPostgresTest extends SharedPostgresIntegratio
 
 	@Test
 	void 사용자_테이블과_sequence를_초기화하고_Flyway_이력과_기준_행을_복원한다() throws Exception {
+		assertEquals(0, dataSource.unwrap(HikariDataSource.class).getMinimumIdle());
 		int flywayHistoryCount = rowCount("flyway_schema_history");
 		jdbcTemplate.execute("create table shared_cleaner_probe (id bigserial primary key, marker text not null)");
 		try {
