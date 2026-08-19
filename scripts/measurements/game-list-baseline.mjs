@@ -14,6 +14,7 @@ const DEFAULT_MEASURED_RUNS = 20;
 const DEFAULT_DATASET_SIZE = 170005;
 const DEFAULT_REQUEST_TIMEOUT_MS = 30000;
 const UPSTREAM_HEADER_NAME = "x-albam-mate-upstream";
+const UPSTREAM_ADDRESS_HEADER_NAME = "x-albam-mate-upstream-address";
 const RUNNER_FILE = fileURLToPath(import.meta.url);
 const RUNNER_REPOSITORY = path.resolve(path.dirname(RUNNER_FILE), "../..");
 const RUNNER_RELATIVE_PATH = path.relative(RUNNER_REPOSITORY, RUNNER_FILE);
@@ -28,6 +29,7 @@ function parseArgs(argv) {
     requestTimeoutMs: DEFAULT_REQUEST_TIMEOUT_MS,
     serverCommit: null,
     serverContainers: [],
+    proxyContainer: null,
     outputDirectory: "docs/measurements/results/game-list-740",
   };
 
@@ -72,6 +74,12 @@ function parseArgs(argv) {
         options.serverContainers.push(container);
         break;
       }
+      case "--proxy-container":
+        if (options.proxyContainer) {
+          throw new Error("--proxy-container는 한 번만 지정할 수 있습니다.");
+        }
+        options.proxyContainer = next();
+        break;
       case "--output-directory":
         options.outputDirectory = next();
         break;
@@ -95,6 +103,9 @@ function parseArgs(argv) {
   }
   if (options.serverContainers.length !== 2) {
     throw new Error("--server-container로 app1과 app2 Spring 컨테이너를 각각 지정해야 합니다.");
+  }
+  if (!options.proxyContainer) {
+    throw new Error("--proxy-container로 측정 proxy 컨테이너를 지정해야 합니다.");
   }
   return options;
 }
@@ -140,20 +151,49 @@ function printHelp() {
     `  --request-timeout-ms <n>  timeout per HTTP request/body read (default: ${DEFAULT_REQUEST_TIMEOUT_MS})\n` +
     `  --server-commit <sha>     measured server 40-char commit SHA (required)\n` +
     `  --server-container <role=name>  app1/app2 measured Spring container (required twice)\n` +
+    `  --proxy-container <name>  measured Compose proxy container (required)\n` +
     `  --output-directory <dir>  result directory\n`);
 }
 
-function upstreamRoleError(role, expectedUpstreamRoles) {
-  if (!role) {
-    return `응답 ${UPSTREAM_HEADER_NAME} 헤더가 없습니다.`;
+function upstreamAddressHost(rawAddress) {
+  if (!rawAddress || rawAddress.includes(",")) {
+    return null;
   }
-  if (!expectedUpstreamRoles.includes(role)) {
-    return `응답 ${UPSTREAM_HEADER_NAME}=${role}이 검증한 app1/app2 컨테이너와 일치하지 않습니다.`;
+  try {
+    return new URL(`http://${rawAddress}`).hostname;
+  } catch {
+    return null;
   }
-  return null;
 }
 
-async function fetchJson(url, requestTimeoutMs, expectedUpstreamRoles) {
+function upstreamResponse(response, expectedUpstreams) {
+  const role = response.headers.get(UPSTREAM_HEADER_NAME);
+  const rawAddress = response.headers.get(UPSTREAM_ADDRESS_HEADER_NAME);
+  if (!role) {
+    return { error: `응답 ${UPSTREAM_HEADER_NAME} 헤더가 없습니다.` };
+  }
+  const container = expectedUpstreams.find((candidate) => candidate.role === role);
+  if (!container) {
+    return { error: `응답 ${UPSTREAM_HEADER_NAME}=${role}이 검증한 app1/app2 컨테이너와 일치하지 않습니다.` };
+  }
+  const address = upstreamAddressHost(rawAddress);
+  if (!address) {
+    return { error: `응답 ${UPSTREAM_ADDRESS_HEADER_NAME}이 유효한 단일 host:port가 아닙니다: ${rawAddress ?? "missing"}` };
+  }
+  if (!container.networkAddresses.includes(address)) {
+    return {
+      error: `응답 ${UPSTREAM_ADDRESS_HEADER_NAME}=${rawAddress}이 ${role} 컨테이너의 inspect network 주소와 일치하지 않습니다.`,
+    };
+  }
+  return {
+    error: null,
+    role,
+    address: rawAddress,
+    containerId: container.containerId,
+  };
+}
+
+async function fetchJson(url, requestTimeoutMs, expectedUpstreams) {
   const controller = new AbortController();
   let timedOut = false;
   const timeout = setTimeout(() => {
@@ -176,12 +216,11 @@ async function fetchJson(url, requestTimeoutMs, expectedUpstreamRoles) {
     if (!response.ok) {
       throw new Error(`${url} 호출 실패: status=${response.status}, body=${text.slice(0, 500)}`);
     }
-    const upstreamRole = response.headers.get(UPSTREAM_HEADER_NAME);
-    const upstreamError = upstreamRoleError(upstreamRole, expectedUpstreamRoles);
-    if (upstreamError) {
-      throw new Error(`${url} 응답 계약 불일치: ${upstreamError}`);
+    const upstream = upstreamResponse(response, expectedUpstreams);
+    if (upstream.error) {
+      throw new Error(`${url} 응답 계약 불일치: ${upstream.error}`);
     }
-    return { body, upstreamRole };
+    return { body, upstream };
   } catch (error) {
     if (timedOut || error?.name === "AbortError") {
       throw new Error(`HTTP 요청 timeout (${requestTimeoutMs}ms): ${url}`);
@@ -272,11 +311,11 @@ function firstCode(response, label) {
   return code;
 }
 
-async function discoverScenarioValues(baseUrl, requestTimeoutMs, expectedDatasetSize, expectedUpstreamRoles) {
+async function discoverScenarioValues(baseUrl, requestTimeoutMs, expectedDatasetSize, expectedUpstreams) {
   const baseResponse = await fetchJson(
     `${baseUrl}/api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24`,
     requestTimeoutMs,
-    expectedUpstreamRoles,
+    expectedUpstreams,
   );
   const base = baseResponse.body;
   const baseResponseError = gameListResponseError(base, { page: 0, size: 24 });
@@ -296,8 +335,8 @@ async function discoverScenarioValues(baseUrl, requestTimeoutMs, expectedDataset
   }
 
   const [themesResponse, mechanismsResponse] = await Promise.all([
-    fetchJson(`${baseUrl}/api/game-themes`, requestTimeoutMs, expectedUpstreamRoles),
-    fetchJson(`${baseUrl}/api/game-mechanisms`, requestTimeoutMs, expectedUpstreamRoles),
+    fetchJson(`${baseUrl}/api/game-themes`, requestTimeoutMs, expectedUpstreams),
+    fetchJson(`${baseUrl}/api/game-mechanisms`, requestTimeoutMs, expectedUpstreams),
   ]);
 
   return {
@@ -305,9 +344,14 @@ async function discoverScenarioValues(baseUrl, requestTimeoutMs, expectedDataset
     theme: firstCode(themesResponse.body, "theme"),
     mechanism: firstCode(mechanismsResponse.body, "mechanism"),
     upstreamRoles: {
-      base: baseResponse.upstreamRole,
-      themes: themesResponse.upstreamRole,
-      mechanisms: mechanismsResponse.upstreamRole,
+      base: baseResponse.upstream.role,
+      themes: themesResponse.upstream.role,
+      mechanisms: mechanismsResponse.upstream.role,
+    },
+    upstreams: {
+      base: baseResponse.upstream,
+      themes: themesResponse.upstream,
+      mechanisms: mechanismsResponse.upstream,
     },
   };
 }
@@ -357,7 +401,7 @@ function scenarioUrl(baseUrl, scenario) {
   return `${baseUrl}/api/games?${params.toString()}`;
 }
 
-async function requestOnce(url, requestTimeoutMs, expectedPage, expectedUpstreamRoles) {
+async function requestOnce(url, requestTimeoutMs, expectedPage, expectedUpstreams) {
   const startedAt = performance.now();
   const controller = new AbortController();
   let timedOut = false;
@@ -376,13 +420,16 @@ async function requestOnce(url, requestTimeoutMs, expectedPage, expectedUpstream
     let error = null;
     let responsePageMetadata = null;
     let upstreamRole = null;
+    let upstreamAddress = null;
+    let upstreamContainerId = null;
     if (response.status === 200) {
-      const candidateUpstreamRole = response.headers.get(UPSTREAM_HEADER_NAME);
-      const candidateUpstreamRoleError = upstreamRoleError(candidateUpstreamRole, expectedUpstreamRoles);
-      if (candidateUpstreamRoleError) {
-        error = `응답 계약 불일치: ${candidateUpstreamRoleError}`;
+      const upstream = upstreamResponse(response, expectedUpstreams);
+      if (upstream.error) {
+        error = `응답 계약 불일치: ${upstream.error}`;
       } else {
-        upstreamRole = candidateUpstreamRole;
+        upstreamRole = upstream.role;
+        upstreamAddress = upstream.address;
+        upstreamContainerId = upstream.containerId;
       }
       let body;
       if (!error) {
@@ -407,6 +454,8 @@ async function requestOnce(url, requestTimeoutMs, expectedPage, expectedUpstream
       bytes,
       pageMetadata: responsePageMetadata,
       upstreamRole,
+      upstreamAddress,
+      upstreamContainerId,
       error,
     };
   } catch (error) {
@@ -419,6 +468,8 @@ async function requestOnce(url, requestTimeoutMs, expectedPage, expectedUpstream
       bytes: 0,
       pageMetadata: null,
       upstreamRole: null,
+      upstreamAddress: null,
+      upstreamContainerId: null,
       error: `${message}: ${url}`,
     };
   } finally {
@@ -457,7 +508,7 @@ async function measureScenario(
   warmUpRuns,
   measuredRuns,
   requestTimeoutMs,
-  expectedUpstreamRoles,
+  expectedUpstreams,
 ) {
   const url = scenarioUrl(baseUrl, scenario);
   const expectedPage = {
@@ -468,7 +519,7 @@ async function measureScenario(
 
   try {
     for (let index = 0; index < warmUpRuns; index += 1) {
-      const warmUp = await requestOnce(url, requestTimeoutMs, expectedPage, expectedUpstreamRoles);
+      const warmUp = await requestOnce(url, requestTimeoutMs, expectedPage, expectedUpstreams);
       if (warmUp.error) {
         throw new Error(`${scenario.name} warm-up 실패: ${warmUp.error}`);
       }
@@ -478,7 +529,7 @@ async function measureScenario(
     }
 
     for (let index = 0; index < measuredRuns; index += 1) {
-      const sample = await requestOnce(url, requestTimeoutMs, expectedPage, expectedUpstreamRoles);
+      const sample = await requestOnce(url, requestTimeoutMs, expectedPage, expectedUpstreams);
       samples.push({ run: index + 1, ...sample });
       if (sample.error) {
         throw new Error(`${scenario.name} 실측 실패: run=${index + 1}, ${sample.error}`);
@@ -582,8 +633,26 @@ function dockerInspect(containerName, format) {
     }
     return value;
   } catch (error) {
-    throw new Error(`Spring 컨테이너 ${containerName} inspect 실패: ${errorMessage(error)}`);
+    throw new Error(`컨테이너 ${containerName} inspect 실패: ${errorMessage(error)}`);
   }
+}
+
+function containerNetworks(containerName) {
+  let networks;
+  try {
+    networks = JSON.parse(dockerInspect(containerName, "{{json .NetworkSettings.Networks}}"));
+  } catch (error) {
+    throw new Error(`컨테이너 ${containerName} network을 읽지 못했습니다: ${errorMessage(error)}`);
+  }
+  if (!networks || typeof networks !== "object" || Array.isArray(networks)) {
+    throw new Error(`컨테이너 ${containerName} network이 object가 아닙니다.`);
+  }
+  const names = Object.keys(networks).sort();
+  const addresses = names.map((name) => networks[name]?.IPAddress).filter((address) => typeof address === "string" && address.length > 0);
+  if (names.length === 0 || addresses.length === 0) {
+    throw new Error(`컨테이너 ${containerName}의 Compose network IPv4 주소를 찾지 못했습니다.`);
+  }
+  return { names, addresses };
 }
 
 function serverContainerProvenance(container, expectedCommit) {
@@ -614,6 +683,7 @@ function serverContainerProvenance(container, expectedCommit) {
   if (!/^sha256:[0-9a-f]{64}$/u.test(imageId)) {
     throw new Error(`Spring 컨테이너 ${container.name} image ID가 SHA-256이 아닙니다: ${imageId}`);
   }
+  const networks = containerNetworks(container.name);
   return {
     role: container.role,
     containerId,
@@ -621,6 +691,36 @@ function serverContainerProvenance(container, expectedCommit) {
     imageRevision: revision,
     composeProject: labels["com.docker.compose.project"] ?? null,
     composeService: labels["com.docker.compose.service"],
+    networkNames: networks.names,
+    networkAddresses: networks.addresses,
+  };
+}
+
+function proxyContainerProvenance(containerName, expectedProject, springContainers) {
+  const containerId = dockerInspect(containerName, "{{.Id}}");
+  let labels;
+  try {
+    labels = JSON.parse(dockerInspect(containerName, "{{json .Config.Labels}}"));
+  } catch (error) {
+    throw new Error(`proxy 컨테이너 ${containerName} label을 읽지 못했습니다: ${errorMessage(error)}`);
+  }
+  if (labels?.["com.docker.compose.service"] !== "proxy") {
+    throw new Error(`proxy 컨테이너 ${containerName}의 Compose service가 proxy가 아닙니다: ${labels?.["com.docker.compose.service"] ?? "missing"}`);
+  }
+  if (labels["com.docker.compose.project"] !== expectedProject) {
+    throw new Error(`proxy 컨테이너 ${containerName}의 Compose project가 Spring 컨테이너와 다릅니다.`);
+  }
+  const networks = containerNetworks(containerName);
+  for (const springContainer of springContainers) {
+    if (!springContainer.networkNames.some((name) => networks.names.includes(name))) {
+      throw new Error(`proxy 컨테이너 ${containerName}이 ${springContainer.role} Spring 컨테이너와 Compose network를 공유하지 않습니다.`);
+    }
+  }
+  return {
+    containerId,
+    composeProject: labels["com.docker.compose.project"],
+    composeService: labels["com.docker.compose.service"],
+    networkNames: networks.names,
   };
 }
 
@@ -631,13 +731,21 @@ function currentServerProvenance(options) {
   if (new Set(containers.map((container) => container.imageId)).size !== 1) {
     throw new Error("app1과 app2 Spring 컨테이너의 image ID가 서로 다릅니다.");
   }
-  return { commit: options.serverCommit, containers };
+  const projects = new Set(containers.map((container) => container.composeProject));
+  if (projects.size !== 1 || !containers[0].composeProject) {
+    throw new Error("app1과 app2 Spring 컨테이너의 Compose project가 하나로 고정되지 않았습니다.");
+  }
+  return {
+    commit: options.serverCommit,
+    containers,
+    proxyContainer: proxyContainerProvenance(options.proxyContainer, containers[0].composeProject, containers),
+  };
 }
 
 function assertServerProvenanceStable(options, startProvenance) {
   const endProvenance = currentServerProvenance(options);
   if (JSON.stringify(endProvenance) !== JSON.stringify(startProvenance)) {
-    throw new Error("측정 중 Spring 컨테이너 revision 또는 image ID가 변경되어 성공 산출물을 만들 수 없습니다.");
+    throw new Error("측정 중 Spring 또는 proxy 컨테이너 provenance가 변경되어 성공 산출물을 만들 수 없습니다.");
   }
 }
 
@@ -662,6 +770,7 @@ function writeArtifacts(options, discovered, results, failure, runnerProvenance,
     runnerSourceClean: runnerProvenance?.sourceClean ?? null,
     serverCommit: serverProvenance?.commit ?? options.serverCommit,
     serverContainers: serverProvenance?.containers ?? [],
+    proxyContainer: serverProvenance?.proxyContainer ?? null,
     baseUrl: options.baseUrl,
     dataset: { gameCount: options.datasetSize, sha256: options.datasetSha256 },
     warmUpRuns: options.warmUpRuns,
@@ -712,12 +821,11 @@ async function main() {
     serverProvenance = currentServerProvenance(options);
     console.log(`[game-list-740] server-image-id=${serverProvenance.containers[0].imageId}`);
 
-    const expectedUpstreamRoles = serverProvenance.containers.map((container) => container.role);
     discovered = await discoverScenarioValues(
       options.baseUrl,
       options.requestTimeoutMs,
       options.datasetSize,
-      expectedUpstreamRoles,
+      serverProvenance.containers,
     );
     console.log(`[game-list-740] discovered keyword=${JSON.stringify(discovered.keyword)}, theme=${discovered.theme}, mechanism=${discovered.mechanism}`);
 
@@ -729,7 +837,7 @@ async function main() {
         options.warmUpRuns,
         options.measuredRuns,
         options.requestTimeoutMs,
-        expectedUpstreamRoles,
+        serverProvenance.containers,
       );
       results.push(result);
       if (result.status === "failed") {
