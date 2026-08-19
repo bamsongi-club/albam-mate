@@ -79,6 +79,42 @@ Catalog Dataset Release 승인과 Search/Embedding Execution 승인은 분리합
 
 ## 검증
 
+### #868 Dense BGE-M3 offline PoC
+
+구체 실행 범위는 [#868 승인 코멘트](https://github.com/bamsongi-club/albam-mate/issues/868#issuecomment-5341110812)로 고정한다.
+
+- 후보: 로컬 `BAAI/bge-m3@5617a9f61b028005a4858fdac845db406aefb181` 1개
+- 인코딩: query/document prefix 없음, dense-only, CLS pooling, 1,024차원, L2 normalization, normalized dot/cosine
+- 입력: 동일 Development Seed의 Top 1,000 `search_text`·quality corpus·display map과 새 play-intent Q-010~Q-012
+- 출력: query별 Top 20, provenance가 있는 candidate pool, model·score를 숨긴 blind judgement export
+- provenance: 승인된 입력·모델 artifact manifest checksum, source Git SHA, Python·`sentence-transformers`·PyTorch·NumPy·device를 함께 기록한다.
+- 경계: Q-010~Q-012는 사람 판정 전 `unjudged`이며, 이 결과는 quality-ready·finalist·production model 승인으로 해석하지 않는다.
+- 현재 #866 결과가 없으므로 Hybrid/RRF와 최종 검색 방식 선택은 `deferred`다.
+
+실행 manifest와 모든 입력·출력 checksum은 [`dense-bge-m3/manifest.json`](dense-bge-m3/manifest.json)에 보존한다. 승인된 로컬 모델 snapshot과 고정된 [`model-artifact-manifest.json`](dense-bge-m3/model-artifact-manifest.json)을 준비한 뒤 다음 명령으로 재실행할 수 있다. 모델 파일과 manifest가 승인 snapshot과 다르면 실행을 거부한다.
+
+```bash
+python3 scripts/search-evaluation/run-bge-m3.py \
+  --model-path /path/to/local/BAAI-bge-m3-snapshot \
+  --model-manifest docs/p2/search-evaluation/dense-bge-m3/model-artifact-manifest.json \
+  --model-revision 5617a9f61b028005a4858fdac845db406aefb181 \
+  --source-git-head 592de01644e33554dcce5a13bfcb5e9d5bfac882 \
+  --quality-corpus docs/p2/search-evaluation/dense-bge-m3/quality-corpus.json \
+  --search-text docs/p2/search-evaluation/dense-bge-m3/search-text-top1000.json \
+  --display-map docs/p2/search-evaluation/dense-bge-m3/display-map-top1000.json \
+  --queries docs/p2/search-evaluation/dense-bge-m3/queries.json \
+  --out /tmp/search-04-bge-m3-results.json
+```
+
+산출물 구조와 checksum은 다음 명령으로 검증한다.
+
+```bash
+node scripts/search-evaluation/dense-bge-m3-execution.mjs \
+  --check \
+  --manifest docs/p2/search-evaluation/dense-bge-m3/manifest.json
+node --test scripts/search-evaluation/dense-bge-m3-execution.test.mjs
+```
+
 ### 구조 검증
 
 ```bash

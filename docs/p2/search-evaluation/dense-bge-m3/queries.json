@@ -1,0 +1,41 @@
+[
+  {
+    "id": "Q-010",
+    "query": "가볍게 웃으면서 즐길 수 있는 게임",
+    "cohorts": ["intent/description"],
+    "hardFilters": {},
+    "evaluationStatus": "development",
+    "labelStatus": "unjudged",
+    "judgementRubric": {
+      "relevant": "가볍고 유쾌한 플레이 경험이 핵심이며 웃음·반응·재미있는 상황이 주요 매력인 게임",
+      "borderline": "가볍기는 하지만 웃으면서 즐길 수 있다는 근거가 약한 게임",
+      "irrelevant": "무겁고 진지한 전략·계산 중심이거나 해당 분위기를 뒷받침하는 근거가 없는 게임"
+    }
+  },
+  {
+    "id": "Q-011",
+    "query": "상대의 반응을 살피며 서로 눈치를 보는 재미가 있는 게임",
+    "cohorts": ["intent/description"],
+    "hardFilters": {},
+    "evaluationStatus": "development",
+    "labelStatus": "unjudged",
+    "judgementRubric": {
+      "relevant": "상대의 반응·의도·선택을 읽는 것이 핵심 재미이고 행동 예측이 실제 의사결정에 중요한 게임",
+      "borderline": "상호작용은 강하지만 상대 의도를 읽는 것이 부차적인 게임",
+      "irrelevant": "multiplayer solitaire 성격이거나 상대 반응을 읽는 것이 거의 의미 없는 게임"
+    }
+  },
+  {
+    "id": "Q-012",
+    "query": "보드게임을 처음 하는 초보자와도 부담 없이 시작할 수 있는 게임",
+    "cohorts": ["intent/description"],
+    "hardFilters": {},
+    "evaluationStatus": "development",
+    "labelStatus": "unjudged",
+    "judgementRubric": {
+      "relevant": "규칙·설명 부담이 낮고 처음 하는 사람이 빠르게 참여하며 숙련도 격차가 플레이를 크게 망치지 않는 게임",
+      "borderline": "중간 학습 부담이나 경험자의 도움이 필요하지만 초보자도 플레이할 수 있는 게임",
+      "irrelevant": "상당한 규칙 학습·사전 경험을 요구하거나 beginner-friendly 근거가 부족한 게임"
+    }
+  }
+]

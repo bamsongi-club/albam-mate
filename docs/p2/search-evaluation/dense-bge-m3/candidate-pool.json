@@ -1,0 +1,865 @@
+{
+  "schemaVersion": 1,
+  "kind": "search-04-dense-candidate-pool",
+  "topK": 20,
+  "sourceModels": [
+    "BAAI/bge-m3"
+  ],
+  "queries": [
+    {
+      "id": "Q-010",
+      "candidates": [
+        {
+          "gameId": 46213,
+          "display": {
+            "name": " 트엘에스트라션스",
+            "englishName": " Telestrations"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 1,
+              "score": 0.5630941390991211
+            }
+          ]
+        },
+        {
+          "gameId": 12942,
+          "display": {
+            "name": " 노 스앤크스!",
+            "englishName": " No Thanks!"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 2,
+              "score": 0.5616682767868042
+            }
+          ]
+        },
+        {
+          "gameId": 2536,
+          "display": {
+            "name": " 바방크",
+            "englishName": " Vabanque"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 3,
+              "score": 0.5595581531524658
+            }
+          ]
+        },
+        {
+          "gameId": 117959,
+          "display": {
+            "name": " 라스 베가스",
+            "englishName": " Las Vegas"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 4,
+              "score": 0.5526355504989624
+            }
+          ]
+        },
+        {
+          "gameId": 244522,
+          "display": {
+            "name": " 스아트스 프레트트이 크레브어!",
+            "englishName": " That's Pretty Clever!"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 5,
+              "score": 0.5523157715797424
+            }
+          ]
+        },
+        {
+          "gameId": 105593,
+          "display": {
+            "name": " 장난꾸러기 나방",
+            "englishName": " Cheating Moth"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 6,
+              "score": 0.5488508939743042
+            }
+          ]
+        },
+        {
+          "gameId": 142379,
+          "display": {
+            "name": " 이스케이프 프엘앤",
+            "englishName": " Escape Plan"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 7,
+              "score": 0.5473515391349792
+            }
+          ]
+        },
+        {
+          "gameId": 393325,
+          "display": {
+            "name": " 캡틴 프리프",
+            "englishName": " Captain Flip"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 8,
+              "score": 0.5444953441619873
+            }
+          ]
+        },
+        {
+          "gameId": 420087,
+          "display": {
+            "name": " 프리프 7",
+            "englishName": " Flip 7"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 9,
+              "score": 0.5435190796852112
+            }
+          ]
+        },
+        {
+          "gameId": 395846,
+          "display": {
+            "name": " 모조",
+            "englishName": " Mojo"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 10,
+              "score": 0.5434386730194092
+            }
+          ]
+        },
+        {
+          "gameId": 203430,
+          "display": {
+            "name": " 후지 플러시",
+            "englishName": " Fuji Flush"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 11,
+              "score": 0.5432089567184448
+            }
+          ]
+        },
+        {
+          "gameId": 406660,
+          "display": {
+            "name": " 블루, 샌드, 씨사이드",
+            "englishName": " Seaside"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 12,
+              "score": 0.5423700213432312
+            }
+          ]
+        },
+        {
+          "gameId": 1382,
+          "display": {
+            "name": " 우인느어스 크어크레",
+            "englishName": " Winner's Circle"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 13,
+              "score": 0.5413667559623718
+            }
+          ]
+        },
+        {
+          "gameId": 304051,
+          "display": {
+            "name": " 크르이쳐 크옴프오트스",
+            "englishName": " Creature Comforts"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 14,
+              "score": 0.541090726852417
+            }
+          ]
+        },
+        {
+          "gameId": 193214,
+          "display": {
+            "name": " 엠이프레 크어쿠스",
+            "englishName": " Meeple Circus"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 15,
+              "score": 0.5404228568077087
+            }
+          ]
+        },
+        {
+          "gameId": 284108,
+          "display": {
+            "name": " 피크쳐스",
+            "englishName": " Pictures"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 16,
+              "score": 0.5381322503089905
+            }
+          ]
+        },
+        {
+          "gameId": 269210,
+          "display": {
+            "name": " 트위세 아스 크레브어!",
+            "englishName": " Twice as Clever!"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 17,
+              "score": 0.5376018285751343
+            }
+          ]
+        },
+        {
+          "gameId": 84732,
+          "display": {
+            "name": " 크아이바",
+            "englishName": " Kariba"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 18,
+              "score": 0.5375380516052246
+            }
+          ]
+        },
+        {
+          "gameId": 237792,
+          "display": {
+            "name": " 루미큐브 트위스트",
+            "englishName": " Rummikub Twist"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 19,
+              "score": 0.5367210507392883
+            }
+          ]
+        },
+        {
+          "gameId": 16747,
+          "display": {
+            "name": " 트엄브르인 다이스",
+            "englishName": " Tumblin' Dice"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 20,
+              "score": 0.5366199612617493
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "Q-011",
+      "candidates": [
+        {
+          "gameId": 262543,
+          "display": {
+            "name": " 와브엘엔그스",
+            "englishName": " Wavelength"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 1,
+              "score": 0.6223704218864441
+            }
+          ]
+        },
+        {
+          "gameId": 257743,
+          "display": {
+            "name": " 사이 Whaaat?!",
+            "englishName": " Say Whaaat?!"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 2,
+              "score": 0.6198409795761108
+            }
+          ]
+        },
+        {
+          "gameId": 347889,
+          "display": {
+            "name": " 캐치 스케치",
+            "englishName": " Catch Sketch"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 3,
+              "score": 0.6096507906913757
+            }
+          ]
+        },
+        {
+          "gameId": 254640,
+          "display": {
+            "name": " 주스트 온에",
+            "englishName": " Just One"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 4,
+              "score": 0.6015800833702087
+            }
+          ]
+        },
+        {
+          "gameId": 46213,
+          "display": {
+            "name": " 트엘에스트라션스",
+            "englishName": " Telestrations"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 5,
+              "score": 0.6008702516555786
+            }
+          ]
+        },
+        {
+          "gameId": 322204,
+          "display": {
+            "name": " 더블유오드 카프쳐",
+            "englishName": " Word Capture"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 6,
+              "score": 0.6007424592971802
+            }
+          ]
+        },
+        {
+          "gameId": 171,
+          "display": {
+            "name": " 치에스스",
+            "englishName": " Chess"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 7,
+              "score": 0.589013397693634
+            }
+          ]
+        },
+        {
+          "gameId": 2536,
+          "display": {
+            "name": " 바방크",
+            "englishName": " Vabanque"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 8,
+              "score": 0.5862746238708496
+            }
+          ]
+        },
+        {
+          "gameId": 92415,
+          "display": {
+            "name": " 스크얼엘",
+            "englishName": " Skull"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 9,
+              "score": 0.5814849734306335
+            }
+          ]
+        },
+        {
+          "gameId": 3955,
+          "display": {
+            "name": " 브앤그!",
+            "englishName": " BANG!"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 10,
+              "score": 0.5811165571212769
+            }
+          ]
+        },
+        {
+          "gameId": 257527,
+          "display": {
+            "name": " 트라프더블유오드스",
+            "englishName": " Trapwords"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 11,
+              "score": 0.5804618000984192
+            }
+          ]
+        },
+        {
+          "gameId": 400995,
+          "display": {
+            "name": " 퍼스펙티브스",
+            "englishName": " Perspectives"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 12,
+              "score": 0.5791871547698975
+            }
+          ]
+        },
+        {
+          "gameId": 329839,
+          "display": {
+            "name": " 소 크로브어!",
+            "englishName": " So Clover!"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 13,
+              "score": 0.5779157876968384
+            }
+          ]
+        },
+        {
+          "gameId": 291453,
+          "display": {
+            "name": " 스크아우트",
+            "englishName": " SCOUT"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 14,
+              "score": 0.5762727856636047
+            }
+          ]
+        },
+        {
+          "gameId": 102181,
+          "display": {
+            "name": " 덤불 속",
+            "englishName": " In a Grove"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 15,
+              "score": 0.5761323571205139
+            }
+          ]
+        },
+        {
+          "gameId": 134352,
+          "display": {
+            "name": " 트워 르우름스 앤드 아 브우름",
+            "englishName": " Two Rooms and a Boom"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 16,
+              "score": 0.5760361552238464
+            }
+          ]
+        },
+        {
+          "gameId": 411567,
+          "display": {
+            "name": " 스에 그앤그",
+            "englishName": " The Gang"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 17,
+              "score": 0.574190080165863
+            }
+          ]
+        },
+        {
+          "gameId": 163930,
+          "display": {
+            "name": " 아브라카다...왓?",
+            "englishName": " Abracada...What?"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 18,
+              "score": 0.5740957260131836
+            }
+          ]
+        },
+        {
+          "gameId": 421762,
+          "display": {
+            "name": " 에메랄드 스컬",
+            "englishName": " Emerald Skulls"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 19,
+              "score": 0.5739936828613281
+            }
+          ]
+        },
+        {
+          "gameId": 284108,
+          "display": {
+            "name": " 피크쳐스",
+            "englishName": " Pictures"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 20,
+              "score": 0.5736613869667053
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "Q-012",
+      "candidates": [
+        {
+          "gameId": 446497,
+          "display": {
+            "name": " 호트 스트르이크",
+            "englishName": " Hot Streak"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 1,
+              "score": 0.5521695613861084
+            }
+          ]
+        },
+        {
+          "gameId": 416851,
+          "display": {
+            "name": " 캐슬 크옴보",
+            "englishName": " Castle Combo"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 2,
+              "score": 0.5512658357620239
+            }
+          ]
+        },
+        {
+          "gameId": 36218,
+          "display": {
+            "name": " 도미니언",
+            "englishName": " Dominion"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 3,
+              "score": 0.5510041117668152
+            }
+          ]
+        },
+        {
+          "gameId": 51,
+          "display": {
+            "name": " 리코치에트 로보트스",
+            "englishName": " Ricochet Robots"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 4,
+              "score": 0.5451446771621704
+            }
+          ]
+        },
+        {
+          "gameId": 338960,
+          "display": {
+            "name": " 스라이 스에 스프어에: 스에 보드 게임",
+            "englishName": " Slay the Spire: The Board Game"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 5,
+              "score": 0.5389853119850159
+            }
+          ]
+        },
+        {
+          "gameId": 59946,
+          "display": {
+            "name": " 던전 & 드래곤: 캐슬 라브엔로프트 보드 게임",
+            "englishName": " Dungeons & Dragons: Castle Ravenloft Board Game"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 6,
+              "score": 0.5388458371162415
+            }
+          ]
+        },
+        {
+          "gameId": 91872,
+          "display": {
+            "name": " 던전 & 드래곤: 스에 레전드 오프 드리즈즈트 보드 게임",
+            "englishName": " Dungeons & Dragons: The Legend of Drizzt Board Game"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 7,
+              "score": 0.5362113118171692
+            }
+          ]
+        },
+        {
+          "gameId": 358246,
+          "display": {
+            "name": " 데드 바이 데이라이트: 보드게임",
+            "englishName": " Dead by Daylight: The Board Game"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 8,
+              "score": 0.5354118347167969
+            }
+          ]
+        },
+        {
+          "gameId": 188920,
+          "display": {
+            "name": " 스이스 워 오프 름인에: 스에 보드 게임",
+            "englishName": " This War of Mine: The Board Game"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 9,
+              "score": 0.5352730751037598
+            }
+          ]
+        },
+        {
+          "gameId": 242302,
+          "display": {
+            "name": " 스페이스 바세",
+            "englishName": " Space Base"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 10,
+              "score": 0.5348743796348572
+            }
+          ]
+        },
+        {
+          "gameId": 456619,
+          "display": {
+            "name": " 브리트즈",
+            "englishName": " BLITZ"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 11,
+              "score": 0.534792423248291
+            }
+          ]
+        },
+        {
+          "gameId": 288098,
+          "display": {
+            "name": " 섀도우 레이더스",
+            "englishName": " Shadow Raiders"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 12,
+              "score": 0.533047616481781
+            }
+          ]
+        },
+        {
+          "gameId": 17223,
+          "display": {
+            "name": " 월드 오프 우아크라프트: 스에 브오르드그암에",
+            "englishName": " World of Warcraft: The Boardgame"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 13,
+              "score": 0.5321334600448608
+            }
+          ]
+        },
+        {
+          "gameId": 203430,
+          "display": {
+            "name": " 후지 플러시",
+            "englishName": " Fuji Flush"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 14,
+              "score": 0.5320090651512146
+            }
+          ]
+        },
+        {
+          "gameId": 180263,
+          "display": {
+            "name": " 스에 7th 크온트인엔트",
+            "englishName": " The 7th Continent"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 15,
+              "score": 0.5317215323448181
+            }
+          ]
+        },
+        {
+          "gameId": 103343,
+          "display": {
+            "name": " 아 게임 오프 스르온에스: 스에 보드 게임 (2판)",
+            "englishName": " A Game of Thrones: The Board Game (Second Edition)"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 16,
+              "score": 0.5314395427703857
+            }
+          ]
+        },
+        {
+          "gameId": 142325,
+          "display": {
+            "name": " 코바야카와",
+            "englishName": " Kobayakawa"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 17,
+              "score": 0.5314119458198547
+            }
+          ]
+        },
+        {
+          "gameId": 77130,
+          "display": {
+            "name": " 시드 메이어스 시브일이자션: 스에 보드 게임",
+            "englishName": " Sid Meier's Civilization: The Board Game"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 18,
+              "score": 0.530845582485199
+            }
+          ]
+        },
+        {
+          "gameId": 311988,
+          "display": {
+            "name": " 프로스트프언크: 스에 보드 게임",
+            "englishName": " Frostpunk: The Board Game"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 19,
+              "score": 0.5304674506187439
+            }
+          ]
+        },
+        {
+          "gameId": 124361,
+          "display": {
+            "name": " 콘코디아",
+            "englishName": " Concordia"
+          },
+          "sources": [
+            {
+              "modelId": "BAAI/bge-m3",
+              "rank": 20,
+              "score": 0.5284669399261475
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
