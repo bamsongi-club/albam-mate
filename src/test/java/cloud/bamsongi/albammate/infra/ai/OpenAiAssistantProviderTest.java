@@ -72,6 +72,18 @@ class OpenAiAssistantProviderTest {
 	}
 
 	@Test
+	void T2_gameStyles는_허용된_code와_1개이상_중복없는_최대8개만_허용한다() {
+		assertEquals(AiProviderFailure.INVALID_SCHEMA,
+			responseFor("{\"action\":\"RECOMMEND\",\"gameStyles\":[\"UNKNOWN\"]}").failure());
+		assertEquals(AiProviderFailure.INVALID_SCHEMA,
+			responseFor("{\"action\":\"RECOMMEND\",\"gameStyles\":[]}").failure());
+		assertEquals(AiProviderFailure.INVALID_SCHEMA,
+			responseFor("{\"action\":\"RECOMMEND\",\"gameStyles\":[\"\"]}").failure());
+		assertEquals(AiProviderFailure.INVALID_SCHEMA,
+			responseFor("{\"action\":\"RECOMMEND\",\"gameStyles\":[\"STRATEGY\",\"STRATEGY\"]}").failure());
+	}
+
+	@Test
 	void T3_openai_adapter의_깨진_tool_arguments는_INVALID_SCHEMA로_닫힌다() {
 		ChatModel chatModel = mock(ChatModel.class);
 		AssistantMessage output = AssistantMessage.builder()
@@ -114,6 +126,19 @@ class OpenAiAssistantProviderTest {
 		return new OpenAiAssistantProvider(chatModel, AiProviderSettings.fakeDefaults())
 			.propose(payload())
 			.failure();
+	}
+
+	private AiProviderResponse responseFor(String arguments) {
+		ChatModel chatModel = mock(ChatModel.class);
+		AssistantMessage output = AssistantMessage.builder()
+			.content("")
+			.toolCalls(List.of(new AssistantMessage.ToolCall(
+				"call-1", "function", "propose_game_room_intent", arguments)))
+			.build();
+		when(chatModel.call(any(Prompt.class))).thenReturn(
+			new ChatResponse(List.of(new Generation(output))));
+		return new OpenAiAssistantProvider(chatModel, AiProviderSettings.fakeDefaults())
+			.propose(payload());
 	}
 
 	private AiProviderPayload payload() {

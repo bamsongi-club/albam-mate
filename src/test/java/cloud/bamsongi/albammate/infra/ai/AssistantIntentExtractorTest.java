@@ -89,6 +89,8 @@ class AssistantIntentExtractorTest {
 		for (String piiSentence : List.of(
 			"메일은 member@example.com이고 게임만 추천해줘",
 			"전화번호 010-1234-5678은 보내지 마",
+			"유선번호 02-123-4567은 보내지 마",
+			"국제번호 +82 10 1234 5678은 보내지 마",
 			"비밀번호를 provider에 보내지 마",
 			"식별자 123456789를 보내지 마",
 			"sk-proj-abcDEFghiJKLmnopQRSTuvwxYZ를 provider에 보내지 마",
