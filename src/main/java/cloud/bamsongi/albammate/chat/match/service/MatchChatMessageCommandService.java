@@ -38,8 +38,13 @@ public class MatchChatMessageCommandService {
 
 	private static final int MAX_CLIENT_MESSAGE_ID_LENGTH = 100;
 	private static final int MAX_CONTENT_LENGTH = 500;
-	/** LF만 줄바꿈으로 허용하고, 나머지 제어문자는 공백 제거 전에 거절한다. */
-	private static final Pattern DISALLOWED_CONTROL_CHARACTER_PATTERN = Pattern.compile("[\\p{Cc}&&[^\\n]]");
+	/**
+	 * LF만 줄바꿈으로 허용하고, 나머지 제어(Cc)·서식(Cf)·줄바꿈류 구분자(Zl·Zp) 문자는 공백 제거 전에 거절한다.
+	 *
+	 * <p>U+2028(LINE SEPARATOR), U+2029(PARAGRAPH SEPARATOR), U+202E(RIGHT-TO-LEFT OVERRIDE)를 포함한다.
+	 */
+	private static final Pattern DISALLOWED_CONTROL_CHARACTER_PATTERN = Pattern
+		.compile("[[\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}]&&[^\\n]]");
 
 	private final MatchPartyChatWriteGuard matchPartyChatWriteGuard;
 	private final MatchChatRoomRepository matchChatRoomRepository;
@@ -62,19 +67,20 @@ public class MatchChatMessageCommandService {
 			.orElseThrow(() -> missingChatRoom(partyId));
 		String clientMessageId = validateClientMessageId(request.clientMessageId());
 		String content = normalizeContent(request.content());
-		MatchChatSender sender = requireSender(partyId, currentUserId);
 
 		return matchChatMessageRepository
 			.findByMatchChatRoomIdAndSenderUserIdAndClientMessageId(chatRoom.getId(), currentUserId, clientMessageId)
-			.map(existing -> existingMessage(existing, partyId, content, sender))
-			.orElseGet(() -> saveNewMessage(chatRoom, currentUserId, partyId, clientMessageId, content, sender));
+			.map(existing -> existingMessage(existing, partyId, content, currentUserId))
+			.orElseGet(() -> saveNewMessage(chatRoom, currentUserId, partyId, clientMessageId, content,
+				requireSender(partyId, currentUserId)));
 	}
 
 	private MatchChatMessageSendResult existingMessage(
-		MatchChatMessage existing, long partyId, String content, MatchChatSender sender) {
+		MatchChatMessage existing, long partyId, String content, long currentUserId) {
 		if (!existing.getContent().equals(content)) {
 			throw new BusinessException(ErrorCode.VALIDATION_ERROR);
 		}
+		MatchChatSender sender = requireSender(partyId, currentUserId);
 		return new MatchChatMessageSendResult(
 			MatchChatMessageResponse.from(existing, partyId, sender, true), false);
 	}

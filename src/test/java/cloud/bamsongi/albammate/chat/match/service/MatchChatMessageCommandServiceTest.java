@@ -169,6 +169,19 @@ class MatchChatMessageCommandServiceTest {
 	}
 
 	@Test
+	void LF_외의_줄바꿈_서식_문자는_거절된다() {
+		when(matchChatMessageRepository.findByMatchChatRoomIdAndSenderUserIdAndClientMessageId(
+			eq(CHAT_ROOM_ID), eq(CURRENT_USER_ID), any())).thenReturn(Optional.empty());
+
+		assertValidationError(new MatchChatMessageSendRequest("client-line-separator", "본문" + (char)0x2028 + "끝"));
+		assertValidationError(
+			new MatchChatMessageSendRequest("client-paragraph-separator", "본문" + (char)0x2029 + "끝"));
+		assertValidationError(new MatchChatMessageSendRequest("client-rtl-override", "본문" + (char)0x202E + "끝"));
+		verify(matchChatMessageRepository, never()).save(any());
+		verifyNoInteractions(eventPublisher);
+	}
+
+	@Test
 	void 앞뒤_공백은_제거된다() {
 		when(matchChatMessageRepository.findByMatchChatRoomIdAndSenderUserIdAndClientMessageId(
 			eq(CHAT_ROOM_ID), eq(CURRENT_USER_ID), any())).thenReturn(Optional.empty());
