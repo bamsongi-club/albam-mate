@@ -18,17 +18,18 @@ import {
   buildPrepareSql,
   buildResourceQuery,
   buildSnapshotQuery,
+  createFixturePlan,
   evaluateFixture,
   hydrateFixture,
   normalizeRoomSummary,
   normalizePrepareOwnership,
   RUN_ID_PATTERN,
 } from './fixture-model.mjs';
+import { renderBundle as renderPortableBundle } from './portable-bundle.mjs';
 
 const toolPath = fileURLToPath(import.meta.url);
 const toolDirectory = path.dirname(toolPath);
 const sourceRepositoryRoot = path.resolve(toolDirectory, '../../../..');
-const sourceBuildRoot = path.join(sourceRepositoryRoot, 'build', 'k6', 'room');
 
 const BUNDLE_KIND = 'albam-mate-room-lock-comparison-bundle';
 const BUNDLE_SCHEMA_VERSION = 2;
@@ -106,6 +107,7 @@ const REGRESSION_TEMPLATES = [
     scenario: 't3',
     executionModel: 'barrier',
     options: { profile: 'stress', rounds: 5, t3Mode: 'race' },
+    cases: [null],
   },
   {
     id: 'regression-t4-c8',
@@ -113,16 +115,21 @@ const REGRESSION_TEMPLATES = [
     executionModel: 'barrier',
     concurrency: 8,
     options: { profile: 'spike', rounds: 1, concurrency: 8 },
+    cases: [null],
   },
   {
     id: 'regression-t5-background',
     scenario: 't5',
     executionModel: 'read-background',
-    options: {
-      profile: 'spike',
-      rounds: 1,
-      cases: ['public-1', 'public-10', 'host-1', 'host-10', 'participant-1', 'participant-10'],
-    },
+    options: { profile: 'spike', rounds: 1 },
+    cases: [
+      { role: 'public', scale: 1 },
+      { role: 'public', scale: 10 },
+      { role: 'host', scale: 1 },
+      { role: 'host', scale: 10 },
+      { role: 'participant', scale: 1 },
+      { role: 'participant', scale: 10 },
+    ],
   },
 ];
 
@@ -248,6 +255,10 @@ function usage() {
     --scenario t1|t2 --run-id <id> --candidate A|B|C --candidate-sha <sha> \
     --condition <condition-id> --concurrency 2|4|8|16 \
     --source-sha <sha> --app-root <candidate-checkout> [--output-root <dir>]
+  node load-tests/k6/jiwon/tools/room-lock-comparison.mjs render-regression-bundle \
+    --regression regression-t3-race|regression-t4-c8|regression-t5-background \
+    --run-id <id> --candidate A|B|C --candidate-sha <sha> \
+    --source-sha <sha> --app-root <candidate-checkout> [--t5-role <role> --t5-scale 1|10]
 
 실행 bundle 명령:
   validate --bundle <dir> [--for-execution]
@@ -322,6 +333,17 @@ function sourceRuntimePath(appRoot, relativePath) {
   return result;
 }
 
+function portableBundleContext(appRoot) {
+  return {
+    repositoryRoot: appRoot,
+    scenarioDirectory: path.join(appRoot, 'load-tests', 'k6', 'jiwon'),
+    buildRoot: path.join(appRoot, 'build', 'k6', 'room'),
+    bundleRoot: path.join(appRoot, 'load-tests', 'k6', 'jiwon', 'tools'),
+    isBundleRuntime: false,
+    environment: process.env,
+  };
+}
+
 function candidateMap(input) {
   let value = input;
   if (typeof input === 'string') {
@@ -337,6 +359,25 @@ function candidateMap(input) {
       fail(`candidate ${label}의 SHA가 40자리 소문자 SHA가 아닙니다.`);
     }
     result[label] = sha;
+  }
+  return result;
+}
+
+function candidateRootMap(input) {
+  let value = input;
+  if (typeof input === 'string') {
+    value = JSON.parse(readFileSync(input, 'utf8'));
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    fail('candidate roots는 A/B/C 키를 가진 JSON object여야 합니다.');
+  }
+  const result = {};
+  for (const label of CANDIDATE_LABELS) {
+    const root = path.resolve(text(value[label], `candidate ${label} app root`));
+    if (!existsSync(root)) {
+      fail(`candidate ${label} app root를 찾을 수 없습니다: ${root}`);
+    }
+    result[label] = root;
   }
   return result;
 }
@@ -365,6 +406,31 @@ function conditionFor(id, concurrency) {
       ? arrivalRate * template.durationSeconds
       : null,
   };
+}
+
+function regressionTemplate(id) {
+  const template = REGRESSION_TEMPLATES.find((regression) => regression.id === id);
+  if (!template) {
+    fail(`지원하지 않는 regression: ${id}`);
+  }
+  return template;
+}
+
+function portableOptionsForRegression(regression, runId, regressionCase) {
+  const options = {
+    scenario: regression.scenario,
+    runId,
+    ...regression.options,
+  };
+  if (regression.scenario === 't5') {
+    options.t5Role = regressionCase.role;
+    options.t5Scale = regressionCase.scale;
+  }
+  return options;
+}
+
+function portableFixtureId(regression, runId, regressionCase) {
+  return createFixturePlan(portableOptionsForRegression(regression, runId, regressionCase)).fixtureId;
 }
 
 export function buildCampaignPlan({ campaignId, candidates, seed = campaignId }) {
@@ -412,32 +478,38 @@ export function buildCampaignPlan({ campaignId, candidates, seed = campaignId })
   }
 
   for (const regression of REGRESSION_TEMPLATES) {
-    for (let repetition = 1; repetition <= MIN_PAIRED_RUNS; repetition += 1) {
-      const pairId = `${normalizedCampaignId}-${regression.id}-r${repetition}`;
-      const order = seededOrder(`${seed}:${pairId}`, CANDIDATE_LABELS);
-      order.forEach((candidate, sequenceIndex) => {
-        const runId = `${pairId}-${candidate.toLowerCase()}`;
-        if (!RUN_ID_PATTERN.test(runId)) {
-          fail(`campaign runId가 80자 안전 형식을 벗어났습니다: ${runId}`);
-        }
-        runs.push({
-          runId,
-          pairId,
-          sequence: sequenceIndex + 1,
-          scenario: regression.scenario,
-          candidate,
-          candidateSha: normalizedCandidates[candidate],
-          repetition,
-          condition: {
-            id: regression.id,
-            executionModel: regression.executionModel,
-            concurrency: regression.concurrency || null,
-            options: regression.options,
-            minimumValidSamples: null,
-          },
-          runner: 'portable',
+    for (const regressionCase of regression.cases) {
+      const caseSuffix = regressionCase
+        ? `-${regressionCase.role}-s${regressionCase.scale}`
+        : '';
+      for (let repetition = 1; repetition <= MIN_PAIRED_RUNS; repetition += 1) {
+        const pairId = `${normalizedCampaignId}-${regression.id}${caseSuffix}-r${repetition}`;
+        const order = seededOrder(`${seed}:${pairId}`, CANDIDATE_LABELS);
+        order.forEach((candidate, sequenceIndex) => {
+          const runId = `${pairId}-${candidate.toLowerCase()}`;
+          if (!RUN_ID_PATTERN.test(runId)) {
+            fail(`campaign runId가 80자 안전 형식을 벗어났습니다: ${runId}`);
+          }
+          runs.push({
+            runId,
+            pairId,
+            sequence: sequenceIndex + 1,
+            scenario: regression.scenario,
+            candidate,
+            candidateSha: normalizedCandidates[candidate],
+            repetition,
+            fixtureId: portableFixtureId(regression, runId, regressionCase),
+            condition: {
+              id: regression.id,
+              executionModel: regression.executionModel,
+              concurrency: regression.concurrency || null,
+              options: portableOptionsForRegression(regression, runId, regressionCase),
+              minimumValidSamples: null,
+            },
+            runner: 'portable',
+          });
         });
-      });
+      }
     }
   }
 
@@ -455,6 +527,7 @@ export function buildCampaignPlan({ campaignId, candidates, seed = campaignId })
       mixedDistribution: 'hot-50-percent-spread-50-percent',
       p95P99WinnerGate: 'constant-arrival-rate-only',
       regressionRunner: 'existing-portable-bundle-read-only',
+      regressionRunCount: 120,
     },
     runs,
   };
@@ -552,6 +625,7 @@ function normalizedComparisonInput(input) {
   const fixtureId = `room-k6-${scenario}-${digest(JSON.stringify(options))}`;
   return {
     ...comparison,
+    scenario,
     runId,
     subcase,
     fixtureId,
@@ -977,6 +1051,41 @@ function renderBundle(values) {
   };
 }
 
+function renderRegressionBundle(values) {
+  const appRoot = appRootValue(values.appRoot);
+  const source = sourceProvenance(values.sourceSha, appRoot);
+  const candidate = oneOf(values.candidate, 'candidate', CANDIDATE_LABELS);
+  const candidateSha = validateSourceSha(values.candidateSha);
+  if (source.sourceRevision !== candidateSha) {
+    fail('candidate SHA와 portable regression bundle을 생성하는 앱 source SHA가 다릅니다.');
+  }
+
+  const regression = regressionTemplate(values.regression);
+  const regressionCase = regression.scenario === 't5'
+    ? {
+      role: oneOf(values.t5Role, 't5Role', ['public', 'host', 'participant']),
+      scale: integer(values.t5Scale, 't5Scale', 1, 10),
+    }
+    : null;
+  if (regressionCase && ![1, 10].includes(regressionCase.scale)) {
+    fail('t5Scale은 1 또는 10이어야 합니다.');
+  }
+  const runId = safeIdentifier(values.runId, 'runId');
+  const portableOptions = portableOptionsForRegression(regression, runId, regressionCase);
+  const result = renderPortableBundle(
+    portableOptions,
+    portableBundleContext(appRoot),
+    source,
+  );
+  return {
+    ...result,
+    candidate,
+    candidateSha,
+    regression: regression.id,
+    regressionCase,
+  };
+}
+
 function readBundle(bundleValue) {
   const bundleDirectory = path.resolve(text(bundleValue, '--bundle'));
   const manifest = readJson(path.join(bundleDirectory, 'manifest.json'), 'bundle manifest');
@@ -1248,6 +1357,9 @@ function aggregateCampaign(values) {
   if (plan.schemaVersion !== 1 || !Array.isArray(plan.runs)) {
     fail('campaign plan 형식이 올바르지 않습니다.');
   }
+  const candidateRoots = values.candidateRootsFile
+    ? candidateRootMap(values.candidateRootsFile)
+    : Object.fromEntries(CANDIDATE_LABELS.map((candidate) => [candidate, sourceRepositoryRoot]));
   const report = {
     schemaVersion: 1,
     campaignId: plan.campaignId,
@@ -1262,26 +1374,53 @@ function aggregateCampaign(values) {
     report.candidates[candidate] = { candidateSha: plan.candidates[candidate], conditions: {} };
   }
   for (const run of plan.runs) {
+    const candidateRoot = candidateRoots[run.candidate];
+    if (!candidateRoot) {
+      report.status = 'INVALID';
+      report.excludedRuns.push({ runId: run.runId, reason: `candidate ${run.candidate} app root 누락` });
+      continue;
+    }
+    const bundlePath = run.bundlePath
+      || path.join(candidateRoot, 'build', 'k6', 'room', run.runId, run.fixtureId);
     if (run.runner !== 'room-lock-comparison') {
-      report.regressions.push({
+      const finalPath = path.join(bundlePath, ARTIFACTS.finalResult);
+      if (!existsSync(finalPath)) {
+        const regression = {
+          runId: run.runId,
+          pairId: run.pairId,
+          candidate: run.candidate,
+          candidateSha: run.candidateSha,
+          scenario: run.scenario,
+          condition: run.condition,
+          status: 'INVALID',
+          issues: ['portable regression final-result.json 누락'],
+        };
+        report.regressions.push(regression);
+        report.status = 'INVALID';
+        report.excludedRuns.push({ runId: run.runId, reason: 'portable regression final-result.json 누락' });
+        continue;
+      }
+      const finalResult = readJson(finalPath, 'portable regression final result');
+      const status = ['PASS', 'FAIL', 'INVALID'].includes(finalResult.status)
+        ? finalResult.status
+        : 'INVALID';
+      const regression = {
         runId: run.runId,
         pairId: run.pairId,
         candidate: run.candidate,
         candidateSha: run.candidateSha,
         scenario: run.scenario,
         condition: run.condition,
-        status: 'PORTABLE_ARTIFACT_REQUIRED',
-      });
+        status,
+        issues: finalResult.issues || finalResult.failures || [],
+      };
+      report.regressions.push(regression);
+      if (status !== 'PASS') {
+        report.status = 'INVALID';
+        report.excludedRuns.push({ runId: run.runId, reason: status, issues: regression.issues });
+      }
       continue;
     }
-    const bundlePath = run.bundlePath
-      || path.join(sourceBuildRoot, run.runId, run.fixtureId || `room-k6-${run.scenario}-${digest(JSON.stringify({
-        ...run.condition,
-        scenario: run.scenario,
-        runId: run.runId,
-        candidate: run.candidate,
-        candidateSha: run.candidateSha,
-      }))}`);
     const finalPath = path.join(bundlePath, ARTIFACTS.finalResult);
     if (!existsSync(finalPath)) {
       report.status = 'INVALID';
@@ -1357,6 +1496,9 @@ function main() {
     }
     case 'render-bundle':
       process.stdout.write(`${JSON.stringify(renderBundle(values))}\n`);
+      return;
+    case 'render-regression-bundle':
+      process.stdout.write(`${JSON.stringify(renderRegressionBundle(values))}\n`);
       return;
     case 'validate':
       process.stdout.write(`${JSON.stringify(validateBundle(values))}\n`);

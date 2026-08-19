@@ -20,9 +20,9 @@ test('campaign plan은 A/B/C를 고정 순서가 아닌 paired/crossover로 5회
     seed: 'seed786',
   });
 
-  assert.equal(plan.runs.length, 525);
+  assert.equal(plan.runs.length, 600);
   assert.equal(plan.runs.filter((run) => run.runner === 'room-lock-comparison').length, 480);
-  assert.equal(plan.runs.filter((run) => run.runner === 'portable').length, 45);
+  assert.equal(plan.runs.filter((run) => run.runner === 'portable').length, 120);
   assert.deepEqual(plan.contract.concurrencyLevels, [2, 4, 8, 16]);
   assert.equal(plan.contract.minPairedRuns, 5);
 
@@ -34,7 +34,7 @@ test('campaign plan은 A/B/C를 고정 순서가 아닌 paired/crossover로 5회
     assert.equal(run.candidateSha, candidates[run.candidate]);
     assert.match(run.runId, /^[a-z0-9][a-z0-9._-]{0,79}$/);
   }
-  assert.equal(pairGroups.size, 175);
+  assert.equal(pairGroups.size, 200);
   for (const group of pairGroups.values()) {
     assert.deepEqual(
       group.map((run) => run.candidate).sort(),
@@ -46,6 +46,14 @@ test('campaign plan은 A/B/C를 고정 순서가 아닌 paired/crossover로 5회
     [...pairGroups.values()].some((group) => group.map((run) => run.candidate).join('') !== 'ABC'),
     '모든 paired run이 A→B→C 고정 순서이면 안 됩니다.',
   );
+  const t5Cases = new Set(
+    plan.runs
+      .filter((run) => run.scenario === 't5')
+      .map((run) => `${run.condition.options.t5Role}-${run.condition.options.t5Scale}`),
+  );
+  assert.deepEqual([...t5Cases].sort(), [
+    'host-1', 'host-10', 'participant-1', 'participant-10', 'public-1', 'public-10',
+  ]);
 });
 
 test('constant mixed c16 fixture는 60초·16 req/s의 50:50 hot/spread target을 만든다', () => {
@@ -70,6 +78,24 @@ test('constant mixed c16 fixture는 60초·16 req/s의 50:50 hot/spread target�
   assert.equal(new Set(plan.targets.map((target) => target.roomKey)).size, 540);
   assert.match(runtimeContractSource(plan), /executor: 'constant-arrival-rate'/);
   assert.match(runtimeContractSource(plan), /iterationInTest/);
+});
+
+test('T1 barrier fixture는 T1 cancel/promotion fixture를 만든다', () => {
+  const plan = createComparisonFixturePlan({
+    scenario: 't1',
+    runId: 'cmp786-t1-barrier-hot-c2-r1-a',
+    candidate: 'A',
+    candidateSha: candidates.A,
+    conditionId: 'barrier-hot',
+    executionModel: 'barrier',
+    distribution: 'hot',
+    concurrency: 2,
+  });
+
+  assert.equal(plan.scenario, 't1');
+  assert.match(plan.users[0].key, /^t1-/);
+  assert.match(plan.rooms[0].key, /^t1-/);
+  assert.equal(plan.targets[0].actorKey.startsWith('t1-'), true);
 });
 
 test('T2 mixed c16은 hot 경합과 spread 대조군을 같은 fixture에 보존한다', () => {

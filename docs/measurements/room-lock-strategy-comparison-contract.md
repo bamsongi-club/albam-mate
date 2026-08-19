@@ -46,9 +46,9 @@ constant-arrival-rate의 공통값은 다음과 같다.
 | --- | --- | --- |
 | T3 정합성 회귀 | `t3 race`, stress, 5 rounds | 기존 portable bundle read-only |
 | T4 정합성 회귀 | `c8`, spike, 1 round | 기존 portable bundle read-only |
-| T5 배경 조회 | public/host/participant × scale 1/10 | 기존 T5 비교 runner read-only |
+| T5 배경 조회 | public/host/participant × scale 1/10, 각 조합 별도 실행 | 기존 T5 비교 runner read-only |
 
-회귀·배경을 포함한 전체 campaign plan은 525개 실행 단위를 보존한다. 핵심 480개는 786 전용 bundle이고, 나머지 45개는 기존 T1~T5 portable bundle을 읽기 전용으로 실행하는 별도 gate다.
+회귀·배경을 포함한 전체 campaign plan은 600개 실행 단위를 보존한다. 핵심 480개는 786 전용 bundle이고, 나머지 120개는 기존 T1~T5 portable bundle을 읽기 전용으로 실행하는 별도 gate다. T3 15개, T4 15개, T5 90개로 구성한다.
 
 ## 수집 metric과 원자료
 

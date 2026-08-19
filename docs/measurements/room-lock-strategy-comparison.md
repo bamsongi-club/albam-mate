@@ -41,7 +41,7 @@ node load-tests/k6/jiwon/tools/room-lock-comparison.mjs plan `
   --output build/k6/room-lock/campaign-plan.json
 ```
 
-plan은 480개 핵심 실행과 45개 회귀·배경 실행을 포함한다. 각 핵심 paired run은 같은 condition·동시성·반복 번호를 공유하고 후보 실행 순서만 seed 기반으로 섞는다.
+plan은 480개 핵심 실행과 120개 회귀·배경 실행을 포함한다. T5는 public/host/participant와 scale 1/10을 각각 별도 portable run으로 실행한다. 각 핵심 paired run은 같은 condition·동시성·반복 번호를 공유하고 후보 실행 순서만 seed 기반으로 섞는다.
 
 ### 3. 후보별 comparison bundle 생성
 
@@ -78,11 +78,12 @@ AWS `apply`, 앱 배포/release, `room-k6` 실행은 각각 실행 직전 명시
 
 ### 5. 회귀와 결과 집계
 
-T3·T4·T5는 기존 portable bundle을 읽기 전용으로 실행하고, 결과를 같은 campaign의 회귀 gate로 연결한다. 모든 결과가 보존된 뒤 다음 명령으로 campaign report를 만든다.
+T3·T4·T5는 후보 checkout에서 portable bundle을 읽기 전용으로 생성·실행하고, 결과를 같은 campaign의 회귀 gate로 연결한다. 모든 결과가 보존된 뒤 후보 checkout root를 함께 지정하여 campaign report를 만든다.
 
 ```powershell
 node load-tests/k6/jiwon/tools/room-lock-comparison.mjs aggregate-campaign `
   --plan build/k6/room-lock/campaign-plan.json `
+  --candidate-roots-file .run/room-lock-candidate-roots.json `
   --output docs/measurements/results/room-lock-strategy-comparison/campaign-report.json
 ```
 
