@@ -1,0 +1,1992 @@
+{
+  "issue": 740,
+  "status": "success",
+  "measuredAt": "2026-08-19T00:54:31.044Z",
+  "runnerCommit": "2e28b6c9294fa0b30b40b6c057d6199cf5804a4b",
+  "runnerFileSha256": "86bdd2e88b9380de1f35619989b9ed24eeb7d544bbfd5de71c5107d1ee4e557d",
+  "runnerSourceClean": true,
+  "serverCommit": "2e28b6c9294fa0b30b40b6c057d6199cf5804a4b",
+  "baseUrl": "http://127.0.0.1:5173",
+  "dataset": {
+    "gameCount": 170005,
+    "sha256": "d4abcf8ff91c0551ac6bc9afdb87ccae007ce46ad8139689ccb01a5c92c537c8"
+  },
+  "warmUpRuns": 5,
+  "measuredRuns": 20,
+  "discovered": {
+    "keyword": "GAP",
+    "theme": "BOOK_BGG_1117",
+    "mechanism": "HAND_MANAGEMENT"
+  },
+  "percentileMethod": "nearest-rank (ceil(p * N))",
+  "failure": null,
+  "results": [
+    {
+      "name": "base",
+      "url": "http://127.0.0.1:5173/api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24",
+      "params": {
+        "upcomingOnly": "false",
+        "playerCountExact": "false",
+        "page": "0",
+        "size": "24"
+      },
+      "status": "success",
+      "samples": [
+        {
+          "run": 1,
+          "status": 200,
+          "elapsedMs": 25.55725000000001,
+          "bytes": 6496,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 170005,
+            "totalPages": 7084,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 2,
+          "status": 200,
+          "elapsedMs": 25.343666999999982,
+          "bytes": 6496,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 170005,
+            "totalPages": 7084,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 3,
+          "status": 200,
+          "elapsedMs": 23.738042000000007,
+          "bytes": 6496,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 170005,
+            "totalPages": 7084,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 4,
+          "status": 200,
+          "elapsedMs": 21.479332999999997,
+          "bytes": 6496,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 170005,
+            "totalPages": 7084,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 5,
+          "status": 200,
+          "elapsedMs": 19.148874999999975,
+          "bytes": 6496,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 170005,
+            "totalPages": 7084,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 6,
+          "status": 200,
+          "elapsedMs": 20.777125000000012,
+          "bytes": 6496,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 170005,
+            "totalPages": 7084,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 7,
+          "status": 200,
+          "elapsedMs": 18.51687499999997,
+          "bytes": 6496,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 170005,
+            "totalPages": 7084,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 8,
+          "status": 200,
+          "elapsedMs": 16.74000000000001,
+          "bytes": 6496,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 170005,
+            "totalPages": 7084,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 9,
+          "status": 200,
+          "elapsedMs": 31.29449999999997,
+          "bytes": 6496,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 170005,
+            "totalPages": 7084,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 10,
+          "status": 200,
+          "elapsedMs": 24.763333999999986,
+          "bytes": 6496,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 170005,
+            "totalPages": 7084,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 11,
+          "status": 200,
+          "elapsedMs": 27.656041999999957,
+          "bytes": 6496,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 170005,
+            "totalPages": 7084,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 12,
+          "status": 200,
+          "elapsedMs": 26.335375,
+          "bytes": 6496,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 170005,
+            "totalPages": 7084,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 13,
+          "status": 200,
+          "elapsedMs": 27.38062500000001,
+          "bytes": 6496,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 170005,
+            "totalPages": 7084,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 14,
+          "status": 200,
+          "elapsedMs": 24.02241600000002,
+          "bytes": 6496,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 170005,
+            "totalPages": 7084,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 15,
+          "status": 200,
+          "elapsedMs": 19.147707999999966,
+          "bytes": 6496,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 170005,
+            "totalPages": 7084,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 16,
+          "status": 200,
+          "elapsedMs": 16.672500000000014,
+          "bytes": 6496,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 170005,
+            "totalPages": 7084,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 17,
+          "status": 200,
+          "elapsedMs": 18.126792000000023,
+          "bytes": 6496,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 170005,
+            "totalPages": 7084,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 18,
+          "status": 200,
+          "elapsedMs": 18.529457999999977,
+          "bytes": 6496,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 170005,
+            "totalPages": 7084,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 19,
+          "status": 200,
+          "elapsedMs": 21.924875000000043,
+          "bytes": 6496,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 170005,
+            "totalPages": 7084,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 20,
+          "status": 200,
+          "elapsedMs": 17.386207999999897,
+          "bytes": 6496,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 170005,
+            "totalPages": 7084,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        }
+      ],
+      "summary": {
+        "p50Ms": 21.479332999999997,
+        "p95Ms": 27.656041999999957,
+        "maxMs": 31.29449999999997,
+        "minMs": 16.672500000000014,
+        "statuses": {
+          "200": 20
+        },
+        "responseBytes": [
+          6496
+        ]
+      },
+      "error": null
+    },
+    {
+      "name": "keyword",
+      "url": "http://127.0.0.1:5173/api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24&keyword=GAP",
+      "params": {
+        "upcomingOnly": "false",
+        "playerCountExact": "false",
+        "page": "0",
+        "size": "24",
+        "keyword": "GAP"
+      },
+      "status": "success",
+      "samples": [
+        {
+          "run": 1,
+          "status": 200,
+          "elapsedMs": 9.092165999999906,
+          "bytes": 400,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 1,
+            "totalPages": 1,
+            "hasNext": false,
+            "contentLength": 1
+          },
+          "error": null
+        },
+        {
+          "run": 2,
+          "status": 200,
+          "elapsedMs": 10.477250000000026,
+          "bytes": 400,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 1,
+            "totalPages": 1,
+            "hasNext": false,
+            "contentLength": 1
+          },
+          "error": null
+        },
+        {
+          "run": 3,
+          "status": 200,
+          "elapsedMs": 6.461165999999935,
+          "bytes": 400,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 1,
+            "totalPages": 1,
+            "hasNext": false,
+            "contentLength": 1
+          },
+          "error": null
+        },
+        {
+          "run": 4,
+          "status": 200,
+          "elapsedMs": 18.740791999999942,
+          "bytes": 400,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 1,
+            "totalPages": 1,
+            "hasNext": false,
+            "contentLength": 1
+          },
+          "error": null
+        },
+        {
+          "run": 5,
+          "status": 200,
+          "elapsedMs": 12.952208000000041,
+          "bytes": 400,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 1,
+            "totalPages": 1,
+            "hasNext": false,
+            "contentLength": 1
+          },
+          "error": null
+        },
+        {
+          "run": 6,
+          "status": 200,
+          "elapsedMs": 13.497957999999926,
+          "bytes": 400,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 1,
+            "totalPages": 1,
+            "hasNext": false,
+            "contentLength": 1
+          },
+          "error": null
+        },
+        {
+          "run": 7,
+          "status": 200,
+          "elapsedMs": 10.230290999999966,
+          "bytes": 400,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 1,
+            "totalPages": 1,
+            "hasNext": false,
+            "contentLength": 1
+          },
+          "error": null
+        },
+        {
+          "run": 8,
+          "status": 200,
+          "elapsedMs": 14.90783399999998,
+          "bytes": 400,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 1,
+            "totalPages": 1,
+            "hasNext": false,
+            "contentLength": 1
+          },
+          "error": null
+        },
+        {
+          "run": 9,
+          "status": 200,
+          "elapsedMs": 11.474707999999964,
+          "bytes": 400,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 1,
+            "totalPages": 1,
+            "hasNext": false,
+            "contentLength": 1
+          },
+          "error": null
+        },
+        {
+          "run": 10,
+          "status": 200,
+          "elapsedMs": 12.71220900000003,
+          "bytes": 400,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 1,
+            "totalPages": 1,
+            "hasNext": false,
+            "contentLength": 1
+          },
+          "error": null
+        },
+        {
+          "run": 11,
+          "status": 200,
+          "elapsedMs": 11.608124999999973,
+          "bytes": 400,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 1,
+            "totalPages": 1,
+            "hasNext": false,
+            "contentLength": 1
+          },
+          "error": null
+        },
+        {
+          "run": 12,
+          "status": 200,
+          "elapsedMs": 9.521749999999997,
+          "bytes": 400,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 1,
+            "totalPages": 1,
+            "hasNext": false,
+            "contentLength": 1
+          },
+          "error": null
+        },
+        {
+          "run": 13,
+          "status": 200,
+          "elapsedMs": 8.232582999999977,
+          "bytes": 400,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 1,
+            "totalPages": 1,
+            "hasNext": false,
+            "contentLength": 1
+          },
+          "error": null
+        },
+        {
+          "run": 14,
+          "status": 200,
+          "elapsedMs": 10.501167000000123,
+          "bytes": 400,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 1,
+            "totalPages": 1,
+            "hasNext": false,
+            "contentLength": 1
+          },
+          "error": null
+        },
+        {
+          "run": 15,
+          "status": 200,
+          "elapsedMs": 10.85370899999998,
+          "bytes": 400,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 1,
+            "totalPages": 1,
+            "hasNext": false,
+            "contentLength": 1
+          },
+          "error": null
+        },
+        {
+          "run": 16,
+          "status": 200,
+          "elapsedMs": 11.341166999999814,
+          "bytes": 400,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 1,
+            "totalPages": 1,
+            "hasNext": false,
+            "contentLength": 1
+          },
+          "error": null
+        },
+        {
+          "run": 17,
+          "status": 200,
+          "elapsedMs": 21.94720799999982,
+          "bytes": 400,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 1,
+            "totalPages": 1,
+            "hasNext": false,
+            "contentLength": 1
+          },
+          "error": null
+        },
+        {
+          "run": 18,
+          "status": 200,
+          "elapsedMs": 8.670875000000024,
+          "bytes": 400,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 1,
+            "totalPages": 1,
+            "hasNext": false,
+            "contentLength": 1
+          },
+          "error": null
+        },
+        {
+          "run": 19,
+          "status": 200,
+          "elapsedMs": 12.004457999999886,
+          "bytes": 400,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 1,
+            "totalPages": 1,
+            "hasNext": false,
+            "contentLength": 1
+          },
+          "error": null
+        },
+        {
+          "run": 20,
+          "status": 200,
+          "elapsedMs": 7.073708000000124,
+          "bytes": 400,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 1,
+            "totalPages": 1,
+            "hasNext": false,
+            "contentLength": 1
+          },
+          "error": null
+        }
+      ],
+      "summary": {
+        "p50Ms": 10.85370899999998,
+        "p95Ms": 18.740791999999942,
+        "maxMs": 21.94720799999982,
+        "minMs": 6.461165999999935,
+        "statuses": {
+          "200": 20
+        },
+        "responseBytes": [
+          400
+        ]
+      },
+      "error": null
+    },
+    {
+      "name": "player-count",
+      "url": "http://127.0.0.1:5173/api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24&playerCount=4",
+      "params": {
+        "upcomingOnly": "false",
+        "playerCountExact": "false",
+        "page": "0",
+        "size": "24",
+        "playerCount": "4"
+      },
+      "status": "success",
+      "samples": [
+        {
+          "run": 1,
+          "status": 200,
+          "elapsedMs": 106.96037499999989,
+          "bytes": 6493,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 145310,
+            "totalPages": 6055,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 2,
+          "status": 200,
+          "elapsedMs": 108.5244580000001,
+          "bytes": 6493,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 145310,
+            "totalPages": 6055,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 3,
+          "status": 200,
+          "elapsedMs": 101.98183399999994,
+          "bytes": 6493,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 145310,
+            "totalPages": 6055,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 4,
+          "status": 200,
+          "elapsedMs": 99.03091700000004,
+          "bytes": 6493,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 145310,
+            "totalPages": 6055,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 5,
+          "status": 200,
+          "elapsedMs": 102.53883399999995,
+          "bytes": 6493,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 145310,
+            "totalPages": 6055,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 6,
+          "status": 200,
+          "elapsedMs": 415.3143329999998,
+          "bytes": 6493,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 145310,
+            "totalPages": 6055,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 7,
+          "status": 200,
+          "elapsedMs": 241.13812499999995,
+          "bytes": 6493,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 145310,
+            "totalPages": 6055,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 8,
+          "status": 200,
+          "elapsedMs": 124.66620799999964,
+          "bytes": 6493,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 145310,
+            "totalPages": 6055,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 9,
+          "status": 200,
+          "elapsedMs": 82.41391699999986,
+          "bytes": 6493,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 145310,
+            "totalPages": 6055,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 10,
+          "status": 200,
+          "elapsedMs": 75.99804200000017,
+          "bytes": 6493,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 145310,
+            "totalPages": 6055,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 11,
+          "status": 200,
+          "elapsedMs": 94.79666699999962,
+          "bytes": 6493,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 145310,
+            "totalPages": 6055,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 12,
+          "status": 200,
+          "elapsedMs": 74.10487499999999,
+          "bytes": 6493,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 145310,
+            "totalPages": 6055,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 13,
+          "status": 200,
+          "elapsedMs": 75.70333400000027,
+          "bytes": 6493,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 145310,
+            "totalPages": 6055,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 14,
+          "status": 200,
+          "elapsedMs": 80.0127910000001,
+          "bytes": 6493,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 145310,
+            "totalPages": 6055,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 15,
+          "status": 200,
+          "elapsedMs": 105.33345799999961,
+          "bytes": 6493,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 145310,
+            "totalPages": 6055,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 16,
+          "status": 200,
+          "elapsedMs": 105.71220900000026,
+          "bytes": 6493,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 145310,
+            "totalPages": 6055,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 17,
+          "status": 200,
+          "elapsedMs": 84.01866699999982,
+          "bytes": 6493,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 145310,
+            "totalPages": 6055,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 18,
+          "status": 200,
+          "elapsedMs": 63.920500000000175,
+          "bytes": 6493,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 145310,
+            "totalPages": 6055,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 19,
+          "status": 200,
+          "elapsedMs": 62.912459000000126,
+          "bytes": 6493,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 145310,
+            "totalPages": 6055,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 20,
+          "status": 200,
+          "elapsedMs": 62.10870799999975,
+          "bytes": 6493,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 145310,
+            "totalPages": 6055,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        }
+      ],
+      "summary": {
+        "p50Ms": 94.79666699999962,
+        "p95Ms": 241.13812499999995,
+        "maxMs": 415.3143329999998,
+        "minMs": 62.10870799999975,
+        "statuses": {
+          "200": 20
+        },
+        "responseBytes": [
+          6493
+        ]
+      },
+      "error": null
+    },
+    {
+      "name": "relation-theme-mechanism",
+      "url": "http://127.0.0.1:5173/api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24&theme=BOOK_BGG_1117&mechanism=HAND_MANAGEMENT",
+      "params": {
+        "upcomingOnly": "false",
+        "playerCountExact": "false",
+        "page": "0",
+        "size": "24",
+        "theme": "BOOK_BGG_1117",
+        "mechanism": "HAND_MANAGEMENT"
+      },
+      "status": "success",
+      "samples": [
+        {
+          "run": 1,
+          "status": 200,
+          "elapsedMs": 324.4634589999996,
+          "bytes": 7595,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 70,
+            "totalPages": 3,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 2,
+          "status": 200,
+          "elapsedMs": 303.0005000000001,
+          "bytes": 7595,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 70,
+            "totalPages": 3,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 3,
+          "status": 200,
+          "elapsedMs": 462.75374999999985,
+          "bytes": 7595,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 70,
+            "totalPages": 3,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 4,
+          "status": 200,
+          "elapsedMs": 367.7580829999997,
+          "bytes": 7595,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 70,
+            "totalPages": 3,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 5,
+          "status": 200,
+          "elapsedMs": 330.46979199999987,
+          "bytes": 7595,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 70,
+            "totalPages": 3,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 6,
+          "status": 200,
+          "elapsedMs": 217.90662500000053,
+          "bytes": 7595,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 70,
+            "totalPages": 3,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 7,
+          "status": 200,
+          "elapsedMs": 199.7489999999998,
+          "bytes": 7595,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 70,
+            "totalPages": 3,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 8,
+          "status": 200,
+          "elapsedMs": 191.1820829999997,
+          "bytes": 7595,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 70,
+            "totalPages": 3,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 9,
+          "status": 200,
+          "elapsedMs": 193.1629580000008,
+          "bytes": 7595,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 70,
+            "totalPages": 3,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 10,
+          "status": 200,
+          "elapsedMs": 222.18208400000003,
+          "bytes": 7595,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 70,
+            "totalPages": 3,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 11,
+          "status": 200,
+          "elapsedMs": 241.98354100000142,
+          "bytes": 7595,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 70,
+            "totalPages": 3,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 12,
+          "status": 200,
+          "elapsedMs": 231.4686669999992,
+          "bytes": 7595,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 70,
+            "totalPages": 3,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 13,
+          "status": 200,
+          "elapsedMs": 231.42258299999958,
+          "bytes": 7595,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 70,
+            "totalPages": 3,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 14,
+          "status": 200,
+          "elapsedMs": 208.31933299999946,
+          "bytes": 7595,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 70,
+            "totalPages": 3,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 15,
+          "status": 200,
+          "elapsedMs": 222.7801670000008,
+          "bytes": 7595,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 70,
+            "totalPages": 3,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 16,
+          "status": 200,
+          "elapsedMs": 645.4392910000006,
+          "bytes": 7595,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 70,
+            "totalPages": 3,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 17,
+          "status": 200,
+          "elapsedMs": 380.889083,
+          "bytes": 7595,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 70,
+            "totalPages": 3,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 18,
+          "status": 200,
+          "elapsedMs": 246.43541699999878,
+          "bytes": 7595,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 70,
+            "totalPages": 3,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 19,
+          "status": 200,
+          "elapsedMs": 224.8370840000007,
+          "bytes": 7595,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 70,
+            "totalPages": 3,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 20,
+          "status": 200,
+          "elapsedMs": 223.11170800000036,
+          "bytes": 7595,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 70,
+            "totalPages": 3,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        }
+      ],
+      "summary": {
+        "p50Ms": 231.42258299999958,
+        "p95Ms": 462.75374999999985,
+        "maxMs": 645.4392910000006,
+        "minMs": 191.1820829999997,
+        "statuses": {
+          "200": 20
+        },
+        "responseBytes": [
+          7595
+        ]
+      },
+      "error": null
+    },
+    {
+      "name": "complex",
+      "url": "http://127.0.0.1:5173/api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24&playerCount=4&complexityMin=2.00&complexityMax=4.00&theme=BOOK_BGG_1117&mechanism=HAND_MANAGEMENT",
+      "params": {
+        "upcomingOnly": "false",
+        "playerCountExact": "false",
+        "page": "0",
+        "size": "24",
+        "playerCount": "4",
+        "complexityMin": "2.00",
+        "complexityMax": "4.00",
+        "theme": "BOOK_BGG_1117",
+        "mechanism": "HAND_MANAGEMENT"
+      },
+      "status": "success",
+      "samples": [
+        {
+          "run": 1,
+          "status": 200,
+          "elapsedMs": 244.7046250000003,
+          "bytes": 7662,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 38,
+            "totalPages": 2,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 2,
+          "status": 200,
+          "elapsedMs": 191.1480419999989,
+          "bytes": 7662,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 38,
+            "totalPages": 2,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 3,
+          "status": 200,
+          "elapsedMs": 239.38324999999895,
+          "bytes": 7662,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 38,
+            "totalPages": 2,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 4,
+          "status": 200,
+          "elapsedMs": 231.18858399999954,
+          "bytes": 7662,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 38,
+            "totalPages": 2,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 5,
+          "status": 200,
+          "elapsedMs": 216.80216699999983,
+          "bytes": 7662,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 38,
+            "totalPages": 2,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 6,
+          "status": 200,
+          "elapsedMs": 266.2998749999988,
+          "bytes": 7662,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 38,
+            "totalPages": 2,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 7,
+          "status": 200,
+          "elapsedMs": 205.4552500000009,
+          "bytes": 7662,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 38,
+            "totalPages": 2,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 8,
+          "status": 200,
+          "elapsedMs": 196.29774999999972,
+          "bytes": 7662,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 38,
+            "totalPages": 2,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 9,
+          "status": 200,
+          "elapsedMs": 231.54554199999984,
+          "bytes": 7662,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 38,
+            "totalPages": 2,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 10,
+          "status": 200,
+          "elapsedMs": 183.49254199999996,
+          "bytes": 7662,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 38,
+            "totalPages": 2,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 11,
+          "status": 200,
+          "elapsedMs": 195.27891699999964,
+          "bytes": 7662,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 38,
+            "totalPages": 2,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 12,
+          "status": 200,
+          "elapsedMs": 231.30604099999982,
+          "bytes": 7662,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 38,
+            "totalPages": 2,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 13,
+          "status": 200,
+          "elapsedMs": 234.3392500000009,
+          "bytes": 7662,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 38,
+            "totalPages": 2,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 14,
+          "status": 200,
+          "elapsedMs": 226.89100000000144,
+          "bytes": 7662,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 38,
+            "totalPages": 2,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 15,
+          "status": 200,
+          "elapsedMs": 236.8563750000012,
+          "bytes": 7662,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 38,
+            "totalPages": 2,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 16,
+          "status": 200,
+          "elapsedMs": 203.09637499999917,
+          "bytes": 7662,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 38,
+            "totalPages": 2,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 17,
+          "status": 200,
+          "elapsedMs": 178.81908300000032,
+          "bytes": 7662,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 38,
+            "totalPages": 2,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 18,
+          "status": 200,
+          "elapsedMs": 185.33258399999977,
+          "bytes": 7662,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 38,
+            "totalPages": 2,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 19,
+          "status": 200,
+          "elapsedMs": 206.15920799999913,
+          "bytes": 7662,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 38,
+            "totalPages": 2,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        },
+        {
+          "run": 20,
+          "status": 200,
+          "elapsedMs": 208.26874999999927,
+          "bytes": 7662,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 38,
+            "totalPages": 2,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "error": null
+        }
+      ],
+      "summary": {
+        "p50Ms": 208.26874999999927,
+        "p95Ms": 244.7046250000003,
+        "maxMs": 266.2998749999988,
+        "minMs": 178.81908300000032,
+        "statuses": {
+          "200": 20
+        },
+        "responseBytes": [
+          7662
+        ]
+      },
+      "error": null
+    },
+    {
+      "name": "flags-upcoming-exact",
+      "url": "http://127.0.0.1:5173/api/games?upcomingOnly=true&playerCountExact=true&playerCountMin=4&playerCountMax=4&page=0&size=24",
+      "params": {
+        "upcomingOnly": "true",
+        "playerCountExact": "true",
+        "playerCountMin": "4",
+        "playerCountMax": "4",
+        "page": "0",
+        "size": "24"
+      },
+      "status": "success",
+      "samples": [
+        {
+          "run": 1,
+          "status": 200,
+          "elapsedMs": 4.826750000000175,
+          "bytes": 104,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 0,
+            "totalPages": 0,
+            "hasNext": false,
+            "contentLength": 0
+          },
+          "error": null
+        },
+        {
+          "run": 2,
+          "status": 200,
+          "elapsedMs": 8.412458000002516,
+          "bytes": 104,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 0,
+            "totalPages": 0,
+            "hasNext": false,
+            "contentLength": 0
+          },
+          "error": null
+        },
+        {
+          "run": 3,
+          "status": 200,
+          "elapsedMs": 11.531332999998995,
+          "bytes": 104,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 0,
+            "totalPages": 0,
+            "hasNext": false,
+            "contentLength": 0
+          },
+          "error": null
+        },
+        {
+          "run": 4,
+          "status": 200,
+          "elapsedMs": 8.021332999996957,
+          "bytes": 104,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 0,
+            "totalPages": 0,
+            "hasNext": false,
+            "contentLength": 0
+          },
+          "error": null
+        },
+        {
+          "run": 5,
+          "status": 200,
+          "elapsedMs": 7.70233300000109,
+          "bytes": 104,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 0,
+            "totalPages": 0,
+            "hasNext": false,
+            "contentLength": 0
+          },
+          "error": null
+        },
+        {
+          "run": 6,
+          "status": 200,
+          "elapsedMs": 6.812540999999328,
+          "bytes": 104,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 0,
+            "totalPages": 0,
+            "hasNext": false,
+            "contentLength": 0
+          },
+          "error": null
+        },
+        {
+          "run": 7,
+          "status": 200,
+          "elapsedMs": 13.492750000001251,
+          "bytes": 104,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 0,
+            "totalPages": 0,
+            "hasNext": false,
+            "contentLength": 0
+          },
+          "error": null
+        },
+        {
+          "run": 8,
+          "status": 200,
+          "elapsedMs": 9.103707999998733,
+          "bytes": 104,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 0,
+            "totalPages": 0,
+            "hasNext": false,
+            "contentLength": 0
+          },
+          "error": null
+        },
+        {
+          "run": 9,
+          "status": 200,
+          "elapsedMs": 8.643332999999984,
+          "bytes": 104,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 0,
+            "totalPages": 0,
+            "hasNext": false,
+            "contentLength": 0
+          },
+          "error": null
+        },
+        {
+          "run": 10,
+          "status": 200,
+          "elapsedMs": 7.935165999999299,
+          "bytes": 104,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 0,
+            "totalPages": 0,
+            "hasNext": false,
+            "contentLength": 0
+          },
+          "error": null
+        },
+        {
+          "run": 11,
+          "status": 200,
+          "elapsedMs": 6.249874999997701,
+          "bytes": 104,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 0,
+            "totalPages": 0,
+            "hasNext": false,
+            "contentLength": 0
+          },
+          "error": null
+        },
+        {
+          "run": 12,
+          "status": 200,
+          "elapsedMs": 9.469249999998283,
+          "bytes": 104,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 0,
+            "totalPages": 0,
+            "hasNext": false,
+            "contentLength": 0
+          },
+          "error": null
+        },
+        {
+          "run": 13,
+          "status": 200,
+          "elapsedMs": 5.227957999999489,
+          "bytes": 104,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 0,
+            "totalPages": 0,
+            "hasNext": false,
+            "contentLength": 0
+          },
+          "error": null
+        },
+        {
+          "run": 14,
+          "status": 200,
+          "elapsedMs": 5.097541999999521,
+          "bytes": 104,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 0,
+            "totalPages": 0,
+            "hasNext": false,
+            "contentLength": 0
+          },
+          "error": null
+        },
+        {
+          "run": 15,
+          "status": 200,
+          "elapsedMs": 7.665500000002794,
+          "bytes": 104,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 0,
+            "totalPages": 0,
+            "hasNext": false,
+            "contentLength": 0
+          },
+          "error": null
+        },
+        {
+          "run": 16,
+          "status": 200,
+          "elapsedMs": 6.018166999998357,
+          "bytes": 104,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 0,
+            "totalPages": 0,
+            "hasNext": false,
+            "contentLength": 0
+          },
+          "error": null
+        },
+        {
+          "run": 17,
+          "status": 200,
+          "elapsedMs": 14.383125000000291,
+          "bytes": 104,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 0,
+            "totalPages": 0,
+            "hasNext": false,
+            "contentLength": 0
+          },
+          "error": null
+        },
+        {
+          "run": 18,
+          "status": 200,
+          "elapsedMs": 7.673457999997481,
+          "bytes": 104,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 0,
+            "totalPages": 0,
+            "hasNext": false,
+            "contentLength": 0
+          },
+          "error": null
+        },
+        {
+          "run": 19,
+          "status": 200,
+          "elapsedMs": 9.389624999999796,
+          "bytes": 104,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 0,
+            "totalPages": 0,
+            "hasNext": false,
+            "contentLength": 0
+          },
+          "error": null
+        },
+        {
+          "run": 20,
+          "status": 200,
+          "elapsedMs": 6.731542000001355,
+          "bytes": 104,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 0,
+            "totalPages": 0,
+            "hasNext": false,
+            "contentLength": 0
+          },
+          "error": null
+        }
+      ],
+      "summary": {
+        "p50Ms": 7.70233300000109,
+        "p95Ms": 13.492750000001251,
+        "maxMs": 14.383125000000291,
+        "minMs": 4.826750000000175,
+        "statuses": {
+          "200": 20
+        },
+        "responseBytes": [
+          104
+        ]
+      },
+      "error": null
+    }
+  ]
+}

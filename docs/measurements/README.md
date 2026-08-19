@@ -8,6 +8,7 @@
 
 ## PostgreSQL 기준선
 
+- 17만 게임 목록의 최신 develop baseline과 batch 편차: [GAME 목록 #740 기준선](game-list-740-baseline.md)
 - 시간 기반 방 상태 보정의 처리량 기준선: [ROOM-09 일괄 처리 기준선](room-09-bounded-processing-baseline.md)
 - 낙관적 락 측정의 범위와 판정 기준: [ROOM-10 측정 계약](room-10-measurement-contract.md)
 - 낙관적 락 충돌 처리의 실측 기준선: [ROOM-10 동시성 기준선](room-10-optimistic-lock-baseline.md)

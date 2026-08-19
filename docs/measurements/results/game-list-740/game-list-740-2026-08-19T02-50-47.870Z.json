@@ -1,0 +1,2415 @@
+{
+  "issue": 740,
+  "status": "success",
+  "measuredAt": "2026-08-19T02:50:47.870Z",
+  "runnerCommit": "ccc6971da796131337e24fa2dd53303e1dcd46f4",
+  "runnerFileSha256": "2f8347e85c5974aa79842e2ae8f492b6bf46b94d1f46c489e262fd6de35db9e3",
+  "runnerSourceClean": true,
+  "serverCommit": "ccc6971da796131337e24fa2dd53303e1dcd46f4",
+  "serverContainers": [
+    {
+      "role": "app1",
+      "containerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+      "imageId": "sha256:ea06f3dff5ecfe73cdca9182c9d49e98d2a6a6a349d3d70d9af110b5572b8ebe",
+      "imageRevision": "ccc6971da796131337e24fa2dd53303e1dcd46f4",
+      "composeProject": "albam-mate-771",
+      "composeService": "spring-1",
+      "networkNames": [
+        "albam-mate-771_default"
+      ],
+      "networkAddresses": [
+        "172.18.0.5"
+      ]
+    },
+    {
+      "role": "app2",
+      "containerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+      "imageId": "sha256:ea06f3dff5ecfe73cdca9182c9d49e98d2a6a6a349d3d70d9af110b5572b8ebe",
+      "imageRevision": "ccc6971da796131337e24fa2dd53303e1dcd46f4",
+      "composeProject": "albam-mate-771",
+      "composeService": "spring-2",
+      "networkNames": [
+        "albam-mate-771_default"
+      ],
+      "networkAddresses": [
+        "172.18.0.4"
+      ]
+    }
+  ],
+  "proxyContainer": {
+    "containerId": "fe4b5944342fd9408aff71e5c407e76838edf3be108d9f6e1dc55126b1599351",
+    "composeProject": "albam-mate-771",
+    "composeService": "proxy",
+    "networkNames": [
+      "albam-mate-771_default"
+    ]
+  },
+  "baseUrl": "http://127.0.0.1:5173",
+  "dataset": {
+    "gameCount": 170005,
+    "sha256": "d4abcf8ff91c0551ac6bc9afdb87ccae007ce46ad8139689ccb01a5c92c537c8"
+  },
+  "warmUpRuns": 5,
+  "measuredRuns": 20,
+  "discovered": {
+    "keyword": "GAP",
+    "theme": "BOOK_BGG_1117",
+    "mechanism": "HAND_MANAGEMENT",
+    "upstreamRoles": {
+      "base": "app2",
+      "themes": "app2",
+      "mechanisms": "app1"
+    },
+    "upstreams": {
+      "base": {
+        "error": null,
+        "role": "app2",
+        "address": "172.18.0.4:8080",
+        "containerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050"
+      },
+      "themes": {
+        "error": null,
+        "role": "app2",
+        "address": "172.18.0.4:8080",
+        "containerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050"
+      },
+      "mechanisms": {
+        "error": null,
+        "role": "app1",
+        "address": "172.18.0.5:8080",
+        "containerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c"
+      }
+    }
+  },
+  "percentileMethod": "nearest-rank (ceil(p * N))",
+  "failure": null,
+  "results": [
+    {
+      "name": "base",
+      "url": "http://127.0.0.1:5173/api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24",
+      "params": {
+        "upcomingOnly": "false",
+        "playerCountExact": "false",
+        "page": "0",
+        "size": "24"
+      },
+      "status": "success",
+      "samples": [
+        {
+          "run": 1,
+          "status": 200,
+          "elapsedMs": 30.33325000000002,
+          "bytes": 6496,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 170005,
+            "totalPages": 7084,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 2,
+          "status": 200,
+          "elapsedMs": 27.395832999999925,
+          "bytes": 6496,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 170005,
+            "totalPages": 7084,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 3,
+          "status": 200,
+          "elapsedMs": 20.358958999999913,
+          "bytes": 6496,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 170005,
+            "totalPages": 7084,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 4,
+          "status": 200,
+          "elapsedMs": 23.67533299999991,
+          "bytes": 6496,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 170005,
+            "totalPages": 7084,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 5,
+          "status": 200,
+          "elapsedMs": 20.186500000000024,
+          "bytes": 6496,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 170005,
+            "totalPages": 7084,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 6,
+          "status": 200,
+          "elapsedMs": 21.16937500000006,
+          "bytes": 6496,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 170005,
+            "totalPages": 7084,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 7,
+          "status": 200,
+          "elapsedMs": 25.27829200000008,
+          "bytes": 6496,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 170005,
+            "totalPages": 7084,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 8,
+          "status": 200,
+          "elapsedMs": 26.10070799999994,
+          "bytes": 6496,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 170005,
+            "totalPages": 7084,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 9,
+          "status": 200,
+          "elapsedMs": 19.37587499999995,
+          "bytes": 6496,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 170005,
+            "totalPages": 7084,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 10,
+          "status": 200,
+          "elapsedMs": 18.988583000000062,
+          "bytes": 6496,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 170005,
+            "totalPages": 7084,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 11,
+          "status": 200,
+          "elapsedMs": 23.334375000000136,
+          "bytes": 6496,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 170005,
+            "totalPages": 7084,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 12,
+          "status": 200,
+          "elapsedMs": 29.169666000000007,
+          "bytes": 6496,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 170005,
+            "totalPages": 7084,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 13,
+          "status": 200,
+          "elapsedMs": 28.42512499999998,
+          "bytes": 6496,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 170005,
+            "totalPages": 7084,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 14,
+          "status": 200,
+          "elapsedMs": 23.079541000000063,
+          "bytes": 6496,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 170005,
+            "totalPages": 7084,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 15,
+          "status": 200,
+          "elapsedMs": 32.43708300000003,
+          "bytes": 6496,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 170005,
+            "totalPages": 7084,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 16,
+          "status": 200,
+          "elapsedMs": 54.52729199999999,
+          "bytes": 6496,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 170005,
+            "totalPages": 7084,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 17,
+          "status": 200,
+          "elapsedMs": 35.32858400000009,
+          "bytes": 6496,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 170005,
+            "totalPages": 7084,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 18,
+          "status": 200,
+          "elapsedMs": 22.303125000000136,
+          "bytes": 6496,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 170005,
+            "totalPages": 7084,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 19,
+          "status": 200,
+          "elapsedMs": 23.453000000000202,
+          "bytes": 6496,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 170005,
+            "totalPages": 7084,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 20,
+          "status": 200,
+          "elapsedMs": 23.36004200000002,
+          "bytes": 6496,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 170005,
+            "totalPages": 7084,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        }
+      ],
+      "summary": {
+        "p50Ms": 23.453000000000202,
+        "p95Ms": 35.32858400000009,
+        "maxMs": 54.52729199999999,
+        "minMs": 18.988583000000062,
+        "statuses": {
+          "200": 20
+        },
+        "responseBytes": [
+          6496
+        ]
+      },
+      "error": null
+    },
+    {
+      "name": "keyword",
+      "url": "http://127.0.0.1:5173/api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24&keyword=GAP",
+      "params": {
+        "upcomingOnly": "false",
+        "playerCountExact": "false",
+        "page": "0",
+        "size": "24",
+        "keyword": "GAP"
+      },
+      "status": "success",
+      "samples": [
+        {
+          "run": 1,
+          "status": 200,
+          "elapsedMs": 8.777624999999944,
+          "bytes": 400,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 1,
+            "totalPages": 1,
+            "hasNext": false,
+            "contentLength": 1
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 2,
+          "status": 200,
+          "elapsedMs": 7.491833000000042,
+          "bytes": 400,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 1,
+            "totalPages": 1,
+            "hasNext": false,
+            "contentLength": 1
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 3,
+          "status": 200,
+          "elapsedMs": 13.122624999999971,
+          "bytes": 400,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 1,
+            "totalPages": 1,
+            "hasNext": false,
+            "contentLength": 1
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 4,
+          "status": 200,
+          "elapsedMs": 8.526000000000067,
+          "bytes": 400,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 1,
+            "totalPages": 1,
+            "hasNext": false,
+            "contentLength": 1
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 5,
+          "status": 200,
+          "elapsedMs": 12.585375000000113,
+          "bytes": 400,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 1,
+            "totalPages": 1,
+            "hasNext": false,
+            "contentLength": 1
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 6,
+          "status": 200,
+          "elapsedMs": 8.602499999999964,
+          "bytes": 400,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 1,
+            "totalPages": 1,
+            "hasNext": false,
+            "contentLength": 1
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 7,
+          "status": 200,
+          "elapsedMs": 8.485957999999982,
+          "bytes": 400,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 1,
+            "totalPages": 1,
+            "hasNext": false,
+            "contentLength": 1
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 8,
+          "status": 200,
+          "elapsedMs": 10.549416999999949,
+          "bytes": 400,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 1,
+            "totalPages": 1,
+            "hasNext": false,
+            "contentLength": 1
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 9,
+          "status": 200,
+          "elapsedMs": 7.735749999999825,
+          "bytes": 400,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 1,
+            "totalPages": 1,
+            "hasNext": false,
+            "contentLength": 1
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 10,
+          "status": 200,
+          "elapsedMs": 9.008583000000044,
+          "bytes": 400,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 1,
+            "totalPages": 1,
+            "hasNext": false,
+            "contentLength": 1
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 11,
+          "status": 200,
+          "elapsedMs": 9.501999999999953,
+          "bytes": 400,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 1,
+            "totalPages": 1,
+            "hasNext": false,
+            "contentLength": 1
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 12,
+          "status": 200,
+          "elapsedMs": 10.685999999999922,
+          "bytes": 400,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 1,
+            "totalPages": 1,
+            "hasNext": false,
+            "contentLength": 1
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 13,
+          "status": 200,
+          "elapsedMs": 12.177415999999994,
+          "bytes": 400,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 1,
+            "totalPages": 1,
+            "hasNext": false,
+            "contentLength": 1
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 14,
+          "status": 200,
+          "elapsedMs": 19.86195799999996,
+          "bytes": 400,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 1,
+            "totalPages": 1,
+            "hasNext": false,
+            "contentLength": 1
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 15,
+          "status": 200,
+          "elapsedMs": 18.025375000000167,
+          "bytes": 400,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 1,
+            "totalPages": 1,
+            "hasNext": false,
+            "contentLength": 1
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 16,
+          "status": 200,
+          "elapsedMs": 10.424624999999878,
+          "bytes": 400,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 1,
+            "totalPages": 1,
+            "hasNext": false,
+            "contentLength": 1
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 17,
+          "status": 200,
+          "elapsedMs": 10.082083000000011,
+          "bytes": 400,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 1,
+            "totalPages": 1,
+            "hasNext": false,
+            "contentLength": 1
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 18,
+          "status": 200,
+          "elapsedMs": 14.400082999999995,
+          "bytes": 400,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 1,
+            "totalPages": 1,
+            "hasNext": false,
+            "contentLength": 1
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 19,
+          "status": 200,
+          "elapsedMs": 8.575291000000107,
+          "bytes": 400,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 1,
+            "totalPages": 1,
+            "hasNext": false,
+            "contentLength": 1
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 20,
+          "status": 200,
+          "elapsedMs": 9.63758299999995,
+          "bytes": 400,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 1,
+            "totalPages": 1,
+            "hasNext": false,
+            "contentLength": 1
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        }
+      ],
+      "summary": {
+        "p50Ms": 9.63758299999995,
+        "p95Ms": 18.025375000000167,
+        "maxMs": 19.86195799999996,
+        "minMs": 7.491833000000042,
+        "statuses": {
+          "200": 20
+        },
+        "responseBytes": [
+          400
+        ]
+      },
+      "error": null
+    },
+    {
+      "name": "player-count",
+      "url": "http://127.0.0.1:5173/api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24&playerCount=4",
+      "params": {
+        "upcomingOnly": "false",
+        "playerCountExact": "false",
+        "page": "0",
+        "size": "24",
+        "playerCount": "4"
+      },
+      "status": "success",
+      "samples": [
+        {
+          "run": 1,
+          "status": 200,
+          "elapsedMs": 77.4543329999999,
+          "bytes": 6493,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 145310,
+            "totalPages": 6055,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 2,
+          "status": 200,
+          "elapsedMs": 47.327208000000155,
+          "bytes": 6493,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 145310,
+            "totalPages": 6055,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 3,
+          "status": 200,
+          "elapsedMs": 45.28562499999998,
+          "bytes": 6493,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 145310,
+            "totalPages": 6055,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 4,
+          "status": 200,
+          "elapsedMs": 52.98395900000014,
+          "bytes": 6493,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 145310,
+            "totalPages": 6055,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 5,
+          "status": 200,
+          "elapsedMs": 47.54491700000017,
+          "bytes": 6493,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 145310,
+            "totalPages": 6055,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 6,
+          "status": 200,
+          "elapsedMs": 49.7001250000003,
+          "bytes": 6493,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 145310,
+            "totalPages": 6055,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 7,
+          "status": 200,
+          "elapsedMs": 53.351916000000074,
+          "bytes": 6493,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 145310,
+            "totalPages": 6055,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 8,
+          "status": 200,
+          "elapsedMs": 48.56441700000005,
+          "bytes": 6493,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 145310,
+            "totalPages": 6055,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 9,
+          "status": 200,
+          "elapsedMs": 56.61020800000006,
+          "bytes": 6493,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 145310,
+            "totalPages": 6055,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 10,
+          "status": 200,
+          "elapsedMs": 48.68862500000023,
+          "bytes": 6493,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 145310,
+            "totalPages": 6055,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 11,
+          "status": 200,
+          "elapsedMs": 75.19037499999968,
+          "bytes": 6493,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 145310,
+            "totalPages": 6055,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 12,
+          "status": 200,
+          "elapsedMs": 47.681584000000385,
+          "bytes": 6493,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 145310,
+            "totalPages": 6055,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 13,
+          "status": 200,
+          "elapsedMs": 45.141999999999825,
+          "bytes": 6493,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 145310,
+            "totalPages": 6055,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 14,
+          "status": 200,
+          "elapsedMs": 42.3403330000001,
+          "bytes": 6493,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 145310,
+            "totalPages": 6055,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 15,
+          "status": 200,
+          "elapsedMs": 67.74958300000026,
+          "bytes": 6493,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 145310,
+            "totalPages": 6055,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 16,
+          "status": 200,
+          "elapsedMs": 48.5104580000002,
+          "bytes": 6493,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 145310,
+            "totalPages": 6055,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 17,
+          "status": 200,
+          "elapsedMs": 51.97354099999984,
+          "bytes": 6493,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 145310,
+            "totalPages": 6055,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 18,
+          "status": 200,
+          "elapsedMs": 48.67766699999993,
+          "bytes": 6493,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 145310,
+            "totalPages": 6055,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 19,
+          "status": 200,
+          "elapsedMs": 48.359042000000045,
+          "bytes": 6493,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 145310,
+            "totalPages": 6055,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 20,
+          "status": 200,
+          "elapsedMs": 46.20258299999978,
+          "bytes": 6493,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 145310,
+            "totalPages": 6055,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        }
+      ],
+      "summary": {
+        "p50Ms": 48.56441700000005,
+        "p95Ms": 75.19037499999968,
+        "maxMs": 77.4543329999999,
+        "minMs": 42.3403330000001,
+        "statuses": {
+          "200": 20
+        },
+        "responseBytes": [
+          6493
+        ]
+      },
+      "error": null
+    },
+    {
+      "name": "relation-theme-mechanism",
+      "url": "http://127.0.0.1:5173/api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24&theme=BOOK_BGG_1117&mechanism=HAND_MANAGEMENT",
+      "params": {
+        "upcomingOnly": "false",
+        "playerCountExact": "false",
+        "page": "0",
+        "size": "24",
+        "theme": "BOOK_BGG_1117",
+        "mechanism": "HAND_MANAGEMENT"
+      },
+      "status": "success",
+      "samples": [
+        {
+          "run": 1,
+          "status": 200,
+          "elapsedMs": 191.18529200000012,
+          "bytes": 7595,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 70,
+            "totalPages": 3,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 2,
+          "status": 200,
+          "elapsedMs": 189.7993749999996,
+          "bytes": 7595,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 70,
+            "totalPages": 3,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 3,
+          "status": 200,
+          "elapsedMs": 205.7378749999998,
+          "bytes": 7595,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 70,
+            "totalPages": 3,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 4,
+          "status": 200,
+          "elapsedMs": 206.78770900000018,
+          "bytes": 7595,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 70,
+            "totalPages": 3,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 5,
+          "status": 200,
+          "elapsedMs": 187.9285829999999,
+          "bytes": 7595,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 70,
+            "totalPages": 3,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 6,
+          "status": 200,
+          "elapsedMs": 191.9109580000004,
+          "bytes": 7595,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 70,
+            "totalPages": 3,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 7,
+          "status": 200,
+          "elapsedMs": 185.1819999999998,
+          "bytes": 7595,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 70,
+            "totalPages": 3,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 8,
+          "status": 200,
+          "elapsedMs": 193.15112500000032,
+          "bytes": 7595,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 70,
+            "totalPages": 3,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 9,
+          "status": 200,
+          "elapsedMs": 192.93483399999968,
+          "bytes": 7595,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 70,
+            "totalPages": 3,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 10,
+          "status": 200,
+          "elapsedMs": 193.59912499999973,
+          "bytes": 7595,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 70,
+            "totalPages": 3,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 11,
+          "status": 200,
+          "elapsedMs": 208.00883299999987,
+          "bytes": 7595,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 70,
+            "totalPages": 3,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 12,
+          "status": 200,
+          "elapsedMs": 198.35358300000007,
+          "bytes": 7595,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 70,
+            "totalPages": 3,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 13,
+          "status": 200,
+          "elapsedMs": 193.95625000000018,
+          "bytes": 7595,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 70,
+            "totalPages": 3,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 14,
+          "status": 200,
+          "elapsedMs": 197.10999999999967,
+          "bytes": 7595,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 70,
+            "totalPages": 3,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 15,
+          "status": 200,
+          "elapsedMs": 196.61883399999988,
+          "bytes": 7595,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 70,
+            "totalPages": 3,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 16,
+          "status": 200,
+          "elapsedMs": 192.72012500000073,
+          "bytes": 7595,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 70,
+            "totalPages": 3,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 17,
+          "status": 200,
+          "elapsedMs": 192.09558300000026,
+          "bytes": 7595,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 70,
+            "totalPages": 3,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 18,
+          "status": 200,
+          "elapsedMs": 198.71716600000036,
+          "bytes": 7595,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 70,
+            "totalPages": 3,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 19,
+          "status": 200,
+          "elapsedMs": 217.85641699999996,
+          "bytes": 7595,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 70,
+            "totalPages": 3,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 20,
+          "status": 200,
+          "elapsedMs": 195.38950000000023,
+          "bytes": 7595,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 70,
+            "totalPages": 3,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        }
+      ],
+      "summary": {
+        "p50Ms": 193.59912499999973,
+        "p95Ms": 208.00883299999987,
+        "maxMs": 217.85641699999996,
+        "minMs": 185.1819999999998,
+        "statuses": {
+          "200": 20
+        },
+        "responseBytes": [
+          7595
+        ]
+      },
+      "error": null
+    },
+    {
+      "name": "complex",
+      "url": "http://127.0.0.1:5173/api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24&playerCount=4&complexityMin=2.00&complexityMax=4.00&theme=BOOK_BGG_1117&mechanism=HAND_MANAGEMENT",
+      "params": {
+        "upcomingOnly": "false",
+        "playerCountExact": "false",
+        "page": "0",
+        "size": "24",
+        "playerCount": "4",
+        "complexityMin": "2.00",
+        "complexityMax": "4.00",
+        "theme": "BOOK_BGG_1117",
+        "mechanism": "HAND_MANAGEMENT"
+      },
+      "status": "success",
+      "samples": [
+        {
+          "run": 1,
+          "status": 200,
+          "elapsedMs": 205.80787500000042,
+          "bytes": 7662,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 38,
+            "totalPages": 2,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 2,
+          "status": 200,
+          "elapsedMs": 204.09970800000156,
+          "bytes": 7662,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 38,
+            "totalPages": 2,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 3,
+          "status": 200,
+          "elapsedMs": 187.85425000000032,
+          "bytes": 7662,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 38,
+            "totalPages": 2,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 4,
+          "status": 200,
+          "elapsedMs": 189.069042000001,
+          "bytes": 7662,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 38,
+            "totalPages": 2,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 5,
+          "status": 200,
+          "elapsedMs": 189.82483300000058,
+          "bytes": 7662,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 38,
+            "totalPages": 2,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 6,
+          "status": 200,
+          "elapsedMs": 180.42933300000004,
+          "bytes": 7662,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 38,
+            "totalPages": 2,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 7,
+          "status": 200,
+          "elapsedMs": 190.86770800000158,
+          "bytes": 7662,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 38,
+            "totalPages": 2,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 8,
+          "status": 200,
+          "elapsedMs": 192.5659169999999,
+          "bytes": 7662,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 38,
+            "totalPages": 2,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 9,
+          "status": 200,
+          "elapsedMs": 203.1342079999995,
+          "bytes": 7662,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 38,
+            "totalPages": 2,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 10,
+          "status": 200,
+          "elapsedMs": 189.56308400000125,
+          "bytes": 7662,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 38,
+            "totalPages": 2,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 11,
+          "status": 200,
+          "elapsedMs": 194.516791,
+          "bytes": 7662,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 38,
+            "totalPages": 2,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 12,
+          "status": 200,
+          "elapsedMs": 183.41483300000073,
+          "bytes": 7662,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 38,
+            "totalPages": 2,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 13,
+          "status": 200,
+          "elapsedMs": 187.75925000000097,
+          "bytes": 7662,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 38,
+            "totalPages": 2,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 14,
+          "status": 200,
+          "elapsedMs": 191.6190829999996,
+          "bytes": 7662,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 38,
+            "totalPages": 2,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 15,
+          "status": 200,
+          "elapsedMs": 187.78504200000134,
+          "bytes": 7662,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 38,
+            "totalPages": 2,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 16,
+          "status": 200,
+          "elapsedMs": 203.30162500000006,
+          "bytes": 7662,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 38,
+            "totalPages": 2,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 17,
+          "status": 200,
+          "elapsedMs": 210.25187499999993,
+          "bytes": 7662,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 38,
+            "totalPages": 2,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 18,
+          "status": 200,
+          "elapsedMs": 198.22254099999918,
+          "bytes": 7662,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 38,
+            "totalPages": 2,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 19,
+          "status": 200,
+          "elapsedMs": 209.3746659999997,
+          "bytes": 7662,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 38,
+            "totalPages": 2,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 20,
+          "status": 200,
+          "elapsedMs": 190.7854580000003,
+          "bytes": 7662,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 38,
+            "totalPages": 2,
+            "hasNext": true,
+            "contentLength": 24
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        }
+      ],
+      "summary": {
+        "p50Ms": 190.86770800000158,
+        "p95Ms": 209.3746659999997,
+        "maxMs": 210.25187499999993,
+        "minMs": 180.42933300000004,
+        "statuses": {
+          "200": 20
+        },
+        "responseBytes": [
+          7662
+        ]
+      },
+      "error": null
+    },
+    {
+      "name": "flags-upcoming-exact",
+      "url": "http://127.0.0.1:5173/api/games?upcomingOnly=true&playerCountExact=true&playerCountMin=4&playerCountMax=4&page=0&size=24",
+      "params": {
+        "upcomingOnly": "true",
+        "playerCountExact": "true",
+        "playerCountMin": "4",
+        "playerCountMax": "4",
+        "page": "0",
+        "size": "24"
+      },
+      "status": "success",
+      "samples": [
+        {
+          "run": 1,
+          "status": 200,
+          "elapsedMs": 10.07891600000039,
+          "bytes": 104,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 0,
+            "totalPages": 0,
+            "hasNext": false,
+            "contentLength": 0
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 2,
+          "status": 200,
+          "elapsedMs": 9.697833000000173,
+          "bytes": 104,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 0,
+            "totalPages": 0,
+            "hasNext": false,
+            "contentLength": 0
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 3,
+          "status": 200,
+          "elapsedMs": 14.508374999999432,
+          "bytes": 104,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 0,
+            "totalPages": 0,
+            "hasNext": false,
+            "contentLength": 0
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 4,
+          "status": 200,
+          "elapsedMs": 9.93420800000058,
+          "bytes": 104,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 0,
+            "totalPages": 0,
+            "hasNext": false,
+            "contentLength": 0
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 5,
+          "status": 200,
+          "elapsedMs": 9.805250000001251,
+          "bytes": 104,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 0,
+            "totalPages": 0,
+            "hasNext": false,
+            "contentLength": 0
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 6,
+          "status": 200,
+          "elapsedMs": 8.038500000000568,
+          "bytes": 104,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 0,
+            "totalPages": 0,
+            "hasNext": false,
+            "contentLength": 0
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 7,
+          "status": 200,
+          "elapsedMs": 13.207374999999956,
+          "bytes": 104,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 0,
+            "totalPages": 0,
+            "hasNext": false,
+            "contentLength": 0
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 8,
+          "status": 200,
+          "elapsedMs": 9.181582999999591,
+          "bytes": 104,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 0,
+            "totalPages": 0,
+            "hasNext": false,
+            "contentLength": 0
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 9,
+          "status": 200,
+          "elapsedMs": 9.703041999999186,
+          "bytes": 104,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 0,
+            "totalPages": 0,
+            "hasNext": false,
+            "contentLength": 0
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 10,
+          "status": 200,
+          "elapsedMs": 9.226165999998557,
+          "bytes": 104,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 0,
+            "totalPages": 0,
+            "hasNext": false,
+            "contentLength": 0
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 11,
+          "status": 200,
+          "elapsedMs": 18.338540999999168,
+          "bytes": 104,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 0,
+            "totalPages": 0,
+            "hasNext": false,
+            "contentLength": 0
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 12,
+          "status": 200,
+          "elapsedMs": 14.951124999999593,
+          "bytes": 104,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 0,
+            "totalPages": 0,
+            "hasNext": false,
+            "contentLength": 0
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 13,
+          "status": 200,
+          "elapsedMs": 12.80316700000003,
+          "bytes": 104,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 0,
+            "totalPages": 0,
+            "hasNext": false,
+            "contentLength": 0
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 14,
+          "status": 200,
+          "elapsedMs": 9.632708000001003,
+          "bytes": 104,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 0,
+            "totalPages": 0,
+            "hasNext": false,
+            "contentLength": 0
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 15,
+          "status": 200,
+          "elapsedMs": 10.49816699999974,
+          "bytes": 104,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 0,
+            "totalPages": 0,
+            "hasNext": false,
+            "contentLength": 0
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 16,
+          "status": 200,
+          "elapsedMs": 12.612999999999374,
+          "bytes": 104,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 0,
+            "totalPages": 0,
+            "hasNext": false,
+            "contentLength": 0
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 17,
+          "status": 200,
+          "elapsedMs": 12.516125000000102,
+          "bytes": 104,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 0,
+            "totalPages": 0,
+            "hasNext": false,
+            "contentLength": 0
+          },
+          "upstreamRole": "app1",
+          "upstreamAddress": "172.18.0.5:8080",
+          "upstreamContainerId": "0180caad9dcea0f12335a61231886e041581514e140551089fe33226eb97c37c",
+          "error": null
+        },
+        {
+          "run": 18,
+          "status": 200,
+          "elapsedMs": 13.75566599999911,
+          "bytes": 104,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 0,
+            "totalPages": 0,
+            "hasNext": false,
+            "contentLength": 0
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 19,
+          "status": 200,
+          "elapsedMs": 11.067166999999245,
+          "bytes": 104,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 0,
+            "totalPages": 0,
+            "hasNext": false,
+            "contentLength": 0
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        },
+        {
+          "run": 20,
+          "status": 200,
+          "elapsedMs": 7.129124999999476,
+          "bytes": 104,
+          "pageMetadata": {
+            "page": 0,
+            "size": 24,
+            "totalElements": 0,
+            "totalPages": 0,
+            "hasNext": false,
+            "contentLength": 0
+          },
+          "upstreamRole": "app2",
+          "upstreamAddress": "172.18.0.4:8080",
+          "upstreamContainerId": "6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050",
+          "error": null
+        }
+      ],
+      "summary": {
+        "p50Ms": 10.07891600000039,
+        "p95Ms": 14.951124999999593,
+        "maxMs": 18.338540999999168,
+        "minMs": 7.129124999999476,
+        "statuses": {
+          "200": 20
+        },
+        "responseBytes": [
+          104
+        ]
+      },
+      "error": null
+    }
+  ]
+}

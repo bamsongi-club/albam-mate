@@ -1,0 +1,910 @@
+{
+  "issue": 740,
+  "status": "success",
+  "measuredAt": "2026-08-18T14:36:38.070Z",
+  "runnerCommit": "5b2909db79a8dab8625527cf5492c40f58a86a04",
+  "serverCommit": "5b2909db79a8dab8625527cf5492c40f58a86a04",
+  "baseUrl": "http://127.0.0.1:5173",
+  "dataset": {
+    "gameCount": 170005,
+    "sha256": "d4abcf8ff91c0551ac6bc9afdb87ccae007ce46ad8139689ccb01a5c92c537c8"
+  },
+  "warmUpRuns": 5,
+  "measuredRuns": 20,
+  "discovered": {
+    "keyword": "GAP",
+    "theme": "BOOK_BGG_1117",
+    "mechanism": "HAND_MANAGEMENT"
+  },
+  "percentileMethod": "nearest-rank (ceil(p * N))",
+  "failure": null,
+  "results": [
+    {
+      "name": "base",
+      "url": "http://127.0.0.1:5173/api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24",
+      "params": {
+        "upcomingOnly": "false",
+        "playerCountExact": "false",
+        "page": "0",
+        "size": "24"
+      },
+      "status": "success",
+      "samples": [
+        {
+          "run": 1,
+          "status": 200,
+          "elapsedMs": 25.112666999999988,
+          "bytes": 6496
+        },
+        {
+          "run": 2,
+          "status": 200,
+          "elapsedMs": 33.062374999999975,
+          "bytes": 6496
+        },
+        {
+          "run": 3,
+          "status": 200,
+          "elapsedMs": 36.467833999999925,
+          "bytes": 6496
+        },
+        {
+          "run": 4,
+          "status": 200,
+          "elapsedMs": 26.736083000000008,
+          "bytes": 6496
+        },
+        {
+          "run": 5,
+          "status": 200,
+          "elapsedMs": 31.91416700000002,
+          "bytes": 6496
+        },
+        {
+          "run": 6,
+          "status": 200,
+          "elapsedMs": 35.93554199999994,
+          "bytes": 6496
+        },
+        {
+          "run": 7,
+          "status": 200,
+          "elapsedMs": 28.030917000000045,
+          "bytes": 6496
+        },
+        {
+          "run": 8,
+          "status": 200,
+          "elapsedMs": 32.280624999999986,
+          "bytes": 6496
+        },
+        {
+          "run": 9,
+          "status": 200,
+          "elapsedMs": 29.726875000000064,
+          "bytes": 6496
+        },
+        {
+          "run": 10,
+          "status": 200,
+          "elapsedMs": 33.82337499999994,
+          "bytes": 6496
+        },
+        {
+          "run": 11,
+          "status": 200,
+          "elapsedMs": 40.67641600000002,
+          "bytes": 6496
+        },
+        {
+          "run": 12,
+          "status": 200,
+          "elapsedMs": 32.00183299999992,
+          "bytes": 6496
+        },
+        {
+          "run": 13,
+          "status": 200,
+          "elapsedMs": 32.565041000000065,
+          "bytes": 6496
+        },
+        {
+          "run": 14,
+          "status": 200,
+          "elapsedMs": 36.85458300000005,
+          "bytes": 6496
+        },
+        {
+          "run": 15,
+          "status": 200,
+          "elapsedMs": 46.67487499999993,
+          "bytes": 6496
+        },
+        {
+          "run": 16,
+          "status": 200,
+          "elapsedMs": 82.40674999999987,
+          "bytes": 6496
+        },
+        {
+          "run": 17,
+          "status": 200,
+          "elapsedMs": 113.65733300000011,
+          "bytes": 6496
+        },
+        {
+          "run": 18,
+          "status": 200,
+          "elapsedMs": 418.17674999999986,
+          "bytes": 6496
+        },
+        {
+          "run": 19,
+          "status": 200,
+          "elapsedMs": 248.80541700000003,
+          "bytes": 6496
+        },
+        {
+          "run": 20,
+          "status": 200,
+          "elapsedMs": 79.74241699999993,
+          "bytes": 6496
+        }
+      ],
+      "summary": {
+        "p50Ms": 33.82337499999994,
+        "p95Ms": 248.80541700000003,
+        "maxMs": 418.17674999999986,
+        "minMs": 25.112666999999988,
+        "statuses": {
+          "200": 20
+        },
+        "responseBytes": [
+          6496
+        ]
+      },
+      "error": null
+    },
+    {
+      "name": "keyword",
+      "url": "http://127.0.0.1:5173/api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24&keyword=GAP",
+      "params": {
+        "upcomingOnly": "false",
+        "playerCountExact": "false",
+        "page": "0",
+        "size": "24",
+        "keyword": "GAP"
+      },
+      "status": "success",
+      "samples": [
+        {
+          "run": 1,
+          "status": 200,
+          "elapsedMs": 21.602416999999605,
+          "bytes": 400
+        },
+        {
+          "run": 2,
+          "status": 200,
+          "elapsedMs": 25.972917000000052,
+          "bytes": 400
+        },
+        {
+          "run": 3,
+          "status": 200,
+          "elapsedMs": 21.2548340000003,
+          "bytes": 400
+        },
+        {
+          "run": 4,
+          "status": 200,
+          "elapsedMs": 32.74637500000017,
+          "bytes": 400
+        },
+        {
+          "run": 5,
+          "status": 200,
+          "elapsedMs": 23.455167000000074,
+          "bytes": 400
+        },
+        {
+          "run": 6,
+          "status": 200,
+          "elapsedMs": 33.19633300000032,
+          "bytes": 400
+        },
+        {
+          "run": 7,
+          "status": 200,
+          "elapsedMs": 21.980541000000358,
+          "bytes": 400
+        },
+        {
+          "run": 8,
+          "status": 200,
+          "elapsedMs": 25.658750000000055,
+          "bytes": 400
+        },
+        {
+          "run": 9,
+          "status": 200,
+          "elapsedMs": 28.869583000000148,
+          "bytes": 400
+        },
+        {
+          "run": 10,
+          "status": 200,
+          "elapsedMs": 25.365457999999762,
+          "bytes": 400
+        },
+        {
+          "run": 11,
+          "status": 200,
+          "elapsedMs": 21.304791999999907,
+          "bytes": 400
+        },
+        {
+          "run": 12,
+          "status": 200,
+          "elapsedMs": 48.43229100000008,
+          "bytes": 400
+        },
+        {
+          "run": 13,
+          "status": 200,
+          "elapsedMs": 27.968583000000308,
+          "bytes": 400
+        },
+        {
+          "run": 14,
+          "status": 200,
+          "elapsedMs": 36.19450000000006,
+          "bytes": 400
+        },
+        {
+          "run": 15,
+          "status": 200,
+          "elapsedMs": 43.72895800000015,
+          "bytes": 400
+        },
+        {
+          "run": 16,
+          "status": 200,
+          "elapsedMs": 104.91529200000014,
+          "bytes": 400
+        },
+        {
+          "run": 17,
+          "status": 200,
+          "elapsedMs": 32.582042,
+          "bytes": 400
+        },
+        {
+          "run": 18,
+          "status": 200,
+          "elapsedMs": 44.68691600000011,
+          "bytes": 400
+        },
+        {
+          "run": 19,
+          "status": 200,
+          "elapsedMs": 48.61783299999979,
+          "bytes": 400
+        },
+        {
+          "run": 20,
+          "status": 200,
+          "elapsedMs": 27.468875000000025,
+          "bytes": 400
+        }
+      ],
+      "summary": {
+        "p50Ms": 27.968583000000308,
+        "p95Ms": 48.61783299999979,
+        "maxMs": 104.91529200000014,
+        "minMs": 21.2548340000003,
+        "statuses": {
+          "200": 20
+        },
+        "responseBytes": [
+          400
+        ]
+      },
+      "error": null
+    },
+    {
+      "name": "player-count",
+      "url": "http://127.0.0.1:5173/api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24&playerCount=4",
+      "params": {
+        "upcomingOnly": "false",
+        "playerCountExact": "false",
+        "page": "0",
+        "size": "24",
+        "playerCount": "4"
+      },
+      "status": "success",
+      "samples": [
+        {
+          "run": 1,
+          "status": 200,
+          "elapsedMs": 247.49829200000022,
+          "bytes": 6493
+        },
+        {
+          "run": 2,
+          "status": 200,
+          "elapsedMs": 225.079291,
+          "bytes": 6493
+        },
+        {
+          "run": 3,
+          "status": 200,
+          "elapsedMs": 154.4623330000004,
+          "bytes": 6493
+        },
+        {
+          "run": 4,
+          "status": 200,
+          "elapsedMs": 135.6513329999998,
+          "bytes": 6493
+        },
+        {
+          "run": 5,
+          "status": 200,
+          "elapsedMs": 112.91033400000015,
+          "bytes": 6493
+        },
+        {
+          "run": 6,
+          "status": 200,
+          "elapsedMs": 107.5175419999996,
+          "bytes": 6493
+        },
+        {
+          "run": 7,
+          "status": 200,
+          "elapsedMs": 112.12570899999992,
+          "bytes": 6493
+        },
+        {
+          "run": 8,
+          "status": 200,
+          "elapsedMs": 141.57704099999955,
+          "bytes": 6493
+        },
+        {
+          "run": 9,
+          "status": 200,
+          "elapsedMs": 218.27479200000016,
+          "bytes": 6493
+        },
+        {
+          "run": 10,
+          "status": 200,
+          "elapsedMs": 157.1029580000004,
+          "bytes": 6493
+        },
+        {
+          "run": 11,
+          "status": 200,
+          "elapsedMs": 124.30699999999979,
+          "bytes": 6493
+        },
+        {
+          "run": 12,
+          "status": 200,
+          "elapsedMs": 113.66175000000021,
+          "bytes": 6493
+        },
+        {
+          "run": 13,
+          "status": 200,
+          "elapsedMs": 130.9278750000003,
+          "bytes": 6493
+        },
+        {
+          "run": 14,
+          "status": 200,
+          "elapsedMs": 151.5419579999998,
+          "bytes": 6493
+        },
+        {
+          "run": 15,
+          "status": 200,
+          "elapsedMs": 113.27870799999982,
+          "bytes": 6493
+        },
+        {
+          "run": 16,
+          "status": 200,
+          "elapsedMs": 107.48020799999995,
+          "bytes": 6493
+        },
+        {
+          "run": 17,
+          "status": 200,
+          "elapsedMs": 99.27591699999994,
+          "bytes": 6493
+        },
+        {
+          "run": 18,
+          "status": 200,
+          "elapsedMs": 104.24774999999954,
+          "bytes": 6493
+        },
+        {
+          "run": 19,
+          "status": 200,
+          "elapsedMs": 113.98820799999976,
+          "bytes": 6493
+        },
+        {
+          "run": 20,
+          "status": 200,
+          "elapsedMs": 148.83558300000004,
+          "bytes": 6493
+        }
+      ],
+      "summary": {
+        "p50Ms": 124.30699999999979,
+        "p95Ms": 225.079291,
+        "maxMs": 247.49829200000022,
+        "minMs": 99.27591699999994,
+        "statuses": {
+          "200": 20
+        },
+        "responseBytes": [
+          6493
+        ]
+      },
+      "error": null
+    },
+    {
+      "name": "relation-theme-mechanism",
+      "url": "http://127.0.0.1:5173/api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24&theme=BOOK_BGG_1117&mechanism=HAND_MANAGEMENT",
+      "params": {
+        "upcomingOnly": "false",
+        "playerCountExact": "false",
+        "page": "0",
+        "size": "24",
+        "theme": "BOOK_BGG_1117",
+        "mechanism": "HAND_MANAGEMENT"
+      },
+      "status": "success",
+      "samples": [
+        {
+          "run": 1,
+          "status": 200,
+          "elapsedMs": 370.92679099999987,
+          "bytes": 7595
+        },
+        {
+          "run": 2,
+          "status": 200,
+          "elapsedMs": 292.54004200000054,
+          "bytes": 7595
+        },
+        {
+          "run": 3,
+          "status": 200,
+          "elapsedMs": 263.50645899999836,
+          "bytes": 7595
+        },
+        {
+          "run": 4,
+          "status": 200,
+          "elapsedMs": 271.5730000000003,
+          "bytes": 7595
+        },
+        {
+          "run": 5,
+          "status": 200,
+          "elapsedMs": 292.9750409999997,
+          "bytes": 7595
+        },
+        {
+          "run": 6,
+          "status": 200,
+          "elapsedMs": 370.99204199999986,
+          "bytes": 7595
+        },
+        {
+          "run": 7,
+          "status": 200,
+          "elapsedMs": 361.9439590000002,
+          "bytes": 7595
+        },
+        {
+          "run": 8,
+          "status": 200,
+          "elapsedMs": 289.6788340000003,
+          "bytes": 7595
+        },
+        {
+          "run": 9,
+          "status": 200,
+          "elapsedMs": 273.40741700000035,
+          "bytes": 7595
+        },
+        {
+          "run": 10,
+          "status": 200,
+          "elapsedMs": 347.01737499999945,
+          "bytes": 7595
+        },
+        {
+          "run": 11,
+          "status": 200,
+          "elapsedMs": 408.08899999999994,
+          "bytes": 7595
+        },
+        {
+          "run": 12,
+          "status": 200,
+          "elapsedMs": 338.72883300000103,
+          "bytes": 7595
+        },
+        {
+          "run": 13,
+          "status": 200,
+          "elapsedMs": 313.90520900000047,
+          "bytes": 7595
+        },
+        {
+          "run": 14,
+          "status": 200,
+          "elapsedMs": 306.1855000000014,
+          "bytes": 7595
+        },
+        {
+          "run": 15,
+          "status": 200,
+          "elapsedMs": 302.97775,
+          "bytes": 7595
+        },
+        {
+          "run": 16,
+          "status": 200,
+          "elapsedMs": 307.20287499999904,
+          "bytes": 7595
+        },
+        {
+          "run": 17,
+          "status": 200,
+          "elapsedMs": 305.6670419999991,
+          "bytes": 7595
+        },
+        {
+          "run": 18,
+          "status": 200,
+          "elapsedMs": 290.7351660000004,
+          "bytes": 7595
+        },
+        {
+          "run": 19,
+          "status": 200,
+          "elapsedMs": 282.7925830000004,
+          "bytes": 7595
+        },
+        {
+          "run": 20,
+          "status": 200,
+          "elapsedMs": 273.97000000000116,
+          "bytes": 7595
+        }
+      ],
+      "summary": {
+        "p50Ms": 302.97775,
+        "p95Ms": 370.99204199999986,
+        "maxMs": 408.08899999999994,
+        "minMs": 263.50645899999836,
+        "statuses": {
+          "200": 20
+        },
+        "responseBytes": [
+          7595
+        ]
+      },
+      "error": null
+    },
+    {
+      "name": "complex",
+      "url": "http://127.0.0.1:5173/api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24&playerCount=4&complexityMin=2.00&complexityMax=4.00&theme=BOOK_BGG_1117&mechanism=HAND_MANAGEMENT",
+      "params": {
+        "upcomingOnly": "false",
+        "playerCountExact": "false",
+        "page": "0",
+        "size": "24",
+        "playerCount": "4",
+        "complexityMin": "2.00",
+        "complexityMax": "4.00",
+        "theme": "BOOK_BGG_1117",
+        "mechanism": "HAND_MANAGEMENT"
+      },
+      "status": "success",
+      "samples": [
+        {
+          "run": 1,
+          "status": 200,
+          "elapsedMs": 316.7235419999997,
+          "bytes": 7662
+        },
+        {
+          "run": 2,
+          "status": 200,
+          "elapsedMs": 591.3868750000001,
+          "bytes": 7662
+        },
+        {
+          "run": 3,
+          "status": 200,
+          "elapsedMs": 553.8913339999999,
+          "bytes": 7662
+        },
+        {
+          "run": 4,
+          "status": 200,
+          "elapsedMs": 1100.3408329999984,
+          "bytes": 7662
+        },
+        {
+          "run": 5,
+          "status": 200,
+          "elapsedMs": 880.0044999999991,
+          "bytes": 7662
+        },
+        {
+          "run": 6,
+          "status": 200,
+          "elapsedMs": 575.9688750000023,
+          "bytes": 7662
+        },
+        {
+          "run": 7,
+          "status": 200,
+          "elapsedMs": 726.9880840000005,
+          "bytes": 7662
+        },
+        {
+          "run": 8,
+          "status": 200,
+          "elapsedMs": 486.4251250000016,
+          "bytes": 7662
+        },
+        {
+          "run": 9,
+          "status": 200,
+          "elapsedMs": 659.1787079999995,
+          "bytes": 7662
+        },
+        {
+          "run": 10,
+          "status": 200,
+          "elapsedMs": 574.3011249999981,
+          "bytes": 7662
+        },
+        {
+          "run": 11,
+          "status": 200,
+          "elapsedMs": 1030.9423339999994,
+          "bytes": 7662
+        },
+        {
+          "run": 12,
+          "status": 200,
+          "elapsedMs": 490.6203340000029,
+          "bytes": 7662
+        },
+        {
+          "run": 13,
+          "status": 200,
+          "elapsedMs": 475.38058399999863,
+          "bytes": 7662
+        },
+        {
+          "run": 14,
+          "status": 200,
+          "elapsedMs": 700.6292500000018,
+          "bytes": 7662
+        },
+        {
+          "run": 15,
+          "status": 200,
+          "elapsedMs": 508.94166699999914,
+          "bytes": 7662
+        },
+        {
+          "run": 16,
+          "status": 200,
+          "elapsedMs": 479.5160840000026,
+          "bytes": 7662
+        },
+        {
+          "run": 17,
+          "status": 200,
+          "elapsedMs": 462.05774999999994,
+          "bytes": 7662
+        },
+        {
+          "run": 18,
+          "status": 200,
+          "elapsedMs": 490.7258330000004,
+          "bytes": 7662
+        },
+        {
+          "run": 19,
+          "status": 200,
+          "elapsedMs": 546.1760830000021,
+          "bytes": 7662
+        },
+        {
+          "run": 20,
+          "status": 200,
+          "elapsedMs": 1414.9274579999983,
+          "bytes": 7662
+        }
+      ],
+      "summary": {
+        "p50Ms": 553.8913339999999,
+        "p95Ms": 1100.3408329999984,
+        "maxMs": 1414.9274579999983,
+        "minMs": 316.7235419999997,
+        "statuses": {
+          "200": 20
+        },
+        "responseBytes": [
+          7662
+        ]
+      },
+      "error": null
+    },
+    {
+      "name": "flags-upcoming-exact",
+      "url": "http://127.0.0.1:5173/api/games?upcomingOnly=true&playerCountExact=true&playerCountMin=4&playerCountMax=4&page=0&size=24",
+      "params": {
+        "upcomingOnly": "true",
+        "playerCountExact": "true",
+        "playerCountMin": "4",
+        "playerCountMax": "4",
+        "page": "0",
+        "size": "24"
+      },
+      "status": "success",
+      "samples": [
+        {
+          "run": 1,
+          "status": 200,
+          "elapsedMs": 21.870750000001863,
+          "bytes": 104
+        },
+        {
+          "run": 2,
+          "status": 200,
+          "elapsedMs": 14.105916000000434,
+          "bytes": 104
+        },
+        {
+          "run": 3,
+          "status": 200,
+          "elapsedMs": 17.517625000000407,
+          "bytes": 104
+        },
+        {
+          "run": 4,
+          "status": 200,
+          "elapsedMs": 10.817958999999973,
+          "bytes": 104
+        },
+        {
+          "run": 5,
+          "status": 200,
+          "elapsedMs": 10.138707999998587,
+          "bytes": 104
+        },
+        {
+          "run": 6,
+          "status": 200,
+          "elapsedMs": 16.767667000000074,
+          "bytes": 104
+        },
+        {
+          "run": 7,
+          "status": 200,
+          "elapsedMs": 13.512791000001016,
+          "bytes": 104
+        },
+        {
+          "run": 8,
+          "status": 200,
+          "elapsedMs": 11.347959000002447,
+          "bytes": 104
+        },
+        {
+          "run": 9,
+          "status": 200,
+          "elapsedMs": 10.520583999998053,
+          "bytes": 104
+        },
+        {
+          "run": 10,
+          "status": 200,
+          "elapsedMs": 12.582500000000437,
+          "bytes": 104
+        },
+        {
+          "run": 11,
+          "status": 200,
+          "elapsedMs": 25.598125000000437,
+          "bytes": 104
+        },
+        {
+          "run": 12,
+          "status": 200,
+          "elapsedMs": 21.832875000000058,
+          "bytes": 104
+        },
+        {
+          "run": 13,
+          "status": 200,
+          "elapsedMs": 19.800875000000815,
+          "bytes": 104
+        },
+        {
+          "run": 14,
+          "status": 200,
+          "elapsedMs": 31.04399999999805,
+          "bytes": 104
+        },
+        {
+          "run": 15,
+          "status": 200,
+          "elapsedMs": 20.415082999999868,
+          "bytes": 104
+        },
+        {
+          "run": 16,
+          "status": 200,
+          "elapsedMs": 12.056416999999783,
+          "bytes": 104
+        },
+        {
+          "run": 17,
+          "status": 200,
+          "elapsedMs": 16.338832999997976,
+          "bytes": 104
+        },
+        {
+          "run": 18,
+          "status": 200,
+          "elapsedMs": 13.475416999997833,
+          "bytes": 104
+        },
+        {
+          "run": 19,
+          "status": 200,
+          "elapsedMs": 15.07445799999914,
+          "bytes": 104
+        },
+        {
+          "run": 20,
+          "status": 200,
+          "elapsedMs": 28.4923340000023,
+          "bytes": 104
+        }
+      ],
+      "summary": {
+        "p50Ms": 15.07445799999914,
+        "p95Ms": 28.4923340000023,
+        "maxMs": 31.04399999999805,
+        "minMs": 10.138707999998587,
+        "statuses": {
+          "200": 20
+        },
+        "responseBytes": [
+          104
+        ]
+      },
+      "error": null
+    }
+  ]
+}

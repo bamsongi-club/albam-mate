@@ -81,7 +81,8 @@ class P1DeploymentContractTest {
 		assertFalse(nginx.contains("add_header X-Albam-Mate-Upstream"));
 		assertEquals(3, count(nginx, "proxy_pass_header X-Albam-Mate-Upstream;"));
 		String localNginx = file("frontend/nginx.local.conf");
-		assertFalse(localNginx.contains("add_header X-Albam-Mate-Upstream"));
+		assertFalse(localNginx.contains("add_header X-Albam-Mate-Upstream "));
+		assertTrue(localNginx.contains("add_header X-Albam-Mate-Upstream-Address $upstream_addr always;"));
 		assertEquals(2, count(localNginx, "proxy_pass_header X-Albam-Mate-Upstream;"));
 		String verifier = file("scripts/verify-docker-deployment.mjs");
 		assertTrue(verifier.contains("assertUpstreamPair(body, upstream);"));
