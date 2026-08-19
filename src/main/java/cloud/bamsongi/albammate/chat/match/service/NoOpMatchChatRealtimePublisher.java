@@ -1,21 +1,18 @@
 package cloud.bamsongi.albammate.chat.match.service;
 
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
-import cloud.bamsongi.albammate.chat.match.MatchChatMessageCommitted;
-import cloud.bamsongi.albammate.chat.match.MatchChatRealtimePublisher;
+import cloud.bamsongi.albammate.chat.match.contract.MatchChatMessageCommitted;
+import cloud.bamsongi.albammate.chat.match.contract.MatchChatRealtimePublisher;
 
-/**
- * 아직 Redis 구현체(Stage B)가 없는 모든 프로필에서 커밋 후 포트를 안전하게 닫는 기본 구현이다.
- *
- * <p>Stage B가 RedisMatchChatRealtimePublisher를 추가할 때 이 구현을 {@code @Profile("!local & !production")}으로
- * 좁히고 Redis 구현체에 {@code @Profile({"local","production"})}을 붙인다.
- */
+/** Redis를 사용하지 않는 개발·테스트 프로필에서 커밋 후 포트를 안전하게 닫는 기본 구현이다. */
 @Component
+@Profile("!local & !production")
 class NoOpMatchChatRealtimePublisher implements MatchChatRealtimePublisher {
 
 	@Override
 	public void publish(MatchChatMessageCommitted event) {
-		// #744 Stage B Redis adapter가 이 포트를 대체한다.
+		// infra.redis.RedisMatchChatRealtimePublisher가 local·production 프로필에서 이 포트를 대체한다.
 	}
 }

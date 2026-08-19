@@ -4,8 +4,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
-import cloud.bamsongi.albammate.chat.match.MatchChatMessageCommitted;
-import cloud.bamsongi.albammate.chat.match.MatchChatRealtimePublisher;
+import cloud.bamsongi.albammate.chat.match.contract.MatchChatMessageCommitted;
+import cloud.bamsongi.albammate.chat.match.contract.MatchChatRealtimePublisher;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;

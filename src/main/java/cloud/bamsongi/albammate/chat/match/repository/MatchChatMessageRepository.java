@@ -24,4 +24,9 @@ public interface MatchChatMessageRepository extends JpaRepository<MatchChatMessa
 	/** CHAT-T4 {@code beforeMessageId} 커서 기준 과거 구간 이력 조회다. */
 	List<MatchChatMessage> findByMatchChatRoomIdAndIdLessThanOrderByIdDesc(
 		Long matchChatRoomId, Long id, Pageable pageable);
+
+	/** CHAT-T7 재연결 catch-up이 쓰는, {@code afterMessageId} 이후 커밋 메시지의 {@code messageId} 오름차순 조회다. */
+	List<MatchChatMessage> findByMatchChatRoomIdAndIdGreaterThanOrderByIdAsc(Long matchChatRoomId, Long id);
+
+	boolean existsByIdAndMatchChatRoomId(Long id, Long matchChatRoomId);
 }

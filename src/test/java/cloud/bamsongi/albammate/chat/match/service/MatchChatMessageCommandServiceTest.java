@@ -27,10 +27,10 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import cloud.bamsongi.albammate.chat.match.MatchChatMessageCommitted;
 import cloud.bamsongi.albammate.chat.match.MatchChatMessageSendRequest;
 import cloud.bamsongi.albammate.chat.match.MatchChatMessageType;
 import cloud.bamsongi.albammate.chat.match.MatchChatSender;
+import cloud.bamsongi.albammate.chat.match.contract.MatchChatMessageCommitted;
 import cloud.bamsongi.albammate.chat.match.contract.MatchChatMessageRateLimiter;
 import cloud.bamsongi.albammate.chat.match.entity.MatchChatMessage;
 import cloud.bamsongi.albammate.chat.match.entity.MatchChatRoom;

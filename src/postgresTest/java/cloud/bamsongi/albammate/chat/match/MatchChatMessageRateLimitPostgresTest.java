@@ -37,6 +37,8 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
+import cloud.bamsongi.albammate.chat.match.contract.MatchChatMessageCommitted;
+import cloud.bamsongi.albammate.chat.match.contract.MatchChatRealtimePublisher;
 import cloud.bamsongi.albammate.chat.match.service.MatchChatMessageCommandService;
 import cloud.bamsongi.albammate.chat.match.service.MatchChatMessageSendResult;
 import cloud.bamsongi.albammate.global.exception.BusinessException;

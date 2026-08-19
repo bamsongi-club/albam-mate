@@ -14,11 +14,13 @@ import cloud.bamsongi.albammate.global.security.endpoint.ApiEndpointPolicyContri
 public class MatchChatEndpointPolicyContributor implements ApiEndpointPolicyContributor {
 
 	private static final String MESSAGES_PATH = "/api/matches/parties/{partyId}/chat/messages";
+	private static final String WS_PATH = "/api/matches/parties/{partyId}/chat/ws";
 
 	@Override
 	public List<ApiEndpointPolicy> policies() {
 		return List.of(
 			new ApiEndpointPolicy(HttpMethod.POST, MESSAGES_PATH, ApiEndpointAuthenticationMode.AUTHENTICATED, true),
-			new ApiEndpointPolicy(HttpMethod.GET, MESSAGES_PATH, ApiEndpointAuthenticationMode.AUTHENTICATED, false));
+			new ApiEndpointPolicy(HttpMethod.GET, MESSAGES_PATH, ApiEndpointAuthenticationMode.AUTHENTICATED, false),
+			new ApiEndpointPolicy(HttpMethod.GET, WS_PATH, ApiEndpointAuthenticationMode.AUTHENTICATED, false));
 	}
 }
