@@ -1,2 +1,0 @@
-2026-08-19T10:48:29.426773679Z 172.19.0.1 - - [19/Aug/2026:10:48:29 +0000] "GET /api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24&theme=BOOK_BGG_1117&mechanism=HAND_MANAGEMENT HTTP/1.1" 200 7561 "-" "curl/8.7.1" "-"
-2026-08-19T10:48:29.426790804Z 2026-08-19T10:48:29+00:00 measurement_id=game-list-867-v3-relation-theme-mechanism request="GET /api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24&theme=BOOK_BGG_1117&mechanism=HAND_MANAGEMENT HTTP/1.1" status=200 upstream=172.19.0.5:8080

@@ -85,7 +85,7 @@ HTTP p50/p95/max와 한 번 실행한 `EXPLAIN ANALYZE` execution time은 같은
 
 - 얻는 것:
   - exact count 제거 뒤에도 남은 relation 구조적 병목을 가설이 아니라 같은 fixture의 V0~V3 비교로 판단한다.
-  - 빠른 한 번의 실행이나 서로 다른 Page/Slice 결과 대신 4-round p95 gate와 raw artifact로 선택을 재현한다.
+  - 빠른 한 번의 실행이나 서로 다른 Page/Slice 결과 대신 4-round p95 gate와 로컬 raw artifact로 선택을 재현한다.
   - cache·projection·cursor처럼 API·운영 경계를 넓히는 수단을 섞지 않고 query shape와 index라는 좁은 원인을 검증한다.
 - 감수할 비용·위험:
   - 후보마다 clean worktree·독립 fixture DB·4개 batch가 필요해 측정 시간과 Docker/PostgreSQL 자원을 더 쓴다.
@@ -93,7 +93,7 @@ HTTP p50/p95/max와 한 번 실행한 `EXPLAIN ANALYZE` execution time은 같은
   - sequential warm-cache 결과만으로 동시성·자원 사용량·production SLO를 주장할 수 없다.
 - 후속 작업:
   - 독립 performance issue의 승인 T 계약 뒤 comparator, V1/V2/V3와 H2/PostgreSQL tests를 구현한다.
-  - 비교 결과와 raw SQL/EXPLAIN을 이 ADR의 검증 절에 기록하고 선택된 candidate만 final branch에 남긴다.
+  - 비교 결과와 SQL/EXPLAIN 구조 요약을 이 ADR의 검증 절과 결과 문서에 기록하고, 원본 raw capture는 측정 실행자의 로컬 evidence로 보관한다. 선택된 candidate만 final branch에 남긴다.
   - 선택된 구현 뒤 동시 HTTP·CPU·memory·connection·오류율은 [#863](https://github.com/bamsongi-club/albam-mate/issues/863)에서 검증한다.
 
 ## 적용·호환·rollback
@@ -124,11 +124,11 @@ HTTP p50/p95/max와 한 번 실행한 `EXPLAIN ANALYZE` execution time은 같은
 - 상태: 미검증
 - 근거:
   - 구현: final branch는 V1 `GameListSpecification`의 DB 내부 game-ID subquery query shape만 포함한다. V2/V3의 PostgreSQL index migration은 포함하지 않는다.
-  - 계약: 16개 HTTP artifact의 모든 `base` capture는 `content`·`page`·`size`·`hasNext`만 반환하고, 24건 첫 페이지·`hasNext=true`를 보존한다. PostgreSQL capture는 `fetch first $2 rows only`의 `$2 = '25'`와 game exact count statement 부재를 보존한다.
+  - 계약: 측정한 16개 HTTP artifact의 모든 `base` capture는 `content`·`page`·`size`·`hasNext`만 반환하고, 24건 첫 페이지·`hasNext=true`를 보존했다. PostgreSQL capture는 `fetch first $2 rows only`의 `$2 = '25'`와 game exact count statement 부재를 확인했으며, 원본 capture는 로컬 evidence로 보관한다.
   - 테스트:
     - `./gradlew test --tests "cloud.bamsongi.albammate.game.GameMatchModeHttpIntegrationTest" --rerun --fail-fast` — 5/5 PASS
     - `./gradlew postgresTest --tests "cloud.bamsongi.albammate.game.GameListFilterPostgresTest" --rerun --fail-fast --no-daemon --stacktrace` — 6/6 PASS (Testcontainers PostgreSQL 18.4)
-    - 같은 170,005건 fixture·runner SHA의 V0~V3 16개 `VALID` artifact comparator에서 V1만 전 scenario 5% p95 회귀 제한과 relation·complex 개선 gate를 통과했다. raw HTTP·SQL·EXPLAIN와 판정은 [#867 결과](../../measurements/results/game-list-740/game-list-867-2026-08-19.md)에 보존한다.
+    - 같은 170,005건 fixture·runner SHA의 V0~V3 16개 `VALID` artifact comparator에서 V1만 전 scenario 5% p95 회귀 제한과 relation·complex 개선 gate를 통과했다. 측정값·SQL/EXPLAIN 구조·판정은 [#867 결과](../../measurements/results/game-list-740/game-list-867-2026-08-19.md)에 문서로 보존하고 원본 capture는 로컬 evidence로 보관한다.
 - 미검증:
   - [#863](https://github.com/bamsongi-club/albam-mate/issues/863)의 동시 HTTP·CPU·memory·connection·오류율과 production SLO 검증
 

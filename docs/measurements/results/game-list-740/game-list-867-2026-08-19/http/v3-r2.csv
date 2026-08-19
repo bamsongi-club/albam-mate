@@ -1,7 +1,0 @@
-scenario,status,p50_ms,p95_ms,max_ms,min_ms,statuses,url,error
-base,success,35.499,67.750,71.308,24.605,"{""200"":20}",http://127.0.0.1:5174/api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24,
-keyword,success,23.215,74.960,79.362,16.022,"{""200"":20}",http://127.0.0.1:5174/api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24&keyword=GAP,
-player-count,success,21.346,32.220,35.372,12.917,"{""200"":20}",http://127.0.0.1:5174/api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24&playerCount=4,
-relation-theme-mechanism,success,132.620,197.723,201.001,102.409,"{""200"":20}",http://127.0.0.1:5174/api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24&theme=BOOK_BGG_1117&mechanism=HAND_MANAGEMENT,
-complex,success,141.684,328.878,558.320,101.226,"{""200"":20}",http://127.0.0.1:5174/api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24&playerCount=4&complexityMin=2.00&complexityMax=4.00&theme=BOOK_BGG_1117&mechanism=HAND_MANAGEMENT,
-flags-upcoming-exact,success,13.670,24.288,24.341,7.537,"{""200"":20}",http://127.0.0.1:5174/api/games?upcomingOnly=true&playerCountExact=true&playerCountMin=4&playerCountMax=4&page=0&size=24,

@@ -1,2 +1,0 @@
-2026-08-19T10:48:32.364011791Z 172.19.0.1 - - [19/Aug/2026:10:48:32 +0000] "GET /api/games?upcomingOnly=true&playerCountExact=true&playerCountMin=4&playerCountMax=4&page=0&size=24 HTTP/1.1" 200 71 "-" "curl/8.7.1" "-"
-2026-08-19T10:48:32.364977541Z 2026-08-19T10:48:32+00:00 measurement_id=game-list-867-v3-flags-upcoming-exact request="GET /api/games?upcomingOnly=true&playerCountExact=true&playerCountMin=4&playerCountMax=4&page=0&size=24 HTTP/1.1" status=200 upstream=172.19.0.4:8080

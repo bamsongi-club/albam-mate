@@ -866,11 +866,11 @@ export function comparisonMarkdown(result) {
       lines.push(`- ${variant} ${reason.scenario}: ${formatMs(reason.candidateP95Ms)} > ${formatMs(reason.thresholdP95Ms)} (V0 ${formatMs(reason.controlP95Ms)} × 1.05)`);
     }
   }
-  lines.push("", "## Raw artifacts", "", "| variant | round | artifact | server commit |", "| --- | ---: | --- | --- |");
+  lines.push("", "## Measurement batches", "", "| variant | round | server commit |", "| --- | ---: | --- |");
   for (const variant of VARIANTS) {
     const representative = result.variants[variant].scenarios.base.batches;
     for (const batch of representative) {
-      lines.push(`| ${variant} | ${batch.round} | \`${batch.path}\` | \`${batch.serverCommit ?? "missing"}\` |`);
+      lines.push(`| ${variant} | ${batch.round} | \`${batch.serverCommit ?? "missing"}\` |`);
     }
   }
   return `${lines.join("\n")}\n`;

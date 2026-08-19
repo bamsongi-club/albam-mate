@@ -1,4 +1,0 @@
-2026-08-19T10:48:30.767884305Z 127.0.0.1 - - [19/Aug/2026:10:48:30 +0000] "GET / HTTP/1.1" 200 1121 "-" "Wget" "-"
-2026-08-19T10:48:30.767909388Z 2026-08-19T10:48:30+00:00 measurement_id=- request="GET / HTTP/1.1" status=200 upstream=-
-2026-08-19T10:48:31.039956222Z 172.19.0.1 - - [19/Aug/2026:10:48:31 +0000] "GET /api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24&playerCount=4&complexityMin=2.00&complexityMax=4.00&theme=BOOK_BGG_1117&mechanism=HAND_MANAGEMENT HTTP/1.1" 200 7628 "-" "curl/8.7.1" "-"
-2026-08-19T10:48:31.040040638Z 2026-08-19T10:48:31+00:00 measurement_id=game-list-867-v3-complex request="GET /api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24&playerCount=4&complexityMin=2.00&complexityMax=4.00&theme=BOOK_BGG_1117&mechanism=HAND_MANAGEMENT HTTP/1.1" status=200 upstream=172.19.0.4:8080

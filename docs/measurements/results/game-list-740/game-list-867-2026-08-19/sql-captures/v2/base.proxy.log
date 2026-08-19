@@ -1,2 +1,0 @@
-2026-08-19T10:37:13.515152256Z 172.19.0.1 - - [19/Aug/2026:10:37:13 +0000] "GET /api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24 HTTP/1.1" 200 6455 "-" "curl/8.7.1" "-"
-2026-08-19T10:37:13.515341714Z 2026-08-19T10:37:13+00:00 measurement_id=game-list-867-v2-base request="GET /api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24 HTTP/1.1" status=200 upstream=172.19.0.5:8080

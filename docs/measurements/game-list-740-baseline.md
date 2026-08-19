@@ -91,26 +91,30 @@ canonical games 지문은 목록 결과에 영향을 주는 name·alias·image·
 
 16개가 모두 성공한 뒤 다음을 실행한다.
 
+원본 HTTP/SQL/EXPLAIN capture는 저장소에 커밋하지 않고 로컬 evidence 디렉터리에 보관한다. 아래 명령은 `ALBAM_MATE_GAME_LIST_EVIDENCE_ROOT`에 그 디렉터리를 지정해 실행한다.
+
 ```bash
+measurement_root="${ALBAM_MATE_GAME_LIST_EVIDENCE_ROOT:?set local game-list-867 evidence root}"
+
 node scripts/measurements/game-list-variant-comparison.mjs \
-  --artifact V0:1:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v0-r1.json \
-  --artifact V0:2:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v0-r2.json \
-  --artifact V0:3:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v0-r3.json \
-  --artifact V0:4:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v0-r4.json \
-  --artifact V1:1:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v1-r1.json \
-  --artifact V1:2:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v1-r2.json \
-  --artifact V1:3:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v1-r3.json \
-  --artifact V1:4:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v1-r4.json \
-  --artifact V2:1:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v2-r1.json \
-  --artifact V2:2:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v2-r2.json \
-  --artifact V2:3:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v2-r3.json \
-  --artifact V2:4:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v2-r4.json \
-  --artifact V3:1:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v3-r1.json \
-  --artifact V3:2:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v3-r2.json \
-  --artifact V3:3:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v3-r3.json \
-  --artifact V3:4:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v3-r4.json \
-  --evidence-root docs/measurements/results/game-list-740/game-list-867-2026-08-19/sql-captures \
-  --output docs/measurements/results/game-list-740/game-list-770-relation-variant-comparison-2026-08-19.json \
+  --artifact "V0:1:$measurement_root/http/v0-r1.json" \
+  --artifact "V0:2:$measurement_root/http/v0-r2.json" \
+  --artifact "V0:3:$measurement_root/http/v0-r3.json" \
+  --artifact "V0:4:$measurement_root/http/v0-r4.json" \
+  --artifact "V1:1:$measurement_root/http/v1-r1.json" \
+  --artifact "V1:2:$measurement_root/http/v1-r2.json" \
+  --artifact "V1:3:$measurement_root/http/v1-r3.json" \
+  --artifact "V1:4:$measurement_root/http/v1-r4.json" \
+  --artifact "V2:1:$measurement_root/http/v2-r1.json" \
+  --artifact "V2:2:$measurement_root/http/v2-r2.json" \
+  --artifact "V2:3:$measurement_root/http/v2-r3.json" \
+  --artifact "V2:4:$measurement_root/http/v2-r4.json" \
+  --artifact "V3:1:$measurement_root/http/v3-r1.json" \
+  --artifact "V3:2:$measurement_root/http/v3-r2.json" \
+  --artifact "V3:3:$measurement_root/http/v3-r3.json" \
+  --artifact "V3:4:$measurement_root/http/v3-r4.json" \
+  --evidence-root "$measurement_root/sql-captures" \
+  --output "$measurement_root/comparison.json" \
   --markdown-output docs/measurements/results/game-list-740/game-list-770-relation-variant-comparison-2026-08-19.md
 ```
 
@@ -118,7 +122,7 @@ node scripts/measurements/game-list-variant-comparison.mjs \
 
 각 variant의 여섯 scenario는 실제 SQL capture와 가장 느린 읽기 SQL의 `EXPLAIN (ANALYZE, BUFFERS, VERBOSE, FORMAT TEXT)`를 별도로 보존한다. 이 one-shot EXPLAIN execution time은 HTTP p95와 같은 통계가 아니므로 합산하지 않는다. base capture는 `size + 1` 조회와 game exact count SQL 부재를 보여야 한다.
 
-2026-08-19 실측 결과는 [#867 relation·complex 후보 비교 결과](results/game-list-740/game-list-867-2026-08-19.md)에 보존했다. 16개 artifact가 모두 `VALID`였고, 여섯 scenario의 5% p95 회귀 제한과 relation·complex 개선을 모두 통과한 V1만 선택했다. V2/V3은 relation plan을 더 좁혔지만 다른 scenario의 p95 회귀로 탈락했다.
+2026-08-19 실측 결과는 [#867 relation·complex 후보 비교 결과](results/game-list-740/game-list-867-2026-08-19.md)에 문서로 보존했다. 16개 artifact가 모두 `VALID`였고, 여섯 scenario의 5% p95 회귀 제한과 relation·complex 개선을 모두 통과한 V1만 선택했다. V2/V3은 relation plan을 더 좁혔지만 다른 scenario의 p95 회귀로 탈락했다. 원본 capture는 로컬 evidence 디렉터리에 남긴다.
 
 ## 측정 매트릭스
 

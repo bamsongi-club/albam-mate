@@ -14,14 +14,8 @@ import {
 } from "./game-list-variant-comparison.mjs";
 
 const comparisonPath = fileURLToPath(new URL("./game-list-variant-comparison.mjs", import.meta.url));
-const evidenceRoot = fileURLToPath(new URL(
-  "../../docs/measurements/results/game-list-740/game-list-867-2026-08-19/sql-captures/",
-  import.meta.url,
-));
-const measuredHttpRoot = fileURLToPath(new URL(
-  "../../docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/",
-  import.meta.url,
-));
+const evidenceRoot = process.env.ALBAM_MATE_GAME_LIST_EVIDENCE_ROOT;
+const measuredHttpRoot = process.env.ALBAM_MATE_GAME_LIST_HTTP_ROOT;
 const fixture = {
   fixtureId: "game-list-170005-observed-2026-08-19",
   fixtureManifestSha256: "58263d92f6f1f39f7cf3619f9f7666cf9d48c6f420b59606116a1e353f6000eb",
@@ -253,13 +247,15 @@ test("runner SHA와 모든 200 sample이 같지 않으면 성공 비교를 만�
   assert.throws(() => compareVariants(upstreamContainerMismatch), /upstream container/u);
 });
 
-test("EXPLAIN target·provenance와 qualified games exact count를 검증한다", () => {
+test("qualified games exact count를 검증한다", () => {
   assert.equal(containsGamesExactCount("select count(*) from games"), true);
   assert.equal(containsGamesExactCount("select count(*) from public.games"), true);
   assert.equal(containsGamesExactCount('select count(*) from "public"."games"'), true);
   assert.equal(containsGamesExactCount("select count(*)::bigint from public.games"), true);
   assert.equal(containsGamesExactCount("select count(*) from game_themes"), false);
+});
 
+test("로컬 evidence의 EXPLAIN provenance와 exact count gate를 검증한다", { skip: !evidenceRoot || !measuredHttpRoot }, () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "game-list-evidence-"));
   const copiedEvidenceRoot = path.join(root, "sql-captures");
   const copiedHttpRoot = path.join(root, "http");
@@ -293,7 +289,7 @@ test("EXPLAIN target·provenance와 qualified games exact count를 검증한다"
   }
 });
 
-test("CLI는 JSON과 Markdown 결과에 선정 후보와 raw artifact를 함께 기록한다", () => {
+test("CLI는 JSON과 Markdown 결과에 선정 후보와 measurement batch를 기록한다", { skip: !evidenceRoot || !measuredHttpRoot }, () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "game-list-variant-comparison-"));
   try {
     const args = [];
@@ -328,7 +324,7 @@ test("CLI는 JSON과 Markdown 결과에 선정 후보와 raw artifact를 함께 
     assert.equal(result.selectedVariant, "V1");
     assert.equal(result.variants.V1.scenarios.base.batches.length, 4);
     assert.match(fs.readFileSync(markdownPath, "utf8"), /선정 후보: V1/u);
-    assert.match(fs.readFileSync(markdownPath, "utf8"), /v1-r1\.json/u);
+    assert.match(fs.readFileSync(markdownPath, "utf8"), /\| V1 \| 1 \|/u);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

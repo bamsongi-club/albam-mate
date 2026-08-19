@@ -29,7 +29,7 @@
 | --- | --- |
 | docs/adr/game/0080-game-list-relation-filter-performance-selection.md | 후보 비교·선택, cache/projection 제외, rollback·재검토 경계 |
 | docs/adr/game/README.md | ADR-0080 인덱스 |
-| scripts/measurements/game-list-variant-comparison.mjs | V0~V3 raw artifact 16개 검증과 p50/p95/max·gate·선정 결과 생성 |
+| scripts/measurements/game-list-variant-comparison.mjs | 로컬 V0~V3 raw artifact 16개 검증과 p50/p95/max·gate·선정 결과 생성 |
 | scripts/measurements/game-list-variant-comparison.test.mjs | artifact 누락·fixture 불일치·5% 회귀·tie-break 테스트 |
 | src/main/java/cloud/bamsongi/albammate/game/repository/GameListSpecification.java | V1 uncorrelated theme/mechanism game-ID subquery |
 | src/test/java/cloud/bamsongi/albammate/game/GameMatchModeHttpIntegrationTest.java | H2 ANY/ALL·AND·Slice 의미 회귀 |
@@ -37,7 +37,6 @@
 | src/main/resources/db/vendor-migration/postgresql/V33__replace_game_theme_relation_theme_index.sql | V2의 단일 theme index 교체 |
 | src/postgresTest/java/cloud/bamsongi/albammate/game/GameThemeRelationIndexPostgresTest.java | PostgreSQL Flyway index 정의 검증 |
 | docs/ERD.md | GAME_THEME_RELATIONS 역방향 index 정본 |
-| docs/measurements/results/game-list-740/game-list-770-relation-variant-comparison-2026-08-19.json | machine-readable comparison |
 | docs/measurements/results/game-list-740/game-list-770-relation-variant-comparison-2026-08-19.md | 사람용 비교 표·EXPLAIN·결론 |
 | docs/measurements/game-list-740-baseline.md | 비교 실행 경로와 #863 분리 링크 |
 
@@ -229,7 +228,7 @@ function passesVariant(candidate, control) {
 
 - [ ] **Step 4: JSON과 Markdown 결과를 작성한다.**
 
---output JSON에는 variant·scenario의 네 batch p50/p95/max, median p95, V0 대비 비율, gate, selectedVariant를 쓴다. --markdown-output에는 V0~V3 표, 탈락 사유, 선정 없음이면 V0 유지, 선정이면 variant 이름을 기록한다. raw artifact paths와 server commits도 함께 남긴다.
+--output JSON에는 variant·scenario의 네 batch p50/p95/max, median p95, V0 대비 비율, gate, selectedVariant를 쓴다. JSON과 raw artifact는 측정자의 로컬 evidence 디렉터리에 남기고, --markdown-output에는 V0~V3 표·batch/server commit 요약·탈락 사유·선정 결론을 커밋한다.
 
 - [ ] **Step 5: Green과 기존 runner 회귀를 확인한다.**
 
@@ -247,25 +246,27 @@ Expected: valid/reject/tie 및 기존 fixture/provenance runner 계약이 모두
 baseline 문서에는 16 artifact 입력 명령과 4-round order를 추가한다. 대표 실행은 아래 형식을 쓴다.
 
 ~~~
+measurement_root="${ALBAM_MATE_GAME_LIST_EVIDENCE_ROOT:?set local game-list-867 evidence root}"
+
 node scripts/measurements/game-list-variant-comparison.mjs \
-  --artifact V0:1:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v0-r1.json \
-  --artifact V0:2:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v0-r2.json \
-  --artifact V0:3:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v0-r3.json \
-  --artifact V0:4:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v0-r4.json \
-  --artifact V1:1:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v1-r1.json \
-  --artifact V1:2:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v1-r2.json \
-  --artifact V1:3:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v1-r3.json \
-  --artifact V1:4:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v1-r4.json \
-  --artifact V2:1:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v2-r1.json \
-  --artifact V2:2:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v2-r2.json \
-  --artifact V2:3:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v2-r3.json \
-  --artifact V2:4:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v2-r4.json \
-  --artifact V3:1:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v3-r1.json \
-  --artifact V3:2:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v3-r2.json \
-  --artifact V3:3:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v3-r3.json \
-  --artifact V3:4:docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v3-r4.json \
-  --evidence-root docs/measurements/results/game-list-740/game-list-867-2026-08-19/sql-captures \
-  --output docs/measurements/results/game-list-740/game-list-770-relation-variant-comparison-2026-08-19.json \
+  --artifact V0:1:"$measurement_root/http/v0-r1.json" \
+  --artifact V0:2:"$measurement_root/http/v0-r2.json" \
+  --artifact V0:3:"$measurement_root/http/v0-r3.json" \
+  --artifact V0:4:"$measurement_root/http/v0-r4.json" \
+  --artifact V1:1:"$measurement_root/http/v1-r1.json" \
+  --artifact V1:2:"$measurement_root/http/v1-r2.json" \
+  --artifact V1:3:"$measurement_root/http/v1-r3.json" \
+  --artifact V1:4:"$measurement_root/http/v1-r4.json" \
+  --artifact V2:1:"$measurement_root/http/v2-r1.json" \
+  --artifact V2:2:"$measurement_root/http/v2-r2.json" \
+  --artifact V2:3:"$measurement_root/http/v2-r3.json" \
+  --artifact V2:4:"$measurement_root/http/v2-r4.json" \
+  --artifact V3:1:"$measurement_root/http/v3-r1.json" \
+  --artifact V3:2:"$measurement_root/http/v3-r2.json" \
+  --artifact V3:3:"$measurement_root/http/v3-r3.json" \
+  --artifact V3:4:"$measurement_root/http/v3-r4.json" \
+  --evidence-root "$measurement_root/sql-captures" \
+  --output "$measurement_root/comparison.json" \
   --markdown-output docs/measurements/results/game-list-740/game-list-770-relation-variant-comparison-2026-08-19.md
 
 git add scripts/measurements/game-list-variant-comparison.mjs \
@@ -411,12 +412,12 @@ git commit -m 'feat: 게임 테마 관계 역방향 인덱스 교체'
 ## Task 6: V0~V3 clean build와 4-round sequential evidence 수집
 
 **Files:**
-- Create: 16개 raw JSON/CSV under docs/measurements/results/game-list-740/
-- Create: variant·scenario SQL capture와 EXPLAIN text under docs/measurements/results/game-list-740/
+- Create locally: 16개 raw JSON/CSV와 variant·scenario SQL capture·EXPLAIN text under the local evidence root
+- Create: 측정 결과 요약 Markdown under docs/measurements/results/game-list-740/
 
 **Interfaces:**
 - Consumes: V0 Slice commit, V1 commit, V2 commit, V3(V1+V2) commit, fixture manifest, baseline runner
-- Produces: comparator가 읽는 valid raw artifact 16개와 V0/V1/V2/V3 SQL·EXPLAIN evidence
+- Produces: comparator가 읽는 local valid raw artifact 16개와 V0/V1/V2/V3 SQL·EXPLAIN evidence
 
 - [ ] **Step 1: variant worktree와 commit을 고정한다.**
 
@@ -481,13 +482,12 @@ Expected: comparator input 16개는 모두 success, 6 scenario, scenario당 20�
 ## Task 7: comparator로 하나를 선택하거나 V0 유지 결론을 낸다
 
 **Files:**
-- Create: docs/measurements/results/game-list-740/game-list-770-relation-variant-comparison-2026-08-19.json
 - Create: docs/measurements/results/game-list-740/game-list-770-relation-variant-comparison-2026-08-19.md
 - Modify: docs/adr/game/0080-game-list-relation-filter-performance-selection.md
 - Modify: docs/measurements/game-list-740-baseline.md
 
 **Interfaces:**
-- Consumes: valid raw artifacts와 SQL/EXPLAIN captures
+- Consumes: local valid raw artifacts와 SQL/EXPLAIN captures
 - Produces: selectedVariant가 V1, V2, V3, 또는 null인 재현 가능한 결론
 
 - [ ] **Step 1: comparator를 실행한다.**
@@ -498,7 +498,7 @@ Expected: output JSON에는 four-batch p50/p95/max, median p95, V0 ratio, gates,
 
 - [ ] **Step 2: 사람이 읽을 수 있는 report를 완성한다.**
 
-Markdown에는 여섯 scenario의 V0/V1/V2/V3 median p50/p95/max, 5% 회귀 판정, relation·complex 개선 판정, raw artifact links, six-scenario EXPLAIN summary를 넣는다. HTTP p95와 one-shot EXPLAIN execution time을 같은 통계로 합산하지 않는다.
+Markdown에는 여섯 scenario의 V0/V1/V2/V3 median p50/p95/max, 5% 회귀 판정, relation·complex 개선 판정, batch/server commit 요약, six-scenario EXPLAIN summary를 넣는다. raw HTTP/SQL/EXPLAIN 원본은 로컬 evidence에만 남기며, HTTP p95와 one-shot EXPLAIN execution time을 같은 통계로 합산하지 않는다.
 
 - [ ] **Step 3: 기계 출력과 같은 선택 규칙을 적용한다.**
 

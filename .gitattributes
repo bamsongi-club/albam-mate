@@ -6,7 +6,3 @@
 /docs/game-catalog/catalog-dataset-release.json text eol=lf
 /docs/p2/search-evaluation/*.json text eol=lf
 /docs/p2/search-evaluation/lexical-sparse/**/*.json text eol=lf
-
-# HTTP/SQL/EXPLAIN capture is retained byte-for-byte; capture formatting may include
-# protocol or psql padding that is meaningful evidence rather than source whitespace.
-docs/measurements/results/game-list-740/game-list-867-2026-08-19/sql-captures/** -whitespace

@@ -5,7 +5,7 @@
 - fixture manifest SHA-256: `58263d92f6f1f39f7cf3619f9f7666cf9d48c6f420b59606116a1e353f6000eb`
 - runner file SHA-256: `a96476d2d354a561e418853805b60fe3dbd425f9e3da93c338e7bb8ab6b8ac09`
 - 선정 후보: V1
-- SQL/EXPLAIN evidence gate: 24 provenance capture, 24 SQL capture, 24 slowest EXPLAIN, 8 relation·complex content plan, 4 theme index candidate plan, base exact count 부재=PASS
+- 측정 시 검증한 SQL/EXPLAIN gate: 24 provenance capture, 24 SQL capture, 24 slowest EXPLAIN, 8 relation·complex content plan, 4 theme index candidate plan, base exact count 부재=PASS
 
 ## Scenario median (네 batch 가운데 두 p95의 산술평균)
 
@@ -30,23 +30,13 @@
 - V3 player-count: 68.287ms > 51.092ms (V0 48.659ms × 1.05)
 - V3 complex: 675.846ms > 534.821ms (V0 509.353ms × 1.05)
 
-## Raw artifacts
+## Measurement batches
 
-| variant | round | artifact | server commit |
-| --- | ---: | --- | --- |
-| V0 | 1 | `docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v0-r1.json` | `cecbe1017a38b90b7be8e472ee16c5d809918b90` |
-| V0 | 2 | `docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v0-r2.json` | `cecbe1017a38b90b7be8e472ee16c5d809918b90` |
-| V0 | 3 | `docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v0-r3.json` | `cecbe1017a38b90b7be8e472ee16c5d809918b90` |
-| V0 | 4 | `docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v0-r4.json` | `cecbe1017a38b90b7be8e472ee16c5d809918b90` |
-| V1 | 1 | `docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v1-r1.json` | `2502d57e8c468929598e66a080442a4e2a5e412a` |
-| V1 | 2 | `docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v1-r2.json` | `2502d57e8c468929598e66a080442a4e2a5e412a` |
-| V1 | 3 | `docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v1-r3.json` | `2502d57e8c468929598e66a080442a4e2a5e412a` |
-| V1 | 4 | `docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v1-r4.json` | `2502d57e8c468929598e66a080442a4e2a5e412a` |
-| V2 | 1 | `docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v2-r1.json` | `725a04197b81fffa284b77f415c64be280a897cb` |
-| V2 | 2 | `docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v2-r2.json` | `725a04197b81fffa284b77f415c64be280a897cb` |
-| V2 | 3 | `docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v2-r3.json` | `725a04197b81fffa284b77f415c64be280a897cb` |
-| V2 | 4 | `docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v2-r4.json` | `725a04197b81fffa284b77f415c64be280a897cb` |
-| V3 | 1 | `docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v3-r1.json` | `4d34d74d1adff1eb010a52962acbf3de425df58a` |
-| V3 | 2 | `docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v3-r2.json` | `4d34d74d1adff1eb010a52962acbf3de425df58a` |
-| V3 | 3 | `docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v3-r3.json` | `4d34d74d1adff1eb010a52962acbf3de425df58a` |
-| V3 | 4 | `docs/measurements/results/game-list-740/game-list-867-2026-08-19/http/v3-r4.json` | `4d34d74d1adff1eb010a52962acbf3de425df58a` |
+각 variant는 4개 round, 총 16개 `VALID` batch로 측정했다. 원본 JSON/CSV와 SQL/EXPLAIN capture는 측정 실행자의 로컬 evidence 디렉터리에 보관하고, 이 문서에는 batch 수·fixture·runner·server commit과 판정 결과만 남긴다.
+
+| variant | rounds | server commit |
+| --- | ---: | --- |
+| V0 | 1–4 | `cecbe1017a38b90b7be8e472ee16c5d809918b90` |
+| V1 | 1–4 | `2502d57e8c468929598e66a080442a4e2a5e412a` |
+| V2 | 1–4 | `725a04197b81fffa284b77f415c64be280a897cb` |
+| V3 | 1–4 | `4d34d74d1adff1eb010a52962acbf3de425df58a` |
