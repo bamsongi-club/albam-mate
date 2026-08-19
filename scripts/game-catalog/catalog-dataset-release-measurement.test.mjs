@@ -38,8 +38,8 @@ test('artifact realpath가 root 밖으로 나가거나 같은 파일을 가리�
     const root = mkdtempSync(join(tmpdir(), 'catalog-release-artifacts-'));
     const outside = mkdtempSync(join(tmpdir(), 'catalog-release-outside-'));
     try {
-        writeFileSync(join(root, '01-upsert-games-chunked.sql'), '01');
-        writeFileSync(join(outside, '01-upsert-games-chunked.sql'), 'outside');
+        writeFileSync(join(root, '01-games-full.sql'), '01');
+        writeFileSync(join(outside, '01-games-full.sql'), 'outside');
 
         const validArtifacts = artifactMap('artifacts');
         mkdirSync(join(root, 'artifacts'));
@@ -49,7 +49,7 @@ test('artifact realpath가 root 밖으로 나가거나 같은 파일을 가리�
         assert.doesNotThrow(() => resolveArtifactPaths(validArtifacts, root));
 
         const escaped = { ...validArtifacts };
-        symlinkSync(join(outside, '01-upsert-games-chunked.sql'), join(root, 'artifacts', 'escaped.sql'));
+        symlinkSync(join(outside, '01-games-full.sql'), join(root, 'artifacts', 'escaped.sql'));
         escaped['01'] = { path: 'artifacts/escaped.sql' };
         assert.throws(() => resolveArtifactPaths(escaped, root), /unexpected file name|outside artifacts root/u);
 
@@ -62,13 +62,7 @@ test('artifact realpath가 root 밖으로 나가거나 같은 파일을 가리�
 function artifactMap(directory) {
     const path = (fileName) => ({ path: `${directory}/${fileName}` });
     return {
-        '01': path('01-upsert-games-chunked.sql'),
-        '01b': path('01b-restore-boardgameexpansions.sql'),
-        '02': path('02-upsert-game-mechanisms.sql'),
-        '03': path('03-upsert-game-metadata.sql'),
-        '04': path('04-upsert-korean-names-supplement.sql'),
-        '05': path('05-upsert-korean-descriptions-supplement.sql'),
-        '06': path('06-upsert-boardlife-new-games.sql'),
-        '07': path('07-fix-name-mismapping.sql'),
+        '01': path('01-games-full.sql'),
+        '02': path('02-metadata-full.sql'),
     };
 }

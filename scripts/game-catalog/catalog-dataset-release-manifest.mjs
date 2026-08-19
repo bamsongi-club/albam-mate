@@ -10,24 +10,12 @@ export const CATALOG_SOURCE_MANIFEST_SHA256 =
 
 export const REQUIRED_ARTIFACTS = [
     '01',
-    '01b',
     '02',
-    '03',
-    '04',
-    '05',
-    '06',
-    '07',
 ];
 
 export const ARTIFACT_BASENAMES = Object.freeze({
-    '01': '01-upsert-games-chunked.sql',
-    '01b': '01b-restore-boardgameexpansions.sql',
-    '02': '02-upsert-game-mechanisms.sql',
-    '03': '03-upsert-game-metadata.sql',
-    '04': '04-upsert-korean-names-supplement.sql',
-    '05': '05-upsert-korean-descriptions-supplement.sql',
-    '06': '06-upsert-boardlife-new-games.sql',
-    '07': '07-fix-name-mismapping.sql',
+    '01': '01-games-full.sql',
+    '02': '02-metadata-full.sql',
 });
 
 export const COVERAGE_SERIALIZATIONS = Object.freeze({

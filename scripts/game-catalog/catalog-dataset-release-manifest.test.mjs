@@ -59,7 +59,7 @@ test('실제 dataset rows/hash/id-set hash가 manifest와 모두 일치해야 �
     );
 });
 
-test('01~07 승인 artifact와 실제 checksum/bytes가 모두 일치해야 한다', () => {
+test('01~02 승인 artifact와 실제 checksum/bytes가 모두 일치해야 한다', () => {
     const manifest = validManifest();
     const actualArtifacts = Object.fromEntries(
         Object.entries(manifest.artifacts).map(([key, value]) => [key, {
@@ -76,10 +76,10 @@ test('01~07 승인 artifact와 실제 checksum/bytes가 모두 일치해야 한�
         () => validateCatalogDatasetReleaseManifest(manifest, {
             actualArtifacts: {
                 ...actualArtifacts,
-                '01b': { ...actualArtifacts['01b'], sha256: '0'.repeat(64) },
+                '02': { ...actualArtifacts['02'], sha256: '0'.repeat(64) },
             },
         }),
-        /01b.*sha256/u,
+        /02.*sha256/u,
     );
 });
 
@@ -144,7 +144,7 @@ test('실제 SQL coverage를 계산한 값과 manifest 선언을 대조한다', 
 
 test('artifact path는 key에 맞는 상대 경로이고 서로 다른 파일이어야 한다', () => {
     const duplicatePath = validManifest();
-    duplicatePath.artifacts['01b'].path = duplicatePath.artifacts['01'].path;
+    duplicatePath.artifacts['02'].path = duplicatePath.artifacts['01'].path;
     assert.throws(() => validateCatalogDatasetReleaseManifest(duplicatePath), /duplicates/u);
 
     const parentPath = validManifest();
@@ -156,7 +156,7 @@ test('artifact path는 key에 맞는 상대 경로이고 서로 다른 파일이
     assert.throws(() => validateCatalogDatasetReleaseManifest(absolutePath), /relative path/u);
 
     const wrongBasename = validManifest();
-    wrongBasename.artifacts['01'].path = 'artifacts/02-upsert-game-mechanisms.sql';
+    wrongBasename.artifacts['01'].path = `artifacts/${ARTIFACT_BASENAMES['02']}`;
     assert.throws(() => validateCatalogDatasetReleaseManifest(wrongBasename), /must end with/u);
 });
 
@@ -258,13 +258,7 @@ function validManifest() {
         },
         artifacts: {
             '01': artifact('01'),
-            '01b': artifact('01b'),
             '02': artifact('02'),
-            '03': artifact('03'),
-            '04': artifact('04'),
-            '05': artifact('05'),
-            '06': artifact('06'),
-            '07': artifact('07'),
         },
         coverage: {
             catalogIds: coverage('catalogIds', 'd'),

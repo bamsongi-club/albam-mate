@@ -50,7 +50,7 @@ const actualArtifacts = Object.fromEntries(
 const actualCoverage = measureCatalogDatasetCoverage({
     datasetIds: ids,
     mechanismSql: artifactContents['02'],
-    metadataSql: artifactContents['03'],
+    metadataSql: artifactContents['02'],
 });
 
 validateCatalogDatasetReleaseManifest(manifest, { actualDataset, actualArtifacts, actualCoverage });

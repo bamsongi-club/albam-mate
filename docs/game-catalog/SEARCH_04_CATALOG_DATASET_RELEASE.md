@@ -10,7 +10,7 @@ SEARCH-04의 평가 fixture가 참조할 게임 카탈로그를 하나의 재현
 
 - 기준 데이터셋: `bgg-catalog-170k`
 - 기준 근거: [#621의 최종 승인 댓글](https://github.com/bamsongi-club/albam-mate/issues/621#issuecomment-5278598331)로 확인한 raw BGG snapshot 170,000건
-- 전달 artifact 실행 순서: `01 → 01b → 02 → 03 → 04 → 05 → 06 → 07`
+- 전달 artifact 실행 순서: `01 → 02` (`01-games-full.sql` → `02-metadata-full.sql`)
 - [#621 최종 판정](https://github.com/bamsongi-club/albam-mate/issues/621#issuecomment-5278598331)에서 확인된 보정: 확장판 5,229건 원래 ID 복구, `game_player_preferences` `bool_or` 정책 확정, bgg_id 26~40 이름 오매핑 수정
 
 `#621` 본문에는 초기 보류 문구가 남아 있으므로, `bool_or` 확정 근거는 본문이 아니라 위 최종 승인 댓글과 [이슈 종료 댓글](https://github.com/bamsongi-club/albam-mate/issues/621#issuecomment-5279057012)이다. 이 링크는 정책·검수 근거를 가리키며, 실행 가능한 catalog release manifest가 저장소에 등록됐다는 뜻은 아니다.
@@ -33,12 +33,12 @@ SEARCH-04의 평가 fixture가 참조할 게임 카탈로그를 하나의 재현
 - `dataset.rows`: 정확히 고정된 catalog row 수
 - `dataset.sha256`: canonical dataset 파일의 SHA-256
 - `dataset.idSetSha256`: 정렬한 BGG ID 집합의 SHA-256
-- `artifacts.01`, `01b`, `02` ... `07`: 각 승인 artifact의 `path`, `sha256`, `bytes`, `status=approved`
+- `artifacts.01`, `02`: 각 승인 artifact의 `path`, `sha256`, `bytes`, `status=approved`
 - `coverage.catalogIds`, `mechanismRelations`, `themeRelations`, `playerPreferences`: 각 coverage 행 수·SHA-256·canonical serialization version
 
 schemaVersion 1의 고정 profile은 `datasetId=bgg-catalog-170k`, `fieldVersion=catalog-fields-v1`, `sourceSnapshot.batchId=bgg-xml-basic-170k-2026-08-10`과 `sourceSnapshot.manifestSha256`를 코드에서 함께 검증한다. `dataset.rows`와 coverage의 기대 행 수는 각각 `170000`, `428488`, `461973`, `263463`이며, 이 값만 적는 것으로는 승인되지 않는다. 각 필드 provenance의 source column·source version·공개·처리 허용·source manifest hash가 trusted profile과 일치해야 한다.
 
-artifact의 `path`는 상대 경로이며 `..`, 절대 경로, 빈 segment를 사용할 수 없다. key별 고정 basename(`01-upsert-games-chunked.sql`부터 `07-fix-name-mismapping.sql`)과 일치하고, 실제 측정 시 artifact root의 realpath 안에 있는 서로 다른 regular file이어야 한다. 따라서 같은 파일을 여러 key로 선언하거나 symlink로 root 밖 파일을 가리키는 manifest는 차단한다.
+artifact의 `path`는 상대 경로이며 `..`, 절대 경로, 빈 segment를 사용할 수 없다. key별 고정 basename(`01`은 `01-games-full.sql`, `02`는 `02-metadata-full.sql`)과 일치하고, 실제 측정 시 artifact root의 realpath 안에 있는 서로 다른 regular file이어야 한다. 따라서 같은 파일을 여러 key로 선언하거나 symlink로 root 밖 파일을 가리키는 manifest는 차단한다.
 
 실제 값은 원본 artifact를 직접 읽어 계산한 값만 허용한다. 사람이 추정한 checksum·행 수나 테스트용 값을 승인 release에 기록하지 않는다.
 
@@ -66,13 +66,13 @@ node scripts/game-catalog/measure-catalog-dataset-release.mjs \
 - dataset row count
 - dataset SHA-256
 - BGG ID 집합 SHA-256
-- `01~07` artifact SHA-256
-- `01~07` artifact byte size
+- `01~02` artifact SHA-256
+- `01~02` artifact byte size
 - dataset ID 집합에서 SQL의 mechanism/theme/player relation을 실제로 추출한 coverage 행 수·canonical SHA-256·serialization version
 
 ## 승인 절차
 
-1. [#621 최종 승인 댓글](https://github.com/bamsongi-club/albam-mate/issues/621#issuecomment-5278598331)과 170,000 BGG snapshot, `01~07` 전달 artifact를 release 후보로 고정한다.
+1. [#621 최종 승인 댓글](https://github.com/bamsongi-club/albam-mate/issues/621#issuecomment-5278598331)과 170,000 BGG snapshot, `01~02` 전달 artifact를 release 후보로 고정한다.
 2. dataset/artifact의 실제 row count·SHA-256·ID set hash·bytes를 계산한다.
 3. 해당 값을 manifest에 기록하고 `approved: true`, `testOnly: false`로 확정한다.
 4. GitHub에 release ID, dataset ID, checksum, 검증 결과와 승인 범위를 남기고 그 URL을 `approval.references`에 기록한다.
