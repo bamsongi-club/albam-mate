@@ -12,15 +12,16 @@ P2는 AI 챗봇(게임 탐색 도우미 포함), 게임 의미 기반 검색, �
 | --- | --- | --- |
 | [P2 공통 명세](../P2-spec.md) | P2 전체 범위, 기능 문서 작성 규칙, 공통 통합 원칙과 구현 완료 기준 | 정본 승격 완료 |
 | [`AI-01` AI 모임 도우미](assistant.md#ai-01-ai-모임-도우미) | 사용자 동의·철회, assistant 진입·화면, 추천·확인 흐름과 기존 수동 Room 회귀 | 제품 계약 확정·T-ID 승인 필요·구현 보류 |
-| [`AI-02` AI 의도·추천·Provider 운영](assistant.md#ai-02-ai-의도-추출추천provider-운영) | 구조화 조건, 후보 추천, provider adapter·fake·quota·timeout·비용·usage 경계 | 제품 계약 확정·T-ID 승인 필요·구현 보류 |
+| [`AI-02` AI 의도·추천·Provider 운영](assistant.md#ai-02-ai-의도-추출추천provider-운영) | 구조화 조건, 후보 추천, provider adapter·fake·quota·timeout·비용·usage 경계 | 제품 계약 확정·T-ID 승인 완료·AI-02a Provider/foundation 구현 진행 (`#851` quota·비용·completion, `#852` usage·cost-warning consumer 분리) |
 | [`AI-03` AI 초안·확인형 Room 생성](assistant.md#ai-03-ai-초안확인형-room-생성) | 15분 초안, 장소·지역, 멱등 확인과 Room·ChatRoom 원자성 | 제품 계약 확정·T-ID 승인 필요·구현 보류 |
 | [`AI-04` AI 운영 배포·실측](assistant.md#ai-04-ai-운영-배포실측) | 인프라·secret/config, production 배포·feature gate·rollback, 배포 후 제한 실측 | 제품 계약 확정·T-ID 승인 필요·구현 보류 |
 | [DISCOVERY-01 게임 탐색 도우미 명세](game-discovery-assistant.md#discovery-01) | 자연어 의도 해석·SEARCH-04 read-only tool 호출·근거 있는 응답·권한·안전·품질 | 초안 작성 완료·선행 계약 필요 |
 | [SEARCH-04 게임 의미 기반 검색 명세](search.md#search-04) | 검색 대상 데이터, 색인·질의·정렬, 기존 검색과의 관계와 품질 평가 | 초안 작성 완료·선행 계약 필요 |
 | [RANK-02 게임 인기순 정렬 명세](game-popularity.md#rank-02) | 국내·내부·국외 인기 원천 결합, 승인 배치·복구와 게임 목록 기본 정렬 | 구현·자동 검증 완료·배포/실측 필요 |
 | [`CHAT-06` 입장·퇴장 시스템 메시지](chat.md#chat-06-입장퇴장-시스템-메시지) | 참가·참가 취소 확정의 채팅 안내 저장·조립·전달, 접근·보존과 소급 경계 | 계약 준비 완료·구현 예정 |
+| [`CHAT-07` 채팅 목록 마지막 메시지·미읽음 상태](chat.md#chat-07-채팅-목록-마지막-메시지방별-미읽음-상태) | 방별 읽음 커서 저장, 채팅 목록 마지막 메시지·미읽음 집계, 읽음 처리 API와 상단 배지 요약 | 계약 준비 완료·구현 예정 |
 | [실시간 파티 매칭 명세](matching.md) | `MATCH-01`의 사용자 인원 범위 기반 매칭, 제안·채팅·신고·차단과 동시성·실패·복구·성능 검증 | 기능 명세 작성 완료·계약 전환 중 |
-| [운영 관측](monitoring.md) | `OPS-01`~`OPS-05`의 기능별 지표·로그·검증 기준과 제외 범위 | OPS-01·OPS-02 구현·자동 검증·임시 AWS 실측·철거 완료, OPS-02 외부 API·AI는 해당 기능 미배포로 조건부 제외; OPS-03 구현·자동 검증·임시 AWS 실측·철거 완료, OPS-03 AI·Tool은 해당 기능 미배포로 조건부 제외 |
+| [운영 관측](monitoring.md) | `OPS-01`~`OPS-05`의 기능별 지표·로그·검증 기준과 제외 범위 | OPS-01·OPS-02 구현·자동 검증·임시 AWS 실측·철거 완료, OPS-02 외부 API·AI는 해당 기능 미배포로 조건부 제외; OPS-03 구현·자동 검증·임시 AWS 실측·철거 완료, OPS-03 AI·Tool은 해당 기능 미배포로 조건부 제외; OPS-05 통합 검증·dashboard·임시 AWS 실측·철거 완료 |
 | [운영 대시보드 정책](dashboard.md) | 생존·지연·실패·비용·업무 기능 결과의 화면·경고·증거 정책 | 정책 값 사용자 확인·정본 반영 완료 |
 
 P2 구현은 [API](../API.md), [ERD](../ERD.md), [아키텍처](../ARCHITECTURE.md)와 승인 ADR 또는 아직 승인되지 않은 목표 계약을 구분해 유지한다. 각 기능 작성자는 자신의 상세 명세가 요구하는 변경만 식별하고, 구현 작업에서 소유 정본과 필요한 ADR을 함께 갱신한다.
@@ -32,7 +33,7 @@ P2 구현은 [API](../API.md), [ERD](../ERD.md), [아키텍처](../ARCHITECTURE.
 | 기능 영역 | 기능 ID | 계약 준비 | 생산 코드 | 자동 검증 | 배포 상태 | 실측 상태 |
 | --- | --- | --- | --- | --- | --- | --- |
 | AI 모임 도우미 | [`AI-01`](assistant.md#ai-01-ai-모임-도우미) | T-ID 승인 필요 | 미구현 | 미검증 | 미배포 | 미측정 |
-| AI 의도·추천·Provider | [`AI-02`](assistant.md#ai-02-ai-의도-추출추천provider-운영) | T-ID 승인 필요 | 미구현 | 미검증 | 미배포 | 미측정 |
+| AI 의도·추천·Provider | [`AI-02`](assistant.md#ai-02-ai-의도-추출추천provider-운영) | T-ID 승인 완료 | AI-02a Provider/foundation: port·fake/OpenAI adapter·payload allowlist와 공유 contract/seam 구현. Redis quota·비용·completion은 `#851`, usage·cost-warning event consumer는 `#852` 소유 | 미검증 | 미배포 | 미측정 |
 | AI 초안·확인형 Room | [`AI-03`](assistant.md#ai-03-ai-초안확인형-room-생성) | T-ID 승인 필요 | 미구현 | 미검증 | 미배포 | 미측정 |
 | AI 운영 배포·실측 | [`AI-04`](assistant.md#ai-04-ai-운영-배포실측) | T-ID 승인 필요 | 미구현 | 미검증 | 미배포 | 미측정 |
 | 게임 탐색 도우미 | [`DISCOVERY-01`](game-discovery-assistant.md#discovery-01) | 선행 계약 필요 | 미구현 | 미검증 | 미배포 | 미측정 |
@@ -40,11 +41,12 @@ P2 구현은 [API](../API.md), [ERD](../ERD.md), [아키텍처](../ARCHITECTURE.
 | 게임 인기순 정렬 | [`RANK-02`](game-popularity.md#rank-02) | 계약 준비 완료 | 구현 완료 | 자동 검증 완료 | 미배포 | 미측정 |
 | 실시간 파티 매칭 | [`MATCH-01`](matching.md#match-01-실시간-파티-매칭) | 계약 전환 중 | 부분 구현 | 미검증 | 미배포 | 미측정 |
 | 채팅 시스템 메시지 | [`CHAT-06`](chat.md#chat-06-입장퇴장-시스템-메시지) | 계약 준비 완료 | 미구현 | 미검증 | 미배포 | 미측정 |
+| 채팅 목록 마지막 메시지·미읽음 | [`CHAT-07`](chat.md#chat-07-채팅-목록-마지막-메시지방별-미읽음-상태) | 계약 준비 완료 | 미구현 | 미검증 | 미배포 | 미측정 |
 | 서비스 생존·연결 | [`OPS-01`](monitoring.md#ops-01-서비스-생존과-연결-상태) | 계약 준비 완료 | 구현 완료 | 자동 검증 완료 | 임시 AWS 검증 배포·철거 완료 | `AC1`~`AC7` 실측 완료 |
 | 지연·포화 | [`OPS-02`](monitoring.md#ops-02-지연과-포화) | 계약 준비 완료 | 앱·인프라 구현 완료, 미배포 외부 API·AI 조건부 제외 | 앱 CI·인프라 수집·query·주입·복구·teardown 자동 검증 완료 | 고정 SHA 임시 AWS 검증 배포·철거 완료 | `AC1`~`AC4`, `AC6` 실측 완료, `AC5` 조건부 제외 |
 | 실패·이상 | [`OPS-03`](monitoring.md#ops-03-실패와-이상) | 계약 준비 완료 | 구현 완료 | 자동 검증 완료 | 임시 AWS 검증 배포·철거 완료 | `AC1`~`AC3`·`AC5` 실측 완료, `AC4` 조건부 제외 |
 | AI 사용량·추정 비용 | [`OPS-04`](monitoring.md#ops-04-ai-사용량과-추정-비용) | 계약 준비 완료 | 미구현 | 미검증 | 미배포 | 미측정 |
-| 핵심 업무 기능 결과 | [`OPS-05`](monitoring.md#ops-05-핵심-업무-기능-결과) | 계약 준비 완료 | 앱 부분 구현 | H2·PostgreSQL 부분 검증 | 미배포 | 미측정 |
+| 핵심 업무 기능 결과 | [`OPS-05`](monitoring.md#ops-05-핵심-업무-기능-결과) | 계약 준비 완료 | 앱 검증기·인프라 실행·dashboard 구현 완료 | H2 계약·인프라 회귀·정상/통제 manifest 검증 완료 | 고정 SHA 임시 AWS 검증 배포·철거 완료 | 정상·통제 실패/복구 실측 완료 |
 
 - `기능 명세 필요`: 기능 ID, 사용자 문제, 흐름, 데이터·권한, 완료 기준과 제외 범위가 아직 문서화되지 않았다.
 - `선행 계약 필요`: 기능 명세가 있더라도 필수 ADR 승인 또는 API·ERD·아키텍처·운영 정본 반영이 남아 있다.
@@ -54,11 +56,13 @@ P2 구현은 [API](../API.md), [ERD](../ERD.md), [아키텍처](../ARCHITECTURE.
 - `부분 구현`과 `부분 검증`: 연결한 기능 ID 일부만 생산 코드와 자동 증거를 갖춘 상태다.
 - `미배포`와 `미측정`은 별도 상태다. 임시 검증 배포·운영 배포·유효 실측·`INVALID` 측정을 같은 값으로 합치지 않는다.
 
-`OPS-01`·`OPS-02`·`OPS-03`·`OPS-05`는 [운영 관측 런북](../guides/MONITORING_OPERATIONS.md)에 metric·log 허용 목록, alarm query·runbook, 상태 전이·IAM·배포 증거 계약을 반영해 구현 선행 계약을 마쳤다. 이 가운데 [#730](https://github.com/bamsongi-club/albam-mate/issues/730)의 `OPS-01-AC1`~`AC3`과 [#731](https://github.com/bamsongi-club/albam-mate/issues/731)의 `OPS-01-AC4`~`AC7`은 생산 코드·운영 CLI·인프라 구현, 자동 검증, 같은 release의 AWS 임시 배포·실측과 teardown을 완료했다. [#732](https://github.com/bamsongi-club/albam-mate/issues/732)의 `OPS-02-AC1`~`AC4`, `AC6`도 앱·인프라 구현과 자동 검증, 고정 release의 baseline·slow-request·db-pool-wait·recovery 실측과 teardown을 완료했으며 [비식별 결과](../measurements/k6/jiho/ops02-latency-saturation-2026-08-19.md)에 근거를 남겼다. `AC5`는 외부 API·AI 기능이 배포되지 않은 현재 환경에서 조건부 제외하며, 이는 해당 기능의 향후 배포·관측 완료를 주장하지 않는다. [#733](https://github.com/bamsongi-club/albam-mate/issues/733)의 `OPS-03-AC1`~`AC3`·`AC5`도 앱·인프라 구현과 자동 검증, 고정 release의 4xx 기준선·대표 5xx·Redis 불능·scheduler 실패·복구, 중앙 로그 금지 field, `OK → ALARM → OK`와 실제 경고·복구 수신을 [제한 실측](../measurements/ops-03-failure-anomaly-observability-2026-08-19.md)하고 teardown을 완료했다. `AC4`는 AI·Tool 기능이 배포되지 않아 조건부 제외하며 timeout은 자동 검증까지만 완료했다. 이 결과들은 임시 AWS 검증 배포이며 상시 운영 배포를 뜻하지 않는다. `OPS-05`는 일부 업무 결과 meter와 H2·PostgreSQL 자동 검증만 완료했으며, 남은 업무 결과 meter와 AWS 배포·dashboard·실측은 완료되지 않았다. `OPS-04`는 [ADR-0074](../adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md)이 AI provider·model·호출 경계와 가격 snapshot 소유 계약을 승인해 `계약 준비 완료`다. 이는 생산 코드·자동 검증·배포·실측 완료를 뜻하지 않으며, 실제 배포·관측·가격 snapshot 전에는 `OPS-04`를 완료로 표시하지 않는다.
+`OPS-01`·`OPS-02`·`OPS-03`·`OPS-05`는 [운영 관측 런북](../guides/MONITORING_OPERATIONS.md)에 metric·log 허용 목록, alarm query·runbook, 상태 전이·IAM·배포 증거 계약을 반영해 구현 선행 계약을 마쳤다. 이 가운데 [#730](https://github.com/bamsongi-club/albam-mate/issues/730)의 `OPS-01-AC1`~`AC3`과 [#731](https://github.com/bamsongi-club/albam-mate/issues/731)의 `OPS-01-AC4`~`AC7`은 생산 코드·운영 CLI·인프라 구현, 자동 검증, 같은 release의 AWS 임시 배포·실측과 teardown을 완료했다. [#732](https://github.com/bamsongi-club/albam-mate/issues/732)의 `OPS-02-AC1`~`AC4`, `AC6`도 앱·인프라 구현과 자동 검증, 고정 release의 baseline·slow-request·db-pool-wait·recovery 실측과 teardown을 완료했으며 [비식별 결과](../measurements/k6/jiho/ops02-latency-saturation-2026-08-19.md)에 근거를 남겼다. `AC5`는 외부 API·AI 기능이 배포되지 않은 현재 환경에서 조건부 제외하며, 이는 해당 기능의 향후 배포·관측 완료를 주장하지 않는다. [#733](https://github.com/bamsongi-club/albam-mate/issues/733)의 `OPS-03-AC1`~`AC3`·`AC5`도 앱·인프라 구현과 자동 검증, 고정 release의 4xx 기준선·대표 5xx·Redis 불능·scheduler 실패·복구, 중앙 로그 금지 field, `OK → ALARM → OK`와 실제 경고·복구 수신을 [제한 실측](../measurements/ops-03-failure-anomaly-observability-2026-08-19.md)하고 teardown을 완료했다. `AC4`는 AI·Tool 기능이 배포되지 않아 조건부 제외하며 timeout은 자동 검증까지만 완료했다. [#735](https://github.com/bamsongi-club/albam-mate/issues/735)의 `OPS-05`도 앱 검증기와 인프라 실행·dashboard, 자동 회귀를 구현하고 고정 release의 알림·채팅·참가 대기열 정상·통제 실패/복구를 [비식별 5-stage 결과](../measurements/k6/jiho/ops05-manifest-contract.md)로 채택한 뒤 teardown을 완료했다. 이 결과들은 임시 AWS 검증 배포이며 상시 운영 배포를 뜻하지 않는다. `OPS-04`는 [ADR-0074](../adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md)이 AI provider·model·호출 경계와 가격 snapshot 소유 계약을 승인해 `계약 준비 완료`다. 이는 생산 코드·자동 검증·배포·실측 완료를 뜻하지 않으며, 실제 배포·관측·가격 snapshot 전에는 `OPS-04`를 완료로 표시하지 않는다.
 
 `AI-01`~`AI-04`는 [AI 기능군 명세](assistant.md), [AI-D01 ADR](../adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md), [AI-D02 ADR](../adr/room/0075-p2-ai-draft-confirmation-and-idempotent-room-command.md), [AI-D03 ADR](../adr/room/0076-p2-room-region-closed-set-and-compatibility.md)와 [API](../API.md), [ERD](../ERD.md), [아키텍처](../ARCHITECTURE.md)에 승인된 목표 계약을 기능별로 반영한다. 구현·운영 전달은 [AI-01~AI-04 독립 기능 표](assistant.md#ai-기능군-ai-01ai-04)의 순서와 상위 이슈를 따른다. migration·생산 코드·검증·배포·실측은 아직 남아 있다. AI 기능군은 `SEARCH-04` 읽기 전용 게임 탐색을 소유하는 `DISCOVERY-01`과 합치지 않으며, 구현 이슈는 각 소유 정본의 계약을 선행 링크로 고정한 뒤 시작한다. `DISCOVERY-01`과 `SEARCH-04`도 상세 명세를 등록했지만 필요한 API·ERD·아키텍처·ADR·운영 계약이 남아 있어 `선행 계약 필요`다. `MATCH-01`은 [API](../API.md)·[ERD](../ERD.md)·[아키텍처](../ARCHITECTURE.md)와 [MATCH ADR](../adr/matching/README.md)에 게임·플랫폼 없는 인원 범위 매칭 계약을 반영했지만, MATCH 저장 스키마에서 `game_id`를 제거하는 forward migration과 [ERD](../ERD.md) 동기화가 남아 있어 `계약 전환 중`이다. 이 저장 전환은 [#838](https://github.com/bamsongi-club/albam-mate/issues/838)이 소유하며, 완료 전에는 [#745](https://github.com/bamsongi-club/albam-mate/issues/745)의 런타임 구현을 시작하지 않는다. 기능 구현 중 드러난 `game`·`user`·`matching` 공통 공개 계약의 빈틈은 [#800](https://github.com/bamsongi-club/albam-mate/issues/800)에서 결정해 [ADR-0067](../adr/matching/0067-match-shared-contract-boundary.md)과 위 정본에 반영했고, 그 계약의 구현체·계약 테스트·구조 검사 등록은 [#801](https://github.com/bamsongi-club/albam-mate/issues/801)이 소유한다. MATCH 기능 구현 이슈는 #801과 #838이 `develop`에 반영된 뒤 공통 계약을 사용한다. 생산 코드·PostgreSQL 통합 검증·[MATCH-01 후보 탐색 baseline 측정 계약](../measurements/match-01-candidate-search-baseline-contract.md)의 실행과 결과 채택은 후속 구현에서 각각 갱신한다.
 
 `CHAT-06`은 [채팅 기능 명세](chat.md)와 [ADR-0078](../adr/chat/0078-chat-system-message-storage-and-read-time-composition.md)로 저장 모델·문구 소유·사건 범위·소급 경계를 확정하고 [API](../API.md#chat-06-입장퇴장-시스템-메시지-계약)·[ERD](../ERD.md#chat-06-입장퇴장-시스템-메시지-저장-계약)·[아키텍처](../ARCHITECTURE.md#p2-chat-06-입장퇴장-시스템-메시지-흐름-계획미구현)에 목표 계약을 반영했다. `CHAT_MESSAGES`의 `sender_user_id`·`client_message_id`·`content` NOT NULL을 푸는 전진 migration과 종류별 CHECK 제약은 다른 이슈가 소유한 선행 전환이 아니라 후속 구현 이슈의 범위이므로 `계약 준비 완료`다. 호환 가능한 expand migration과 `SYSTEM` reader·비활성 writer는 같은 변경에서 병합하며, 뒤로 미루는 것은 구현 착수가 아니라 [혼합 버전 순서](../ERD.md#chat-06-혼합-버전-배포활성화rollback-순서) 3단계의 `SYSTEM` 쓰기 전역 활성화다. P1 `CHAT-01`~`CHAT-05` 아카이브 문서는 이 기능의 정본이 아니다.
+
+`CHAT-07`은 [채팅 기능 명세](chat.md#chat-07-채팅-목록-마지막-메시지방별-미읽음-상태)와 [ADR-0079](../adr/chat/0079-chat-room-read-cursor-and-derived-unread-count.md)로 읽음 커서 저장·미읽음 파생 계산·상단 배지 집계 방식을 확정하고 [API](../API.md#chat-07-채팅-목록-마지막-메시지방별-미읽음-상태-계약)·[ERD](../ERD.md#chat-07-읽음-커서-저장-계약)·[아키텍처](../ARCHITECTURE.md#p2-chat-07-채팅-목록-미읽음-집계-흐름-계획미구현)에 목표 계약을 반영했다. `CHAT_ROOM_READ_STATES`는 신규 테이블이라 `CHAT-06`과 달리 인스턴스 순차 전환이 필요 없다. [CHAT-07 완료 기준의 `T-ID` 후보](chat.md#chat-07-자동-검증)는 [#810 승인 댓글](https://github.com/bamsongi-club/albam-mate/issues/810#issuecomment-5337399658)로 동결돼 `계약 준비 완료`다.
 
 ## 팀 기능 문서 작성 규칙
 

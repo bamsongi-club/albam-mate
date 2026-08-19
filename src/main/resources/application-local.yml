@@ -2,6 +2,9 @@ spring:
   config:
     activate:
       on-profile: local
+  ai:
+    openai:
+      api-key: ${ALBAM_MATE_OPENAI_API_KEY:}
   jackson:
     time-zone: UTC
   datasource:
@@ -23,6 +26,18 @@ spring:
           time_zone: UTC
 
 app:
+  assistant:
+    enabled: ${ALBAM_MATE_ASSISTANT_ENABLED:false}
+    provider: ${ALBAM_MATE_ASSISTANT_PROVIDER:fake}
+    no-retention-verified: ${ALBAM_MATE_ASSISTANT_NO_RETENTION_VERIFIED:false}
+    no-training-verified: ${ALBAM_MATE_ASSISTANT_NO_TRAINING_VERIFIED:false}
+    policy-version: ${ALBAM_MATE_ASSISTANT_POLICY_VERSION:}
+    policy-url: ${ALBAM_MATE_ASSISTANT_POLICY_URL:}
+    pricing-snapshot: ${ALBAM_MATE_ASSISTANT_PRICING_SNAPSHOT:}
+    input-token-price-usd-per-million: ${ALBAM_MATE_ASSISTANT_INPUT_TOKEN_PRICE_USD_PER_MILLION:0}
+    output-token-price-usd-per-million: ${ALBAM_MATE_ASSISTANT_OUTPUT_TOKEN_PRICE_USD_PER_MILLION:0}
+    max-input-tokens: ${ALBAM_MATE_ASSISTANT_MAX_INPUT_TOKENS:4096}
+    max-output-tokens: ${ALBAM_MATE_ASSISTANT_MAX_OUTPUT_TOKENS:256}
   monitoring:
     upstream-role: ${ALBAM_MATE_ROLE:app1}
   security:

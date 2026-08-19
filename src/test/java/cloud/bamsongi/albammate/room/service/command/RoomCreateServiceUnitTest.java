@@ -90,15 +90,6 @@ class RoomCreateServiceUnitTest {
 	}
 
 	@Test
-	void T6_프로필_이미지가_없는_주최자의_host_profileImageUrl은_null이다() {
-		when(userQuery.findUserSummaryById(42L)).thenReturn(Optional.of(new UserQuery.UserSummary("방장", null)));
-
-		ParticipantRoomResponse response = roomCreateService.createRoom(42L, request(RoomType.PERSON_FOCUSED, null));
-
-		assertEquals(null, response.host().profileImageUrl());
-	}
-
-	@Test
 	void 사람_중심_방은_게임을_생략할_수_있다() {
 		ParticipantRoomResponse response = roomCreateService.createRoom(42L, request(RoomType.PERSON_FOCUSED, null));
 

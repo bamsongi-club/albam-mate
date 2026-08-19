@@ -608,6 +608,37 @@ P1 CHAT-02의 V9 전진 Flyway가 생성하는 메시지 저장의 최종 정본
 
 expand migration이 위 고정 `gate_name` 행 하나를 `enabled_at NULL`로 함께 생성한다. 런타임은 행 누락을 자동 삽입하거나 임의 값으로 복구하지 않고, 행을 읽을 수 없으면 안내를 저장하지 않는다.
 
+### CHAT-07 읽음 커서 저장 계약
+
+> **도입 단계: P2** · **기능: CHAT-07** · **저장 계약 상태: 계약 준비 완료** · **적용 상태: 전진 migration 필요**
+>
+> 이 절은 승인된 목표 저장 계약이며 현재 배포된 스키마가 아니다. 현재 상태는 [P2 기능 상태의 `CHAT-07`](p2/README.md#기능별-현재-상태)에서만 판정한다.
+
+`CHAT-07`은 사용자×채팅방마다 "어디까지 읽었는지"를 나타내는 커서 하나만 새 테이블 `CHAT_ROOM_READ_STATES`에 저장한다. 방별 미읽음 개수 자체는 이 테이블에 저장하지 않고, 조회 시점에 [CHAT_MESSAGES](#chat_messages)를 커서 기준으로 세어 계산한다. 저장 모델·파생 계산을 선택한 이유는 [ADR-0079](adr/chat/0079-chat-room-read-cursor-and-derived-unread-count.md)가 소유한다.
+
+#### CHAT_ROOM_READ_STATES
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| user_id | BIGINT | PK(1/2), FK → USERS.id, NN | 커서의 소유자 |
+| chat_room_id | BIGINT | PK(2/2), FK → CHAT_ROOMS.id, NN | 대상 채팅방 |
+| last_read_message_id | BIGINT | NN, DEFAULT `0` | 이 사용자가 이 방에서 마지막으로 읽음 처리한 `CHAT_MESSAGES.id`. 읽은 적이 없으면 `0`(가장 작은 `id`보다 항상 작은 값이므로 별도 `NULL` 분기 없이 `id > last_read_message_id` 비교가 성립한다) |
+| updated_at | TIMESTAMPTZ | NN | 마지막 커서 갱신 시각 |
+
+PK는 `(user_id, chat_room_id)` 복합키다. 채팅 목록·상단 배지 조회가 "이 사용자의 여러 채팅방" 방향으로 조회하므로 `user_id`를 선두 컬럼으로 둔다. 별도 인덱스는 추가하지 않는다.
+
+- 커서 갱신은 `last_read_message_id = GREATEST(last_read_message_id, :upToMessageId)`로만 전진시키는 UPSERT 한 문장으로 처리한다. 후퇴는 없으며, 이미 반영된 지점보다 과거·같은 값으로의 갱신 요청도 실패시키지 않고 현재 값 그대로 성공 응답한다.
+- 행은 사용자가 해당 방에 처음 읽음 처리를 호출할 때 생성한다. 행이 없는 사용자×방 조합은 `last_read_message_id = 0`(전체 미읽음)으로 취급하며 애플리케이션이 기본 행을 미리 만들지 않는다.
+- `ON DELETE NO ACTION`을 `user_id`·`chat_room_id` FK 모두에 적용한다. 사용자·채팅방 삭제로 커서를 연쇄 삭제하지 않는다.
+- 이 테이블은 신규 테이블이라 기존 행이 없다. `CHAT-06`과 달리 기존 컬럼의 NOT NULL을 완화하거나 구버전 writer와 충돌할 여지가 없으므로, 인스턴스 순차 전환·활성화 gate 없이 schema 추가와 코드 배포를 한 릴리스로 묶는다.
+
+#### 미읽음·마지막 메시지 파생 계산
+
+- 방 하나의 미읍음 개수는 `SELECT COUNT(*) FROM CHAT_MESSAGES WHERE chat_room_id = :room AND id > :cursor AND NOT(본인이 보낸 USER 메시지이거나 본인이 subject인 SYSTEM 메시지)`로 계산한다. 저장된 counter를 읽지 않는다.
+- 채팅 목록처럼 여러 방을 한 번에 보여줘야 하면 방 개수만큼 반복 질의하지 않고 배치 조회(예: 방 집합에 대한 단일 집계 질의)로 마지막 메시지·미읽음 수를 계산한다. 구체 SQL은 구현이 정한다.
+- 상단 채팅 아이콘의 미읽음 표시는 위 방별 미읽음 개수가 1 이상인 방의 개수를 센다. 방별 개수의 총합이 아니다.
+- 만료 물리 삭제([ADR-0049](adr/chat/0049-chat-message-retention-lock-section-boundary.md))로 커서보다 오래된 메시지가 지워져도 `id > cursor` 비교와 `COUNT`는 그대로 유효하다. 커서 자체는 삭제되거나 조정하지 않는다.
+
 ### ROOM_STATUS_CORRECTION_PROGRESS
 
 `V22__create_room_status_correction_progress.sql`이 생성하는 ROOM-09 Scheduler 전용 영속 진행 상태다. `SHEDLOCK`이 현재 실행 주체만 조정하는 것과 달리, 이 행은 인스턴스 재시작·실행 주체 변경 뒤 이어갈 순회 경계와 마지막 시도 위치를 저장한다. API 요청 경계 상태 보정과 채팅 만료 삭제는 이 테이블을 사용하지 않는다.

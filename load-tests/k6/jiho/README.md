@@ -58,6 +58,12 @@ ADR-0051은 성공 기준에서 "세션을 유지한 채 WebSocket을 열고 채
 
 계약 검증과 용량 측정을 한 결과로 합치지 않는다. 계약 검증은 작은 입력의 정확성을 판정하고, 용량 측정은 입력 조건과 결과 곡선을 기록한다.
 
+## OPS-05 통합 실행 manifest
+
+알림·채팅·참가 대기열의 통합 업무 결과 검증은 각 담당자의 기존 시나리오를 바꾸지 않고, 고정 release에서 한 번 실행한 뒤 [OPS-05 manifest 계약](../../../docs/measurements/k6/jiho/ops05-manifest-contract.md)으로 판정한다. `notification-delivery-contract.js`, Eungi의 `websocket-contract.js`, Jiwon의 `t1-cancel-promotion.js`은 이 검증기의 read-only source이며, 실행마다 현재 bytes의 SHA-256을 manifest에 기록한다.
+
+검증기 자체는 AWS 배포·대시보드 조회·실측을 실행하지 않는다. 2026-08-19 고정 release의 임시 AWS 정상·통제 실패/복구 실측, dashboard 확인과 teardown 결과는 연결한 측정 문서에 기록했다. 실제 fixture, URL, 계정·비밀번호·세션·CSRF, resource ID와 원시 로그는 `build/k6/ops05/`에만 두고 Git에 넣지 않는다.
+
 ## fixture와 격리
 
 실행기는 `fixtures/users.sql`을 PostgreSQL에 먼저 적용한다. 사용자 수는 `LOAD_TEST_USER_COUNT`이며 기본 100명이다. 모든 사용자는 Run ID별 이메일을 사용하고 비밀번호는 `LoadTest-Password-2026!`이다.

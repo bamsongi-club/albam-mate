@@ -110,18 +110,21 @@ class ChatMessageRetentionPostgresTest {
 	}
 
 	@Test
-	void lockAtLeastFor가_5초면_직후에는_skip하고_5초_뒤_재획득한다() {
+	void lockAtLeastFor_테스트_전용_200ms면_직후에는_skip하고_만료_뒤_재획득한다() {
 		AtomicInteger executionCount = new AtomicInteger();
+		String lockName = "chat-message-retention-lock-at-least-for-test";
+		Duration lockAtMostFor = Duration.ofSeconds(2);
+		Duration lockAtLeastFor = Duration.ofMillis(200);
 
 		ScheduledTaskLock.LockExecution owner = scheduledTaskLock.tryExecute(
-			"chat-message-retention-lock-at-least-for-test",
-			Duration.ofSeconds(5),
-			Duration.ofSeconds(5),
+			lockName,
+			lockAtMostFor,
+			lockAtLeastFor,
 			executionCount::incrementAndGet);
 		ScheduledTaskLock.LockExecution skipped = scheduledTaskLock.tryExecute(
-			"chat-message-retention-lock-at-least-for-test",
-			Duration.ofSeconds(5),
-			Duration.ofSeconds(5),
+			lockName,
+			lockAtMostFor,
+			lockAtLeastFor,
 			() -> {
 				throw new AssertionError("skipped execution must not run");
 			});
@@ -130,17 +133,12 @@ class ChatMessageRetentionPostgresTest {
 		assertFalse(skipped.acquired());
 		assertEquals(1, executionCount.get());
 
-		try {
-			Thread.sleep(5_200);
-		} catch (InterruptedException exception) {
-			Thread.currentThread().interrupt();
-			throw new AssertionError("lockAtLeastFor 검증 대기 중 인터럽트가 발생했습니다", exception);
-		}
+		assertTrue(awaitLockExpiry(lockName, Duration.ofSeconds(2)));
 
 		ScheduledTaskLock.LockExecution reacquired = scheduledTaskLock.tryExecute(
-			"chat-message-retention-lock-at-least-for-test",
-			Duration.ofSeconds(5),
-			Duration.ofSeconds(5),
+			lockName,
+			lockAtMostFor,
+			lockAtLeastFor,
 			executionCount::incrementAndGet);
 
 		assertTrue(reacquired.acquired());
@@ -498,6 +496,24 @@ class ChatMessageRetentionPostgresTest {
 			Thread.currentThread().interrupt();
 			throw new IllegalStateException("interrupted while waiting for lock owner release", exception);
 		}
+	}
+
+	private boolean awaitLockExpiry(String lockName, Duration timeout) {
+		long deadline = System.nanoTime() + timeout.toNanos();
+		while (System.nanoTime() < deadline) {
+			Boolean expired = jdbcTemplate.queryForObject(
+				"select lock_until <= clock_timestamp() from shedlock where name = ?", Boolean.class, lockName);
+			if (Boolean.TRUE.equals(expired)) {
+				return true;
+			}
+			try {
+				Thread.sleep(25);
+			} catch (InterruptedException exception) {
+				Thread.currentThread().interrupt();
+				throw new AssertionError("ShedLock 만료 대기 중 인터럽트가 발생했습니다", exception);
+			}
+		}
+		return false;
 	}
 
 	private record Fixture(long userId, long roomId, long chatRoomId) {

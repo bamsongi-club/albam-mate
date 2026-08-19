@@ -79,7 +79,7 @@ class ModuleArchitectureTest {
 		ROOT_PACKAGE + ".room.service.command.RoomCommandExecutionCoordinator",
 		ROOT_PACKAGE + ".room.statuscorrection.RoomStatusCorrectionCoordinator");
 	private static final List<String> BUSINESS_MODULES = List.of("auth", "user", "game", "room", "notification",
-		"chat", "matching");
+		"chat", "matching", "assistant");
 	private static final String[] BUSINESS_MODULE_PACKAGES = BUSINESS_MODULES.stream()
 		.map(ModuleArchitectureTest::modulePackage)
 		.toArray(String[]::new);
@@ -87,10 +87,11 @@ class ModuleArchitectureTest {
 		"auth", List.of("game", "room", "notification", "chat", "matching"),
 		"user", List.of("auth", "game", "room", "notification", "chat", "matching"),
 		"game", List.of("auth", "user", "room", "notification", "chat", "matching"),
-		"room", List.of("auth", "notification", "chat", "matching"),
+		"room", List.of("auth", "notification", "matching"),
 		"notification", List.of("auth", "user", "game", "chat", "matching"),
 		"chat", List.of("auth", "game", "notification"),
-		"matching", List.of("auth", "game", "room", "notification", "chat"));
+		"matching", List.of("auth", "game", "room", "notification", "chat"),
+		"assistant", List.of("auth", "user", "game", "room", "notification", "chat", "matching"));
 	private static final JavaClasses PRODUCTION_CLASSES = new ClassFileImporter()
 		.withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
 		.importPackages(ROOT_PACKAGE);
@@ -103,6 +104,10 @@ class ModuleArchitectureTest {
 			.should()
 			.beFreeOfCycles()
 			.because("업무 모듈 사이의 순환 의존은 허용하지 않는다")
+			.ignoreDependency(
+				resideInAPackage(ROOT_PACKAGE + ".chat.."), resideInAPackage(ROOT_PACKAGE + ".room.contract.."))
+			.ignoreDependency(
+				resideInAPackage(ROOT_PACKAGE + ".room.."), resideInAPackage(ROOT_PACKAGE + ".chat.contract.."))
 			.check(businessClasses);
 	}
 

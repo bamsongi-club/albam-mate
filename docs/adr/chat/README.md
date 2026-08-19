@@ -13,5 +13,6 @@
 | [0045](0045-chat-room-schema-and-backfill-boundary.md) | 채팅방 스키마 생성과 기존 ROOM backfill 실행 경계 분리 | 승인됨 | 2026-08-04 | 미검증 |
 | [0049](0049-chat-message-retention-lock-section-boundary.md) | 최종 상태 채팅 메시지 보관·삭제와 잠금 구간 실행 경계 | 승인됨 | 2026-08-04 | 검증됨 |
 | [0078](0078-chat-system-message-storage-and-read-time-composition.md) | 입장·퇴장 시스템 메시지를 CHAT_MESSAGES 확장에 저장하고 문구는 읽기 시점에 조립 | 승인됨 | 2026-08-19 | 미검증 |
+| [0079](0079-chat-room-read-cursor-and-derived-unread-count.md) | 방별 읽음 커서를 저장하고 미읽음 개수는 조회 시점에 파생 계산 | 승인됨 | 2026-08-19 | 미검증 |
 
 `0034`는 `0049`로 대체된 역사적 ADR이므로 현재 보관·삭제 계약과 검증 상태는 `0049`를 따른다.

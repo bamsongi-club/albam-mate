@@ -23,6 +23,11 @@ spring:
       hibernate:
         jdbc:
           time_zone: UTC
+management:
+  otlp:
+    metrics:
+      export:
+        enabled: false
 app:
   notification:
     relay:
