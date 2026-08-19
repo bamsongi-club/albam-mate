@@ -48,6 +48,15 @@ function startServer({
     }
     if (request.url?.startsWith("/api/games")) {
       gameRequests += 1;
+      const requestUrl = new URL(request.url, "http://127.0.0.1");
+      if (
+        requestUrl.searchParams.get("page") !== "0"
+        || requestUrl.searchParams.get("size") !== "24"
+      ) {
+        response.statusCode = 400;
+        response.end(JSON.stringify({ error: "expected page=0 and size=24" }));
+        return;
+      }
       if (hangDiscoveryPath === "games") {
         return;
       }
