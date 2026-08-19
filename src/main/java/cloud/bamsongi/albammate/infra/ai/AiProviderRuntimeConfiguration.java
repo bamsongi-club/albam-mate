@@ -5,7 +5,7 @@ import java.time.Clock;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
@@ -15,7 +15,7 @@ import org.springframework.core.env.Profiles;
 
 import cloud.bamsongi.albammate.assistant.contract.AssistantIntentExtractor;
 
-/** 기본 fake와 명시적 local-openai provider 경계를 구성하고 공유 quota seam을 연결한다. */
+/** 기본 fake와 명시적 local-openai, quota fail-closed seam을 선택하는 구성이다. */
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(AiProviderProperties.class)
 class AiProviderRuntimeConfiguration {
@@ -36,7 +36,6 @@ class AiProviderRuntimeConfiguration {
 					.model(properties.getModel())
 					.timeout(properties.getTimeout())
 					.maxRetries(0)
-					.maxCompletionTokens(properties.getMaxOutputTokens())
 					.store(false)
 					.build())
 				.build();
@@ -55,15 +54,14 @@ class AiProviderRuntimeConfiguration {
 	}
 
 	@Bean
-	@ConditionalOnBean(AiQuotaLedger.class)
 	AssistantIntentExtractor assistantIntentExtractor(
 		AiProviderClient provider,
-		AiQuotaLedger quotaLedger,
+		ObjectProvider<AiQuotaLedger> quotaLedgerProvider,
 		AssistantUsageEventSink usageEventSink,
 		AiProviderProperties properties) {
 		return new AiProviderIntentExtractor(
 			provider,
-			quotaLedger,
+			quotaLedgerProvider.getIfAvailable(UnavailableAiQuotaLedger::new),
 			usageEventSink,
 			settings(properties, true),
 			Clock.systemUTC());
@@ -92,17 +90,10 @@ class AiProviderRuntimeConfiguration {
 			providerConfigured,
 			properties.isNoRetentionVerified(),
 			properties.isNoTrainingVerified(),
-			properties.getPolicyVersion(),
-			properties.getPolicyUrl(),
 			properties.getModel(),
 			properties.getTimeout(),
 			properties.getRetryCount(),
 			properties.isStore(),
-			properties.getPricingSnapshot(),
-			properties.getInputTokenPriceUsdPerMillion(),
-			properties.getOutputTokenPriceUsdPerMillion(),
-			properties.getMaxInputTokens(),
-			properties.getMaxOutputTokens(),
 			properties.getReservationCostUsd());
 	}
 }

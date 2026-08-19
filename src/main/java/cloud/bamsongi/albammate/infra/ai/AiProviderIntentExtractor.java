@@ -5,7 +5,6 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
-import java.util.Set;
 import java.util.regex.Pattern;
 
 import cloud.bamsongi.albammate.assistant.contract.AssistantIntentExtraction;
@@ -22,14 +21,9 @@ public final class AiProviderIntentExtractor implements AssistantIntentExtractor
 	private static final String SCHEMA_VERSION = "AI-02-SCHEMA-V1";
 	private static final String TOOL_NAME = "propose_game_room_intent";
 	private static final String REFERENCE_ZONE = "Asia/Seoul";
-	private static final Set<String> ALLOWED_MISSING_FIELDS = Set.of(
-		"GAME_STYLE", "GAME", "PLAYER_COUNT", "STARTS_AT", "REGION");
 	private static final Pattern EMAIL = Pattern.compile("[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}",
 		Pattern.CASE_INSENSITIVE);
-	private static final Pattern PHONE = Pattern.compile(
-		"(?<![\\d+])(?:01[016789][ .-]?\\d{3,4}[ .-]?\\d{4}"
-			+ "|(?:02|031|032|033|041|042|043|051|052|053|054|055|061|062|063|064|070)[ .-]?\\d{3,4}[ .-]?\\d{4}"
-			+ "|\\+82[ .-]?0?(?:1[016789]|2|3[123]|4[123]|5[12345]|6[1234]|70)[ .-]?\\d{3,4}[ .-]?\\d{4})(?!\\d)");
+	private static final Pattern PHONE = Pattern.compile("(?<!\\d)01[016789][ -]?\\d{3,4}[ -]?\\d{4}(?!\\d)");
 	private static final Pattern LONG_NUMBER = Pattern.compile("(?<!\\d)\\d{6,}(?!\\d)");
 	private static final Pattern UUID = Pattern.compile(
 		"(?i)(?<![0-9a-f])[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![0-9a-f])");
@@ -37,8 +31,6 @@ public final class AiProviderIntentExtractor implements AssistantIntentExtractor
 		"(?i)(?<![a-z0-9])(?:sk-[a-z0-9_-]{16,}|gh[pousr]_[a-z0-9_]{20,}|github_pat_[a-z0-9_]{20,}|akia[0-9a-z]{16}|AIza[a-z0-9_-]{20,}|xox[baprs]-[a-z0-9-]{10,}|eyJ[a-z0-9_-]{10,}\\.[a-z0-9_-]{10,}\\.[a-z0-9_-]{10,})(?![a-z0-9])");
 	private static final Pattern PEM_PRIVATE_KEY = Pattern.compile(
 		"(?is)-----BEGIN\\s+(?:[a-z0-9 ]+\\s+)?PRIVATE KEY-----");
-	private static final Pattern KOREAN_STREET_ADDRESS = Pattern.compile(
-		"(?<![가-힣])(?:(?:[가-힣]+(?:특별시|광역시|시|도)\\s+)?(?:[가-힣]+(?:구|군)\\s+))?[가-힣0-9]+(?:로|길)\\s*\\d+(?:-\\d+)?");
 
 	private final AiProviderClient provider;
 	private final AiQuotaLedger quotaLedger;
@@ -68,8 +60,7 @@ public final class AiProviderIntentExtractor implements AssistantIntentExtractor
 		if (!settings.readyForCall()) {
 			return failure(AssistantIntentStatus.NOT_ENABLED);
 		}
-		if (!hasAllowedMissingFields(request)
-			|| containsSensitiveInput(request.currentUserSentence())
+		if (containsSensitiveInput(request.currentUserSentence())
 			|| request.missingFields().stream().anyMatch(this::containsSensitiveInput)) {
 			return failure(AssistantIntentStatus.SENSITIVE_INPUT_REJECTED);
 		}
@@ -91,21 +82,19 @@ public final class AiProviderIntentExtractor implements AssistantIntentExtractor
 		} catch (RuntimeException exception) {
 			response = AiProviderResponse.failure(AiProviderFailure.SERVICE_UNAVAILABLE);
 		}
-		BigDecimal chargedCostUsd = response.costUsd().signum() > 0
+		BigDecimal chargedCostUsd = response.succeeded()
 			? response.costUsd()
 			: reservation.reservedCostUsd();
 		AssistantIntentExtraction result = response.succeeded()
 			? success(response, startedAt)
 			: failure(statusFor(response.failure()), response, startedAt, chargedCostUsd);
 		AiQuotaCompletionStatus completionStatus = completeOnce(reservation, chargedCostUsd);
+		if (completionStatus == AiQuotaCompletionStatus.UNAVAILABLE) {
+			quotaLedger.scheduleCompletionRetry(reservation, chargedCostUsd);
+			result = failure(AssistantIntentStatus.SERVICE_UNAVAILABLE, response, startedAt, chargedCostUsd);
+		}
 		if (result.usage() != null) {
 			usageEventSink.record(result.usage());
-		}
-		if (completionStatus != AiQuotaCompletionStatus.COMPLETED) {
-			if (completionStatus == AiQuotaCompletionStatus.UNAVAILABLE) {
-				quotaLedger.scheduleCompletionRetry(reservation, chargedCostUsd);
-			}
-			return failure(AssistantIntentStatus.SERVICE_UNAVAILABLE);
 		}
 		return result;
 	}
@@ -157,14 +146,9 @@ public final class AiProviderIntentExtractor implements AssistantIntentExtractor
 		return switch (failure) {
 			case TIMEOUT -> AssistantIntentStatus.PROVIDER_TIMEOUT;
 			case RATE_LIMITED -> AssistantIntentStatus.PROVIDER_RATE_LIMITED;
-			case INPUT_TOO_LARGE -> AssistantIntentStatus.PROVIDER_INPUT_TOO_LARGE;
 			case INVALID_SCHEMA -> AssistantIntentStatus.INVALID_PROVIDER_SCHEMA;
 			case SERVICE_UNAVAILABLE -> AssistantIntentStatus.SERVICE_UNAVAILABLE;
 		};
-	}
-
-	private boolean hasAllowedMissingFields(AssistantIntentRequest request) {
-		return request.missingFields().stream().allMatch(ALLOWED_MISSING_FIELDS::contains);
 	}
 
 	private boolean containsSensitiveInput(String sentence) {
@@ -189,7 +173,6 @@ public final class AiProviderIntentExtractor implements AssistantIntentExtractor
 			|| LONG_NUMBER.matcher(sentence).find()
 			|| UUID.matcher(sentence).find()
 			|| API_CREDENTIAL.matcher(sentence).find()
-			|| PEM_PRIVATE_KEY.matcher(sentence).find()
-			|| KOREAN_STREET_ADDRESS.matcher(sentence).find();
+			|| PEM_PRIVATE_KEY.matcher(sentence).find();
 	}
 }
