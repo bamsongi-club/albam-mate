@@ -23,6 +23,7 @@ import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.AuthorityUtils;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
@@ -117,6 +118,7 @@ class MatchReportHttpIntegrationTest {
 	}
 
 	@Test
+	@DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
 	void T3_보존_중_재신고는_기존_사유와_시각을_보존하고_200으로_수렴한다() throws Exception {
 		long reporterUserId = insertUser("reporter-t3");
 		long reportedUserId = insertUser("reported-t3");
