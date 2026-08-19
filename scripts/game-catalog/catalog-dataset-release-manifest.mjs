@@ -32,7 +32,7 @@ export const EXPECTED_COVERAGE_ROWS = Object.freeze({
     playerPreferences: 263463,
 });
 
-const FIELD_PROFILES = Object.freeze({
+export const FIELD_PROFILES = Object.freeze({
     bgg_id: 'BGG XML item[@id]',
     name: 'BGG XML alternate name or primary name',
     english_name: 'BGG XML name[@type=primary]@value',
@@ -41,6 +41,12 @@ const FIELD_PROFILES = Object.freeze({
     min_players: 'BGG XML minplayers',
     max_players: 'BGG XML maxplayers',
     min_age: 'BGG XML poll suggested_age',
+    englishName: 'games.english_name',
+    alias: 'games.alias',
+    detailDescription: 'games.detail_description',
+    category: 'game_categories.name_ko via desired(bgg_id,code)',
+    theme: 'game_themes.name_ko via desired(bgg_id,bgg_theme_id)',
+    mechanism: 'game_mechanisms.name_ko via game_mechanism_relation_source',
 });
 
 const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
