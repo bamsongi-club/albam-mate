@@ -3,6 +3,7 @@ package cloud.bamsongi.albammate.architecture;
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAPackage;
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAnyPackage;
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideOutsideOfPackage;
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideOutsideOfPackages;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
@@ -59,6 +60,7 @@ class ModuleArchitectureTest {
 		ROOT_PACKAGE + ".chat.service",
 		ROOT_PACKAGE + ".chat.match",
 		ROOT_PACKAGE + ".chat.match.adapter",
+		ROOT_PACKAGE + ".chat.match.contract",
 		ROOT_PACKAGE + ".chat.match.entity",
 		ROOT_PACKAGE + ".chat.match.repository",
 		ROOT_PACKAGE + ".chat.match.service",
@@ -166,7 +168,7 @@ class ModuleArchitectureTest {
 				.should()
 				.dependOnClassesThat(
 					resideInAPackage(modulePackage(targetModule))
-						.and(resideOutsideOfPackage(contractPackage(targetModule))))
+						.and(resideOutsideOfPackages(contractPackages(targetModule))))
 				.because("infra는 업무 모듈의 contract를 통해서만 참조한다")
 				.check(PRODUCTION_CLASSES);
 		}
@@ -324,5 +326,14 @@ class ModuleArchitectureTest {
 
 	private static String contractPackage(String module) {
 		return ROOT_PACKAGE + "." + module + ".contract..";
+	}
+
+	/** ADR-0080이 승인한 공유 컴포넌트 경계 — chat 모듈만 {@code chat.match.contract}도 infra가 참조할 수 있는
+	 * contract로 함께 허용한다. 그 외 모듈은 자기 자신의 {@code <module>.contract} 패키지만 허용한다. */
+	private static String[] contractPackages(String module) {
+		if ("chat".equals(module)) {
+			return new String[] {contractPackage(module), ROOT_PACKAGE + ".chat.match.contract.."};
+		}
+		return new String[] {contractPackage(module)};
 	}
 }
