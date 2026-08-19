@@ -21,11 +21,11 @@
   "annotationRule": "query와 후보 evidenceText만 읽고 관련도 0·1·2와 짧은 근거를 독립적으로 기록한다. 모델 점수·원래 순위·모델명은 판정에 사용하지 않는다.",
   "sources": {
     "blindJudgement": {
-      "path": "docs/p2/search-evaluation/dense-bge-m3/blind-judgement.json",
+      "path": "blind-judgement.json",
       "sha256": "ad48e0cef803e5c08f3024381e5b915080e103ed33f6f41ef9c44eeeb36d873b"
     },
     "searchText": {
-      "path": "docs/p2/search-evaluation/dense-bge-m3/search-text-top1000.json",
+      "path": "search-text-top1000.json",
       "sha256": "ec364be3a34268d1bb6d27e3c41e2cdd31852565eec79fa31faaacda17af4ece",
       "rows": 1000
     }

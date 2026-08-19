@@ -7,6 +7,8 @@ import path from "node:path";
 import process from "node:process";
 import { pathToFileURL } from "node:url";
 
+import { buildGoldJudgementPacket } from "./build-gold-judgement-packet.mjs";
+
 export const MODEL_DESCRIPTOR = Object.freeze({
     provider: "local",
     modelId: "BAAI/bge-m3",
@@ -87,6 +89,7 @@ export function validateDenseExecutionManifest(manifest, { baseDir, verifyFiles 
     validateOutput(manifest.outputs?.results, "outputs.results", baseDir, verifyFiles, 3);
     validateOutput(manifest.outputs?.candidatePool, "outputs.candidatePool", baseDir, verifyFiles, 3);
     validateOutput(manifest.outputs?.blindJudgement, "outputs.blindJudgement", baseDir, verifyFiles, 3);
+    validateOutput(manifest.outputs?.goldJudgementPacket, "outputs.goldJudgementPacket", baseDir, verifyFiles, 3);
     assertEqual(manifest.outputs.results.topK, 20, "results.topK은 20이어야 합니다.");
     assertEqual(manifest.hybrid?.status, "deferred", "현재 #866 결과가 없어 Hybrid는 deferred여야 합니다.");
     assertNonEmptyString(manifest.hybrid?.reason, "hybrid.reason");
@@ -117,10 +120,65 @@ export function validateDenseQueries(queries) {
     return queries;
 }
 
+export function validateDenseInputArtifacts({ qualityCorpus, searchText, displayMap, queries }) {
+    assertObject(qualityCorpus, "qualityCorpus");
+    if (!Array.isArray(qualityCorpus.members) || qualityCorpus.members.length !== 1000) {
+        fail("qualityCorpus는 1,000개 member를 가져야 합니다.");
+    }
+    const qualityIds = new Set();
+    for (const member of qualityCorpus.members) {
+        if (!Number.isSafeInteger(member?.gameId) || member.gameId < 1 || qualityIds.has(member.gameId)) {
+            fail("qualityCorpus gameId는 중복 없는 양의 정수여야 합니다.");
+        }
+        qualityIds.add(member.gameId);
+    }
+
+    assertObject(searchText, "searchText");
+    if (searchText.gameCount !== 1000 || !Array.isArray(searchText.games) || searchText.games.length !== 1000) {
+        fail("searchText는 정확히 1,000개 game을 가져야 합니다.");
+    }
+    const searchTextIds = new Set();
+    for (const game of searchText.games) {
+        if (!Number.isSafeInteger(game?.gameId) || game.gameId < 1 || searchTextIds.has(game.gameId)) {
+            fail("searchText gameId는 중복 없는 양의 정수여야 합니다.");
+        }
+        assertNonEmptyString(game.searchText, `searchText.${game.gameId}.searchText`);
+        searchTextIds.add(game.gameId);
+    }
+
+    assertObject(displayMap, "displayMap");
+    if (displayMap.gameCount !== 1000 || !Array.isArray(displayMap.games) || displayMap.games.length !== 1000) {
+        fail("displayMap은 정확히 1,000개 game을 가져야 합니다.");
+    }
+    const displayById = new Map();
+    for (const game of displayMap.games) {
+        if (!Number.isSafeInteger(game?.gameId) || game.gameId < 1 || displayById.has(game.gameId)) {
+            fail("displayMap gameId는 중복 없는 양의 정수여야 합니다.");
+        }
+        for (const field of ["name", "englishName"]) {
+            if (game[field] !== null && typeof game[field] !== "string") {
+                fail(`displayMap.${game.gameId}.${field}가 올바르지 않습니다.`);
+            }
+        }
+        displayById.set(game.gameId, { name: game.name ?? null, englishName: game.englishName ?? null });
+    }
+
+    assertSameGameIdSet(qualityIds, searchTextIds, "qualityCorpus와 searchText의 gameId 집합이 다릅니다.");
+    assertSameGameIdSet(searchTextIds, new Set(displayById.keys()), "searchText와 displayMap의 gameId 집합이 다릅니다.");
+    const validatedQueries = validateDenseQueries(queries);
+    return {
+        corpusRows: searchTextIds.size,
+        gameIds: searchTextIds,
+        displayById,
+        queriesById: new Map(validatedQueries.map((query) => [query.id, query])),
+    };
+}
+
 export function validateDenseResults(results, {
     expectedQueryIds = Object.keys(PLAY_INTENT_QUERIES),
     topK = 20,
     expectedProvenance,
+    expectedInputs,
 } = {}) {
     assertObject(results, "results");
     assertEqual(results.schemaVersion, 1, "results.schemaVersion은 1이어야 합니다.");
@@ -128,6 +186,7 @@ export function validateDenseResults(results, {
     for (const field of Object.keys(MODEL_DESCRIPTOR)) assertEqual(results.model?.[field], MODEL_DESCRIPTOR[field], `results.model.${field}가 올바르지 않습니다.`);
     assertEqual(results.topK, topK, `results.topK은 ${topK}이어야 합니다.`);
     validateRuntime(results.runtime, "results.runtime");
+    assertEqual(results.inputs?.corpusRows, expectedInputs?.corpusRows ?? 1000, "results.inputs.corpusRows가 고정 corpus와 다릅니다.");
     if (expectedProvenance) validateResultProvenance(results, expectedProvenance);
     if (!Array.isArray(results.queries) || results.queries.length !== expectedQueryIds.length) fail("results의 query 수가 fixture와 다릅니다.");
     const expected = new Set(expectedQueryIds);
@@ -135,12 +194,24 @@ export function validateDenseResults(results, {
     for (const query of results.queries) {
         if (!expected.has(query.id) || seenQueries.has(query.id)) fail(`results query ID가 올바르지 않거나 중복되었습니다: ${query.id}`);
         seenQueries.add(query.id);
+        const expectedQuery = expectedInputs?.queriesById.get(query.id);
+        if (expectedInputs && !expectedQuery) fail(`results의 ${query.id}가 고정 queries에 없습니다.`);
+        if (expectedQuery) assertEqual(query.query, expectedQuery.query, `${query.id} query 문구가 고정 queries와 다릅니다.`);
         if (!Array.isArray(query.ranked) || query.ranked.length !== topK) fail(`${query.id} 결과는 Top${topK}이어야 합니다.`);
         const seenGames = new Set();
         let previous;
         query.ranked.forEach((row, index) => {
             if (!Number.isSafeInteger(row.gameId) || row.gameId < 1 || seenGames.has(row.gameId)) fail(`${query.id}의 gameId가 없거나 중복되었습니다.`);
             seenGames.add(row.gameId);
+            if (expectedInputs && !expectedInputs.gameIds.has(row.gameId)) {
+                fail(`${query.id}의 gameId가 고정 Top 1,000 membership에 없습니다.`);
+            }
+            if (expectedInputs) {
+                const expectedDisplay = expectedInputs.displayById.get(row.gameId);
+                if (row.name !== expectedDisplay.name || row.englishName !== expectedDisplay.englishName) {
+                    fail(`${query.id}의 gameId ${row.gameId} display 값이 고정 displayMap과 다릅니다.`);
+                }
+            }
             assertEqual(row.rank, index + 1, `${query.id} rank가 연속적이지 않습니다.`);
             if (!Number.isFinite(row.score)) fail(`${query.id} score에 NaN/Inf가 있습니다.`);
             if (previous !== undefined && (row.score > previous.score || (row.score === previous.score && row.gameId < previous.gameId))) {
@@ -255,6 +326,17 @@ export function validateBlindJudgementExport(blind, { queries, candidatePool }) 
     return blind;
 }
 
+export function validateGoldJudgementPacket(packet, { queries, candidatePool, blindJudgement, searchText, sources }) {
+    validateBlindJudgementExport(blindJudgement, { queries, candidatePool });
+    const expected = buildGoldJudgementPacket({ blind: blindJudgement, searchText, sources });
+    try {
+        assert.deepStrictEqual(packet, expected);
+    } catch {
+        fail("goldJudgementPacket이 검증된 blind/searchText에서 재구성한 결과와 다릅니다.");
+    }
+    return packet;
+}
+
 function validateSource(source, field, baseDir, verifyFiles) {
     assertObject(source, field);
     assertSafeRelativePath(source.path, `${field}.path`);
@@ -300,6 +382,10 @@ function validateResultProvenance(results, expected) {
     for (const field of ["qualityCorpusSha256", "searchTextSha256", "querySha256", "displayMapSha256", "modelArtifactManifestSha256"]) {
         assertEqual(results.inputs?.[field], expected[field], `results.inputs.${field}가 manifest source와 다릅니다.`);
     }
+}
+
+function assertSameGameIdSet(left, right, message) {
+    if (left.size !== right.size || [...left].some((gameId) => !right.has(gameId))) fail(message);
 }
 
 function verifyArtifact(descriptor, field, baseDir) {
@@ -354,40 +440,149 @@ function fail(message) {
 }
 
 function parseArgs(argv) {
-    if (argv.length !== 3 || argv[0] !== "--check" || argv[1] !== "--manifest" || !argv[2]) return null;
-    return { check: true, manifest: argv[2] };
+    if (argv.length === 3 && argv[0] === "--check" && argv[1] === "--manifest" && argv[2]) {
+        return { mode: "check", manifest: argv[2] };
+    }
+    if (argv.length === 5 && argv[0] === "--assemble" && argv[1] === "--manifest" && argv[2] && argv[3] === "--results" && argv[4]) {
+        return { mode: "assemble", manifest: argv[2], results: argv[4] };
+    }
+    return null;
+}
+
+function manifestInputPaths(manifest, baseDir) {
+    return {
+        qualityCorpus: resolveSafe(baseDir, manifest.sources.qualityCorpus.path, "sources.qualityCorpus"),
+        searchText: resolveSafe(baseDir, manifest.sources.searchText.path, "sources.searchText"),
+        queries: resolveSafe(baseDir, manifest.sources.queries.path, "sources.queries"),
+        displayMap: resolveSafe(baseDir, manifest.sources.displayMap.path, "sources.displayMap"),
+    };
+}
+
+function resultProvenance(manifest) {
+    return {
+        sourceGitHead: manifest.inputGitHead,
+        qualityCorpusSha256: manifest.sources.qualityCorpus.sha256,
+        searchTextSha256: manifest.sources.searchText.sha256,
+        querySha256: manifest.sources.queries.sha256,
+        displayMapSha256: manifest.sources.displayMap.sha256,
+        modelArtifactManifestSha256: manifest.sources.modelArtifactManifest.sha256,
+    };
+}
+
+function goldSources(manifest, blindJudgement = manifest.outputs.blindJudgement) {
+    return {
+        blindJudgement: {
+            path: blindJudgement.path,
+            sha256: blindJudgement.sha256,
+        },
+        searchText: manifest.sources.searchText,
+    };
+}
+
+function serializeJson(value) {
+    return `${JSON.stringify(value, null, 2)}\n`;
+}
+
+function outputDescriptor(output, content, rows) {
+    return { ...output, sha256: sha256(Buffer.from(content)), rows };
+}
+
+export function assembleDenseExecutionFiles({ manifest, baseDir, manifestPath, results }) {
+    validateDenseExecutionManifest(manifest, { baseDir, verifyFiles: true });
+    const inputPaths = manifestInputPaths(manifest, baseDir);
+    const inputs = validateDenseInputArtifacts({
+        qualityCorpus: readJson(inputPaths.qualityCorpus),
+        searchText: readJson(inputPaths.searchText),
+        displayMap: readJson(inputPaths.displayMap),
+        queries: readJson(inputPaths.queries),
+    });
+    validateDenseResults(results, {
+        topK: manifest.outputs.results.topK,
+        expectedProvenance: resultProvenance(manifest),
+        expectedInputs: inputs,
+    });
+    const queries = readJson(inputPaths.queries);
+    const searchText = readJson(inputPaths.searchText);
+    const candidatePool = buildCandidatePool(results);
+    const blindJudgement = buildBlindJudgementExport({ queries, candidatePool });
+    const blindContent = serializeJson(blindJudgement);
+    const blindDescriptor = outputDescriptor(manifest.outputs.blindJudgement, blindContent, blindJudgement.queries.length);
+    const goldJudgementPacket = buildGoldJudgementPacket({
+        blind: blindJudgement,
+        searchText,
+        sources: goldSources(manifest, blindDescriptor),
+    });
+    const contents = {
+        results: serializeJson(results),
+        candidatePool: serializeJson(candidatePool),
+        blindJudgement: blindContent,
+        goldJudgementPacket: serializeJson(goldJudgementPacket),
+    };
+    const nextManifest = structuredClone(manifest);
+    nextManifest.outputs.results = outputDescriptor(manifest.outputs.results, contents.results, results.queries.length);
+    nextManifest.outputs.candidatePool = outputDescriptor(manifest.outputs.candidatePool, contents.candidatePool, candidatePool.queries.length);
+    nextManifest.outputs.blindJudgement = outputDescriptor(manifest.outputs.blindJudgement, contents.blindJudgement, blindJudgement.queries.length);
+    nextManifest.outputs.goldJudgementPacket = outputDescriptor(manifest.outputs.goldJudgementPacket, contents.goldJudgementPacket, goldJudgementPacket.queries.length);
+
+    for (const [name, content] of Object.entries(contents)) {
+        const outputPath = resolveSafe(baseDir, nextManifest.outputs[name].path, `outputs.${name}`);
+        fs.writeFileSync(outputPath, content, "utf8");
+    }
+    fs.writeFileSync(manifestPath, serializeJson(nextManifest), "utf8");
+    return nextManifest;
 }
 
 function main() {
     const args = parseArgs(process.argv.slice(2));
     if (!args) {
-        console.error("사용법: node scripts/search-evaluation/dense-bge-m3-execution.mjs --check --manifest <manifest.json>");
+        console.error("사용법: node scripts/search-evaluation/dense-bge-m3-execution.mjs --check --manifest <manifest.json> | --assemble --manifest <manifest.json> --results <results.json>");
         process.exitCode = 2;
         return;
     }
     try {
         const manifestPath = path.resolve(args.manifest);
+        const baseDir = path.dirname(manifestPath);
         const manifest = readJson(manifestPath);
-        validateDenseExecutionManifest(manifest, { baseDir: path.dirname(manifestPath), verifyFiles: true });
-        const queries = readJson(resolveSafe(path.dirname(manifestPath), manifest.sources.queries.path, "sources.queries"));
-        const results = readJson(resolveSafe(path.dirname(manifestPath), manifest.outputs.results.path, "outputs.results"));
-        const candidatePool = readJson(resolveSafe(path.dirname(manifestPath), manifest.outputs.candidatePool.path, "outputs.candidatePool"));
-        const blindJudgement = readJson(resolveSafe(path.dirname(manifestPath), manifest.outputs.blindJudgement.path, "outputs.blindJudgement"));
-        validateDenseQueries(queries);
+        if (args.mode === "assemble") {
+            const nextManifest = assembleDenseExecutionFiles({
+                manifest,
+                baseDir,
+                manifestPath,
+                results: readJson(path.resolve(args.results)),
+            });
+            console.log(`Dense 실행 산출물 조립 통과: ${manifestPath} (results=${nextManifest.outputs.results.sha256})`);
+            return;
+        }
+
+        validateDenseExecutionManifest(manifest, { baseDir, verifyFiles: true });
+        const inputPaths = manifestInputPaths(manifest, baseDir);
+        const queries = readJson(inputPaths.queries);
+        const searchText = readJson(inputPaths.searchText);
+        const inputs = validateDenseInputArtifacts({
+            qualityCorpus: readJson(inputPaths.qualityCorpus),
+            searchText,
+            displayMap: readJson(inputPaths.displayMap),
+            queries,
+        });
+        const results = readJson(resolveSafe(baseDir, manifest.outputs.results.path, "outputs.results"));
+        const candidatePool = readJson(resolveSafe(baseDir, manifest.outputs.candidatePool.path, "outputs.candidatePool"));
+        const blindJudgement = readJson(resolveSafe(baseDir, manifest.outputs.blindJudgement.path, "outputs.blindJudgement"));
+        const goldJudgementPacket = readJson(resolveSafe(baseDir, manifest.outputs.goldJudgementPacket.path, "outputs.goldJudgementPacket"));
         validateDenseResults(results, {
             topK: manifest.outputs.results.topK,
-            expectedProvenance: {
-                sourceGitHead: manifest.inputGitHead,
-                qualityCorpusSha256: manifest.sources.qualityCorpus.sha256,
-                searchTextSha256: manifest.sources.searchText.sha256,
-                querySha256: manifest.sources.queries.sha256,
-                displayMapSha256: manifest.sources.displayMap.sha256,
-                modelArtifactManifestSha256: manifest.sources.modelArtifactManifest.sha256,
-            },
+            expectedProvenance: resultProvenance(manifest),
+            expectedInputs: inputs,
         });
         validateCandidatePool(candidatePool, results);
         validateBlindJudgementExport(blindJudgement, { queries, candidatePool });
-        console.log(`Dense 실행 manifest 검증 통과: ${manifestPath} (model=${MODEL_DESCRIPTOR.modelId}, query=3, topK=20)`);
+        validateGoldJudgementPacket(goldJudgementPacket, {
+            queries,
+            candidatePool,
+            blindJudgement,
+            searchText,
+            sources: goldSources(manifest),
+        });
+        console.log(`Dense 실행 manifest 검증 통과: ${manifestPath} (model=${MODEL_DESCRIPTOR.modelId}, query=3, topK=20, gold=verified)`);
     } catch (error) {
         console.error(`Dense 실행 manifest 검증 실패: ${error.message}`);
         process.exitCode = 1;

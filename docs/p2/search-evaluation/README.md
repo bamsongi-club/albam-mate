@@ -93,7 +93,7 @@ Catalog Dataset Release 승인과 Search/Embedding Execution 승인은 분리합
 - 현재 packet: [`dense-bge-m3/gold-judgement-packet.json`](dense-bge-m3/gold-judgement-packet.json)은 3개 query·60개 후보의 설명만 포함하며 아직 gold qrels가 아니다.
 - 현재 #866 결과가 없으므로 Hybrid/RRF와 최종 검색 방식 선택은 `deferred`다.
 
-실행 manifest와 모든 입력·출력 checksum은 [`dense-bge-m3/manifest.json`](dense-bge-m3/manifest.json)에 보존한다. 승인된 로컬 모델 snapshot과 고정된 [`model-artifact-manifest.json`](dense-bge-m3/model-artifact-manifest.json)을 준비한 뒤 다음 명령으로 재실행할 수 있다. 모델 파일과 manifest가 승인 snapshot과 다르면 실행을 거부한다.
+실행 manifest와 모든 입력·출력 checksum은 [`dense-bge-m3/manifest.json`](dense-bge-m3/manifest.json)에 보존한다. 승인된 로컬 모델 snapshot과 고정된 [`model-artifact-manifest.json`](dense-bge-m3/model-artifact-manifest.json)을 준비한 뒤 다음 명령으로 새 results를 생성한다. 모델 파일과 입력 manifest가 승인 snapshot과 다르면 실행을 거부한다.
 
 ```bash
 python3 scripts/search-evaluation/run-bge-m3.py \
@@ -108,18 +108,17 @@ python3 scripts/search-evaluation/run-bge-m3.py \
   --out /tmp/search-04-bge-m3-results.json
 ```
 
-산출물 구조와 checksum은 다음 명령으로 검증한다.
+새 results를 검증된 candidate pool·blind export·gold judgement packet과 manifest checksum으로 조립한 뒤, 조립된 파일을 `--check`한다. `--check`만 실행하면 manifest가 가리키는 기존 산출물만 검사하므로 새 results의 재현성 검증으로 간주하지 않는다.
 
 ```bash
+node scripts/search-evaluation/dense-bge-m3-execution.mjs \
+  --assemble \
+  --manifest docs/p2/search-evaluation/dense-bge-m3/manifest.json \
+  --results /tmp/search-04-bge-m3-results.json
 node scripts/search-evaluation/dense-bge-m3-execution.mjs \
   --check \
   --manifest docs/p2/search-evaluation/dense-bge-m3/manifest.json
 node --test scripts/search-evaluation/dense-bge-m3-execution.test.mjs
-
-node scripts/search-evaluation/build-gold-judgement-packet.mjs \
-  --blind docs/p2/search-evaluation/dense-bge-m3/blind-judgement.json \
-  --search-text docs/p2/search-evaluation/dense-bge-m3/search-text-top1000.json \
-  --out /tmp/search-04-bge-m3-gold-judgement-packet.json
 ```
 
 ### 구조 검증

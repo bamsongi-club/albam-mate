@@ -77,6 +77,11 @@
       "path": "blind-judgement.json",
       "sha256": "ad48e0cef803e5c08f3024381e5b915080e103ed33f6f41ef9c44eeeb36d873b",
       "rows": 3
+    },
+    "goldJudgementPacket": {
+      "path": "gold-judgement-packet.json",
+      "sha256": "18b4255bce189113e79d3565b203e515837606eff2db83b352ad26d18ca61b65",
+      "rows": 3
     }
   },
   "hybrid": {

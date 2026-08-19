@@ -4,12 +4,14 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
+import { buildGoldJudgementPacket } from "./build-gold-judgement-packet.mjs";
 import {
     APPROVAL_REFERENCE,
     APPROVED_INPUT_GIT_HEAD,
     APPROVED_MODEL_ARTIFACT_FILES,
     MODEL_DESCRIPTOR,
     PLAY_INTENT_QUERIES,
+    assembleDenseExecutionFiles,
     buildBlindJudgementExport,
     buildCandidatePool,
     calculateGradedMetrics,
@@ -17,8 +19,10 @@ import {
     validateBlindJudgementExport,
     validateCandidatePool,
     validateDenseExecutionManifest,
+    validateDenseInputArtifacts,
     validateDenseQueries,
     validateDenseResults,
+    validateGoldJudgementPacket,
 } from "./dense-bge-m3-execution.mjs";
 
 function fixture() {
@@ -94,12 +98,14 @@ function fixture() {
         querySha256: sha256(Buffer.from(JSON.stringify(queries))),
         displayMapSha256: sha256(Buffer.from(displayMap)),
         modelArtifactManifestSha256: sha256(Buffer.from(modelArtifactManifest)),
+        corpusRows: 1000,
     };
     fs.writeFileSync(files.results, JSON.stringify(results));
     const candidatePool = buildCandidatePool(results);
     const blind = buildBlindJudgementExport({ queries, candidatePool });
     const candidatePath = path.join(dense, "candidate-pool.json");
     const blindPath = path.join(dense, "blind.json");
+    const goldPath = path.join(dense, "gold.json");
     fs.writeFileSync(candidatePath, JSON.stringify(candidatePool));
     fs.writeFileSync(blindPath, JSON.stringify(blind));
     const descriptor = (filePath, rows) => ({
@@ -107,6 +113,15 @@ function fixture() {
         sha256: sha256(fs.readFileSync(filePath)),
         rows,
     });
+    const gold = buildGoldJudgementPacket({
+        blind,
+        searchText: JSON.parse(searchText),
+        sources: {
+            blindJudgement: { path: path.relative(dense, blindPath), sha256: sha256(fs.readFileSync(blindPath)) },
+            searchText: descriptor(files.searchText, 1000),
+        },
+    });
+    fs.writeFileSync(goldPath, JSON.stringify(gold));
     const manifest = {
         schemaVersion: 1,
         kind: "search-04-dense-execution",
@@ -136,11 +151,31 @@ function fixture() {
             results: { ...descriptor(files.results, 3), topK: 20 },
             candidatePool: descriptor(candidatePath, 3),
             blindJudgement: descriptor(blindPath, 3),
+            goldJudgementPacket: descriptor(goldPath, 3),
         },
         hybrid: { status: "deferred", reason: "#866 lexical/Sparse 결과가 아직 없습니다." },
         quality: { status: "unjudged", qualityReady: false },
     };
-    return { root, dense, files, queries, results, candidatePool, blind, manifest };
+    const manifestPath = path.join(dense, "manifest.json");
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest));
+    return {
+        root,
+        dense,
+        files,
+        queries,
+        results,
+        candidatePool,
+        blind,
+        gold,
+        manifest,
+        manifestPath,
+        inputArtifacts: {
+            qualityCorpus: JSON.parse(qualityCorpus),
+            searchText: JSON.parse(searchText),
+            displayMap: JSON.parse(displayMap),
+            queries,
+        },
+    };
 }
 
 test("승인된 로컬 BGE-M3 실행 manifest와 모든 checksum을 검증한다", () => {
@@ -151,6 +186,40 @@ test("승인된 로컬 BGE-M3 실행 manifest와 모든 checksum을 검증한다
         assert.equal(validateDenseResults(value.results).queries.length, 3);
         assert.deepEqual(validateCandidatePool(value.candidatePool, value.results), value.candidatePool);
         assert.deepEqual(validateBlindJudgementExport(value.blind, { queries: value.queries, candidatePool: value.candidatePool }), value.blind);
+        assert.deepEqual(
+            validateGoldJudgementPacket(value.gold, {
+                queries: value.queries,
+                candidatePool: value.candidatePool,
+                blindJudgement: value.blind,
+                searchText: value.inputArtifacts.searchText,
+                sources: {
+                    blindJudgement: {
+                        path: value.manifest.outputs.blindJudgement.path,
+                        sha256: value.manifest.outputs.blindJudgement.sha256,
+                    },
+                    searchText: value.manifest.sources.searchText,
+                },
+            }),
+            value.gold,
+        );
+        const tamperedGold = structuredClone(value.gold);
+        tamperedGold.queries[0].candidates[0].grade = 2;
+        assert.throws(
+            () => validateGoldJudgementPacket(tamperedGold, {
+                queries: value.queries,
+                candidatePool: value.candidatePool,
+                blindJudgement: value.blind,
+                searchText: value.inputArtifacts.searchText,
+                sources: {
+                    blindJudgement: {
+                        path: value.manifest.outputs.blindJudgement.path,
+                        sha256: value.manifest.outputs.blindJudgement.sha256,
+                    },
+                    searchText: value.manifest.sources.searchText,
+                },
+            }),
+            /goldJudgementPacket/u,
+        );
     } finally {
         fs.rmSync(value.root, { recursive: true, force: true });
     }
@@ -209,6 +278,28 @@ test("결과 rank·중복 gameId·NaN·hard-filter 위반을 차단한다", () =
     }
 });
 
+test("results를 고정 query·corpus membership·display map에 결속한다", () => {
+    const value = fixture();
+    try {
+        const inputs = validateDenseInputArtifacts(value.inputArtifacts);
+        assert.doesNotThrow(() => validateDenseResults(value.results, { expectedInputs: inputs }));
+
+        const wrongQuery = structuredClone(value.results);
+        wrongQuery.queries[0].query = "변조된 query";
+        assert.throws(() => validateDenseResults(wrongQuery, { expectedInputs: inputs }), /query 문구/u);
+
+        const outsideCorpus = structuredClone(value.results);
+        outsideCorpus.queries[0].ranked[0].gameId = 1001;
+        assert.throws(() => validateDenseResults(outsideCorpus, { expectedInputs: inputs }), /membership/u);
+
+        const wrongDisplay = structuredClone(value.results);
+        wrongDisplay.queries[0].ranked[0].name = "변조된 이름";
+        assert.throws(() => validateDenseResults(wrongDisplay, { expectedInputs: inputs }), /display 값/u);
+    } finally {
+        fs.rmSync(value.root, { recursive: true, force: true });
+    }
+});
+
 test("candidate pool은 provenance를 보존하고 blind export는 score와 model을 숨긴다", () => {
     const value = fixture();
     const blind = value.blind.queries[0];
@@ -224,6 +315,26 @@ test("candidate pool은 provenance를 보존하고 blind export는 score와 mode
     const tamperedBlind = structuredClone(value.blind);
     tamperedBlind.queries[0].candidates[0].grade = 2;
     assert.throws(() => validateBlindJudgementExport(tamperedBlind, { queries: value.queries, candidatePool: value.candidatePool }), /재구성한 결과/u);
+});
+
+test("새 results에서 candidate·blind·gold와 manifest checksum을 함께 조립한다", () => {
+    const value = fixture();
+    try {
+        const rerun = structuredClone(value.results);
+        rerun.queries[0].ranked[0].score = 0.999;
+        const nextManifest = assembleDenseExecutionFiles({
+            manifest: value.manifest,
+            baseDir: value.dense,
+            manifestPath: value.manifestPath,
+            results: rerun,
+        });
+
+        assert.notEqual(nextManifest.outputs.results.sha256, value.manifest.outputs.results.sha256);
+        assert.equal(validateDenseExecutionManifest(nextManifest, { baseDir: value.dense, verifyFiles: true }).status, "completed");
+        assert.deepEqual(JSON.parse(fs.readFileSync(path.join(value.dense, "results.json"), "utf8")), rerun);
+    } finally {
+        fs.rmSync(value.root, { recursive: true, force: true });
+    }
 });
 
 test("graded qrels는 grade 2만 Recall·MRR relevant로 세고 nDCG는 2^grade-1 gain을 사용한다", () => {
