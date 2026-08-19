@@ -1,5 +1,7 @@
 package cloud.bamsongi.albammate.matching;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -8,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
@@ -23,8 +26,8 @@ import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.AuthorityUtils;
-import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import ch.qos.logback.classic.Logger;
@@ -32,12 +35,8 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.global.security.currentuser.CurrentUserPrincipal;
-import cloud.bamsongi.albammate.matching.controller.MatchReportController;
-import cloud.bamsongi.albammate.matching.recovery.MatchReportCleanupCoordinator;
-import cloud.bamsongi.albammate.matching.recovery.MatchReportCleanupExecutor;
-import cloud.bamsongi.albammate.matching.recovery.MatchReportCleanupScheduler;
-import cloud.bamsongi.albammate.matching.service.command.MatchReportCommandExecutor;
 import io.micrometer.core.instrument.MeterRegistry;
+import tools.jackson.databind.ObjectMapper;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -49,6 +48,8 @@ class MatchReportHttpIntegrationTest {
 	private MockMvc mockMvc;
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
+	@Autowired
+	private ObjectMapper objectMapper;
 	@Autowired
 	private MeterRegistry meterRegistry;
 	private final List<Long> createdUserIds = new ArrayList<>();
@@ -75,6 +76,16 @@ class MatchReportHttpIntegrationTest {
 		UUID participantRef = UUID.fromString("00000000-0000-0000-0000-000000000774");
 		insertParticipant(partyId, reporterUserId, UUID.fromString("00000000-0000-0000-0000-000000000771"), null);
 		insertParticipant(partyId, reportedUserId, participantRef, null);
+		long formerReportedUserId = insertUser("former-reported-t1");
+		UUID formerParticipantRef = UUID.fromString("00000000-0000-0000-0000-000000000775");
+		insertParticipant(partyId, formerReportedUserId, formerParticipantRef, FIXED_TIME.minusSeconds(60));
+		long closedReporterUserId = insertUser("closed-reporter-t1");
+		long closedReportedUserId = insertUser("closed-reported-t1");
+		long closedPartyId = insertClosedParty();
+		UUID closedReporterRef = UUID.fromString("00000000-0000-0000-0000-000000000776");
+		UUID closedParticipantRef = UUID.fromString("00000000-0000-0000-0000-000000000777");
+		insertParticipant(closedPartyId, closedReporterUserId, closedReporterRef, FIXED_TIME.minusSeconds(60));
+		insertParticipant(closedPartyId, closedReportedUserId, closedParticipantRef, null);
 
 		mockMvc.perform(post(reportPath(partyId))
 			.with(authenticationFor(reporterUserId))
@@ -85,16 +96,34 @@ class MatchReportHttpIntegrationTest {
 			.andExpect(jsonPath("$.status").value(201))
 			.andExpect(jsonPath("$.data.receivedAt").exists())
 			.andExpect(jsonPath("$.data.alreadyReceived").value(false));
+		mockMvc.perform(post(reportPath(partyId))
+			.with(authenticationFor(reporterUserId)).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+			.content(requestBody(formerParticipantRef, "SPAM_OR_SCAM")))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.data.alreadyReceived").value(false));
+		mockMvc.perform(post(reportPath(closedPartyId))
+			.with(authenticationFor(closedReporterUserId)).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+			.content(requestBody(closedParticipantRef, "OTHER_RULE_VIOLATION")))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.data.alreadyReceived").value(false));
 
+		assertStoredReport(reporterUserId, reportedUserId, "ABUSE_OR_HARASSMENT");
+		assertStoredReport(reporterUserId, formerReportedUserId, "SPAM_OR_SCAM");
+		assertStoredReport(closedReporterUserId, closedReportedUserId, "OTHER_RULE_VIOLATION");
 		Integer reportCount = jdbcTemplate.queryForObject("select count(*) from match_reports", Integer.class);
-		org.junit.jupiter.api.Assertions.assertEquals(1, reportCount);
+		org.junit.jupiter.api.Assertions.assertEquals(3, reportCount);
 	}
 
 	@Test
 	void T2_멤버십을_확인하지_못하면_FORBIDDEN을_우선하고_실패_경로는_신고를_저장하지_않는다() throws Exception {
 		long reporterUserId = insertUser("reporter-t2");
+		long reportedUserId = insertUser("reported-t2");
+		long nonMemberUserId = insertUser("outsider-t2");
 		long partyId = insertActiveParty();
-		UUID participantRef = UUID.fromString("00000000-0000-0000-0000-000000000772");
+		UUID reporterParticipantRef = UUID.fromString("00000000-0000-0000-0000-000000000772");
+		UUID participantRef = UUID.fromString("00000000-0000-0000-0000-000000000773");
+		insertParticipant(partyId, reporterUserId, reporterParticipantRef, null);
+		insertParticipant(partyId, reportedUserId, participantRef, null);
 
 		mockMvc.perform(post(reportPath(partyId))
 			.contentType(MediaType.APPLICATION_JSON)
@@ -104,21 +133,41 @@ class MatchReportHttpIntegrationTest {
 			.with(authenticationFor(reporterUserId))
 			.contentType(MediaType.APPLICATION_JSON)
 			.content(requestBody(participantRef, "SPAM_OR_SCAM")))
-			.andExpect(status().isForbidden());
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.code").value(ErrorCode.CSRF_TOKEN_INVALID.getCode()));
 		mockMvc.perform(post(reportPath(partyId))
-			.with(authenticationFor(reporterUserId))
+			.with(authenticationFor(nonMemberUserId))
 			.with(csrf())
 			.contentType(MediaType.APPLICATION_JSON)
 			.content(requestBody(participantRef, "SPAM_OR_SCAM")))
 			.andExpect(status().isForbidden())
 			.andExpect(jsonPath("$.code").value(ErrorCode.FORBIDDEN.getCode()));
+		mockMvc.perform(post(reportPath(partyId))
+			.with(authenticationFor(reporterUserId)).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+			.content(requestBody(UUID.randomUUID(), "SPAM_OR_SCAM")))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value(ErrorCode.MATCH_PARTICIPANT_NOT_FOUND.getCode()));
+		mockMvc.perform(post(reportPath(partyId))
+			.with(authenticationFor(reporterUserId)).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+			.content(requestBody(reporterParticipantRef, "SPAM_OR_SCAM")))
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.code").value(ErrorCode.FORBIDDEN.getCode()));
+		mockMvc.perform(post(reportPath(partyId))
+			.with(authenticationFor(reporterUserId)).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+			.content(rawRequestBody(participantRef.toString(), "UNSUPPORTED_REASON")))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
+		mockMvc.perform(post(reportPath(partyId))
+			.with(authenticationFor(reporterUserId)).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"participantRef\":null,\"reason\":\"SPAM_OR_SCAM\"}"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
 
 		Integer reportCount = jdbcTemplate.queryForObject("select count(*) from match_reports", Integer.class);
 		org.junit.jupiter.api.Assertions.assertEquals(0, reportCount);
 	}
 
 	@Test
-	@DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
 	void T3_보존_중_재신고는_기존_사유와_시각을_보존하고_200으로_수렴한다() throws Exception {
 		long reporterUserId = insertUser("reporter-t3");
 		long reportedUserId = insertUser("reported-t3");
@@ -131,16 +180,31 @@ class MatchReportHttpIntegrationTest {
 			.with(authenticationFor(reporterUserId)).with(csrf()).contentType(MediaType.APPLICATION_JSON)
 			.content(requestBody(participantRef, "ABUSE_OR_HARASSMENT")))
 			.andExpect(status().isCreated());
-		mockMvc.perform(post(reportPath(partyId))
+		Timestamp originalReportedAt = jdbcTemplate.queryForObject(
+			"select reported_at from match_reports", Timestamp.class);
+		Timestamp originalPurgeAfter = jdbcTemplate.queryForObject(
+			"select purge_after from match_reports", Timestamp.class);
+		MvcResult repeatedReport = mockMvc.perform(post(reportPath(partyId))
 			.with(authenticationFor(reporterUserId)).with(csrf()).contentType(MediaType.APPLICATION_JSON)
 			.content(requestBody(participantRef, "SPAM_OR_SCAM")))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.alreadyReceived").value(true));
+			.andExpect(jsonPath("$.data.alreadyReceived").value(true))
+			.andReturn();
 
 		String reason = jdbcTemplate.queryForObject("select reason from match_reports", String.class);
+		Timestamp repeatedReportedAt = jdbcTemplate.queryForObject(
+			"select reported_at from match_reports", Timestamp.class);
+		Timestamp repeatedPurgeAfter = jdbcTemplate.queryForObject(
+			"select purge_after from match_reports", Timestamp.class);
 		Integer reportCount = jdbcTemplate.queryForObject("select count(*) from match_reports", Integer.class);
 		org.junit.jupiter.api.Assertions.assertEquals("ABUSE_OR_HARASSMENT", reason);
 		org.junit.jupiter.api.Assertions.assertEquals(1, reportCount);
+		org.junit.jupiter.api.Assertions.assertEquals(originalReportedAt.toInstant(), repeatedReportedAt.toInstant());
+		org.junit.jupiter.api.Assertions.assertEquals(originalPurgeAfter.toInstant(), repeatedPurgeAfter.toInstant());
+		String receivedAt = objectMapper.readTree(repeatedReport.getResponse().getContentAsString())
+			.path("data").path("receivedAt").asText();
+		org.junit.jupiter.api.Assertions.assertEquals(
+			originalReportedAt.toInstant(), OffsetDateTime.parse(receivedAt).toInstant());
 	}
 
 	@Test
@@ -192,33 +256,18 @@ class MatchReportHttpIntegrationTest {
 	}
 
 	private List<ListAppender<ILoggingEvent>> attachReportAppenders() {
-		return List.of(
-			attachAppender(MatchReportController.class),
-			attachAppender(MatchReportCommandExecutor.class),
-			attachAppender(MatchReportCleanupScheduler.class),
-			attachAppender(MatchReportCleanupCoordinator.class),
-			attachAppender(MatchReportCleanupExecutor.class));
-	}
-
-	private ListAppender<ILoggingEvent> attachAppender(Class<?> type) {
-		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(type);
+		Logger rootLogger = (Logger)org.slf4j.LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
 		ListAppender<ILoggingEvent> appender = new ListAppender<>();
 		appender.start();
-		logger.addAppender(appender);
-		return appender;
+		rootLogger.addAppender(appender);
+		return List.of(appender);
 	}
 
 	private void detachReportAppenders(List<ListAppender<ILoggingEvent>> appenders) {
-		List<Class<?>> reportTypes = List.of(
-			MatchReportController.class,
-			MatchReportCommandExecutor.class,
-			MatchReportCleanupScheduler.class,
-			MatchReportCleanupCoordinator.class,
-			MatchReportCleanupExecutor.class);
-		for (int index = 0; index < appenders.size(); index++) {
-			Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(reportTypes.get(index));
-			logger.detachAppender(appenders.get(index));
-			appenders.get(index).stop();
+		Logger rootLogger = (Logger)org.slf4j.LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
+		for (ListAppender<ILoggingEvent> appender : appenders) {
+			rootLogger.detachAppender(appender);
+			appender.stop();
 		}
 	}
 
@@ -227,9 +276,11 @@ class MatchReportHttpIntegrationTest {
 		for (ListAppender<ILoggingEvent> appender : appenders) {
 			for (ILoggingEvent event : appender.list) {
 				String structuredValues = event.getKeyValuePairs().toString();
+				String mdcValues = event.getMDCPropertyMap().toString();
 				for (String sensitiveValue : sensitiveValues) {
 					org.junit.jupiter.api.Assertions.assertFalse(event.getFormattedMessage().contains(sensitiveValue));
 					org.junit.jupiter.api.Assertions.assertFalse(structuredValues.contains(sensitiveValue));
+					org.junit.jupiter.api.Assertions.assertFalse(mdcValues.contains(sensitiveValue));
 				}
 			}
 		}
@@ -240,16 +291,17 @@ class MatchReportHttpIntegrationTest {
 			for (io.micrometer.core.instrument.Tag tag : meter.getId().getTags()) {
 				boolean prohibitedKey = Set.of("reporterUserId", "reportedUserId", "participantRef", "reason")
 					.contains(tag.getKey());
-				org.junit.jupiter.api.Assertions.assertFalse(prohibitedKey && sensitiveValues.contains(tag.getValue()));
+				org.junit.jupiter.api.Assertions.assertFalse(prohibitedKey);
+				org.junit.jupiter.api.Assertions.assertFalse(sensitiveValues.contains(tag.getValue()));
 			}
 		}
 	}
 
 	private long insertUser(String suffix) {
-		String uniqueSuffix = suffix + "-" + UUID.randomUUID();
+		String uniqueEmail = suffix + "-" + UUID.randomUUID() + "@example.com";
 		jdbcTemplate.update(
 			"insert into users (email, password_hash, nickname, created_at, updated_at) values (?, 'hash', ?, ?, ?)",
-			uniqueSuffix + "@example.com", uniqueSuffix, Timestamp.from(FIXED_TIME), Timestamp.from(FIXED_TIME));
+			uniqueEmail, suffix, Timestamp.from(FIXED_TIME), Timestamp.from(FIXED_TIME));
 		Long userId = jdbcTemplate.queryForObject("select max(id) from users", Long.class);
 		createdUserIds.add(userId);
 		return userId;
@@ -264,6 +316,32 @@ class MatchReportHttpIntegrationTest {
 		Long partyId = jdbcTemplate.queryForObject("select max(id) from match_parties", Long.class);
 		createdPartyIds.add(partyId);
 		return partyId;
+	}
+
+	private long insertClosedParty() {
+		Instant closedAt = FIXED_TIME.minus(1, ChronoUnit.HOURS);
+		Instant purgeAfter = closedAt.plus(7, ChronoUnit.DAYS);
+		jdbcTemplate.update(
+			"insert into match_parties (status, preparing_started_at, closed_at, purge_after, created_at, updated_at) values ('CLOSED', ?, ?, ?, ?, ?)",
+			Timestamp.from(FIXED_TIME.minus(1, ChronoUnit.DAYS)), Timestamp.from(closedAt), Timestamp.from(purgeAfter),
+			Timestamp.from(FIXED_TIME.minus(1, ChronoUnit.DAYS)), Timestamp.from(FIXED_TIME.minus(1, ChronoUnit.DAYS)));
+		Long partyId = jdbcTemplate.queryForObject("select max(id) from match_parties", Long.class);
+		createdPartyIds.add(partyId);
+		return partyId;
+	}
+
+	private void assertStoredReport(long reporterUserId, long reportedUserId, String reason) {
+		assertEquals(1, jdbcTemplate.queryForObject(
+			"select count(*) from match_reports where reporter_user_id = ? and reported_user_id = ? and reason = ?",
+			Integer.class, reporterUserId, reportedUserId, reason));
+		Timestamp reportedAt = jdbcTemplate.queryForObject(
+			"select reported_at from match_reports where reporter_user_id = ? and reported_user_id = ?",
+			Timestamp.class, reporterUserId, reportedUserId);
+		Timestamp purgeAfter = jdbcTemplate.queryForObject(
+			"select purge_after from match_reports where reporter_user_id = ? and reported_user_id = ?",
+			Timestamp.class, reporterUserId, reportedUserId);
+		assertTrue(reportedAt != null && purgeAfter != null);
+		assertEquals(reportedAt.toInstant().plus(7, ChronoUnit.DAYS), purgeAfter.toInstant());
 	}
 
 	private void insertParticipant(long partyId, long userId, UUID participantRef, Instant leftAt) {
@@ -284,6 +362,10 @@ class MatchReportHttpIntegrationTest {
 	}
 
 	private String requestBody(UUID participantRef, String reason) {
+		return rawRequestBody(participantRef.toString(), reason);
+	}
+
+	private String rawRequestBody(String participantRef, String reason) {
 		return "{\"participantRef\":\"" + participantRef + "\",\"reason\":\"" + reason + "\"}";
 	}
 }

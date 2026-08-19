@@ -13,22 +13,26 @@ import org.springframework.transaction.support.TransactionTemplate;
 import cloud.bamsongi.albammate.matching.entity.MatchReport;
 import cloud.bamsongi.albammate.matching.repository.MatchReportRepository;
 import cloud.bamsongi.albammate.user.contract.UserRowLockPort;
+import jakarta.persistence.EntityManager;
 
 @Service
 public class MatchReportCleanupExecutor {
 
 	private final MatchReportRepository reportRepository;
 	private final UserRowLockPort userRowLockPort;
+	private final EntityManager entityManager;
 	private final Clock clock;
 	private final TransactionTemplate cleanupTransaction;
 
 	public MatchReportCleanupExecutor(
 		MatchReportRepository reportRepository,
 		UserRowLockPort userRowLockPort,
+		EntityManager entityManager,
 		Clock clock,
 		PlatformTransactionManager transactionManager) {
 		this.reportRepository = reportRepository;
 		this.userRowLockPort = userRowLockPort;
+		this.entityManager = entityManager;
 		this.clock = clock;
 		this.cleanupTransaction = new TransactionTemplate(transactionManager);
 		this.cleanupTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
@@ -57,6 +61,7 @@ public class MatchReportCleanupExecutor {
 		if (lockedUserIds.size() != 2) {
 			return false;
 		}
+		entityManager.clear();
 		MatchReport lockedReport = reportRepository.findById(reportId).orElse(null);
 		if (lockedReport == null || lockedReport.getPurgeAfter().isAfter(operationTime)) {
 			return false;
