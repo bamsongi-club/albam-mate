@@ -178,7 +178,11 @@ def load_model(model_path: Path, device: str | None):
     if model.get_sentence_embedding_dimension() != DIMENSION:
         raise ValueError("BGE-M3 must emit the full 1,024-dimensional vector")
     pooling = getattr(model, "_modules", {}).get("1")
-    if pooling is None or not getattr(pooling, "pooling_mode_cls_token", False):
+    pooling_is_cls = (
+        getattr(pooling, "pooling_mode", None) == "cls"
+        or getattr(pooling, "pooling_mode_cls_token", False)
+    )
+    if pooling is None or not pooling_is_cls:
         raise ValueError("BGE-M3 execution must use CLS pooling")
     return model
 
