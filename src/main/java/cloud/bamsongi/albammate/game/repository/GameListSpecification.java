@@ -67,7 +67,8 @@ public final class GameListSpecification {
 			}
 			addCategoryPredicate(root, query, criteriaBuilder, predicates, criteria.getCategories());
 			if (!hasAnyThemeAndMechanism) {
-				addThemePredicate(root, query, criteriaBuilder, predicates, criteria.getThemes(), criteria.getThemeMatch());
+				addThemePredicate(root, query, criteriaBuilder, predicates, criteria.getThemes(),
+					criteria.getThemeMatch());
 			}
 			addPlayerPreferencePredicate(
 				root, query, criteriaBuilder, predicates, criteria.getRecommendedPlayerCounts(), true);
