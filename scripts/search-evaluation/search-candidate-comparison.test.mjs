@@ -983,16 +983,17 @@ test("provisional qrels는 manifest와 외부 override 모두 source provenance�
         const writeJson = (name, value) => {
             const filePath = path.join(directory, name);
             const bytes = Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
+            fs.mkdirSync(path.dirname(filePath), { recursive: true });
             fs.writeFileSync(filePath, bytes);
             return { filePath, descriptor: { path: name, sha256: checksum(bytes) } };
         };
-        const packetArtifact = writeJson("packet.json", packet);
-        const judgeAArtifact = writeJson("judge-a.json", filledJudgementPacket(
+        const packetArtifact = writeJson("source/packet.json", packet);
+        const judgeAArtifact = writeJson("source/judge-a.json", filledJudgementPacket(
             packet,
             { "1": 2, "2": 1, "3": 0, "4": 2 },
             "A",
         ));
-        const judgeBArtifact = writeJson("judge-b.json", filledJudgementPacket(
+        const judgeBArtifact = writeJson("source/judge-b.json", filledJudgementPacket(
             packet,
             { "1": 1, "2": 1, "3": 0, "4": 2 },
             "B",
@@ -1009,7 +1010,7 @@ test("provisional qrels는 manifest와 외부 override 모두 source provenance�
                 candidateRow.rationale = null;
             }
         }
-        const judgeCArtifact = writeJson("judge-c.json", judgeCPacket);
+        const judgeCArtifact = writeJson("source/judge-c.json", judgeCPacket);
         const queryArtifact = writeJson("queries.json", QUERY_FIXTURE);
         const lexicalArtifact = writeJson("lexical.json", BASELINE_RESULTS);
         const denseArtifact = writeJson("dense.json", DENSE_RESULTS);
@@ -1043,6 +1044,52 @@ test("provisional qrels는 manifest와 외부 override 모두 source provenance�
             "--out", qrelsPath,
         ], { encoding: "utf8" });
         const qrelsBytes = fs.readFileSync(qrelsPath);
+        const qrels = JSON.parse(qrelsBytes);
+        assert.equal(qrels.provenance.canonicalPacket.path, "source/packet.json");
+        assert.deepEqual(
+            qrels.provenance.judgePackets.map(({ path: sourcePath }) => sourcePath),
+            ["source/judge-a.json", "source/judge-b.json", "source/judge-c.json"],
+        );
+
+        const metricsWithoutManifestQrelsPath = path.join(directory, "metrics-with-override.json");
+        delete manifest.judgements;
+        writeManifest();
+        const metricsStdout = execFileSync(process.execPath, [
+            path.resolve("scripts/search-evaluation/search-candidate-comparison.mjs"),
+            "--metrics",
+            "--provisional-ai-adjudication",
+            "--hybrid-rrf",
+            "--manifest", manifestPath,
+            "--judgements", qrelsPath,
+            "--out", metricsWithoutManifestQrelsPath,
+        ], { encoding: "utf8" });
+        assert.match(metricsStdout, /"status": "provisional-metrics-ready"/u);
+        assert.equal(
+            JSON.parse(fs.readFileSync(metricsWithoutManifestQrelsPath, "utf8")).status,
+            "provisional-metrics-ready",
+        );
+
+        const windowsStyleQrels = JSON.parse(JSON.stringify(qrels));
+        const toWindowsRelativePath = (sourcePath) => sourcePath.replaceAll("/", "\\");
+        windowsStyleQrels.provenance.canonicalPacket.path = toWindowsRelativePath(
+            windowsStyleQrels.provenance.canonicalPacket.path,
+        );
+        windowsStyleQrels.provenance.judgePackets = windowsStyleQrels.provenance.judgePackets.map((descriptor) => ({
+            ...descriptor,
+            path: toWindowsRelativePath(descriptor.path),
+        }));
+        windowsStyleQrels.provenance.thirdJudgeSource = toWindowsRelativePath(
+            windowsStyleQrels.provenance.thirdJudgeSource,
+        );
+        const windowsStyleQrelsPath = path.join(directory, "windows-style-qrels.json");
+        fs.writeFileSync(windowsStyleQrelsPath, `${JSON.stringify(windowsStyleQrels, null, 2)}\n`);
+        const windowsStyleReport = compareFromManifest({
+            manifestPath,
+            judgementsPath: windowsStyleQrelsPath,
+            allowProvisionalAiAdjudication: true,
+        });
+        assert.equal(windowsStyleReport.status, "provisional-metrics-ready");
+
         manifest.judgements = { path: "qrels.json", sha256: checksum(qrelsBytes) };
         writeManifest();
 

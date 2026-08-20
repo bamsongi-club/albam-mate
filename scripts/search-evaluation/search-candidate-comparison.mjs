@@ -261,16 +261,22 @@ function validateProvisionalAiAdjudicationProvenance({ judgements, loaded }) {
             fail(`${descriptorName}.independentHuman 표기가 올바르지 않습니다.`);
         }
         judgeIds.push(descriptor.judgeId);
+        const source = readProvenanceArtifact(
+            { path: descriptor.path, sha256: descriptor.sha256 },
+            loaded.baseDir,
+            descriptorName,
+        );
         return {
-            descriptor,
-            value: readProvenanceArtifact(
-                { path: descriptor.path, sha256: descriptor.sha256 },
-                loaded.baseDir,
-                descriptorName,
-            ).value,
+            descriptor: {
+                ...source.descriptor,
+                judgeId: descriptor.judgeId,
+                independentHuman: descriptor.independentHuman,
+            },
+            value: source.value,
         };
     });
-    if (provenance.thirdJudgeSource !== judgeDescriptors[2].descriptor.path) {
+    const thirdJudgeSource = normalizeProvenanceDescriptorPath(provenance.thirdJudgeSource);
+    if (thirdJudgeSource !== judgeDescriptors[2].descriptor.path) {
         fail(`${name}.thirdJudgeSource가 AI C packet과 다릅니다.`);
     }
     assertDistinctProvenanceArtifacts(
@@ -283,7 +289,7 @@ function validateProvisionalAiAdjudicationProvenance({ judgements, loaded }) {
         packet: canonicalSource.value,
         judgePackets: judgeDescriptors.slice(0, 2).map(({ value }) => value),
         thirdJudgePacket: judgeDescriptors[2].value,
-        thirdJudgeSource: judgeDescriptors[2].descriptor.path,
+        thirdJudgeSource,
         judgeIds,
         packetSha256: canonicalDescriptor.sha256,
     });
@@ -299,7 +305,13 @@ function validateProvisionalAiAdjudicationProvenance({ judgements, loaded }) {
         independentThirdJudge: false,
         ...expected.provenance,
     };
-    if (JSON.stringify(judgements.provenance) !== JSON.stringify(expected.provenance)) {
+    const normalizedProvenance = {
+        ...judgements.provenance,
+        canonicalPacket: normalizeProvenanceDescriptor(judgements.provenance.canonicalPacket),
+        judgePackets: judgements.provenance.judgePackets.map(normalizeProvenanceDescriptor),
+        thirdJudgeSource,
+    };
+    if (JSON.stringify(normalizedProvenance) !== JSON.stringify(expected.provenance)) {
         fail(`${name}가 source packet provenance와 다릅니다.`);
     }
 
@@ -313,25 +325,43 @@ function validateProvisionalAiAdjudicationProvenance({ judgements, loaded }) {
 
 function readProvenanceArtifact(descriptor, baseDir, name) {
     requireExactObjectKeys(descriptor, ["path", "sha256"], name);
-    const resolvedPath = resolveProvenancePath(descriptor.path, baseDir, name);
+    const normalizedDescriptor = normalizeProvenanceDescriptor(descriptor);
+    const resolvedPath = resolveProvenancePath(normalizedDescriptor.path, baseDir, name);
     const bytes = fs.readFileSync(resolvedPath);
-    if (sha256(bytes) !== descriptor.sha256) {
+    if (sha256(bytes) !== normalizedDescriptor.sha256) {
         fail(`${name}.sha256 checksum이 실제 파일과 다릅니다.`);
     }
     return {
-        descriptor: { path: descriptor.path, sha256: descriptor.sha256 },
+        descriptor: normalizedDescriptor,
         value: parseJson(bytes, name),
     };
 }
 
+function normalizeProvenanceDescriptor(descriptor) {
+    return {
+        ...descriptor,
+        path: normalizeProvenanceDescriptorPath(descriptor.path),
+    };
+}
+
+function normalizeProvenanceDescriptorPath(sourcePath) {
+    if (!isNonEmptyString(sourcePath)) return sourcePath;
+    if (path.isAbsolute(sourcePath) || /^[a-zA-Z]:[\\/]/u.test(sourcePath)) return sourcePath;
+    return sourcePath.replaceAll("\\", "/");
+}
+
 function resolveProvenancePath(sourcePath, baseDir, name) {
     if (!isNonEmptyString(sourcePath)) fail(`${name}.path가 없습니다.`);
-    if (!path.isAbsolute(sourcePath) && sourcePath.split(/[\\/]/u).includes("..")) {
+    const normalizedPath = sourcePath.replaceAll("\\", path.sep);
+    if (/^[a-zA-Z]:[\\/]/u.test(sourcePath) && process.platform !== "win32") {
+        fail(`${name}.path의 Windows 절대 경로는 현재 실행 환경에서 해석할 수 없습니다.`);
+    }
+    if (!path.isAbsolute(normalizedPath) && normalizedPath.split(path.sep).includes("..")) {
         fail(`${name}.path는 상위 경로를 포함할 수 없습니다.`);
     }
-    return path.isAbsolute(sourcePath)
-        ? path.resolve(sourcePath)
-        : path.resolve(baseDir, sourcePath);
+    return path.isAbsolute(normalizedPath)
+        ? path.resolve(normalizedPath)
+        : path.resolve(baseDir, normalizedPath);
 }
 
 export function packetFromManifest({ manifestPath, topK = undefined }) {
@@ -1585,11 +1615,12 @@ export function writeJsonAtomically(outputPath, contents, {
 function buildJudgementSourceDescriptor(baseDir, filePath) {
     const resolvedPath = path.resolve(filePath);
     const relativePath = path.relative(baseDir, resolvedPath);
-    const safeRelativePath = relativePath
+    const portableRelativePath = relativePath.replaceAll("\\", "/");
+    const safeRelativePath = portableRelativePath
         && !path.isAbsolute(relativePath)
-        && !relativePath.split(/[\\/]/u).includes("..");
+        && !portableRelativePath.split("/").includes("..");
     return {
-        path: safeRelativePath ? relativePath : resolvedPath,
+        path: safeRelativePath ? portableRelativePath : resolvedPath,
         sha256: sha256(fs.readFileSync(resolvedPath)),
     };
 }

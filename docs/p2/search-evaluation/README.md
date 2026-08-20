@@ -210,6 +210,7 @@ node scripts/search-evaluation/search-candidate-comparison.mjs \
   --provisional-ai-adjudication \
   --hybrid-rrf \
   --manifest /path/to/search-candidate-semantic-30-input.json \
+  --judgements /tmp/provisional-ai-adjudication-qrels.json \
   --out /tmp/provisional-ai-adjudication-metrics.json
 ```
 
@@ -226,6 +227,8 @@ node scripts/search-evaluation/search-candidate-comparison.mjs \
 
 `semantic-30-v1` 실행 manifest는 [`search-candidate-semantic-30-input.json`](search-candidate-semantic-30-input.json)이다. 승인된 fixture SHA-256은 `84522f97b196d12db33b082fc26529218555b9408a973e6b6da3577587387142`이고 evaluation Top-K는 20이다. 결과는 `search-candidate-comparison/semantic-30-lexical-results.json`, `semantic-30-sparse-results.json`, `semantic-30-dense-results.json`에 보존한다. blind packet은 30 query·1,369 candidate row이며 후보명·score·source rank를 숨기고, packet의 candidate pool checksum을 기록한다. 현재 AI C 기준 provisional 지표와 한계는 [`semantic-30-evaluation-report.md`](search-candidate-comparison/semantic-30-evaluation-report.md)에 요약하며, 독립 제3 인간 판정 전에는 최종 방식을 승인하지 않는다. 독립 human qrels만 사용하려면 provisional flag 없이 표준 qrels·metrics 경로를 다시 실행한다.
 `--judgements`로 별도 approved 또는 provisional qrels를 주는 경우에는 qrels의 `provenance`에 canonical packet과 A/B/C source packet의 경로·SHA-256·독립성 표기가 있어야 하며, metrics 단계가 해당 source packet으로 qrels를 재생성해 결과를 대조한다. 이 provenance가 없거나 source packet이 변경되면 임의 qrels override를 거부한다.
+
+provenance의 상대 경로는 운영체제와 무관한 `/` 구분자로 기록하며, reader는 기존 Windows `\` 구분자도 현재 실행 환경의 경로로 정규화한다.
 
 현재 결과는 평가 요약 문서에 기록된 provisional 참고값이며 Final Quality Evaluation 또는 production 전환 승인으로 해석하지 않는다. 최종 60+ query 품질 게이트는 별도로 충족해야 한다.
 
