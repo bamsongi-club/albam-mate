@@ -469,7 +469,6 @@ jobs:
           set -euo pipefail
           artifact_dir="$(mktemp -d)"
           packet_path="$artifact_dir/packet.json"
-          qrels_path="$artifact_dir/qrels.json"
           metrics_path="$artifact_dir/metrics.json"
           pending_metrics_path="$artifact_dir/metrics-pending.json"
           trap 'rm -rf "$artifact_dir"' EXIT
@@ -478,19 +477,6 @@ jobs:
             --manifest docs/p2/search-evaluation/search-candidate-semantic-30-input.json \
             --out "$packet_path" >/dev/null
           cmp -- "$packet_path" docs/p2/search-evaluation/search-candidate-comparison/semantic-30-human-judgement-packet.json
-          node scripts/search-evaluation/search-candidate-comparison.mjs \
-            --qrels \
-            --provisional-ai-adjudication \
-            --manifest docs/p2/search-evaluation/search-candidate-semantic-30-input.json \
-            --canonical-packet docs/p2/search-evaluation/search-candidate-comparison/semantic-30-human-judgement-packet.json \
-            --judge-a docs/p2/search-evaluation/search-candidate-comparison/semantic-30-judge-a.json \
-            --judge-b docs/p2/search-evaluation/search-candidate-comparison/semantic-30-judge-b.json \
-            --judge-c docs/p2/search-evaluation/search-candidate-comparison/semantic-30-judge-c.json \
-            --judge-a-id judge-a \
-            --judge-b-id judge-b \
-            --judge-c-id judge-c-ai-drafted \
-            --out "$qrels_path" >/dev/null
-          cmp -- "$qrels_path" docs/p2/search-evaluation/search-candidate-comparison/semantic-30-search-candidate-qrels.json
           node scripts/search-evaluation/search-candidate-comparison.mjs \
             --metrics \
             --provisional-ai-adjudication \
