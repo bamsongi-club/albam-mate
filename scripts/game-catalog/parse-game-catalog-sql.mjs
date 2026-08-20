@@ -35,6 +35,22 @@ export async function analyzeGameCatalogSqlFile(sqlPath) {
     });
 }
 
+export async function assertGameCatalogFileBggIdsExactlyOnce(sqlPath, bggIds) {
+    const parser = new GameCatalogSqlParser(bggIds);
+    for await (const chunk of createReadStream(sqlPath, { encoding: "utf8" })) {
+        parser.push(chunk);
+    }
+    parser.finish({ fileName: basename(sqlPath), sha256: null, bytes: null });
+    parser.assertTrackedBggIdsExactlyOnce();
+}
+
+export function assertGameCatalogBggIdsExactlyOnce(sql, bggIds) {
+    const parser = new GameCatalogSqlParser(bggIds);
+    parser.push(sql);
+    parser.finish({ fileName: "inline.sql", sha256: null, bytes: Buffer.byteLength(sql) });
+    parser.assertTrackedBggIdsExactlyOnce();
+}
+
 export function parseGameCatalogSqlText(sql) {
     const parser = new GameCatalogSqlParser();
     parser.push(sql);
@@ -50,7 +66,7 @@ export function parseGameCatalogSqlChunks(chunks) {
 }
 
 class GameCatalogSqlParser {
-    constructor() {
+    constructor(trackedBggIds = []) {
         this.buffer = "";
         this.mode = "search";
         this.columns = null;
@@ -60,6 +76,7 @@ class GameCatalogSqlParser {
         this.rowCount = 0;
         this.bggIds = new Set();
         this.duplicateBggIds = new Set();
+        this.trackedBggIdCounts = new Map(validateTrackedBggIds(trackedBggIds).map((bggId) => [bggId, 0]));
         this.maxBggId = null;
         this.fields = Object.fromEntries(
             DESCRIPTION_FIELDS.map((field) => [field, emptyFieldSummary()]),
@@ -110,6 +127,14 @@ class GameCatalogSqlParser {
                 },
             },
         };
+    }
+
+    assertTrackedBggIdsExactlyOnce() {
+        for (const [bggId, count] of this.trackedBggIdCounts) {
+            if (count !== 1) {
+                throw new Error(`bgg_id ${bggId}가 입력 games INSERT에 정확히 한 번 존재하지 않습니다: ${count}건`);
+            }
+        }
     }
 
     drain(final) {
@@ -231,6 +256,9 @@ class GameCatalogSqlParser {
             this.duplicateBggIds.add(bggId);
         }
         this.bggIds.add(bggId);
+        if (this.trackedBggIdCounts.has(bggId)) {
+            this.trackedBggIdCounts.set(bggId, this.trackedBggIdCounts.get(bggId) + 1);
+        }
         this.maxBggId = this.maxBggId === null ? bggId : Math.max(this.maxBggId, bggId);
 
         const states = {};
@@ -260,6 +288,17 @@ class GameCatalogSqlParser {
             this.bothFieldsKorean += 1;
         }
     }
+}
+
+function validateTrackedBggIds(bggIds) {
+    if (!Array.isArray(bggIds) && !(bggIds instanceof Set)) {
+        throw new TypeError("검증할 bgg_id는 배열 또는 Set이어야 한다");
+    }
+    const ids = [...bggIds];
+    if (new Set(ids).size !== ids.length || ids.some((bggId) => !Number.isSafeInteger(bggId) || bggId <= 0)) {
+        throw new Error("검증할 bgg_id가 유효하지 않습니다");
+    }
+    return ids;
 }
 
 function isPartialOnConflict(value) {

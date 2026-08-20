@@ -103,6 +103,39 @@ COMMIT;
     }
 });
 
+test("T3: 빈 검수명 자동 음차는 trusted XML primary로 fallback한다", async () => {
+    const root = mkdtempSync(join(tmpdir(), "albam-mate-game-name-correction-"));
+    try {
+        const inputSql = join(root, "01-games-full.sql");
+        const candidateCsv = join(root, "candidates.csv");
+        const xmlDirectory = join(root, "xml");
+        const xmlManifest = join(root, "xml-manifest.json");
+        mkdirSync(xmlDirectory);
+        writeFileSync(inputSql, `BEGIN;
+INSERT INTO games (bgg_id, name, english_name, description, detail_description) VALUES
+    (42, '옛 음차', 'Trusted Game', 'd', 'dd');
+COMMIT;
+`);
+        writeFileSync(candidateCsv, "bggId,nameEn,nameKo,출처,검수완료(Y/N)\n42,Trusted Game,,추정번역(자동음차),Y\n");
+        writeFileSync(join(xmlDirectory, "batch.xml"), '<items><item id="42"><name type="primary" value="Trusted Game"/></item></items>');
+        writeRawXmlManifest(xmlManifest, xmlDirectory, [{ file: "batch.xml", requestIds: [42], responseIds: [42] }]);
+
+        const result = await correctGameNames({
+            inputSql,
+            candidatePaths: [candidateCsv],
+            xmlDirectory,
+            xmlManifest,
+            expectedXmlManifestSha256: sha(xmlManifest),
+            out: join(root, "out"),
+        });
+
+        assert.ok(readFileSync(result.outputSql, "utf8").includes("UPDATE games SET name = 'Trusted Game' WHERE bgg_id = 42;"));
+        assert.equal(result.report.corrections.primaryEnglishFallbackRows, 1);
+    } finally {
+        rmSync(root, { recursive: true, force: true });
+    }
+});
+
 test("T4: 보정 SQL은 행 수와 XML manifest provenance를 보존한다", async () => {
     const root = mkdtempSync(join(tmpdir(), "albam-mate-game-name-correction-"));
     try {
@@ -152,6 +185,42 @@ COMMIT;
         }]);
         assert.ok(sql.indexOf("UPDATE games SET name = '웬디, 어른이 되렴'") < sql.lastIndexOf("COMMIT;"));
         assert.ok(sql.includes("UPDATE games SET name = 'Tinners'' Trail' WHERE bgg_id = 42;"));
+    } finally {
+        rmSync(root, { recursive: true, force: true });
+    }
+});
+
+test("T4: 입력 games INSERT에 없는 보정 ID는 출력과 provenance를 만들지 않고 실패한다", async () => {
+    const root = mkdtempSync(join(tmpdir(), "albam-mate-game-name-correction-"));
+    try {
+        const inputSql = join(root, "01-games-full.sql");
+        const candidateCsv = join(root, "candidates.csv");
+        const xmlDirectory = join(root, "xml");
+        const xmlManifest = join(root, "xml-manifest.json");
+        const out = join(root, "out");
+        mkdirSync(xmlDirectory);
+        writeFileSync(inputSql, `BEGIN;
+INSERT INTO games (bgg_id, name, english_name, description, detail_description) VALUES
+    (42, '옛 음차', 'Existing Game', 'd', 'dd');
+COMMIT;
+`);
+        writeFileSync(candidateCsv, "bggId,nameEn,nameKo,출처,검수완료(Y/N)\n99,Missing Game,옛 음차,추정번역(자동음차),N\n");
+        writeFileSync(join(xmlDirectory, "batch.xml"), '<items><item id="99"><name type="primary" value="Missing Game"/></item></items>');
+        writeRawXmlManifest(xmlManifest, xmlDirectory, [{ file: "batch.xml", requestIds: [99], responseIds: [99] }]);
+
+        await assert.rejects(
+            correctGameNames({
+                inputSql,
+                candidatePaths: [candidateCsv],
+                xmlDirectory,
+                xmlManifest,
+                expectedXmlManifestSha256: sha(xmlManifest),
+                out,
+            }),
+            /bgg_id 99.*입력 games INSERT/u,
+        );
+        assert.equal(existsSync(join(out, "01-games-full.sql")), false);
+        assert.equal(existsSync(join(out, "game-name-correction-provenance.json")), false);
     } finally {
         rmSync(root, { recursive: true, force: true });
     }

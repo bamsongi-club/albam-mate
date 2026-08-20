@@ -1,6 +1,8 @@
 package cloud.bamsongi.albammate.game;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -86,7 +88,7 @@ class GameNameCorrectionPostgresTest extends SharedPostgresIntegrationSupport {
 	void T3_한글명_후보가_없으면_BGG_primary_영문명으로_fallback한다() throws Exception {
 		Path correctedSql = correct(
 			List.of(game(103, "추정 음차", "No Korean Alternate")),
-			"103,No Korean Alternate,추정 음차,추정번역(자동음차),N\n",
+			"103,No Korean Alternate,,추정번역(자동음차),Y\n",
 			"<item id=\"103\"><name type=\"primary\" value=\"No Korean Alternate\"/></item>");
 
 		execute(correctedSql);
@@ -131,7 +133,24 @@ class GameNameCorrectionPostgresTest extends SharedPostgresIntegrationSupport {
 		assertTrue(provenance.contains("\"outputRows\": 3"));
 	}
 
+	@Test
+	void T4_입력_games_INSERT에_없는_보정_ID는_출력_전에_실패한다() throws Exception {
+		AssertionError failure = assertThrows(AssertionError.class, () -> correct(
+			List.of(game(42, "자동 음차", "Existing Game")),
+			"99,Missing Game,자동 음차,추정번역(자동음차),N\n",
+			"<item id=\"99\"><name type=\"primary\" value=\"Missing Game\"/></item>",
+			List.of(99L)));
+
+		assertTrue(failure.getMessage().contains("bgg_id 99가 입력 games INSERT에 정확히 한 번 존재하지 않습니다: 0건"));
+		assertFalse(Files.exists(temp.resolve("out/01-games-full.sql")));
+		assertFalse(Files.exists(temp.resolve("out/game-name-correction-provenance.json")));
+	}
+
 	private Path correct(List<GameRow> games, String candidates, String items) throws Exception {
+		return correct(games, candidates, items, games.stream().map(GameRow::bggId).toList());
+	}
+
+	private Path correct(List<GameRow> games, String candidates, String items, List<Long> xmlBggIds) throws Exception {
 		Path input = temp.resolve("input.sql");
 		Path candidateCsv = temp.resolve("candidates.csv");
 		Path xmlDirectory = Files.createDirectories(temp.resolve("xml"));
@@ -142,10 +161,10 @@ class GameNameCorrectionPostgresTest extends SharedPostgresIntegrationSupport {
 		Path xml = xmlDirectory.resolve("batch.xml");
 		Files.writeString(xml, "<items>" + items + "</items>");
 		Files.writeString(xmlManifest, "{\"schemaVersion\":1,\"files\":[{\"file\":\"batch.xml\",\"requestIds\":["
-			+ games.stream().map(GameRow::bggId).map(String::valueOf).reduce((left, right) -> left + "," + right)
+			+ xmlBggIds.stream().map(String::valueOf).reduce((left, right) -> left + "," + right)
 				.orElseThrow()
 			+ "],\"responseIds\":["
-			+ games.stream().map(GameRow::bggId).map(String::valueOf).reduce((left, right) -> left + "," + right)
+			+ xmlBggIds.stream().map(String::valueOf).reduce((left, right) -> left + "," + right)
 				.orElseThrow()
 			+ "],\"httpStatus\":200,\"bytes\":" + Files.size(xml) + ",\"sha256\":\"" + sha(xml)
 			+ "\",\"acquiredAt\":\"2026-08-10T00:00:00.000Z\"}]}\n");

@@ -4,7 +4,10 @@ import { createHash } from "node:crypto";
 import { createReadStream, createWriteStream, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 
-import { analyzeGameCatalogSqlFile } from "./parse-game-catalog-sql.mjs";
+import {
+    analyzeGameCatalogSqlFile,
+    assertGameCatalogFileBggIdsExactlyOnce,
+} from "./parse-game-catalog-sql.mjs";
 
 const AUTOMATIC_SOURCE_PREFIX = "추정번역";
 const XML_FILES_PATTERN = /\.xml$/u;
@@ -41,7 +44,8 @@ export function parseCandidateCsv(contents, fileName = "candidates.csv") {
 }
 
 export function isUnreviewedAutomaticCandidate(row) {
-    return row.source.trim().startsWith(AUTOMATIC_SOURCE_PREFIX) && row.reviewed !== "Y";
+    return row.source.trim().startsWith(AUTOMATIC_SOURCE_PREFIX)
+        && !(row.reviewed === "Y" && row.nameKo.trim() !== "");
 }
 
 export function selectNameCorrections(candidateFiles) {
@@ -178,6 +182,8 @@ export async function correctGameNames({
     const xmlSnapshot = collectXmlNames(xmlDirectory, xmlManifest, targetIds, expectedXmlManifestSha256);
     const corrections = buildCorrections(selection.corrections, xmlSnapshot.names);
 
+    await assertGameCatalogFileBggIdsExactlyOnce(resolvedInput, corrections.map((correction) => correction.bggId));
+
     await writeCorrectedSql(resolvedInput, outputSql, renderCorrectionStatements(corrections));
     const inputStats = await analyzeSqlShape(resolvedInput);
     const outputStats = await analyzeSqlShape(outputSql);
@@ -191,7 +197,7 @@ export async function correctGameNames({
         schemaVersion: 1,
         policyVersion: NAME_CORRECTION_POLICY_VERSION,
         policy: {
-            excludedCandidate: "source starts with 추정번역 and reviewed is not Y",
+            excludedCandidate: "source starts with 추정번역 without a non-empty reviewed Korean name",
             preferredName: "BGG XML alternate containing Hangul",
             fallbackName: "BGG XML primary name",
             generatedKoreanName: false,
