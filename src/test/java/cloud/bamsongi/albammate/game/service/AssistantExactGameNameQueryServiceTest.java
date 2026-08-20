@@ -2,6 +2,7 @@ package cloud.bamsongi.albammate.game.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -12,6 +13,17 @@ import cloud.bamsongi.albammate.game.contract.AssistantRecommendationCandidate;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
 
 class AssistantExactGameNameQueryServiceTest {
+
+	@Test
+	void null과_blank_입력은_카탈로그를_조회하지_않고_미매치다() {
+		GameRepository gameRepository = org.mockito.Mockito.mock(GameRepository.class);
+		var service = new AssistantExactGameNameQueryService(gameRepository);
+
+		assertTrue(service.findUniqueByNormalizedName(null).isEmpty());
+		assertTrue(service.findUniqueByNormalizedName("   ").isEmpty());
+
+		verifyNoInteractions(gameRepository);
+	}
 
 	@Test
 	void T1_NFKC_trim_공백축약_대소문자_정규화로_유일한_정식명만_찾는다() {
