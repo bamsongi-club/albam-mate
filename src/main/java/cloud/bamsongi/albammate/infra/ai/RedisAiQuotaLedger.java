@@ -38,7 +38,7 @@ final class RedisAiQuotaLedger implements AiQuotaLedger {
 	private static final long WARNING_THRESHOLD_CENTS = 400;
 	private static final long HARD_CAP_CENTS = 500;
 	private static final long COMPLETION_RETRY_DELAY_SECONDS = 1;
-	private static final int DAILY_LIMIT = 5;
+	private static final int DAILY_LIMIT = 10;
 	private static final int MONTHLY_LIMIT = 150;
 	private static final DefaultRedisScript<List> RESERVE_SCRIPT = new DefaultRedisScript<>(
 		"""
@@ -69,17 +69,12 @@ final class RedisAiQuotaLedger implements AiQuotaLedger {
 			  redis.call('ZREM', KEYS[5], ARGV[2])
 			  return {1, 0, redis.call('GET', KEYS[3]) or '0'}
 			end
-			local reservedCostCents = tonumber(redis.call('HGET', KEYS[1], 'reservedCostCents') or '0')
 			local currentCostCents = tonumber(redis.call('GET', KEYS[3]) or '0')
-			local nextCostCents = currentCostCents + tonumber(ARGV[1]) - reservedCostCents
-			redis.call('HSET', KEYS[1], 'state', 'COMPLETED', 'actualCostCents', ARGV[1])
+			redis.call('HSET', KEYS[1], 'state', 'COMPLETED')
 			redis.call('HDEL', KEYS[1], 'pendingCompletionCostCents')
 			redis.call('ZREM', KEYS[2], ARGV[2])
 			redis.call('ZREM', KEYS[5], ARGV[2])
-			redis.call('SET', KEYS[3], tostring(nextCostCents), 'KEEPTTL')
-			local warned = 0
-			if nextCostCents >= tonumber(ARGV[3]) and redis.call('SET', KEYS[4], '1', 'NX', 'PX', ARGV[4]) then warned = 1 end
-			return {1, warned, tostring(nextCostCents)}
+			return {1, 0, tostring(currentCostCents)}
 			""",
 		List.class);
 	private static final DefaultRedisScript<Long> SCHEDULE_COMPLETION_SCRIPT = new DefaultRedisScript<>(
@@ -170,20 +165,19 @@ final class RedisAiQuotaLedger implements AiQuotaLedger {
 			|| reservation.reservationToken().isBlank() || reservation.quotaMonth() == null) {
 			return AiQuotaCompletionStatus.NOT_ACQUIRED;
 		}
-		BigDecimal actualCostUsd = normalizeCost(costUsd);
 		return complete(reservation.reservationToken(), reservation.quotaMonth(),
 			subjectHash(reservation.quotaSubject()),
-			actualCostUsd);
+			reservation.reservedCostUsd());
 	}
 
 	private AiQuotaCompletionStatus complete(
-		String reservationToken, YearMonth quotaMonth, String subjectHash, BigDecimal actualCostUsd) {
+		String reservationToken, YearMonth quotaMonth, String subjectHash, BigDecimal reservationCostUsd) {
 		try {
 			List<?> result = redisTemplate.execute(COMPLETE_SCRIPT,
 				List.of(reservationKey(reservationToken), activeKey(subjectHash), costKey(quotaMonth),
 					warningKey(quotaMonth),
 					pendingCompletionKey()),
-				Long.toString(toCents(actualCostUsd)), reservationToken,
+				Long.toString(toCents(reservationCostUsd)), reservationToken,
 				Long.toString(WARNING_THRESHOLD_CENTS),
 				Long.toString(RECORD_RETENTION.toMillis()));
 			CompletionDecision decision = CompletionDecision.from(result);
@@ -203,31 +197,32 @@ final class RedisAiQuotaLedger implements AiQuotaLedger {
 			|| reservation.reservationToken().isBlank() || reservation.quotaMonth() == null) {
 			return;
 		}
-		BigDecimal actualCostUsd = normalizeCost(costUsd);
+		BigDecimal reservationCostUsd = reservation.reservedCostUsd();
 		String subjectHash = subjectHash(reservation.quotaSubject());
-		persistPendingCompletion(reservation.reservationToken(), actualCostUsd);
-		scheduleCompletionRetry(reservation.reservationToken(), reservation.quotaMonth(), subjectHash, actualCostUsd);
+		persistPendingCompletion(reservation.reservationToken(), reservationCostUsd);
+		scheduleCompletionRetry(reservation.reservationToken(), reservation.quotaMonth(), subjectHash,
+			reservationCostUsd);
 	}
 
-	private void persistPendingCompletion(String reservationToken, BigDecimal actualCostUsd) {
+	private void persistPendingCompletion(String reservationToken, BigDecimal reservationCostUsd) {
 		try {
 			redisTemplate.execute(SCHEDULE_COMPLETION_SCRIPT,
 				List.of(reservationKey(reservationToken), pendingCompletionKey()),
-				Long.toString(toCents(actualCostUsd)), reservationToken);
+				Long.toString(toCents(reservationCostUsd)), reservationToken);
 		} catch (RuntimeException exception) {
 			// 현재 프로세스 재시도는 유지하고, Redis 복구 뒤에는 같은 token으로만 completion 한다.
 		}
 	}
 
 	private void scheduleCompletionRetry(
-		String reservationToken, YearMonth quotaMonth, String subjectHash, BigDecimal actualCostUsd) {
+		String reservationToken, YearMonth quotaMonth, String subjectHash, BigDecimal reservationCostUsd) {
 		if (completionRetryExecutor.isShutdown()) {
 			return;
 		}
 		completionRetryExecutor.schedule(() -> {
 			if (complete(reservationToken, quotaMonth, subjectHash,
-				actualCostUsd) == AiQuotaCompletionStatus.UNAVAILABLE) {
-				scheduleCompletionRetry(reservationToken, quotaMonth, subjectHash, actualCostUsd);
+				reservationCostUsd) == AiQuotaCompletionStatus.UNAVAILABLE) {
+				scheduleCompletionRetry(reservationToken, quotaMonth, subjectHash, reservationCostUsd);
 			}
 		}, COMPLETION_RETRY_DELAY_SECONDS, TimeUnit.SECONDS);
 	}

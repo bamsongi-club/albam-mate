@@ -6,7 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
+import java.time.YearMonth;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -166,6 +168,74 @@ class AssistantIntentExtractorTest {
 		assertEquals(AssistantIntentStatus.SUCCESS, retryAfterException.status());
 	}
 
+	@Test
+	void T2_외부_provider_응답유형과_응답비용에_관계없이_고정_USD_0_10으로_completion한다() {
+		RecordingQuotaLedger quotaLedger = new RecordingQuotaLedger();
+		for (ProviderResponseFixture fixture : List.of(
+			new ProviderResponseFixture(
+				AiProviderResponse.success("RECOMMEND", List.of("STRATEGY"), 10, 5, new BigDecimal("0.01")),
+				AssistantIntentStatus.SUCCESS),
+			new ProviderResponseFixture(AiProviderResponse.failure(AiProviderFailure.TIMEOUT),
+				AssistantIntentStatus.PROVIDER_TIMEOUT),
+			new ProviderResponseFixture(AiProviderResponse.failure(AiProviderFailure.RATE_LIMITED),
+				AssistantIntentStatus.PROVIDER_RATE_LIMITED),
+			new ProviderResponseFixture(AiProviderResponse.failure(AiProviderFailure.INVALID_SCHEMA),
+				AssistantIntentStatus.INVALID_PROVIDER_SCHEMA))) {
+			AssistantIntentExtraction result = new AiProviderIntentExtractor(request -> fixture.response(), quotaLedger,
+				new RecordingUsageEventSink(), externalProviderSettings(), CLOCK).extract(request());
+			assertEquals(fixture.expectedStatus(), result.status());
+		}
+		assertEquals(List.of(new BigDecimal("0.10"), new BigDecimal("0.10"), new BigDecimal("0.10"),
+			new BigDecimal("0.10")), quotaLedger.completedCosts());
+	}
+
+	@Test
+	void T2_사전거절과_결정적_fake_provider는_quota_ledger를_소비하지_않는다() {
+		RecordingQuotaLedger quotaLedger = new RecordingQuotaLedger();
+		AiProviderIntentExtractor extractor = new AiProviderIntentExtractor(
+			new CapturingAssistantProvider(), quotaLedger, new RecordingUsageEventSink(),
+			AiProviderSettings.fakeDefaults(), CLOCK);
+		assertEquals(AssistantIntentStatus.CONSENT_REQUIRED,
+			extractor.extract(AssistantIntentRequest.withoutConsent("user", "추천", List.of())).status());
+		assertEquals(AssistantIntentStatus.SENSITIVE_INPUT_REJECTED,
+			extractor.extract(AssistantIntentRequest.forUser("user", "token value", List.of())).status());
+		assertEquals(0, quotaLedger.reserveCalls());
+		AiProviderIntentExtractor disabled = new AiProviderIntentExtractor(
+			new CapturingAssistantProvider(), quotaLedger, new RecordingUsageEventSink(),
+			externalProviderSettings().withEnabled(false), CLOCK);
+		assertEquals(AssistantIntentStatus.NOT_ENABLED, disabled.extract(request()).status());
+		assertEquals(0, quotaLedger.reserveCalls());
+
+		AiProviderIntentExtractor fakeExtractor = new AiProviderIntentExtractor(
+			new DeterministicFakeAssistantProvider(), new NoOpAiQuotaLedger(), new RecordingUsageEventSink(),
+			AiProviderSettings.fakeDefaults(), CLOCK);
+		for (int index = 0; index < 51; index++) {
+			assertEquals(AssistantIntentStatus.SUCCESS,
+				fakeExtractor.extract(AssistantIntentRequest.forUser("fake-user", "추천", List.of())).status());
+		}
+	}
+
+	@Test
+	void T3_51번째_비용초과는_provider를_호출하지_않고_cost_cap_status로_반환한다() {
+		CompletionRecordingAiQuotaLedger quotaLedger = new CompletionRecordingAiQuotaLedger();
+		CapturingAssistantProvider provider = new CapturingAssistantProvider();
+		RecordingUsageEventSink usageEvents = new RecordingUsageEventSink();
+		AssistantIntentExtractor extractor = new AiProviderIntentExtractor(provider, quotaLedger,
+			usageEvents, externalProviderSettings(), CLOCK);
+		for (int index = 1; index <= 50; index++) {
+			assertEquals(AssistantIntentStatus.SUCCESS, extractor.extract(AssistantIntentRequest.forUser(
+				"cost-user-" + index, "추천", List.of())).status());
+		}
+		assertEquals(50, provider.calls());
+		assertEquals(50, usageEvents.events().size());
+		assertEquals(50, quotaLedger.completionCalls());
+		assertEquals(AssistantIntentStatus.COST_CAP_REACHED,
+			extractor.extract(AssistantIntentRequest.forUser("cost-user-51", "추천", List.of())).status());
+		assertEquals(50, provider.calls());
+		assertEquals(50, usageEvents.events().size());
+		assertEquals(50, quotaLedger.completionCalls());
+	}
+
 	private AssistantIntentExtractor extractor(
 		AiProviderClient provider,
 		AiQuotaLedger quotaLedger,
@@ -176,6 +246,13 @@ class AssistantIntentExtractorTest {
 
 	private AssistantIntentRequest request() {
 		return AssistantIntentRequest.forUser("quota-subject-b", "주말 보드게임 추천", List.of());
+	}
+
+	private AiProviderSettings externalProviderSettings() {
+		return new AiProviderSettings(
+			"local-openai", true, true, true, true, "AI-02-POLICY-V1", "https://example.test/ai-policy",
+			"gpt-5.6-luna", Duration.ofSeconds(10), 0, false, "TEST-PRICING-V1", new BigDecimal("1.00"),
+			new BigDecimal("1.00"), 4096, 256, new BigDecimal("0.10"));
 	}
 
 	private static final class CapturingAssistantProvider implements AiProviderClient {
@@ -250,6 +327,68 @@ class AssistantIntentExtractorTest {
 		public AiQuotaCompletionStatus complete(AiQuotaReservation reservation, BigDecimal costUsd) {
 			super.complete(reservation, costUsd);
 			return AiQuotaCompletionStatus.NOT_ACQUIRED;
+		}
+	}
+
+	private static final class RecordingQuotaLedger extends PermittingAiQuotaLedger {
+
+		private final List<BigDecimal> completedCosts = new ArrayList<>();
+		private int reserveCalls;
+
+		@Override
+		public AiQuotaReservation reserve(String quotaSubject, Instant now) {
+			reserveCalls++;
+			return super.reserve(quotaSubject, now);
+		}
+
+		@Override
+		public AiQuotaReservation reserve(String quotaSubject, Instant now, BigDecimal estimatedCostUsd) {
+			AiQuotaReservation reservation = reserve(quotaSubject, now);
+			return AiQuotaReservation.acquired(quotaSubject, YearMonth.of(2026, 8),
+				"recorded-" + reserveCalls, estimatedCostUsd);
+		}
+
+		@Override
+		public AiQuotaCompletionStatus complete(AiQuotaReservation reservation, BigDecimal costUsd) {
+			completedCosts.add(costUsd);
+			return super.complete(reservation, costUsd);
+		}
+
+		List<BigDecimal> completedCosts() {
+			return completedCosts;
+		}
+
+		int reserveCalls() {
+			return reserveCalls;
+		}
+	}
+
+	private record ProviderResponseFixture(AiProviderResponse response, AssistantIntentStatus expectedStatus) {
+	}
+
+	private static final class CompletionRecordingAiQuotaLedger implements AiQuotaLedger {
+
+		private final InMemoryAiQuotaLedger delegate = new InMemoryAiQuotaLedger(event -> {});
+		private int completionCalls;
+
+		@Override
+		public AiQuotaReservation reserve(String quotaSubject, Instant now) {
+			return delegate.reserve(quotaSubject, now);
+		}
+
+		@Override
+		public AiQuotaReservation reserve(String quotaSubject, Instant now, BigDecimal estimatedCostUsd) {
+			return delegate.reserve(quotaSubject, now, estimatedCostUsd);
+		}
+
+		@Override
+		public AiQuotaCompletionStatus complete(AiQuotaReservation reservation, BigDecimal costUsd) {
+			completionCalls++;
+			return delegate.complete(reservation, costUsd);
+		}
+
+		int completionCalls() {
+			return completionCalls;
 		}
 	}
 

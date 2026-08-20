@@ -87,9 +87,7 @@ public final class AiProviderIntentExtractor implements AssistantIntentExtractor
 		} catch (RuntimeException exception) {
 			response = AiProviderResponse.failure(AiProviderFailure.SERVICE_UNAVAILABLE);
 		}
-		BigDecimal chargedCostUsd = response.succeeded()
-			? response.costUsd()
-			: reservation.reservedCostUsd();
+		BigDecimal chargedCostUsd = reservation.reservedCostUsd();
 		AssistantIntentExtraction result = response.succeeded()
 			? success(response, startedAt)
 			: failure(statusFor(response.failure()), response, startedAt, chargedCostUsd);
