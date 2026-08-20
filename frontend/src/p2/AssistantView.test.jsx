@@ -112,7 +112,7 @@ describe('AI 모임 도우미 화면', () => {
 
     await waitFor(() => expect(screen.getByLabelText('알밤봇에게 묻기')).toBeTruthy());
     fireEvent.change(screen.getByLabelText('알밤봇에게 묻기'), { target: { value: '주말 협력 게임 추천해줘' } });
-    await act(async () => { screen.getByRole('button', { name: '추천 받기' }).click(); });
+    await act(async () => { screen.getByRole('button', { name: '전송' }).click(); });
     await waitFor(() => expect(screen.getByRole('button', { name: /카탄/ })).toBeTruthy());
 
     await act(async () => { screen.getByRole('button', { name: /카탄/ }).click(); });
@@ -176,7 +176,7 @@ describe('AI 모임 도우미 화면', () => {
 
     await waitFor(() => expect(screen.getByLabelText('알밤봇에게 묻기')).toBeTruthy());
     fireEvent.change(screen.getByLabelText('알밤봇에게 묻기'), { target: { value: '초보 모임 추천해줘' } });
-    await act(async () => { screen.getByRole('button', { name: '추천 받기' }).click(); });
+    await act(async () => { screen.getByRole('button', { name: '전송' }).click(); });
 
     await waitFor(() => expect(screen.getByRole('heading', { name: 'AI 사용 동의' })).toBeTruthy());
     expect(api.getAssistantConsent).toHaveBeenCalledTimes(2);
