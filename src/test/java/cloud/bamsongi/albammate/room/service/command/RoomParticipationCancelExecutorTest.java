@@ -312,6 +312,7 @@ class RoomParticipationCancelExecutorTest {
 		RoomWaitlistRepository mockedWaitlistRepository = mock(RoomWaitlistRepository.class);
 		Room mockedRoom = mock(Room.class);
 		Participation leavingParticipation = mock(Participation.class);
+		EntityManager mockedEntityManager = mock(EntityManager.class);
 		RoomWaitlistCandidateProjection waitingCandidate = candidate(waitingUserId, 10L);
 		RoomParticipationCancelExecutor executor = new RoomParticipationCancelExecutor(
 			mockedRoomRepository,
@@ -319,7 +320,7 @@ class RoomParticipationCancelExecutorTest {
 			mockedWaitlistRepository,
 			mock(RoomChangeEventRecorder.class),
 			NO_OP_EVENT_PUBLISHER,
-			mock(EntityManager.class));
+			mockedEntityManager);
 		when(mockedRoomRepository.findById(roomId)).thenReturn(java.util.Optional.of(mockedRoom));
 		when(mockedRoom.getHostUserId()).thenReturn(1L);
 		when(mockedRoom.getId()).thenReturn(roomId);
@@ -340,7 +341,11 @@ class RoomParticipationCancelExecutorTest {
 
 		executor.cancelParticipation(leavingUserId, roomId, NOW);
 
-		verify(mockedRoomRepository).claimVersion(roomId, 3L);
+		InOrder promotionOrder = inOrder(mockedWaitlistRepository, mockedRoomRepository, mockedEntityManager);
+		promotionOrder.verify(mockedWaitlistRepository).findFirstWaitingByRoomId(roomId);
+		promotionOrder.verify(mockedRoomRepository).claimVersion(roomId, 3L);
+		promotionOrder.verify(mockedEntityManager).refresh(mockedRoom);
+		promotionOrder.verify(mockedWaitlistRepository).promoteWaiting(roomId, waitingUserId, 10L, NOW);
 		verify(mockedRoomRepository, org.mockito.Mockito.never()).flush();
 	}
 

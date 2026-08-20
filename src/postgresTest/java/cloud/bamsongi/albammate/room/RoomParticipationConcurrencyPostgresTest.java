@@ -488,6 +488,45 @@ class RoomParticipationConcurrencyPostgresTest extends SharedPostgresIntegration
 	}
 
 	@Test
+	void 첫_승격_후보가_ROOM_claim_전에_취소되어_소진되면_인원을_감소하고_모집을_재개한다() throws Exception {
+		long hostUserId = insertUser("candidate-exhaustion-host", "방장");
+		long leavingUserId = insertUser("candidate-exhaustion-leaving", "취소자");
+		long waitingUserId = insertUser("candidate-exhaustion-waiting", "대기자");
+		Room room = createRoom(hostUserId, 1);
+		roomParticipationService.participate(leavingUserId, room.getId());
+		roomWaitlistRepository.saveAndFlush(RoomWaitlist.create(room.getId(), waitingUserId, 10L, NOW));
+
+		roomVersionClaimGate.activate(room.getId());
+		ExecutorService executor = Executors.newFixedThreadPool(1);
+		try {
+			Future<CommandResult> participationCancelFuture = executor.submit(
+				() -> execute(() -> roomParticipationCancelService.cancelParticipation(leavingUserId, room.getId())));
+
+			roomVersionClaimGate.awaitClaimBlocked();
+			roomWaitlistCommandService.cancel(waitingUserId, room.getId());
+			assertEquals(RoomWaitlistStatus.CANCELED, waitlistStatus(room.getId(), waitingUserId));
+			roomVersionClaimGate.releaseClaim();
+			assertTrue(participationCancelFuture.get(WAIT_SECONDS, TimeUnit.SECONDS).successful());
+		} finally {
+			roomVersionClaimGate.releaseClaim();
+			roomVersionClaimGate.deactivate();
+			executor.shutdown();
+			if (!executor.awaitTermination(WAIT_SECONDS, TimeUnit.SECONDS)) {
+				executor.shutdownNow();
+				assertTrue(executor.awaitTermination(WAIT_SECONDS, TimeUnit.SECONDS));
+			}
+		}
+
+		Room availableRoom = roomRepository.findById(room.getId()).orElseThrow();
+		assertEquals(RoomStatus.RECRUITING, availableRoom.getStatus());
+		assertEquals(0, availableRoom.getActiveParticipantCount());
+		assertEquals(ParticipationStatus.CANCELED, participationStatus(room.getId(), leavingUserId));
+		assertEquals(RoomWaitlistStatus.CANCELED, waitlistStatus(room.getId(), waitingUserId));
+		assertEquals(0, activeWaitingCount(room.getId()));
+		assertRoomInvariant(room.getId());
+	}
+
+	@Test
 	void 대기_활성화가_먼저_확정되면_참가_취소는_그_대기자를_승격하고_방을_마감한다() throws Exception {
 		long hostUserId = insertUser("registration-first-host", "방장");
 		long leavingUserId = insertUser("registration-first-leaving", "취소자");
@@ -820,17 +859,17 @@ class RoomParticipationConcurrencyPostgresTest extends SharedPostgresIntegration
 					fixture.leavingUserId(), fixture.room().getId())));
 
 			participationCancelStepGate.awaitCancellationBlocked();
-			roomVersionClaimGate.awaitRegistrationBlocked();
+			roomVersionClaimGate.awaitClaimBlocked();
 			participationCancelStepGate.releaseCancellation();
 			assertTrue(cancellationFuture.get(WAIT_SECONDS, TimeUnit.SECONDS).successful());
-			roomVersionClaimGate.releaseRegistration();
+			roomVersionClaimGate.releaseClaim();
 			CommandResult registrationResult = registrationFuture.get(WAIT_SECONDS, TimeUnit.SECONDS);
 			assertEquals(ErrorCode.WAITLIST_NOT_AVAILABLE, registrationResult.errorCode());
 			waitlistReactivationGate.assertNoReactivation();
 			roomReadGate.assertExactlyTwoReadsOfOneVersion();
 		} finally {
 			participationCancelStepGate.releaseCancellation();
-			roomVersionClaimGate.releaseRegistration();
+			roomVersionClaimGate.releaseClaim();
 			participationCancelStepGate.deactivate();
 			roomVersionClaimGate.deactivate();
 			roomReadGate.deactivate();
@@ -1205,20 +1244,20 @@ class RoomParticipationConcurrencyPostgresTest extends SharedPostgresIntegration
 				return;
 			}
 
-			scenario.registrationBlocked.countDown();
-			await(scenario.registrationMayContinue);
+			scenario.claimBlocked.countDown();
+			await(scenario.claimMayContinue);
 		}
 
-		void awaitRegistrationBlocked() {
+		void awaitClaimBlocked() {
 			Scenario scenario = activeScenario.get();
 			assertNotNull(scenario);
-			await(scenario.registrationBlocked);
+			await(scenario.claimBlocked);
 		}
 
-		void releaseRegistration() {
+		void releaseClaim() {
 			Scenario scenario = activeScenario.get();
 			if (scenario != null) {
-				scenario.registrationMayContinue.countDown();
+				scenario.claimMayContinue.countDown();
 			}
 		}
 
@@ -1239,8 +1278,8 @@ class RoomParticipationConcurrencyPostgresTest extends SharedPostgresIntegration
 
 			private final long roomId;
 			private final AtomicBoolean firstClaim = new AtomicBoolean();
-			private final CountDownLatch registrationBlocked = new CountDownLatch(1);
-			private final CountDownLatch registrationMayContinue = new CountDownLatch(1);
+			private final CountDownLatch claimBlocked = new CountDownLatch(1);
+			private final CountDownLatch claimMayContinue = new CountDownLatch(1);
 
 			private Scenario(long roomId) {
 				this.roomId = roomId;
