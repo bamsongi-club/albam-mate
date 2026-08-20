@@ -7,3 +7,4 @@
 /docs/p2/search-evaluation/*.json text eol=lf
 /docs/p2/search-evaluation/**/*.json text eol=lf
 /docs/p2/search-evaluation/lexical-sparse/**/*.json text eol=lf
+/docs/measurements/results/room-lock-strategy-comparison/raw/** -text

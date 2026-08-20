@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 2,
+  "fixtureId": "room-k6-t1-161df7cd307f",
+  "runId": "room-lock-786-minimal-v1-t1-constant-mixed-c8-p4-a",
+  "scenario": "t1",
+  "condition": {
+    "scenario": "t1",
+    "runId": "room-lock-786-minimal-v1-t1-constant-mixed-c8-p4-a",
+    "profile": "stress",
+    "rounds": 60,
+    "mode": "hot",
+    "concurrency": 8,
+    "comparison": {
+      "schemaVersion": 1,
+      "candidate": "A",
+      "candidateSha": "bdc8cd54eba7e63f0ce64745b45bb47fa92ef0bd",
+      "conditionId": "constant-mixed",
+      "executionModel": "constant-arrival-rate",
+      "distribution": "mixed",
+      "concurrency": 8,
+      "arrivalRate": 8,
+      "durationSeconds": 60,
+      "rounds": 60,
+      "minimumValidSamples": 480
+    },
+    "fixtureId": "room-k6-t1-161df7cd307f"
+  },
+  "sourceSha": "bdc8cd54eba7e63f0ce64745b45bb47fa92ef0bd",
+  "targetEnvironment": "aws-room-k6",
+  "k6Version": "k6 v1.3.0 (commit/5870e99ae8, go1.25.1, linux/arm64)",
+  "startedAtUtc": "2026-08-20T08:55:57Z",
+  "finishedAtUtc": "2026-08-20T08:57:04Z",
+  "runState": "COMPLETED",
+  "completed": true,
+  "k6ExitCode": 0,
+  "fixtureSha256": "fb74b223641176ccbecd6e66ceb4e1ecace5b299d9f977b2d1821b174dfebbab",
+  "summaryFile": "k6-summary.json",
+  "summarySha256": "c9061f0aac6b17442d5d7835f9df37b26cfe35d7a21338ce7873cc9c6088bb48",
+  "consoleFile": "k6-console.log",
+  "consoleSha256": "ad29921ff663f34192956e0acc304de8977fd5fa48149bd8621f8d26fde0cd3d",
+  "t5ReadOptions": null
+}

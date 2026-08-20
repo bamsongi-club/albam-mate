@@ -1,0 +1,10 @@
+{
+  "fixtureId": "room-k6-t1-f1c47df7fdd1",
+  "scenario": "t1",
+  "stage": "after",
+  "status": "FAIL",
+  "failures": [
+    "k6 response contract failure가 있습니다.",
+    "5xx가 있습니다."
+  ]
+}

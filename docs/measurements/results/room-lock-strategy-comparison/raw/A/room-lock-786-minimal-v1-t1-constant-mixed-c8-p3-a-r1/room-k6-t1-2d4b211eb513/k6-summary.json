@@ -1,0 +1,307 @@
+{
+    "setup_data": {
+        "firstBarrierAt": 1787215820063,
+        "roundIntervalMilliseconds": 20000,
+        "sessions": {
+            "t1-spread-s7-cancel": {
+                "csrfHeaderName": "X-XSRF-TOKEN",
+                "csrfToken": "S:db0e31af-0330-4415-b850-b73598087ff1:ca6fe15a-6c8f-4e9e-964d-be29cce8675e",
+                "sessionId": "72403b3a-bb08-44b6-9a30-164207b23d61"
+            },
+            "t1-mixed-cancel-0": {
+                "csrfHeaderName": "X-XSRF-TOKEN",
+                "csrfToken": "S:1eeba8d2-f953-4e98-a3eb-541537eb2a00:6fce833a-b49c-4abc-bfb9-f295d9c6143f",
+                "sessionId": "3c2cf56a-298d-433b-ba53-93559a4239af"
+            },
+            "t1-mixed-cancel-1": {
+                "csrfHeaderName": "X-XSRF-TOKEN",
+                "csrfToken": "S:615d13bb-e7a6-473d-96c6-fb5b448d6c59:7fbf4a32-9184-4d26-b3f6-c40d3a178a7e",
+                "sessionId": "d58e53e7-2d1c-4ec9-ab8a-4cd9fd7de6c3"
+            },
+            "t1-mixed-cancel-2": {
+                "csrfHeaderName": "X-XSRF-TOKEN",
+                "csrfToken": "S:91cb424e-a577-409f-8ca4-3acd4af990d0:dfe74e49-e76d-45f6-9d4b-53e32cb3f0d4",
+                "sessionId": "fdc792c6-4c40-4869-b92f-30eec755da0c"
+            },
+            "t1-mixed-cancel-3": {
+                "csrfHeaderName": "X-XSRF-TOKEN",
+                "csrfToken": "S:bc5058d1-1edd-4120-8da5-7f2fd8eba56e:295bad07-c7e9-45b8-9633-92e4d515f684",
+                "sessionId": "a4a0cdbd-a24a-468a-abac-0bba4472e31a"
+            },
+            "t1-spread-s4-cancel": {
+                "csrfToken": "S:fd006fb7-e2e8-4030-bfd6-dc5409d92884:1596bca6-b3a6-4fe9-a687-7e01cbd466d0",
+                "sessionId": "e3a840ca-e1b1-4e3b-b2c5-d977ab81816f",
+                "csrfHeaderName": "X-XSRF-TOKEN"
+            },
+            "t1-spread-s5-cancel": {
+                "csrfHeaderName": "X-XSRF-TOKEN",
+                "csrfToken": "S:1abce6ef-f399-4ce6-bf54-4f0bd37d3130:f425949e-c9ba-4a27-be4b-32173cad26c6",
+                "sessionId": "a1ad198b-f2b9-4818-977e-d62287b5dc4b"
+            },
+            "t1-spread-s6-cancel": {
+                "csrfHeaderName": "X-XSRF-TOKEN",
+                "csrfToken": "S:e6146c76-271b-4a99-a1a2-5cab150c5021:1fdee7b7-c9ad-49d7-b635-a1ee6bc80a31",
+                "sessionId": "e2a356ae-4a2e-4bd4-9342-fcc006d001f0"
+            }
+        }
+    },
+    "root_group": {
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {},
+        "checks": {
+                "ROOM-LOCK-CMP T1 cancel participation response contract": {
+                    "id": "eb51928cf4ed983eeb632957d2425d07",
+                    "passes": 480,
+                    "fails": 0,
+                    "name": "ROOM-LOCK-CMP T1 cancel participation response contract",
+                    "path": "::ROOM-LOCK-CMP T1 cancel participation response contract"
+                }
+            },
+        "name": "",
+        "path": ""
+    },
+    "metrics": {
+        "http_req_duration": {
+            "min": 4.317848,
+            "med": 58.6621015,
+            "max": 593.578795,
+            "p(90)": 93.31183800000001,
+            "p(95)": 133.85139379999987,
+            "p(99)": 396.27061687999975,
+            "count": 504,
+            "avg": 71.15894721031741
+        },
+        "room_request_duration{outcome:unexpected}": {
+            "med": 0,
+            "max": 0,
+            "p(90)": 0,
+            "p(95)": 0,
+            "p(99)": 0,
+            "count": 0,
+            "avg": 0,
+            "min": 0,
+            "thresholds": {
+                "p(99)>=0": false
+            }
+        },
+        "http_reqs": {
+            "count": 504,
+            "rate": 8.090360413061932
+        },
+        "http_req_tls_handshaking": {
+            "med": 0,
+            "max": 6.903882,
+            "p(90)": 0,
+            "p(95)": 0,
+            "p(99)": 5.39347777,
+            "count": 504,
+            "avg": 0.18654939880952384,
+            "min": 0
+        },
+        "room_request_duration": {
+            "count": 480,
+            "avg": 69.98397844791658,
+            "min": 35.757065,
+            "med": 58.8838285,
+            "max": 592.735652,
+            "p(90)": 89.8923716,
+            "p(95)": 110.85816544999997,
+            "p(99)": 358.6038738399998
+        },
+        "room_requests": {
+            "count": 480,
+            "rate": 7.705105155297078
+        },
+        "room_business_failures": {
+            "rate": 0,
+            "count": 0
+        },
+        "room_success": {
+            "count": 479,
+            "rate": 7.689052852890209
+        },
+        "vus_max": {
+            "value": 16,
+            "min": 16,
+            "max": 16
+        },
+        "room_concurrent_failures": {
+            "count": 1,
+            "rate": 0.01605230240686891
+        },
+        "http_req_receiving": {
+            "count": 504,
+            "avg": 6.299689121031742,
+            "min": 0.02868,
+            "med": 5.002804,
+            "max": 37.964576,
+            "p(90)": 11.5526474,
+            "p(95)": 15.16059155,
+            "p(99)": 23.425156349999998
+        },
+        "data_sent": {
+            "count": 46361,
+            "rate": 744.2007918848497
+        },
+        "data_received": {
+            "count": 368563,
+            "rate": 5916.284731982827
+        },
+        "http_req_sending": {
+            "avg": 0.06635587698412695,
+            "min": 0.03604,
+            "med": 0.0638955,
+            "max": 0.122461,
+            "p(90)": 0.08279410000000001,
+            "p(95)": 0.0877736,
+            "p(99)": 0.09980380999999999,
+            "count": 504
+        },
+        "vus": {
+            "value": 0,
+            "min": 0,
+            "max": 4
+        },
+        "room_request_duration{outcome:concurrency}": {
+            "p(95)": 592.735652,
+            "p(99)": 592.735652,
+            "count": 1,
+            "avg": 592.735652,
+            "min": 592.735652,
+            "med": 592.735652,
+            "max": 592.735652,
+            "p(90)": 592.735652,
+            "thresholds": {
+                "p(99)>=0": false
+            }
+        },
+        "http_req_duration{expected_response:true}": {
+            "min": 4.317848,
+            "med": 58.588511,
+            "max": 593.578795,
+            "p(90)": 92.36015860000002,
+            "p(95)": 128.38087189999996,
+            "p(99)": 347.75550997999994,
+            "count": 503,
+            "avg": 70.12201539165004
+        },
+        "room_server_failures": {
+            "count": 0,
+            "rate": 0,
+            "thresholds": {
+                "count==0": false
+            }
+        },
+        "room_contract_failures": {
+            "count": 0,
+            "rate": 0,
+            "thresholds": {
+                "count==0": false
+            }
+        },
+        "room_request_duration{outcome:success}": {
+            "avg": 68.89263883716066,
+            "min": 35.757065,
+            "med": 58.881139,
+            "max": 516.826713,
+            "p(90)": 89.8384508,
+            "p(95)": 107.86270369999993,
+            "p(99)": 331.01848521999995,
+            "count": 479,
+            "thresholds": {
+                "p(99)>=0": false
+            }
+        },
+        "http_req_waiting": {
+            "med": 53.047034999999994,
+            "max": 587.349828,
+            "p(90)": 84.7386159,
+            "p(95)": 122.45415159999993,
+            "p(99)": 381.39798965999984,
+            "count": 504,
+            "avg": 64.79290221230154,
+            "min": 4.243773
+        },
+        "iterations": {
+            "count": 480,
+            "rate": 7.705105155297078
+        },
+        "room_request_duration{outcome:business}": {
+            "count": 0,
+            "avg": 0,
+            "min": 0,
+            "med": 0,
+            "max": 0,
+            "p(90)": 0,
+            "p(95)": 0,
+            "p(99)": 0,
+            "thresholds": {
+                "p(99)>=0": false
+            }
+        },
+        "checks": {
+            "passes": 480,
+            "fails": 0,
+            "value": 1
+        },
+        "room_start_skew_ms": {
+            "p(95)": 0,
+            "p(99)": 0,
+            "count": 480,
+            "avg": 0,
+            "min": 0,
+            "med": 0,
+            "max": 0,
+            "p(90)": 0,
+            "thresholds": {
+                "max<1000": false
+            }
+        },
+        "http_req_failed": {
+            "passes": 1,
+            "fails": 503,
+            "value": 0.001984126984126984
+        },
+        "room_unexpected_4xx": {
+            "count": 0,
+            "rate": 0,
+            "thresholds": {
+                "count==0": false
+            }
+        },
+        "http_req_connecting": {
+            "p(95)": 0,
+            "p(99)": 0.61821183,
+            "count": 504,
+            "avg": 0.020593043650793657,
+            "min": 0,
+            "med": 0,
+            "max": 0.695597,
+            "p(90)": 0
+        },
+        "room_created": {
+            "count": 0,
+            "rate": 0
+        },
+        "iteration_duration": {
+            "p(90)": 90.5042361,
+            "p(95)": 112.61781595,
+            "p(99)": 359.0683616099998,
+            "count": 480,
+            "avg": 70.67269224166678,
+            "min": 36.375429,
+            "med": 59.349472,
+            "max": 599.442993
+        },
+        "http_req_blocked": {
+            "min": 0.00037,
+            "med": 0.000667,
+            "max": 7.611161,
+            "p(90)": 0.0008214,
+            "p(95)": 0.000896,
+            "p(99)": 6.21235463,
+            "count": 504,
+            "avg": 0.21094094444444464
+        }
+    }
+}

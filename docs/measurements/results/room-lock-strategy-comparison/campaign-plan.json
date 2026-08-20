@@ -1,0 +1,135 @@
+{
+  "schemaVersion": 1,
+  "campaignId": "room-lock-786-timeboxed-t1-constant-mixed-c8",
+  "commonBaselineSha": "01691663edad2aed85c3d6e3b7ae28f1f2945019",
+  "candidateShas": {
+    "A": "bdc8cd54eba7e63f0ce64745b45bb47fa92ef0bd",
+    "B": "cd0fc2fe0e2fbcce6a78b47a7f699b0d5aa311a1",
+    "C": "fd7016efb74c6a8b8cb9b2d777f824e1a67e30cb"
+  },
+  "scope": {
+    "originalCampaign": "A/B/C × T1/T2 × 4 conditions × c2/c4/c8/c16 × 5 paired runs plus T3/T4/T5 regressions (600 executions)",
+    "approvedTimeboxedCampaign": "T1 only, constant-arrival-rate constant-mixed, c8, 8 req/s, 60 seconds, A/B four completed valid runs; C fail-fast evidence retained without further performance runs",
+    "excluded": [
+      "T2",
+      "barrier-hot",
+      "barrier-spread",
+      "constant-hot",
+      "c2",
+      "c4",
+      "c16",
+      "T3",
+      "T4",
+      "T5",
+      "c32"
+    ]
+  },
+  "approvedRepeatCountForAandB": 4,
+  "cFailFastPolicy": "One provenance-valid 5xx or contract failure causes C exclusion from performance ranking and further C performance repetitions for this timeboxed campaign.",
+  "runs": [
+    {
+      "candidate": "A",
+      "runId": "room-lock-786-minimal-v1-t1-constant-mixed-c8-p3-a",
+      "archivedPath": "raw/A/room-lock-786-minimal-v1-t1-constant-mixed-c8-p3-a",
+      "archiveClassification": "EXCLUDED_PRE_EXECUTION_INCOMPLETE",
+      "executionStatus": "NOT_STARTED",
+      "primaryT7Classification": "EXCLUDED_NOT_MEASURED"
+    },
+    {
+      "candidate": "A",
+      "runId": "room-lock-786-minimal-v1-t1-constant-mixed-c8-p3-a-r1",
+      "archivedPath": "raw/A/room-lock-786-minimal-v1-t1-constant-mixed-c8-p3-a-r1",
+      "archiveClassification": "INCLUDED_PASS",
+      "executionStatus": "COMPLETED",
+      "primaryT7Classification": "PASS"
+    },
+    {
+      "candidate": "A",
+      "runId": "room-lock-786-minimal-v1-t1-constant-mixed-c8-p4-a",
+      "archivedPath": "raw/A/room-lock-786-minimal-v1-t1-constant-mixed-c8-p4-a",
+      "archiveClassification": "INCLUDED_PASS",
+      "executionStatus": "COMPLETED",
+      "primaryT7Classification": "PASS"
+    },
+    {
+      "candidate": "A",
+      "runId": "room-lock-786-minimal-v1-t1-constant-mixed-c8-p5-a",
+      "archivedPath": "raw/A/room-lock-786-minimal-v1-t1-constant-mixed-c8-p5-a",
+      "archiveClassification": "INCLUDED_PASS",
+      "executionStatus": "COMPLETED",
+      "primaryT7Classification": "PASS"
+    },
+    {
+      "candidate": "A",
+      "runId": "room-lock-786-minimal-v1-t1-constant-mixed-c8-p6-a",
+      "archivedPath": "raw/A/room-lock-786-minimal-v1-t1-constant-mixed-c8-p6-a",
+      "archiveClassification": "INCLUDED_PASS",
+      "executionStatus": "COMPLETED",
+      "primaryT7Classification": "PASS"
+    },
+    {
+      "candidate": "B",
+      "runId": "room-lock-786-minimal-v1-t1-constant-mixed-c8-p3-b",
+      "archivedPath": "raw/B/room-lock-786-minimal-v1-t1-constant-mixed-c8-p3-b",
+      "archiveClassification": "INCLUDED_PASS",
+      "executionStatus": "COMPLETED",
+      "primaryT7Classification": "PASS"
+    },
+    {
+      "candidate": "B",
+      "runId": "room-lock-786-minimal-v1-t1-constant-mixed-c8-p4-b",
+      "archivedPath": "raw/B/room-lock-786-minimal-v1-t1-constant-mixed-c8-p4-b",
+      "archiveClassification": "INCLUDED_PASS",
+      "executionStatus": "COMPLETED",
+      "primaryT7Classification": "PASS"
+    },
+    {
+      "candidate": "B",
+      "runId": "room-lock-786-minimal-v1-t1-constant-mixed-c8-p5-b",
+      "archivedPath": "raw/B/room-lock-786-minimal-v1-t1-constant-mixed-c8-p5-b",
+      "archiveClassification": "INCLUDED_PASS",
+      "executionStatus": "COMPLETED",
+      "primaryT7Classification": "PASS"
+    },
+    {
+      "candidate": "B",
+      "runId": "room-lock-786-minimal-v1-t1-constant-mixed-c8-p6-b",
+      "archivedPath": "raw/B/room-lock-786-minimal-v1-t1-constant-mixed-c8-p6-b",
+      "archiveClassification": "INCLUDED_PASS",
+      "executionStatus": "COMPLETED",
+      "primaryT7Classification": "PASS"
+    },
+    {
+      "candidate": "C",
+      "runId": "room-lock-786-minimal-v1-t1-constant-mixed-c8-p1-c",
+      "archivedPath": "raw/C/room-lock-786-minimal-v1-t1-constant-mixed-c8-p1-c",
+      "archiveClassification": "EXCLUDED_PRE_EXECUTION_INCOMPLETE",
+      "executionStatus": "NOT_STARTED",
+      "primaryT7Classification": "EXCLUDED_NOT_MEASURED"
+    },
+    {
+      "candidate": "C",
+      "runId": "room-lock-786-minimal-v1-t1-constant-mixed-c8-p2-c",
+      "archivedPath": "raw/C/room-lock-786-minimal-v1-t1-constant-mixed-c8-p2-c",
+      "archiveClassification": "EXCLUDED_PRE_EXECUTION_INCOMPLETE",
+      "executionStatus": "NOT_STARTED",
+      "primaryT7Classification": "EXCLUDED_NOT_MEASURED"
+    },
+    {
+      "candidate": "C",
+      "runId": "room-lock-786-minimal-v1-t1-constant-mixed-c8-p3-c",
+      "archivedPath": "raw/C/room-lock-786-minimal-v1-t1-constant-mixed-c8-p3-c",
+      "archiveClassification": "EXCLUDED_CANDIDATE_AFTER_T7_FAIL",
+      "executionStatus": "COMPLETED",
+      "primaryT7Classification": "EXCLUDED_AFTER_C_P4_FAIL"
+    },
+    {
+      "candidate": "C",
+      "runId": "room-lock-786-minimal-v1-t1-constant-mixed-c8-p4-c",
+      "archivedPath": "raw/C/room-lock-786-minimal-v1-t1-constant-mixed-c8-p4-c",
+      "archiveClassification": "T7_PRIMARY_FAIL_RUNNER_ARTIFACT_INVALID",
+      "executionStatus": "COMPLETED",
+      "primaryT7Classification": "FAIL"
+    }
+  ]
+}

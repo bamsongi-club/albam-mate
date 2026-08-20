@@ -1,0 +1,271 @@
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+     execution: local
+        script: /opt/albam-mate-load/room-k6/room-lock-786-minimal-v1-t1-constant-mixed-c8-p4-a/room-k6-t1-161df7cd307f/scenario.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 32 max VUs, 1m30s max duration (incl. graceful stop):
+              * room_write: 8.00 iterations/s for 1m0s (maxVUs: 16-32, gracefulStop: 30s)
+
+
+Run          [ 100% ] setup()
+room_write   [   0% ]
+
+running (0m01.9s), 01/16 VUs, 0 complete and 0 interrupted iterations
+room_write   [   0% ] 01/16 VUs  0m00.0s/1m0s  8.00 iters/s
+
+running (0m02.9s), 01/16 VUs, 8 complete and 0 interrupted iterations
+room_write   [   2% ] 01/16 VUs  0m01.0s/1m0s  8.00 iters/s
+
+running (0m03.9s), 01/16 VUs, 16 complete and 0 interrupted iterations
+room_write   [   3% ] 01/16 VUs  0m02.0s/1m0s  8.00 iters/s
+
+running (0m04.9s), 01/16 VUs, 24 complete and 0 interrupted iterations
+room_write   [   5% ] 01/16 VUs  0m03.0s/1m0s  8.00 iters/s
+
+running (0m05.9s), 01/16 VUs, 32 complete and 0 interrupted iterations
+room_write   [   7% ] 01/16 VUs  0m04.0s/1m0s  8.00 iters/s
+
+running (0m06.9s), 01/16 VUs, 40 complete and 0 interrupted iterations
+room_write   [   8% ] 01/16 VUs  0m05.0s/1m0s  8.00 iters/s
+
+running (0m07.9s), 01/16 VUs, 48 complete and 0 interrupted iterations
+room_write   [  10% ] 01/16 VUs  0m06.0s/1m0s  8.00 iters/s
+
+running (0m08.9s), 01/16 VUs, 56 complete and 0 interrupted iterations
+room_write   [  12% ] 01/16 VUs  0m07.0s/1m0s  8.00 iters/s
+
+running (0m09.9s), 01/16 VUs, 64 complete and 0 interrupted iterations
+room_write   [  13% ] 01/16 VUs  0m08.0s/1m0s  8.00 iters/s
+
+running (0m10.9s), 01/16 VUs, 72 complete and 0 interrupted iterations
+room_write   [  15% ] 01/16 VUs  0m09.0s/1m0s  8.00 iters/s
+
+running (0m11.9s), 01/16 VUs, 80 complete and 0 interrupted iterations
+room_write   [  17% ] 01/16 VUs  0m10.0s/1m0s  8.00 iters/s
+
+running (0m12.9s), 01/16 VUs, 88 complete and 0 interrupted iterations
+room_write   [  18% ] 01/16 VUs  0m11.0s/1m0s  8.00 iters/s
+
+running (0m13.9s), 01/16 VUs, 96 complete and 0 interrupted iterations
+room_write   [  20% ] 01/16 VUs  0m12.0s/1m0s  8.00 iters/s
+
+running (0m14.9s), 01/16 VUs, 104 complete and 0 interrupted iterations
+room_write   [  22% ] 01/16 VUs  0m13.0s/1m0s  8.00 iters/s
+
+running (0m15.9s), 01/16 VUs, 112 complete and 0 interrupted iterations
+room_write   [  23% ] 01/16 VUs  0m14.0s/1m0s  8.00 iters/s
+
+running (0m16.9s), 01/16 VUs, 120 complete and 0 interrupted iterations
+room_write   [  25% ] 01/16 VUs  0m15.0s/1m0s  8.00 iters/s
+
+running (0m17.9s), 01/16 VUs, 128 complete and 0 interrupted iterations
+room_write   [  27% ] 01/16 VUs  0m16.0s/1m0s  8.00 iters/s
+
+running (0m18.9s), 01/16 VUs, 136 complete and 0 interrupted iterations
+room_write   [  28% ] 01/16 VUs  0m17.0s/1m0s  8.00 iters/s
+
+running (0m19.9s), 01/16 VUs, 144 complete and 0 interrupted iterations
+room_write   [  30% ] 01/16 VUs  0m18.0s/1m0s  8.00 iters/s
+
+running (0m20.9s), 01/16 VUs, 152 complete and 0 interrupted iterations
+room_write   [  32% ] 01/16 VUs  0m19.0s/1m0s  8.00 iters/s
+
+running (0m21.9s), 01/16 VUs, 160 complete and 0 interrupted iterations
+room_write   [  33% ] 01/16 VUs  0m20.0s/1m0s  8.00 iters/s
+
+running (0m22.9s), 01/16 VUs, 168 complete and 0 interrupted iterations
+room_write   [  35% ] 01/16 VUs  0m21.0s/1m0s  8.00 iters/s
+
+running (0m23.9s), 01/16 VUs, 176 complete and 0 interrupted iterations
+room_write   [  37% ] 01/16 VUs  0m22.0s/1m0s  8.00 iters/s
+
+running (0m24.9s), 01/16 VUs, 184 complete and 0 interrupted iterations
+room_write   [  38% ] 01/16 VUs  0m23.0s/1m0s  8.00 iters/s
+
+running (0m25.9s), 01/16 VUs, 192 complete and 0 interrupted iterations
+room_write   [  40% ] 01/16 VUs  0m24.0s/1m0s  8.00 iters/s
+
+running (0m26.9s), 01/16 VUs, 200 complete and 0 interrupted iterations
+room_write   [  42% ] 01/16 VUs  0m25.0s/1m0s  8.00 iters/s
+
+running (0m27.9s), 01/16 VUs, 208 complete and 0 interrupted iterations
+room_write   [  43% ] 01/16 VUs  0m26.0s/1m0s  8.00 iters/s
+
+running (0m28.9s), 01/16 VUs, 216 complete and 0 interrupted iterations
+room_write   [  45% ] 01/16 VUs  0m27.0s/1m0s  8.00 iters/s
+
+running (0m29.9s), 01/16 VUs, 224 complete and 0 interrupted iterations
+room_write   [  47% ] 01/16 VUs  0m28.0s/1m0s  8.00 iters/s
+
+running (0m30.9s), 01/16 VUs, 232 complete and 0 interrupted iterations
+room_write   [  48% ] 01/16 VUs  0m29.0s/1m0s  8.00 iters/s
+
+running (0m31.9s), 01/16 VUs, 240 complete and 0 interrupted iterations
+room_write   [  50% ] 01/16 VUs  0m30.0s/1m0s  8.00 iters/s
+
+running (0m32.9s), 01/16 VUs, 248 complete and 0 interrupted iterations
+room_write   [  52% ] 01/16 VUs  0m31.0s/1m0s  8.00 iters/s
+
+running (0m33.9s), 01/16 VUs, 256 complete and 0 interrupted iterations
+room_write   [  53% ] 01/16 VUs  0m32.0s/1m0s  8.00 iters/s
+
+running (0m34.9s), 01/16 VUs, 264 complete and 0 interrupted iterations
+room_write   [  55% ] 01/16 VUs  0m33.0s/1m0s  8.00 iters/s
+
+running (0m35.9s), 01/16 VUs, 272 complete and 0 interrupted iterations
+room_write   [  57% ] 01/16 VUs  0m34.0s/1m0s  8.00 iters/s
+
+running (0m36.9s), 01/16 VUs, 280 complete and 0 interrupted iterations
+room_write   [  58% ] 01/16 VUs  0m35.0s/1m0s  8.00 iters/s
+
+running (0m37.9s), 01/16 VUs, 288 complete and 0 interrupted iterations
+room_write   [  60% ] 01/16 VUs  0m36.0s/1m0s  8.00 iters/s
+
+running (0m38.9s), 01/16 VUs, 296 complete and 0 interrupted iterations
+room_write   [  62% ] 01/16 VUs  0m37.0s/1m0s  8.00 iters/s
+
+running (0m39.9s), 01/16 VUs, 304 complete and 0 interrupted iterations
+room_write   [  63% ] 01/16 VUs  0m38.0s/1m0s  8.00 iters/s
+
+running (0m40.9s), 01/16 VUs, 312 complete and 0 interrupted iterations
+room_write   [  65% ] 01/16 VUs  0m39.0s/1m0s  8.00 iters/s
+
+running (0m41.9s), 01/16 VUs, 320 complete and 0 interrupted iterations
+room_write   [  67% ] 01/16 VUs  0m40.0s/1m0s  8.00 iters/s
+
+running (0m42.9s), 01/16 VUs, 328 complete and 0 interrupted iterations
+room_write   [  68% ] 01/16 VUs  0m41.0s/1m0s  8.00 iters/s
+
+running (0m43.9s), 01/16 VUs, 336 complete and 0 interrupted iterations
+room_write   [  70% ] 01/16 VUs  0m42.0s/1m0s  8.00 iters/s
+
+running (0m44.9s), 01/16 VUs, 344 complete and 0 interrupted iterations
+room_write   [  72% ] 01/16 VUs  0m43.0s/1m0s  8.00 iters/s
+
+running (0m45.9s), 01/16 VUs, 352 complete and 0 interrupted iterations
+room_write   [  73% ] 01/16 VUs  0m44.0s/1m0s  8.00 iters/s
+
+running (0m46.9s), 01/16 VUs, 360 complete and 0 interrupted iterations
+room_write   [  75% ] 01/16 VUs  0m45.0s/1m0s  8.00 iters/s
+
+running (0m47.9s), 01/16 VUs, 368 complete and 0 interrupted iterations
+room_write   [  77% ] 01/16 VUs  0m46.0s/1m0s  8.00 iters/s
+
+running (0m48.9s), 01/16 VUs, 376 complete and 0 interrupted iterations
+room_write   [  78% ] 01/16 VUs  0m47.0s/1m0s  8.00 iters/s
+
+running (0m49.9s), 01/16 VUs, 384 complete and 0 interrupted iterations
+room_write   [  80% ] 01/16 VUs  0m48.0s/1m0s  8.00 iters/s
+
+running (0m50.9s), 01/16 VUs, 392 complete and 0 interrupted iterations
+room_write   [  82% ] 01/16 VUs  0m49.0s/1m0s  8.00 iters/s
+
+running (0m51.9s), 01/16 VUs, 400 complete and 0 interrupted iterations
+room_write   [  83% ] 01/16 VUs  0m50.0s/1m0s  8.00 iters/s
+
+running (0m52.9s), 01/16 VUs, 408 complete and 0 interrupted iterations
+room_write   [  85% ] 01/16 VUs  0m51.0s/1m0s  8.00 iters/s
+
+running (0m53.9s), 01/16 VUs, 416 complete and 0 interrupted iterations
+room_write   [  87% ] 01/16 VUs  0m52.0s/1m0s  8.00 iters/s
+
+running (0m54.9s), 01/16 VUs, 424 complete and 0 interrupted iterations
+room_write   [  88% ] 01/16 VUs  0m53.0s/1m0s  8.00 iters/s
+
+running (0m55.9s), 01/16 VUs, 432 complete and 0 interrupted iterations
+room_write   [  90% ] 01/16 VUs  0m54.0s/1m0s  8.00 iters/s
+
+running (0m56.9s), 01/16 VUs, 440 complete and 0 interrupted iterations
+room_write   [  92% ] 01/16 VUs  0m55.0s/1m0s  8.00 iters/s
+
+running (0m57.9s), 01/16 VUs, 448 complete and 0 interrupted iterations
+room_write   [  93% ] 01/16 VUs  0m56.0s/1m0s  8.00 iters/s
+
+running (0m58.9s), 01/16 VUs, 456 complete and 0 interrupted iterations
+room_write   [  95% ] 01/16 VUs  0m57.0s/1m0s  8.00 iters/s
+
+running (0m59.9s), 01/16 VUs, 464 complete and 0 interrupted iterations
+room_write   [  97% ] 01/16 VUs  0m58.0s/1m0s  8.00 iters/s
+
+running (1m00.9s), 01/16 VUs, 472 complete and 0 interrupted iterations
+room_write   [  98% ] 01/16 VUs  0m59.0s/1m0s  8.00 iters/s
+
+
+  █ THRESHOLDS 
+
+    room_contract_failures
+    ✓ 'count==0' count=0
+
+    room_request_duration{outcome:business}
+    ✓ 'p(99)>=0' p(99)=0s
+
+    room_request_duration{outcome:concurrency}
+    ✓ 'p(99)>=0' p(99)=0s
+
+    room_request_duration{outcome:success}
+    ✓ 'p(99)>=0' p(99)=81.03ms
+
+    room_request_duration{outcome:unexpected}
+    ✓ 'p(99)>=0' p(99)=0s
+
+    room_server_failures
+    ✓ 'count==0' count=0
+
+    room_start_skew_ms
+    ✓ 'max<1000' max=0s
+
+    room_unexpected_4xx
+    ✓ 'count==0' count=0
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 480     7.760128/s
+    checks_succeeded...: 100.00% 480 out of 480
+    checks_failed......: 0.00%   0 out of 480
+
+    ✓ ROOM-LOCK-CMP T1 cancel participation response contract
+
+    CUSTOM
+    room_business_failures.........: 0      0/s
+    room_concurrent_failures.......: 0      0/s
+    room_contract_failures.........: 0      0/s
+    room_created...................: 0      0/s
+    room_request_duration..........: avg=46.25ms min=30.04ms med=44.49ms max=107.71ms p(90)=60.6ms  p(95)=65.94ms p(99)=81.03ms  count=480
+      { outcome:business }.........: avg=0s      min=0s      med=0s      max=0s       p(90)=0s      p(95)=0s      p(99)=0s       count=0  
+      { outcome:concurrency }......: avg=0s      min=0s      med=0s      max=0s       p(90)=0s      p(95)=0s      p(99)=0s       count=0  
+      { outcome:success }..........: avg=46.25ms min=30.04ms med=44.49ms max=107.71ms p(90)=60.6ms  p(95)=65.94ms p(99)=81.03ms  count=480
+      { outcome:unexpected }.......: avg=0s      min=0s      med=0s      max=0s       p(90)=0s      p(95)=0s      p(99)=0s       count=0  
+    room_requests..................: 480    7.760128/s
+    room_server_failures...........: 0      0/s
+    room_start_skew_ms.............: avg=0s      min=0s      med=0s      max=0s       p(90)=0s      p(95)=0s      p(99)=0s       count=480
+    room_success...................: 480    7.760128/s
+    room_unexpected_4xx............: 0      0/s
+
+    HTTP
+    http_req_duration..............: avg=47.68ms min=2.89ms  med=44.39ms max=499.02ms p(90)=61.78ms p(95)=67.33ms p(99)=151.45ms count=504
+      { expected_response:true }...: avg=47.68ms min=2.89ms  med=44.39ms max=499.02ms p(90)=61.78ms p(95)=67.33ms p(99)=151.45ms count=504
+    http_req_failed................: 0.00%  0 out of 504
+    http_reqs......................: 504    8.148135/s
+
+    EXECUTION
+    iteration_duration.............: avg=46.83ms min=87.93µs med=45.14ms max=108.17ms p(90)=61.89ms p(95)=66.96ms p(99)=81.48ms  count=481
+    iterations.....................: 481    7.776295/s
+    vus............................: 1      min=0        max=1 
+    vus_max........................: 16     min=16       max=16
+
+    NETWORK
+    data_received..................: 369 kB 6.0 kB/s
+    data_sent......................: 45 kB  722 B/s
+
+
+
+
+running (1m01.9s), 00/16 VUs, 481 complete and 0 interrupted iterations
+room_write ✓ [ 100% ] 00/16 VUs  1m0s  8.00 iters/stime="2026-08-20T08:57:01Z" level=error msg="Error: constant-arrival-rate iteration에 대응하는 fixture target이 없습니다: 480\n\tat targetForConstantArrival (file:///opt/albam-mate-load/room-k6/room-lock-786-minimal-v1-t1-constant-mixed-c8-p4-a/room-k6-t1-161df7cd307f/scenario.js:60:11(14))\n\tat measurementTarget (file:///opt/albam-mate-load/room-k6/room-lock-786-minimal-v1-t1-constant-mixed-c8-p4-a/room-k6-t1-161df7cd307f/scenario.js:78:37(63))\n\tat default (file:///opt/albam-mate-load/room-k6/room-lock-786-minimal-v1-t1-constant-mixed-c8-p4-a/room-k6-t1-161df7cd307f/scenario.js:86:39(4))\n" executor=constant-arrival-rate scenario=room_write source=stacktrace

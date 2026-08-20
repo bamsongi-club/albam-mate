@@ -1,0 +1,198 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "room-k6-t1-37ff81b803cd",
+  "runId": "room-lock-786-minimal-v1-t1-constant-mixed-c8-p5-a",
+  "candidate": "A",
+  "candidateSha": "bdc8cd54eba7e63f0ce64745b45bb47fa92ef0bd",
+  "status": "PASS",
+  "issues": [],
+  "beforeDiagnosis": {
+    "fixtureId": "room-k6-t1-37ff81b803cd",
+    "scenario": "t1",
+    "stage": "before",
+    "status": "PASS",
+    "failures": []
+  },
+  "afterDiagnosis": {
+    "fixtureId": "room-k6-t1-37ff81b803cd",
+    "scenario": "t1",
+    "stage": "after",
+    "status": "PASS",
+    "failures": []
+  },
+  "infraExecution": {
+    "schemaVersion": 1,
+    "runId": "room-lock-786-minimal-v1-t1-constant-mixed-c8-p5-a",
+    "fixtureId": "room-k6-t1-37ff81b803cd",
+    "stackId": "perf-jiwon",
+    "targetHttpsUrl": "https://3.39.139.102",
+    "applicationRevision": "bdc8cd54eba7e63f0ce64745b45bb47fa92ef0bd",
+    "startedAt": "2026-08-20T09:42:03Z",
+    "finishedAt": "2026-08-20T09:46:29Z",
+    "phases": {
+      "prepare": {
+        "exitCode": 0
+      },
+      "resourceQuery": {
+        "exitCode": 0
+      },
+      "beforeSnapshot": {
+        "exitCode": 0
+      },
+      "k6": {
+        "exitCode": 0
+      },
+      "afterSnapshot": {
+        "exitCode": 0
+      }
+    },
+    "k6Version": "1.3.0"
+  },
+  "resourceSignals": {
+    "schemaVersion": 1,
+    "status": "PASS",
+    "runId": "room-lock-786-minimal-v1-t1-constant-mixed-c8-p5-a",
+    "fixtureId": "room-k6-t1-37ff81b803cd",
+    "scenario": "t1",
+    "sourceSha": "bdc8cd54eba7e63f0ce64745b45bb47fa92ef0bd",
+    "targetEnvironment": "aws-room-k6",
+    "condition": {
+      "scenario": "t1",
+      "runId": "room-lock-786-minimal-v1-t1-constant-mixed-c8-p5-a",
+      "profile": "stress",
+      "rounds": 60,
+      "mode": "hot",
+      "concurrency": 8,
+      "comparison": {
+        "schemaVersion": 1,
+        "candidate": "A",
+        "candidateSha": "bdc8cd54eba7e63f0ce64745b45bb47fa92ef0bd",
+        "conditionId": "constant-mixed",
+        "executionModel": "constant-arrival-rate",
+        "distribution": "mixed",
+        "concurrency": 8,
+        "arrivalRate": 8,
+        "durationSeconds": 60,
+        "rounds": 60,
+        "minimumValidSamples": 480
+      },
+      "fixtureId": "room-k6-t1-37ff81b803cd"
+    },
+    "window": {
+      "startedAtUtc": "2026-08-20T09:44:05Z",
+      "finishedAtUtc": "2026-08-20T09:45:13Z"
+    },
+    "http": {
+      "requestCount": 480,
+      "failedRequestCount": 0,
+      "rps": 8.099152408962837
+    },
+    "outcomeCoverage": {
+      "success": {
+        "count": 479,
+        "p50": 59.598375,
+        "p95": 110.7411892,
+        "p99": 256.9181707399997,
+        "max": 405.919574
+      },
+      "business": {
+        "count": 0,
+        "p50": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      },
+      "concurrency": {
+        "count": 1,
+        "p50": 584.136964,
+        "p95": 584.136964,
+        "p99": 584.136964,
+        "max": 584.136964
+      },
+      "unexpected": {
+        "count": 0,
+        "p50": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    "tomcat": {
+      "activeThreads": 2,
+      "busyThreads": 2,
+      "maxThreads": 400
+    },
+    "hikari": {
+      "activeConnections": 1,
+      "idleConnections": 3,
+      "pendingThreads": 0,
+      "maxPoolSize": 8
+    },
+    "jvm": {
+      "heapUsedBytes": 132840720,
+      "cpuPercent": 110.91
+    },
+    "postgresql": {
+      "cpuPercent": 11.63,
+      "activeConnections": 16,
+      "lockWaitCount": 0
+    },
+    "query": {
+      "callCount": 10225,
+      "totalTimeMilliseconds": 1433.0412940000533,
+      "sharedBuffersHit": 72999,
+      "sharedBuffersRead": 47
+    },
+    "database": {
+      "queryCalls": 10225,
+      "queryTimeMs": 1433.0412940000533,
+      "transactionCount": 4,
+      "transactionDurationMs": 118.877,
+      "lockWaitCount": 0,
+      "activeConnections": 16,
+      "cpuPercent": 11.63
+    },
+    "retry": {
+      "commonRetrier": {
+        "attempts": {
+          "3": 1
+        },
+        "retries": 0,
+        "exhausted": 1
+      },
+      "coordinator": {
+        "attempts": {},
+        "retries": 0,
+        "exhausted": 0
+      }
+    },
+    "sources": {
+      "appLogApp1": {
+        "path": "t3-app-log-app1.log",
+        "sha256": "dbe26b98b9477b0094b6e0d396e550a74e0149ff681a08b1b48e517b8f578fac",
+        "sampleCount": 466
+      },
+      "appLogApp2": {
+        "path": "t3-app-log-app2.log",
+        "sha256": "412baebade0c7593325e5bc4e34044bca065f2eaef81a1f4247cbdfcb1364587",
+        "sampleCount": 502
+      },
+      "metricsApp1": {
+        "path": "t3-metrics-app1.csv",
+        "sha256": "dde7f8e799e2272b3911bd602fb76c8bd46f8280c2ef6700b68d4aba5ed6b704",
+        "sampleCount": 17
+      },
+      "metricsApp2": {
+        "path": "t3-metrics-app2.csv",
+        "sha256": "232d67908db245fde52028209295b714d294eb718bf0c1a29ce4e2e5d1b7b628",
+        "sampleCount": 16
+      },
+      "metricsPostgres": {
+        "path": "t3-metrics-postgres.csv",
+        "sha256": "4ce4b181d52b657147857d46c6018ad1cf44a71b2d7d9258641bc05174230715",
+        "sampleCount": 34
+      }
+    },
+    "observedStructuredRetryEvents": 1
+  }
+}

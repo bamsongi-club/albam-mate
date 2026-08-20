@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "runId": "room-lock-786-minimal-v1-t1-constant-mixed-c8-p4-b",
+  "fixtureId": "room-k6-t1-21dccaa5a7cf",
+  "stackId": "perf-jiwon",
+  "targetHttpsUrl": "https://3.39.139.102",
+  "applicationRevision": "cd0fc2fe0e2fbcce6a78b47a7f699b0d5aa311a1",
+  "startedAt": "2026-08-20T09:23:34Z",
+  "finishedAt": "2026-08-20T09:28:05Z",
+  "phases": {
+    "prepare": {
+      "exitCode": 0
+    },
+    "resourceQuery": {
+      "exitCode": 0
+    },
+    "beforeSnapshot": {
+      "exitCode": 0
+    },
+    "k6": {
+      "exitCode": 0
+    },
+    "afterSnapshot": {
+      "exitCode": 0
+    }
+  },
+  "k6Version": "1.3.0"
+}

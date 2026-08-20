@@ -1,0 +1,147 @@
+{
+  "schemaVersion": 1,
+  "status": "PASS",
+  "runId": "room-lock-786-minimal-v1-t1-constant-mixed-c8-p3-a-r1",
+  "fixtureId": "room-k6-t1-2d4b211eb513",
+  "scenario": "t1",
+  "sourceSha": "bdc8cd54eba7e63f0ce64745b45bb47fa92ef0bd",
+  "targetEnvironment": "aws-room-k6",
+  "condition": {
+    "scenario": "t1",
+    "runId": "room-lock-786-minimal-v1-t1-constant-mixed-c8-p3-a-r1",
+    "profile": "stress",
+    "rounds": 60,
+    "mode": "hot",
+    "concurrency": 8,
+    "comparison": {
+      "schemaVersion": 1,
+      "candidate": "A",
+      "candidateSha": "bdc8cd54eba7e63f0ce64745b45bb47fa92ef0bd",
+      "conditionId": "constant-mixed",
+      "executionModel": "constant-arrival-rate",
+      "distribution": "mixed",
+      "concurrency": 8,
+      "arrivalRate": 8,
+      "durationSeconds": 60,
+      "rounds": 60,
+      "minimumValidSamples": 480
+    },
+    "fixtureId": "room-k6-t1-2d4b211eb513"
+  },
+  "window": {
+    "startedAtUtc": "2026-08-20T08:49:59Z",
+    "finishedAtUtc": "2026-08-20T08:51:07Z"
+  },
+  "http": {
+    "requestCount": 480,
+    "failedRequestCount": 0,
+    "rps": 8.090360413061932
+  },
+  "outcomeCoverage": {
+    "success": {
+      "count": 479,
+      "p50": 58.881139,
+      "p95": 107.86270369999993,
+      "p99": 331.01848521999995,
+      "max": 516.826713
+    },
+    "business": {
+      "count": 0,
+      "p50": null,
+      "p95": null,
+      "p99": null,
+      "max": null
+    },
+    "concurrency": {
+      "count": 1,
+      "p50": 592.735652,
+      "p95": 592.735652,
+      "p99": 592.735652,
+      "max": 592.735652
+    },
+    "unexpected": {
+      "count": 0,
+      "p50": null,
+      "p95": null,
+      "p99": null,
+      "max": null
+    }
+  },
+  "tomcat": {
+    "activeThreads": 2.0,
+    "busyThreads": 2.0,
+    "maxThreads": 400.0
+  },
+  "hikari": {
+    "activeConnections": 1.0,
+    "idleConnections": 3.0,
+    "pendingThreads": 0.0,
+    "maxPoolSize": 8.0
+  },
+  "jvm": {
+    "heapUsedBytes": 178144376.0,
+    "cpuPercent": 91.26
+  },
+  "postgresql": {
+    "cpuPercent": 12.8,
+    "activeConnections": 15.0,
+    "lockWaitCount": 0.0
+  },
+  "query": {
+    "callCount": 10237.0,
+    "totalTimeMilliseconds": 2071.1148549998907,
+    "sharedBuffersHit": 76726.0,
+    "sharedBuffersRead": 86.0
+  },
+  "database": {
+    "queryCalls": 10237.0,
+    "queryTimeMs": 2071.1148549998907,
+    "transactionCount": 3.0,
+    "transactionDurationMs": 86.013,
+    "lockWaitCount": 0.0,
+    "activeConnections": 15.0,
+    "cpuPercent": 12.8
+  },
+  "retry": {
+    "commonRetrier": {
+      "attempts": {
+        "3": 1
+      },
+      "retries": 0,
+      "exhausted": 1
+    },
+    "coordinator": {
+      "attempts": {},
+      "retries": 0,
+      "exhausted": 0
+    }
+  },
+  "sources": {
+    "appLogApp1": {
+      "path": "t3-app-log-app1.log",
+      "sha256": "b4c6a044661515ffd67909a7d3d4302658ed3981167c94ed8471b5f28eaef8c1",
+      "sampleCount": 589
+    },
+    "appLogApp2": {
+      "path": "t3-app-log-app2.log",
+      "sha256": "af20d82923eb70f58f6a341460a4009bd5e988fc0add60e943d97f7584f1ffde",
+      "sampleCount": 397
+    },
+    "metricsApp1": {
+      "path": "t3-metrics-app1.csv",
+      "sha256": "aee70d9a735d94a3c23c231e84c51f30eec25afde8d8b65c0d0485805186a640",
+      "sampleCount": 17
+    },
+    "metricsApp2": {
+      "path": "t3-metrics-app2.csv",
+      "sha256": "cc9881916fca72658a586520ae85fbc4bff09192c26f59e68b46b72ac6f80d8f",
+      "sampleCount": 16
+    },
+    "metricsPostgres": {
+      "path": "t3-metrics-postgres.csv",
+      "sha256": "4f358fd90d5fb3ef704428cb50dc4dfd1047573bf6203f451288c17cd0ae7340",
+      "sampleCount": 34
+    }
+  },
+  "observedStructuredRetryEvents": 1
+}

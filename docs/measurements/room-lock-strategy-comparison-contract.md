@@ -14,7 +14,19 @@
 
 이 문서는 최종 잠금 전략, 생산 코드 병합, ADR, SLO/SLA를 결정하지 않는다. 비교 결과는 후속 결정의 입력으로만 보존한다.
 
-## 실행 matrix
+## 2026-08-20 timeboxed 실행 범위
+
+아래 전체 matrix는 최초 600회 campaign의 설계 기록으로 보존한다. 다만 빠른 잠금 전략 결정 입력을 위한 사용자 승인 timeboxed 실행은 다음으로 한정했다.
+
+- 시나리오·조건: `ROOM 시나리오 T1`의 `constant-arrival-rate`·`constant-mixed`·c8(초당 8건)·60초·실행당 480 ROOM 요청
+- A/B: 같은 조건에서 각각 완결 PASS 4회를 보존한다. 다섯 번째 반복을 만들기 위한 재측정은 하지 않는다.
+- C: p4 원자료에서 provenance가 유효한 server failure 4건·contract failure 4건과 after diagnosis의 5xx가 발생했다. `ROOM-LOCK-CMP-T7`의 1차 분류는 `FAIL`이며, C는 이 T1 조건의 성능 순위와 추가 성능 반복에서 제외한다.
+- C runner artifact: p4는 nonzero k6 종료 뒤 `resource-signals.json`이 없어 runner 최종 상태가 `INVALID`다. 이는 실제 5xx를 무효화하지 않는 부가 관측 artifact 상태이며, `FAIL`과 함께 원자료·digest에 보존한다.
+- 보류: T2, barrier-hot·barrier-spread·constant-hot, c2·c4·c16, T3·T4·T5, c32는 이번 실행에 포함하지 않는다.
+
+`docs/measurements/results/room-lock-strategy-comparison/campaign-plan.json`과 `campaign-report.json`이 이 승인 범위와 포함·제외 사유의 정본이다. 이 제한된 T1 결과는 T2 또는 ROOM 전체의 잠금 전략을 자동 선택하지 않는다.
+
+## 기존 전체 실행 matrix (이번 timeboxed 실행에서는 보류)
 
 핵심 비교는 `ROOM 시나리오 T1`과 `ROOM 시나리오 T2`를 별도로 판정한다.
 
@@ -38,7 +50,7 @@ constant-arrival-rate의 공통값은 다음과 같다.
 
 핵심 비교는 후보 3개 × 시나리오 2개 × condition 4개 × 동시성 4개 × 반복 5개 = **480회**이며, 각 paired run의 후보 실행 순서는 seed 기반으로 섞는다. A→B→C 고정 순서는 사용하지 않는다.
 
-### 회귀·배경 실행
+### 기존 회귀·배경 실행 (이번 timeboxed 실행에서는 보류)
 
 모든 후보에 다음을 같은 후보 순서·fixture·release 설정으로 적용한다.
 
@@ -99,11 +111,13 @@ FAIL/INVALID 중 하나라도 있으면 해당 candidate/condition의 성능 순
 
 786의 campaign report는 정규화 metric과 eligible/excluded 상태를 만들지만 최종 winner를 자동 선택하지 않는다. 최종 선택은 이 원자료를 확인한 뒤 별도 결정으로 남긴다.
 
+이번 timeboxed report에서 A/B의 4회는 제한된 T1 metric 증거로만 표시한다. 원래 5회 전체 matrix의 winner gate를 충족했다고 해석하지 않으며, A/B의 최종 선택·ADR은 이 이슈 밖의 사람 결정으로 남긴다.
+
 ## 운영 게이트
 
 teardown과 AWS 잔여 resource 확인은 T-ID 밖 운영 게이트다.
 
-- 승인된 teardown 뒤 EC2, EBS, EIP, VPC, CloudWatch 등 test-owned resource를 재조회한다.
+- raw bundle과 SHA-256 digest를 먼저 정식 결과 경로에 보존한 뒤, 승인된 teardown으로 EC2, EBS, EIP, VPC, CloudWatch 등 test-owned resource를 재조회한다.
 - teardown 실패 또는 잔여 resource가 있으면 운영 완료를 차단한다.
 - 운영 게이트 결과를 측정 run의 FAIL/INVALID 성능 판정으로 바꾸지 않고 별도 보고한다.
 

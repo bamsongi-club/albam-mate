@@ -6,6 +6,17 @@ Issue #786에서 #785가 고정한 A/B/C 후보를 같은 AWS 환경·release �
 
 세 후보는 기존 PR #791·#792·#793의 SHA를 그대로 사용한다. 후보 PR을 이 branch에 합치거나 후보 코드를 수정하지 않는다.
 
+## 2026-08-20 timeboxed 실행 기록
+
+최초 계획은 T1·T2 전체 matrix와 회귀를 포함한 600회 campaign이었다. 사용자 승인에 따라 이번 실행은 잠금 전략 결정을 위한 최소 증거로 축소했다.
+
+- `T1`·`constant-mixed`·`constant-arrival-rate`·c8·8 req/s·60초만 실행했다.
+- A와 B는 각각 완결 PASS 4회를 보존했다. 다섯 번째 반복을 맞추기 위한 재측정은 하지 않는다.
+- C p4는 유효 provenance에서 5xx·server failure·contract failure가 각각 4건 발생해 T7의 1차 분류가 `FAIL`이다. nonzero k6 종료 뒤 resource signal이 빠져 runner 최종 상태는 `INVALID`로 남지만, 두 상태를 함께 보존하고 C 성능 순위에는 넣지 않는다.
+- 실행 전 중단한 A p3, C p1·p2 bundle도 제외 사유와 함께 보존한다.
+
+실제 실행 목록·candidate SHA·원자료 digest·정규화 metric은 [campaign plan](results/room-lock-strategy-comparison/campaign-plan.json), [campaign report](results/room-lock-strategy-comparison/campaign-report.json), [raw digest](results/room-lock-strategy-comparison/raw-digests.json)에 있다. 이 기록은 #786의 증거이며 최종 winner·ADR·생산 병합을 만들지 않는다.
+
 ## 현재 구현
 
 - `load-tests/k6/jiwon/tools/room-lock-comparison.mjs`: 후보 순서가 섞인 campaign plan, c16·constant-arrival-rate·mixed fixture, comparison bundle, provenance와 PASS/FAIL/INVALID 집계
@@ -41,7 +52,7 @@ node load-tests/k6/jiwon/tools/room-lock-comparison.mjs plan `
   --output build/k6/room-lock/campaign-plan.json
 ```
 
-plan은 480개 핵심 실행과 120개 회귀·배경 실행을 포함한다. T5는 public/host/participant와 scale 1/10을 각각 별도 portable run으로 실행한다. 각 핵심 paired run은 같은 condition·동시성·반복 번호를 공유하고 후보 실행 순서만 seed 기반으로 섞는다.
+plan은 최초 설계상 480개 핵심 실행과 120개 회귀·배경 실행을 포함한다. T5는 public/host/participant와 scale 1/10을 각각 별도 portable run으로 실행한다. 각 핵심 paired run은 같은 condition·동시성·반복 번호를 공유하고 후보 실행 순서만 seed 기반으로 섞는다. 이번 timeboxed 결과는 이 full-plan generator를 실행한 결과가 아니라, 실제 생성된 bundle을 `campaign-plan.json`에 4회 범위로 고정해 보존한 결과다.
 
 ### 3. 후보별 comparison bundle 생성
 
@@ -87,7 +98,7 @@ node load-tests/k6/jiwon/tools/room-lock-comparison.mjs aggregate-campaign `
   --output docs/measurements/results/room-lock-strategy-comparison/campaign-report.json
 ```
 
-report는 유효·제외 candidate와 정규화 metric을 남기며 winner는 자동으로 만들지 않는다. 최종 생산 전략은 report와 raw artifact를 사람이 확인한 뒤 별도 결정한다.
+report는 유효·제외 candidate와 정규화 metric을 남기며 winner는 자동으로 만들지 않는다. 최종 생산 전략은 report와 raw artifact를 사람이 확인한 뒤 별도 결정한다. 이번 timeboxed report는 A/B 4회와 C T7 FAIL을 정직하게 기록하며, full 5회 gate를 통과했다고 주장하지 않는다.
 
 ## 금지 범위
 
