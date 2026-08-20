@@ -262,6 +262,36 @@ class MatchProposalClaimPostgresTest extends SharedPostgresIntegrationSupport {
 	}
 
 	@Test
+	void 고정_32767개_접두사_뒤의_호환_후보까지_keyset_page로_탐색해_claim한다() {
+		long anchorUserId = insertUser("keyset-anchor");
+		long anchorRequestId = insertRequest(anchorUserId, 2, 2, 10);
+		insertIncompatibleWaitingPrefix(Short.MAX_VALUE - 1);
+		long compatibleUserId = insertUser("keyset-compatible");
+		long compatibleRequestId = insertRequest(compatibleUserId, 2, 2, 30);
+
+		matchProposalCoordinator.claimAvailableCandidates();
+
+		assertEquals("PROPOSED", requestStatus(anchorRequestId));
+		assertEquals("PROPOSED", requestStatus(compatibleRequestId));
+		assertEquals(List.of(anchorRequestId, compatibleRequestId), jdbcTemplate.queryForList(
+			"select match_request_id from match_proposal_members order by match_request_id", Long.class));
+	}
+
+	@Test
+	void target_범위에_포함된_차단_후보_100건_뒤의_호환_후보까지_다음_keyset_page를_탐색한다() {
+		long anchorUserId = insertUser("keyset-page-anchor");
+		long anchorRequestId = insertRequest(anchorUserId, 2, 2, 10);
+		insertBlockedCompatibleWaitingPrefix(anchorUserId, 100);
+		long compatibleUserId = insertUser("keyset-page-compatible");
+		long compatibleRequestId = insertRequest(compatibleUserId, 2, 2, 30);
+
+		matchProposalCoordinator.claimAvailableCandidates();
+
+		assertEquals("PROPOSED", requestStatus(anchorRequestId));
+		assertEquals("PROPOSED", requestStatus(compatibleRequestId));
+	}
+
+	@Test
 	void ProposalMember_저장_실패는_Proposal과_모든_요청_상태를_함께_롤백한다() {
 		long firstUserId = insertUser("rollback-first");
 		long secondUserId = insertUser("rollback-second");
@@ -311,6 +341,46 @@ class MatchProposalClaimPostgresTest extends SharedPostgresIntegrationSupport {
 			Long.class,
 			userId, minPartySize, maxPartySize, Timestamp.from(time), Timestamp.from(time), Timestamp.from(time),
 			Timestamp.from(time));
+	}
+
+	private void insertIncompatibleWaitingPrefix(int count) {
+		Instant time = Instant.parse("2026-08-20T00:00:20Z");
+		jdbcTemplate.update("""
+			insert into users (email, password_hash, nickname, created_at, updated_at)
+			select 'match-claim-keyset-incompatible-' || value || '@example.com', 'hash',
+				'keyset-incompatible-' || value, ?, ?
+			from generate_series(1, ?) value
+			""", Timestamp.from(time), Timestamp.from(time), count);
+		jdbcTemplate.update("""
+			insert into match_requests
+			(user_id, min_party_size, max_party_size, status, queued_at, priority_since, created_at, updated_at)
+			select id, 3, 3, 'WAITING', ?, ?, ?, ?
+			from users
+			where email like 'match-claim-keyset-incompatible-%'
+			""", Timestamp.from(time), Timestamp.from(time), Timestamp.from(time), Timestamp.from(time));
+	}
+
+	private void insertBlockedCompatibleWaitingPrefix(long anchorUserId, int count) {
+		Instant time = Instant.parse("2026-08-20T00:00:20Z");
+		jdbcTemplate.update("""
+			insert into users (email, password_hash, nickname, created_at, updated_at)
+			select 'match-claim-keyset-blocked-' || value || '@example.com', 'hash',
+				'keyset-blocked-' || value, ?, ?
+			from generate_series(1, ?) value
+			""", Timestamp.from(time), Timestamp.from(time), count);
+		jdbcTemplate.update("""
+			insert into match_requests
+			(user_id, min_party_size, max_party_size, status, queued_at, priority_since, created_at, updated_at)
+			select id, 2, 2, 'WAITING', ?, ?, ?, ?
+			from users
+			where email like 'match-claim-keyset-blocked-%'
+			""", Timestamp.from(time), Timestamp.from(time), Timestamp.from(time), Timestamp.from(time));
+		jdbcTemplate.update("""
+			insert into match_blocks (blocker_user_id, blocked_user_id, created_at)
+			select ?, id, ?
+			from users
+			where email like 'match-claim-keyset-blocked-%'
+			""", anchorUserId, Timestamp.from(time));
 	}
 
 	private String requestStatus(long requestId) {

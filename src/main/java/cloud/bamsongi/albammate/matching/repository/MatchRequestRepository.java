@@ -25,11 +25,27 @@ public interface MatchRequestRepository extends JpaRepository<MatchRequest, Long
 		select * from match_requests
 		where status = 'WAITING'
 		order by priority_since asc, id asc
-		limit :candidateBatchSize
+		limit 1
 		for update skip locked
 		""", nativeQuery = true)
-	java.util.List<MatchRequest> findWaitingForUpdateSkipLocked(@Param("candidateBatchSize")
-	int candidateBatchSize);
+	java.util.List<MatchRequest> findOldestWaitingForUpdateSkipLocked();
+
+	@org.springframework.data.jpa.repository.Query(value = """
+		select * from match_requests
+		where status = 'WAITING'
+		  and (priority_since > :afterPrioritySince
+			or (priority_since = :afterPrioritySince and id > :afterRequestId))
+		order by priority_since asc, id asc
+		limit :candidatePageSize
+		for update skip locked
+		""", nativeQuery = true)
+	java.util.List<MatchRequest> findWaitingAfterForUpdateSkipLocked(
+		@Param("afterPrioritySince")
+		java.time.Instant afterPrioritySince,
+		@Param("afterRequestId")
+		long afterRequestId,
+		@Param("candidatePageSize")
+		int candidatePageSize);
 
 	@Query("""
 		select request from MatchRequest request
