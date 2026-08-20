@@ -47,10 +47,17 @@ const SCENARIO_SCRIPTS = {
   t3: 't3-waitlist-cancel-race.js',
   t4: 't4-last-seat-participation.js',
   t5: 't5-room-detail-by-role.js',
+  mixed: 'room-mixed-write-read.js',
 };
+const MIXED_PROFILE_OPTION_KEYS = [
+  'hotRoomCount', 'spreadRoomCount', 'hotRequestPercent', 'spreadRequestPercent',
+  't1Percent', 't2Percent', 't5Percent', 'arrivalRate', 'arrivalTimeUnit',
+  'durationSeconds', 'preAllocatedVUs', 'maxVUs', 'seed',
+];
 const COMMAND_OPTION_KEYS = {
   prepare: new Set([
     'scenario', 'runId', 'profile', 'rounds', 'mode', 'concurrency', 'subcase', 't3Mode', 't5Role', 't5Scale',
+    ...MIXED_PROFILE_OPTION_KEYS,
   ]),
   run: new Set(['fixture']),
   verify: new Set(['fixture', 'stage']),
@@ -59,6 +66,7 @@ const COMMAND_OPTION_KEYS = {
   'recover-cleanup': new Set(['recovery']),
   'render-bundle': new Set([
     'scenario', 'runId', 'profile', 'rounds', 'mode', 'concurrency', 'subcase', 't3Mode', 't5Role', 't5Scale',
+    ...MIXED_PROFILE_OPTION_KEYS,
   ]),
   validate: new Set(['bundle', 'forExecution']),
   'execution-options': new Set(['bundle']),
@@ -81,7 +89,7 @@ const BUNDLE_RUNTIME_DIRECT_COMMANDS = new Set([
 
 function usage() {
   return `사용법:
-  node load-tests/k6/jiwon/tools/fixture.mjs prepare --scenario t1 --run-id <run-id> [옵션]
+  node load-tests/k6/jiwon/tools/fixture.mjs prepare --scenario t1|t2|t3|t4|t5|mixed --run-id <run-id> [옵션]
   node load-tests/k6/jiwon/tools/fixture.mjs run --fixture <fixture.json>
   node load-tests/k6/jiwon/tools/fixture.mjs verify --fixture <fixture.json> --stage before|after
   node load-tests/k6/jiwon/tools/fixture.mjs compare-t5 --run-id <run-id>
@@ -321,10 +329,14 @@ function assertFixtureMatchesPlan(fixturePath, fixture) {
     || !isDeepStrictEqual(fixture.options, plan.options)
     || !hasExactKeys(fixture, [
       'schemaVersion', 'fixtureId', 'options', 'prepareOwnership', 'users', 'rooms', 'targets', 'sessionUserKeys', 'baselineSnapshot',
+      ...(plan.fixturePartitions ? ['fixturePartitions'] : []),
+      ...(plan.mixedProfile ? ['mixedProfile'] : []),
     ])
     || !fixture.baselineSnapshot || typeof fixture.baselineSnapshot !== 'object' || Array.isArray(fixture.baselineSnapshot)
     || !isDeepStrictEqual(fixture.targets, plan.targets)
-    || !isDeepStrictEqual(fixture.sessionUserKeys, [...new Set(plan.sessionUserKeys)])) {
+    || !isDeepStrictEqual(fixture.sessionUserKeys, [...new Set(plan.sessionUserKeys)])
+    || !isDeepStrictEqual(fixture.fixturePartitions, plan.fixturePartitions)
+    || !isDeepStrictEqual(fixture.mixedProfile, plan.mixedProfile)) {
     fixturePlanMismatch();
   }
 
@@ -621,6 +633,10 @@ function completedRunArtifact(fixturePath, fixture) {
     return { failure: 'run-manifest.json에 완료 lifecycle 기록이 없습니다.' };
   }
 
+  const mixedProfileMatches = fixture.options.scenario === 'mixed'
+    ? isDeepStrictEqual(manifest.mixedProfile, fixture.mixedProfile)
+    : !Object.hasOwn(manifest, 'mixedProfile');
+
   if (manifest.schemaVersion !== 2
     || manifest.fixtureId !== fixture.fixtureId
     || manifest.runId !== fixture.options.runId
@@ -635,6 +651,7 @@ function completedRunArtifact(fixturePath, fixture) {
     || !SHA256_PATTERN.test(manifest.fixtureSha256 || '')
     || !SHA256_PATTERN.test(manifest.summarySha256 || '')
     || manifest.summaryFile !== RUN_SUMMARY_FILE
+    || !mixedProfileMatches
     || (fixture.options.scenario === 't5' && !isT5ReadOptions(manifest.t5ReadOptions))) {
     return { failure: 'run-manifest.json이 현재 fixture의 완료된 실행 기록과 맞지 않습니다.' };
   }
@@ -1015,6 +1032,9 @@ async function run(values) {
   const t5ReadOptions = fixture.options.scenario === 't5'
     ? readExecutionOptions(process.env)
     : null;
+  const mixedProfile = fixture.options.scenario === 'mixed'
+    ? fixture.mixedProfile
+    : null;
   const version = k6Version();
   const scriptPath = scenarioScriptPath(fixture);
   const manifest = {
@@ -1036,6 +1056,9 @@ async function run(values) {
   };
   if (t5ReadOptions) {
     manifest.t5ReadOptions = t5ReadOptions;
+  }
+  if (mixedProfile) {
+    manifest.mixedProfile = mixedProfile;
   }
   let k6Process = null;
   let interruptedSignal = null;
@@ -1169,7 +1192,7 @@ function verify(values) {
     fixtureId: fixture.fixtureId,
     scenario: fixture.options.scenario,
     stage,
-    status: failures.length === 0 ? evaluation.status : 'FAIL',
+    status: evaluation.status === 'INVALID' ? 'INVALID' : failures.length === 0 ? evaluation.status : 'FAIL',
     failures,
   };
   writeJson(path.join(path.dirname(fixturePath), `${stage}-verification.json`), result);

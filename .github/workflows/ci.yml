@@ -503,6 +503,7 @@ jobs:
         run: >-
           node --test
           load-tests/k6/jiwon/tests/fixture-model.test.mjs
+          load-tests/k6/jiwon/tests/room-mixed-options.test.mjs
           load-tests/k6/jiwon/tests/t3-execution-plan.test.mjs
           load-tests/k6/jiwon/tests/fixture-runner.test.mjs
           load-tests/k6/jiwon/tests/write-response-contract.test.mjs

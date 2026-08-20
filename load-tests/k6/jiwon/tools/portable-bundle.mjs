@@ -24,13 +24,14 @@ import {
   normalizePrepareOwnership,
   RUN_ID_PATTERN,
 } from './fixture-model.mjs';
+import { buildMixedAggregate, normalizeMixedProfileOptions } from '../lib/room-mixed-options.mjs';
 import { readExecutionOptions } from '../lib/read-execution-options.mjs';
 
 const BUNDLE_KIND = 'albam-mate-room-k6-bundle';
 const BUNDLE_SCHEMA_VERSION = 2;
 const SOURCE_SHA_PATTERN = /^[a-f0-9]{40}$/;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
-const FIXTURE_ID_PATTERN = /^room-k6-t[1-5]-[a-f0-9]{12}$/;
+const FIXTURE_ID_PATTERN = /^room-k6-(?:t[1-5]|mixed)-[a-f0-9]{12}$/;
 const IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 
 const SCENARIO_ENTRIES = Object.freeze({
@@ -39,11 +40,13 @@ const SCENARIO_ENTRIES = Object.freeze({
   t3: 't3-waitlist-cancel-race.js',
   t4: 't4-last-seat-participation.js',
   t5: 't5-room-detail-by-role.js',
+  mixed: 'room-mixed-write-read.js',
 });
 
 const RUNTIME_FILES = Object.freeze([
   'lib/room-k6.js',
   'lib/read-execution-options.mjs',
+  'lib/room-mixed-options.mjs',
   'lib/write-options.mjs',
   'lib/t3-execution-plan.mjs',
   'lib/start-skew.mjs',
@@ -267,6 +270,22 @@ function sourceProvenance(context, override) {
   return { sourceRevision: revision, sourceDirty: false };
 }
 
+function mixedExecutionProfile(plan) {
+  if (plan.options.scenario !== 'mixed') {
+    return null;
+  }
+  const profile = plan.mixedProfile;
+  const options = normalizeMixedProfileOptions(plan.options);
+  if (!profile || profile.selectionPlanDigest === undefined || !profile.selectionCounts) {
+    fail('mixed fixture plan에 selection profile이 없습니다.');
+  }
+  return {
+    options,
+    selectionPlanDigest: profile.selectionPlanDigest,
+    selectionCounts: profile.selectionCounts,
+  };
+}
+
 function executionOptions(plan, environment) {
   const integer = (name, fallback, minimum, maximum) => {
     const raw = String(environment?.[name] ?? '').trim();
@@ -289,7 +308,11 @@ function executionOptions(plan, environment) {
     k6Environment.ROOM_K6_READ_DURATION_SECONDS = String(t5ReadOptions.durationSeconds);
     k6Environment.ROOM_K6_READ_THINK_TIME_MS = String(t5ReadOptions.thinkTimeMilliseconds);
   }
-  return { schemaVersion: 1, k6Environment, t5ReadOptions };
+  const result = { schemaVersion: 1, k6Environment, t5ReadOptions };
+  if (plan.options.scenario === 'mixed') {
+    result.mixedProfile = mixedExecutionProfile(plan);
+  }
+  return result;
 }
 
 function assertExecutionOptions(value) {
@@ -309,6 +332,14 @@ function assertExecutionOptions(value) {
       || !Number.isInteger(options.thinkTimeMilliseconds)) {
       fail('execution-options.json의 t5ReadOptions 형식이 올바르지 않습니다.');
     }
+  }
+  if (Object.hasOwn(value, 'mixedProfile')) {
+    const profile = value.mixedProfile;
+    if (!profile || typeof profile !== 'object' || Array.isArray(profile)
+      || typeof profile.selectionPlanDigest !== 'string' || !profile.selectionCounts) {
+      fail('execution-options.json의 mixedProfile 형식이 올바르지 않습니다.');
+    }
+    normalizeMixedProfileOptions(profile.options);
   }
 }
 
@@ -393,7 +424,14 @@ function readBundle(context, rawBundlePath) {
   if (resourceQuerySql !== buildResourceQuery(plan, ownership)) {
     fail('resource-query.sql이 fixture plan·prepare ownership과 일치하지 않습니다.');
   }
-  assertExecutionOptions(readJson(artifactPath(bundle, ARTIFACTS.executionOptions), 'execution options'));
+  const execution = readJson(artifactPath(bundle, ARTIFACTS.executionOptions), 'execution options');
+  assertExecutionOptions(execution);
+  if (plan.options.scenario === 'mixed' && !sameJson(execution.mixedProfile, mixedExecutionProfile(plan))) {
+    fail('execution-options.json의 mixed profile이 fixture plan과 일치하지 않습니다.');
+  }
+  if (plan.options.scenario !== 'mixed' && Object.hasOwn(execution, 'mixedProfile')) {
+    fail('기존 scenario execution-options에 mixed profile이 포함되어 있습니다.');
+  }
   return { bundle, plan, ownership };
 }
 
@@ -480,7 +518,7 @@ function readDiagnosis(bundle, relativePath, stage) {
   const hasValidFailures = Array.isArray(failures)
     && (status === 'PASS' ? failures.length === 0 : failures.length > 0);
   const hasRequiredBaseline = stage !== 'before'
-    || bundle.manifest.options.scenario !== 't5'
+    || !['t5', 'mixed'].includes(bundle.manifest.options.scenario)
     || isSnapshot(diagnosis?.baselineSnapshot);
   if (!hasValidIdentity || !hasValidStatus || !hasValidFailures || !hasRequiredBaseline) {
     fail(`${relativePath}이 현재 bundle의 ${stage} 진단 계약과 맞지 않습니다.`);
@@ -603,7 +641,7 @@ export function diagnoseBundle(values, context) {
   const snapshotPath = stage === 'before' ? ARTIFACTS.beforeSnapshot : ARTIFACTS.afterSnapshot;
   const snapshot = readSnapshot(bundle, snapshotPath);
   const fixture = readHydratedFixture(bundle, plan, ownership);
-  if (stage === 'after' && plan.options.scenario === 't5') {
+  if (stage === 'after' && ['t5', 'mixed'].includes(plan.options.scenario)) {
     const beforeDiagnosis = readDiagnosis(bundle, ARTIFACTS.beforeDiagnosis, 'before');
     fixture.baselineSnapshot = beforeDiagnosis.baselineSnapshot;
   }
@@ -619,7 +657,7 @@ export function diagnoseBundle(values, context) {
     stage,
     ...evaluation,
   };
-  if (stage === 'before' && plan.options.scenario === 't5') {
+  if (stage === 'before' && ['t5', 'mixed'].includes(plan.options.scenario)) {
     result.baselineSnapshot = snapshot;
   }
   writeNewJson(outputPath, result);
@@ -627,7 +665,7 @@ export function diagnoseBundle(values, context) {
 }
 
 export function aggregateBundle(rawBundlePath, context) {
-  const { bundle } = readBundle(context, rawBundlePath);
+  const { bundle, plan } = readBundle(context, rawBundlePath);
   const issues = [];
   const readCurrentDiagnosis = (relativePath, stage) => {
     try {
@@ -649,8 +687,24 @@ export function aggregateBundle(rawBundlePath, context) {
   if (phaseCodes.some((code) => code === null)) {
     issues.push('원시 실행 phase exit code가 완결되지 않았습니다.');
   }
-  const hasInvalid = issues.length > 0 || before?.status === 'INVALID' || after?.status === 'INVALID';
-  const hasFailure = before?.status === 'FAIL' || after?.status === 'FAIL' || phaseCodes.some((code) => code !== null && code !== 0);
+  let mixedAggregate = null;
+  if (plan.options.scenario === 'mixed') {
+    try {
+      const summary = normalizeRoomSummary(
+        readJson(artifactPath(bundle, ARTIFACTS.summary), 'k6 summary'),
+      );
+      mixedAggregate = buildMixedAggregate(summary, plan.options);
+      if (mixedAggregate.status === 'INVALID') {
+        issues.push(...mixedAggregate.invalidReasons.map((reason) => `mixed aggregate INVALID: ${reason}`));
+      }
+    } catch (_) {
+      issues.push('mixed k6 summary 또는 aggregate를 읽지 못했습니다.');
+    }
+  }
+  const hasMixedInvalid = mixedAggregate?.status === 'INVALID';
+  const hasMixedFailure = mixedAggregate?.status === 'FAIL';
+  const hasInvalid = issues.length > 0 || hasMixedInvalid || before?.status === 'INVALID' || after?.status === 'INVALID';
+  const hasFailure = hasMixedFailure || before?.status === 'FAIL' || after?.status === 'FAIL' || phaseCodes.some((code) => code !== null && code !== 0);
   const result = {
     schemaVersion: 1,
     fixtureId: bundle.manifest.fixtureId,
@@ -661,6 +715,7 @@ export function aggregateBundle(rawBundlePath, context) {
     beforeDiagnosis: before,
     afterDiagnosis: after,
     infraExecution: execution,
+    ...(mixedAggregate ? { mixedAggregate } : {}),
   };
   const output = artifactPath(bundle, ARTIFACTS.finalResult);
   if (existsSync(output)) {

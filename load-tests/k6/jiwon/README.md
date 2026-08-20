@@ -21,8 +21,40 @@
 | T3 등록↔취소 경합 | `t3-waitlist-cancel-race.js` | race 반복, `wait-first`·`cancel-first` | 허용 종단만 남고 `RECRUITING + WAITING` 0 |
 | T4 마지막 자리 참가 | `t4-last-seat-participation.js` | 마지막 자리 × 동시 2·4·8 | ACTIVE 정확히 한 명, 정원 초과·자동 WAITING 0 |
 | T5 역할별 상세 조회 | `t5-room-detail-by-role.js` | public/host/participant × ACTIVE 1·10 | 역할별 shape·헤더, 조회 전후 DB snapshot 동일 |
+| Mixed write/read | `room-mixed-write-read.js` | 사람이 승인한 hot/spread·T1/T2/T5 비율과 seed·constant arrival 입력 | write/read fixture 격리, tier·operation·outcome aggregate와 arrival artifact 보존 |
 
 `public`은 익명이 아니라 로그인한 비관계 사용자다. T5는 `ACTIVE 1/정원 1`, `ACTIVE 10/정원 10`의 future-start `CLOSED` 만석 ROOM을 사용한다.
+
+### Mixed constant-arrival profile
+
+`mixed`는 기존 T1~T5의 기본 profile을 바꾸지 않는 별도 scenario다. 이 profile에는 운영 기본값이 없으며, 아래 값은 모두 사람의 사전 승인을 받아 `prepare` 또는 `render-bundle` 입력으로 명시해야 한다. 따라서 이 문서의 placeholder만으로는 실행되지 않는다.
+
+| 입력 | 의미와 검증 |
+| --- | --- |
+| `hotRoomCount`, `spreadRoomCount` | 1초 wave 안에서 사용할 hot/spread 논리 ROOM slot 수. spread는 같은 wave의 요청을 격리하도록 `arrivalRate` 이상이어야 하며, hot은 slot당 요청 수가 ROOM 정원 상한 10을 넘지 않아야 한다. write fixture는 T1/T2 사후 불변식을 보존하려고 operation·wave별 독립 physical ROOM으로 전개한다. |
+| `hotRequestPercent`, `spreadRequestPercent` | 두 tier 요청 비율. 각각 0보다 크고 합계는 100이다. |
+| `t1Percent`, `t2Percent`, `t5Percent` | cancel·waitlist register·room detail 구성 비율. 각각 0보다 크고 합계는 100이다. |
+| `arrivalRate`, `arrivalTimeUnit`, `durationSeconds` | `constant-arrival-rate`의 rate·time unit·duration. time unit은 결정적 fixture plan을 위해 현재 `1s`만 허용한다. 전체 target arrival은 `arrivalRate × durationSeconds`이며 fixture 상한 10,000 이하여야 한다. |
+| `preAllocatedVUs`, `maxVUs` | open model의 VU 확보 범위. `maxVUs`는 `preAllocatedVUs` 이상이어야 한다. |
+| `seed` | 0 이상 2,147,483,647 이하 정수. 같은 normalized 입력과 seed면 tier·operation·fixture ROOM 선택과 plan digest가 동일하다. |
+
+예를 들어 승인된 값을 변수에 넣은 뒤 다음처럼 bundle만 생성할 수 있다. 이 단계는 DB·k6·AWS를 호출하지 않는다.
+
+```powershell
+$bundle = node load-tests/k6/jiwon/tools/fixture.mjs render-bundle `
+  --scenario mixed --profile mixed --run-id <approved-run-id> `
+  --hotRoomCount <approved-hot-room-count> --spreadRoomCount <approved-spread-room-count> `
+  --hotRequestPercent <approved-hot-percent> --spreadRequestPercent <approved-spread-percent> `
+  --t1Percent <approved-t1-percent> --t2Percent <approved-t2-percent> --t5Percent <approved-t5-percent> `
+  --arrivalRate <approved-rate> --arrivalTimeUnit 1s --durationSeconds <approved-duration-seconds> `
+  --preAllocatedVUs <approved-preallocated-vus> --maxVUs <approved-max-vus> `
+  --seed <approved-seed> |
+  ConvertFrom-Json
+```
+
+`manifest.json`, `fixture-plan.json`, `execution-options.json`은 같은 normalized options와 `selectionPlanDigest`를 보존한다. `execution-options.json`의 `mixedProfile`에는 rate·time unit·duration·VU 범위와 selection count가 남는다. 실행 결과에서는 raw `k6-summary.json`의 `dropped_iterations`를 유지하고, `final-result.json`의 `mixedAggregate`가 target/actual arrival, dropped iterations, hot·spread × T1·T2·T5 × outcome count와 outcome latency를 빈 조합까지 포함해 정규화한다. constant-arrival-rate에서 k6가 노출하는 실행 순번은 dropped slot을 포함한 scheduled slot이 아니므로, mixed 요청 tag는 `actual_arrival_index`만 기록하며 `room_start_skew_ms`로 scheduled start skew를 주장하지 않는다.
+
+T1·T2 write fixture와 T5 read fixture는 같은 run 안에서도 ROOM·user·participation·waitlist identity를 공유하지 않는다. 필수 profile/manifest/seed/arrival artifact가 없거나 malformed면 `INVALID`이고, 계약이 갖춰진 뒤 aggregate 불일치·write/read 격리·사후 DB 불변식이 깨지면 `FAIL`이다. 이 profile의 실제 Terraform apply/run/destroy는 이 이슈 범위 밖이며 별도 운영 승인이 필요하다.
 
 ## fixture와 격리
 
@@ -97,7 +129,7 @@ node load-tests/k6/jiwon/tools/fixture.mjs verify `
   --fixture $prepared.fixturePath --stage after
 ```
 
-`run`은 k6 시작 전에 fixture의 결정적 plan과 현재 DB resource identity를 다시 대조한 뒤, fixture의 SHA-256을 같은 `run-manifest.json`에 기록하고 fixture가 가리키는 scenario 스크립트만 실행한다. `after` 검증은 현재 fixture SHA-256과 manifest를 다시 대조한 뒤 같은 경로의 `k6-summary.json`만 사용하므로, 실행 뒤 손상된 fixture나 수동으로 섞은 다른 실행 summary를 성능 근거로 쓰지 않는다. T5 manifest에는 실제 적용한 `t5ReadOptions`(VU·duration·think time)를 남기고, 같은 정규화 값으로 k6 child process를 실행한다. `ALBAM_MATE_SOURCE_SHA`에는 로컬 스크립트 checkout이 아니라 **대상 환경에 배포된** SHA를 넣는다. T1~T5는 `room_start_skew_ms`의 최댓값이 `1,000ms` 미만이어야 한다. 이는 응답 성능 SLO가 아니라 같은 barrier에 둔 VU가 실제로 함께 시작했는지 판정하는 실행 유효성 gate다.
+`run`은 k6 시작 전에 fixture의 결정적 plan과 현재 DB resource identity를 다시 대조한 뒤, fixture의 SHA-256을 같은 `run-manifest.json`에 기록하고 fixture가 가리키는 scenario 스크립트만 실행한다. `after` 검증은 현재 fixture SHA-256과 manifest를 다시 대조한 뒤 같은 경로의 `k6-summary.json`만 사용하므로, 실행 뒤 손상된 fixture나 수동으로 섞은 다른 실행 summary를 성능 근거로 쓰지 않는다. T5 manifest에는 실제 적용한 `t5ReadOptions`(VU·duration·think time)를 남기고, 같은 정규화 값으로 k6 child process를 실행한다. `ALBAM_MATE_SOURCE_SHA`에는 로컬 스크립트 checkout이 아니라 **대상 환경에 배포된** SHA를 넣는다. 기존 barrier 기반 T1~T5 profile은 `room_start_skew_ms`의 최댓값이 `1,000ms` 미만이어야 한다. 이는 응답 성능 SLO가 아니라 같은 barrier에 둔 VU가 실제로 함께 시작했는지 판정하는 실행 유효성 gate다. mixed constant-arrival profile은 [위 실행 순번 규칙](#mixed-constant-arrival-profile)을 따른다.
 
 ## Terraform 원격 실행 bundle
 
@@ -167,7 +199,7 @@ node load-tests/k6/jiwon/tools/fixture.mjs compare-t5 --run-id $runId
 
 portable bundle의 `manifest.json`은 실행 입력 계약이고, `infra-execution.json`·before/after diagnosis·`final-result.json`·`k6-summary.json`은 실행 결과다.
 
-`room_success`, `room_created`, `room_business_failures`, `room_concurrent_failures`, `room_unexpected_4xx`, `room_server_failures`, `room_contract_failures`, `room_start_skew_ms`와 아래 outcome별 duration metric을 k6 summary에서 확인한다.
+`room_success`, `room_created`, `room_business_failures`, `room_concurrent_failures`, `room_unexpected_4xx`, `room_server_failures`, `room_contract_failures`, 기존 barrier 기반 profile의 `room_start_skew_ms`와 아래 outcome별 duration metric을 k6 summary에서 확인한다.
 
 `k6-summary.json`은 `room_request_duration{outcome:success}`, `room_request_duration{outcome:business}`, `room_request_duration{outcome:concurrency}`, `room_request_duration{outcome:unexpected}`를 항상 포함한다. 각 metric의 `values`는 다음 구조로 정규화한다.
 
@@ -211,6 +243,7 @@ ROOM k6 campaign 목록과 current/superseded·기준선 제외 상태는 [Jiwon
 
 ```powershell
 node --test load-tests/k6/jiwon/tests/fixture-model.test.mjs
+node --test load-tests/k6/jiwon/tests/room-mixed-options.test.mjs
 node --test load-tests/k6/jiwon/tests/t3-execution-plan.test.mjs
 node --test load-tests/k6/jiwon/tests/fixture-runner.test.mjs
 node --test load-tests/k6/jiwon/tests/write-response-contract.test.mjs
@@ -236,4 +269,5 @@ k6 inspect load-tests/k6/jiwon/t2-concurrent-waitlist-registration.js
 k6 inspect load-tests/k6/jiwon/t3-waitlist-cancel-race.js
 k6 inspect load-tests/k6/jiwon/t4-last-seat-participation.js
 k6 inspect load-tests/k6/jiwon/t5-room-detail-by-role.js
+k6 inspect load-tests/k6/jiwon/room-mixed-write-read.js
 ```

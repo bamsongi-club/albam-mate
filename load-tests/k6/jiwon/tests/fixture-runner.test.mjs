@@ -291,6 +291,7 @@ function createIsolatedFixtureTool() {
   copySource(path.join('load-tests', 'k6', 'jiwon', 'tools', 'fixture-model.mjs'));
   copySource(path.join('load-tests', 'k6', 'jiwon', 'tools', 'portable-bundle.mjs'));
   copySource(path.join('load-tests', 'k6', 'jiwon', 'lib', 'read-execution-options.mjs'));
+  copySource(path.join('load-tests', 'k6', 'jiwon', 'lib', 'room-mixed-options.mjs'));
 
   return {
     root,
@@ -616,6 +617,38 @@ function runPrepare(runId, binDirectory, extraEnvironment = {}) {
   });
 }
 
+function runMixedPrepare(runId, binDirectory, extraEnvironment = {}) {
+  return spawnSync(process.execPath, [
+    fixtureTool,
+    'prepare',
+    '--scenario', 'mixed',
+    '--run-id', runId,
+    '--hot-room-count', '1',
+    '--spread-room-count', '4',
+    '--hot-request-percent', '50',
+    '--spread-request-percent', '50',
+    '--t1-percent', '50',
+    '--t2-percent', '25',
+    '--t5-percent', '25',
+    '--arrival-rate', '4',
+    '--arrival-time-unit', '1s',
+    '--duration-seconds', '3',
+    '--preAllocatedVUs', '4',
+    '--maxVUs', '8',
+    '--seed', '783',
+  ], {
+    cwd: repositoryRoot,
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      PATH: `${binDirectory}${path.delimiter}${process.env.PATH || ''}`,
+      ROOM_K6_FIXTURE_PASSWORD_HASH: '{bcrypt}$2a$10$test-hash',
+      ...fakePsqlExecutionEnvironment(binDirectory),
+      ...extraEnvironment,
+    },
+  });
+}
+
 function startPrepareFromTool(tool, runId, binDirectory, extraEnvironment = {}) {
   return spawn(process.execPath, [
     tool,
@@ -678,6 +711,23 @@ function verifyAfter(fixturePath, binDirectory = null, extraEnvironment = {}) {
     cwd: repositoryRoot,
     encoding: 'utf8',
     env: environment,
+  });
+}
+
+function verifyBefore(fixturePath, binDirectory, extraEnvironment = {}) {
+  return spawnSync(process.execPath, [fixtureTool, 'verify', '--fixture', fixturePath, '--stage', 'before'], {
+    cwd: repositoryRoot,
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      PATH: `${binDirectory}${path.delimiter}${process.env.PATH || ''}`,
+      FAKE_PSQL_RESOURCE_RESULT: fixtureResourceQueryResult(fixturePath),
+      FAKE_PSQL_SNAPSHOT_RESULT: JSON.stringify(fixtureSnapshot(
+        JSON.parse(readFileSync(fixturePath, 'utf8')),
+      )),
+      ...fakePsqlExecutionEnvironment(binDirectory),
+      ...extraEnvironment,
+    },
   });
 }
 
@@ -787,6 +837,77 @@ test('run은 k6 시작 전에 현재 DB resource identity를 검증한다', () =
   assert.ok(identityCheckIndex < k6VersionIndex);
 });
 
+test('mixed constant-arrival 실행은 실제 실행 순번을 scheduled arrival slot으로 보고하지 않는다', () => {
+  const mixedScript = path.join(repositoryRoot, 'load-tests', 'k6', 'jiwon', 'room-mixed-write-read.js');
+  const source = readFileSync(mixedScript, 'utf8');
+
+  assert.match(source, /const actualArrivalIndex = execution\.scenario\.iterationInTest;/);
+  assert.match(source, /actual_arrival_index: String\(actualArrivalIndex\)/);
+  assert.doesNotMatch(source, /plannedArrivalAt/);
+  assert.doesNotMatch(source, /recordStartSkew\(/);
+});
+
+test('mixed k6 options은 모든 tier-operation-outcome raw submetric을 threshold로 생성한다', () => {
+  const mixedScript = path.join(repositoryRoot, 'load-tests', 'k6', 'jiwon', 'room-mixed-write-read.js');
+  const source = readFileSync(mixedScript, 'utf8');
+
+  assert.match(source, /function mixedAggregateThresholds\(\)/);
+  assert.match(source, /const MIXED_TIERS = \['hot', 'spread'\]/);
+  assert.match(source, /const MIXED_OPERATIONS = \['t1', 't2', 't5'\]/);
+  assert.match(source, /const MIXED_OUTCOMES = \['success', 'business', 'concurrency', 'unexpected'\]/);
+  assert.match(source, /const tags = `tier:\$\{tier\},operation:\$\{operation\},outcome:\$\{outcome\}`/);
+  assert.match(source, /thresholds\[`room_mixed_requests\{\$\{tags\}\}`\]/);
+  assert.match(source, /thresholds\[`room_mixed_request_duration\{\$\{tags\}\}`\]/);
+  assert.match(source, /\['count>=0'\]/);
+  assert.match(source, /\['p\(99\)>=0'\]/);
+});
+
+test('prepare가 생성한 mixed fixture는 direct run, verify, cleanup의 결정적 plan 검증을 통과한다', () => {
+  const runId = `runner-mixed-direct-${process.pid}`;
+  const plan = createFixturePlan({
+    scenario: 'mixed',
+    runId,
+    hotRoomCount: 1,
+    spreadRoomCount: 4,
+    hotRequestPercent: 50,
+    spreadRequestPercent: 50,
+    t1Percent: 50,
+    t2Percent: 25,
+    t5Percent: 25,
+    arrivalRate: 4,
+    arrivalTimeUnit: '1s',
+    durationSeconds: 3,
+    preAllocatedVUs: 4,
+    maxVUs: 8,
+    seed: 783,
+  });
+  const binDirectory = mkdtempSync(path.join(os.tmpdir(), 'room-k6-bin-'));
+  mkdirSync(binDirectory, { recursive: true });
+  createFakeK6(binDirectory);
+
+  try {
+    const preparedFixture = hydrateFixture(plan, fixtureResources(plan), PREPARE_OWNERSHIP);
+    const prepare = runMixedPrepare(runId, binDirectory, {
+      FAKE_PSQL_RESOURCE_RESULT: JSON.stringify(fixtureResources(plan)),
+      FAKE_PSQL_SNAPSHOT_RESULT: JSON.stringify(fixtureSnapshot(preparedFixture)),
+    });
+    assert.equal(prepare.status, 0, prepare.stderr || prepare.stdout);
+    const fixturePath = path.join(fixtureBuildRoot, runId, plan.fixtureId, 'fixture.json');
+
+    const run = runFixture(fixturePath, binDirectory);
+    assert.equal(run.status, 0, run.stderr || run.stdout);
+
+    const verify = verifyBefore(fixturePath, binDirectory);
+    assert.equal(verify.status, 0, verify.stderr || verify.stdout);
+
+    const cleanup = cleanupFixture(fixturePath, binDirectory);
+    assert.equal(cleanup.status, 0, cleanup.stderr || cleanup.stdout);
+  } finally {
+    rmSync(path.join(fixtureBuildRoot, runId), { recursive: true, force: true });
+    rmSync(binDirectory, { recursive: true, force: true });
+  }
+});
+
 test('run manifest는 fixture SHA-256을 기록하고 after 검증에서 다시 대조한다', () => {
   const source = readFileSync(fixtureTool, 'utf8');
   const run = source.slice(source.indexOf('async function run('), source.indexOf('function verify('));
@@ -798,6 +919,60 @@ test('run manifest는 fixture SHA-256을 기록하고 after 검증에서 다시 
   assert.match(run, /const fixtureSha256 = sha256\(fixturePath\);/);
   assert.match(run, /fixtureSha256,/);
   assert.match(completedArtifact, /sha256\(fixturePath\) !== manifest\.fixtureSha256/);
+});
+
+test('direct after verify는 mixedProfile 누락·변조와 non-mixed manifest의 mixedProfile을 INVALID로 거절한다', () => {
+  const binDirectory = mkdtempSync(path.join(os.tmpdir(), 'room-k6-bin-'));
+  mkdirSync(binDirectory, { recursive: true });
+  createFakeK6(binDirectory);
+  const mixedRunId = `runner-mixed-manifest-${process.pid}`;
+  const t1RunId = `runner-non-mixed-manifest-${process.pid}`;
+  const mixedPlan = createFixturePlan({
+    scenario: 'mixed',
+    runId: mixedRunId,
+    hotRoomCount: 1,
+    spreadRoomCount: 4,
+    hotRequestPercent: 50,
+    spreadRequestPercent: 50,
+    t1Percent: 50,
+    t2Percent: 25,
+    t5Percent: 25,
+    arrivalRate: 4,
+    arrivalTimeUnit: '1s',
+    durationSeconds: 3,
+    preAllocatedVUs: 4,
+    maxVUs: 8,
+    seed: 783,
+  });
+
+  try {
+    const mixed = writeFixturePlan(mixedPlan);
+    assert.equal(runFixture(mixed.fixturePath, binDirectory).status, 0);
+    const mixedManifestPath = path.join(mixed.fixtureDirectory, 'run-manifest.json');
+    const mixedManifest = JSON.parse(readFileSync(mixedManifestPath, 'utf8'));
+    assert.deepEqual(mixedManifest.mixedProfile, mixed.fixture.mixedProfile);
+
+    delete mixedManifest.mixedProfile;
+    writeFileSync(mixedManifestPath, `${JSON.stringify(mixedManifest)}\n`, 'utf8');
+    assert.equal(verifyAfter(mixed.fixturePath).status, 2);
+
+    mixedManifest.mixedProfile = structuredClone(mixed.fixture.mixedProfile);
+    mixedManifest.mixedProfile.options.seed = 784;
+    writeFileSync(mixedManifestPath, `${JSON.stringify(mixedManifest)}\n`, 'utf8');
+    assert.equal(verifyAfter(mixed.fixturePath).status, 2);
+
+    const t1 = writeFixture(t1RunId);
+    assert.equal(runFixture(t1.fixturePath, binDirectory).status, 0);
+    const t1ManifestPath = path.join(t1.fixtureDirectory, 'run-manifest.json');
+    const t1Manifest = JSON.parse(readFileSync(t1ManifestPath, 'utf8'));
+    t1Manifest.mixedProfile = {};
+    writeFileSync(t1ManifestPath, `${JSON.stringify(t1Manifest)}\n`, 'utf8');
+    assert.equal(verifyAfter(t1.fixturePath).status, 2);
+  } finally {
+    rmSync(path.join(fixtureBuildRoot, mixedRunId), { recursive: true, force: true });
+    rmSync(path.join(fixtureBuildRoot, t1RunId), { recursive: true, force: true });
+    rmSync(binDirectory, { recursive: true, force: true });
+  }
 });
 
 test('T5는 barrier 직후 VU별 측정 시작 편차를 기록한다', () => {
@@ -2194,6 +2369,73 @@ test('portable bundle은 원격 raw metadata와 두 진단을 PASS·FAIL·INVALI
     assert.equal(incompleteMetadata.status, 'INVALID');
     assert.match(incompleteMetadata.issues[0], /phase exit code/);
     assert.equal(existsSync(finalResultPath), true);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('mixed INVALID after diagnosis는 failures를 보존해 portable aggregate가 다시 읽을 수 있다', () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'room-k6-portable-mixed-invalid-'));
+  const buildRoot = path.join(root, 'build', 'k6', 'room');
+  const context = {
+    repositoryRoot,
+    scenarioDirectory: path.join(repositoryRoot, 'load-tests', 'k6', 'jiwon'),
+    buildRoot,
+    bundleRoot: null,
+    isBundleRuntime: false,
+    environment: { ROOM_K6_FIXTURE_PASSWORD_HASH: '{bcrypt}$2a$10$portable-mixed-invalid-test' },
+  };
+  const provenance = { sourceRevision: 'e'.repeat(40), sourceDirty: false };
+
+  try {
+    const rendered = renderBundle({
+      scenario: 'mixed',
+      runId: `portable-mixed-invalid-${process.pid}-${Date.now()}`,
+      hotRoomCount: 1,
+      spreadRoomCount: 4,
+      hotRequestPercent: 50,
+      spreadRequestPercent: 50,
+      t1Percent: 50,
+      t2Percent: 25,
+      t5Percent: 25,
+      arrivalRate: 4,
+      arrivalTimeUnit: '1s',
+      durationSeconds: 3,
+      preAllocatedVUs: 4,
+      maxVUs: 8,
+      seed: 783,
+    }, context, provenance);
+    const bundle = rendered.bundlePath;
+    const plan = JSON.parse(readFileSync(path.join(bundle, 'fixture-plan.json'), 'utf8'));
+    writeFileSync(path.join(bundle, 'resource-output.json'), `${JSON.stringify(fixtureResources(plan))}\n`, 'utf8');
+
+    const hydrated = hydrateBundle(bundle, context);
+    const fixture = JSON.parse(readFileSync(hydrated.fixturePath, 'utf8'));
+    const snapshot = fixtureSnapshot(fixture);
+    writeFileSync(path.join(bundle, 'before-snapshot.json'), `${JSON.stringify(snapshot)}\n`, 'utf8');
+    assert.equal(diagnoseBundle({ bundle, stage: 'before' }, context).status, 'PASS');
+    writeFileSync(path.join(bundle, 'after-snapshot.json'), `${JSON.stringify(snapshot)}\n`, 'utf8');
+    writeFileSync(path.join(bundle, 'k6-summary.json'), '{"metrics":{}}\n', 'utf8');
+
+    const after = diagnoseBundle({ bundle, stage: 'after' }, context);
+    assert.equal(after.status, 'INVALID');
+    assert.ok(after.failures.some((failure) => failure.includes('mixed aggregate')));
+    writeFileSync(path.join(bundle, 'infra-execution.json'), `${JSON.stringify({
+      schemaVersion: 1,
+      runId: rendered.options.runId,
+      fixtureId: rendered.fixtureId,
+      phases: {
+        prepare: { exitCode: 0 },
+        resourceQuery: { exitCode: 0 },
+        beforeSnapshot: { exitCode: 0 },
+        k6: { exitCode: 0 },
+        afterSnapshot: { exitCode: 0 },
+      },
+    })}\n`, 'utf8');
+
+    const aggregate = aggregateBundle(bundle, context);
+    assert.equal(aggregate.status, 'INVALID');
+    assert.equal(aggregate.afterDiagnosis.status, 'INVALID');
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
