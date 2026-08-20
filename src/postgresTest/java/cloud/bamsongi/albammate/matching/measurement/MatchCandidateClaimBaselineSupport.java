@@ -206,7 +206,8 @@ public final class MatchCandidateClaimBaselineSupport {
 			.collect(java.util.stream.Collectors.joining("\n",
 				"fixtureOrdinal,userFixtureOrdinal,queuedAt,prioritySince,minPartySize,maxPartySize,userId,requestId,expectedTieOrder\n",
 				"\n"));
-		return new FixtureReportInput(fixture.generator(), fixture.fixtureInputSha256(), fixture.inputCsv(), sha256(manifestBytes),
+		return new FixtureReportInput(fixture.generator(), fixture.fixtureInputSha256(), fixture.inputCsv(),
+			sha256(manifestBytes),
 			List.copyOf(manifest));
 	}
 
@@ -764,7 +765,8 @@ public final class MatchCandidateClaimBaselineSupport {
 	record MaterializedRequest(int fixtureOrdinal, String label, long userId, long requestId) {
 	}
 
-	record FixtureReportInput(String generator, String fixtureInputSha256, String inputCsv, String materializedManifestSha256,
+	record FixtureReportInput(String generator, String fixtureInputSha256, String inputCsv,
+		String materializedManifestSha256,
 		List<MaterializedManifestEntry> manifest) {
 	}
 
