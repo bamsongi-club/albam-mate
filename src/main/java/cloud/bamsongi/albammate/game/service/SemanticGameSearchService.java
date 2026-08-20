@@ -6,6 +6,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,6 +18,7 @@ import cloud.bamsongi.albammate.game.contract.SemanticGameSearch;
 import cloud.bamsongi.albammate.game.contract.SemanticGameSearchMode;
 import cloud.bamsongi.albammate.game.contract.SemanticGameSearchQuery;
 import cloud.bamsongi.albammate.game.contract.SemanticGameSearchResult;
+import cloud.bamsongi.albammate.game.contract.SemanticSearchUnavailableException;
 import cloud.bamsongi.albammate.game.entity.Game;
 import cloud.bamsongi.albammate.game.repository.GameListSpecification;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
@@ -31,11 +35,13 @@ public class SemanticGameSearchService implements SemanticGameSearch {
 
 	@Override
 	public SemanticGameSearchResult search(SemanticGameSearchQuery query) {
+		List<DenseCandidateSource.Candidate> candidates;
 		try {
-			return semanticResult(query, candidateSource.findCandidates(query.rawQuery()));
-		} catch (RuntimeException ignored) {
+			candidates = candidateSource.findCandidates(query.rawQuery());
+		} catch (SemanticSearchUnavailableException ignored) {
 			return lexicalFallback(query);
 		}
+		return semanticResult(query, candidates);
 	}
 
 	private SemanticGameSearchResult semanticResult(
@@ -62,11 +68,12 @@ public class SemanticGameSearchService implements SemanticGameSearch {
 
 	private SemanticGameSearchResult lexicalFallback(SemanticGameSearchQuery query) {
 		try {
-			List<Game> games = new ArrayList<>(gameRepository.findAll(
-				GameListSpecification.from(query.criteria().withKeyword(query.rawQuery()))));
-			games.sort(Comparator.comparing(Game::getName).thenComparing(Game::getId));
-			return page(SemanticGameSearchMode.LEXICAL_FALLBACK, games, query.page(), query.size());
-		} catch (RuntimeException ignored) {
+			Slice<GameSummary> games = gameRepository.findLexicalFallbackSummaries(
+				GameListSpecification.from(query.criteria().withKeyword(query.rawQuery())),
+				PageRequest.of(query.page(), query.size()));
+			return new SemanticGameSearchResult(SemanticGameSearchMode.LEXICAL_FALLBACK, games.getContent(),
+				games.hasNext());
+		} catch (DataAccessResourceFailureException ignored) {
 			return new SemanticGameSearchResult(SemanticGameSearchMode.UNAVAILABLE, List.of(), false);
 		}
 	}

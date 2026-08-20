@@ -7,7 +7,7 @@
 ## 문서 책임
 
 - 이 문서가 소유하는 기능 동작과 완료 기준: 사용자가 게임을 이름이 아니라 플레이 의도와 자연어 조건으로 찾는 의미 기반 검색의 사용자 흐름, 검색 결과 품질, P1 조건 필터와의 결합, 실패·fallback·복구 경계와 `SEARCH-04` 완료 기준.
-- 이 문서가 소유하지 않는 API·ERD·아키텍처·기술 결정: HTTP 경로·요청/응답 타입, 테이블·컬럼·제약, 모듈 의존과 트랜잭션 구조, embedding 모델·vector 저장소·검색 엔진 선택. `dense-bge-m3` implementation selection과 Python service·pgvector·fallback 경계는 [ADR-0084](../adr/game/0084-search-04-dense-serving-architecture.md)가 소유하며, 각 내용은 해당 정본과 승인 ADR이 소유한다.
+- 이 문서가 소유하지 않는 API·ERD·아키텍처·기술 결정: HTTP 경로·요청/응답 타입, 테이블·컬럼·제약, 모듈 의존과 트랜잭션 구조, embedding 모델·vector 저장소·검색 엔진 선택. `dense-bge-m3` implementation selection과 Python service·pgvector·fallback 경계는 [ADR-0086](../adr/game/0086-search-04-dense-serving-architecture.md)가 소유하며, 각 내용은 해당 정본과 승인 ADR이 소유한다.
 - 연결할 P1 종료 계약과 P2 공통 규칙: [P1 검색 종료 명세](../archive/p1/search.md)의 `SEARCH-01`~`SEARCH-03`, [P1 검색 성능·인덱스 가이드](../guides/P1_SEARCH_PERFORMANCE.md)의 측정 경계, [P1 기능 종료 상태](../archive/p1/README.md#기능별-종료-상태), 현재 [P2 공통 명세](../P2-spec.md)와 [P2 기능 상태](README.md#기능별-현재-상태).
 
 현재 `GET /api/games?keyword=...`의 이름 부분일치 의미와 RANK-02의 `popularity_score DESC, name ASC, id ASC` 기본 정렬은 P1·3차 MVP 계약으로 유지한다. `SEARCH-04`는 기존 요청을 조용히 의미 검색으로 바꾸지 않고 별도 검색 계약으로 추가한다. 이 문서의 기능 ID·경로·현재 상태는 [P2 기능 상태](README.md#기능별-현재-상태)와 [P2 공통 명세](../P2-spec.md)에 함께 등록한다. 문서 작성은 계약 준비·구현·검증 완료를 뜻하지 않는다.
@@ -58,7 +58,7 @@ SEARCH-04 평가 corpus의 deterministic membership, pinned snapshot/version, 1,
 ### 포함 범위
 
 - 게임명만이 아니라 승인 manifest의 `approvedFields`에 포함된 게임 설명·별칭·카테고리·테마·메커니즘과 정규화된 인원·시간·복잡도·최소 연령을 이용한 의도 검색 후보 생성. 아래 필드명은 후보 목록이며 manifest allowlist를 대신하지 않는다.
-- lexical·semantic·hybrid 후보 생성 방식의 평가를 같은 fixture에서 보존한다. runtime primary candidate generation은 [ADR-0084](../adr/game/0084-search-04-dense-serving-architecture.md)에 따라 `dense-bge-m3`만 사용하며, Hybrid/RRF·다른 provider는 #836 runtime에 섞지 않는다.
+- lexical·semantic·hybrid 후보 생성 방식의 평가를 같은 fixture에서 보존한다. runtime primary candidate generation은 [ADR-0086](../adr/game/0086-search-04-dense-serving-architecture.md)에 따라 `dense-bge-m3`만 사용하며, Hybrid/RRF·다른 provider는 #836 runtime에 섞지 않는다.
 - 후보 생성 뒤 `SEARCH-01`~`SEARCH-03`의 hard filter, 공개 게임 범위, `playedFilter` 권한과 페이지 경계를 적용하는 규칙.
 - 의미 검색 결과의 결정적 관련도 정렬, 동일 결과 중복 제거, 빈 결과와 fallback 상태 표시.
 - 기존 필터·Sparse·Dense·Hybrid 후보를 같은 질의와 fixture로 비교하는 단계별 평가 게이트.
@@ -146,7 +146,7 @@ SEARCH-04 평가 corpus의 deterministic membership, pinned snapshot/version, 1,
 | [API](../API.md) | 필요 | 별도 의미 검색 요청·응답·fallback 상태·`SEARCH_UNAVAILABLE` 오류·인증/필터 계약을 등록한다. 기존 [GAME-01](../API.md#game-01-게임-목록검색)의 `keyword` 의미와 응답 호환성은 유지한다. |
 | [ERD](../ERD.md) | 조건부 필요 | 영속 index metadata·source release·version·상태·활성 pointer가 필요하다고 결정될 때만 테이블·제약·보존을 반영한다. vector/검색 projection은 승인 release·필드 allowlist와 rollback/삭제 경계를 연결해 반영한다. |
 | [아키텍처](../ARCHITECTURE.md) | 필요 | `game` 내부 의미 검색 read service와 projection/index build port의 책임, 외부 검색 adapter 의존 방향, query·catalog·fallback 흐름을 반영한다. 현재 `game` 모듈의 게임 목록·검색 책임은 유지한다. |
-| [ADR](../adr/README.md) | 필요 | [ADR-0060](../adr/game/0060-approved-catalog-ai-embedding-scope.md)과 [ADR-0072](../adr/game/0072-search-quality-corpus-membership-and-versioning.md)의 승인 release·corpus membership·version 경계를 전제로 [ADR-0084](../adr/game/0084-search-04-dense-serving-architecture.md)가 `dense-bge-m3`, Python runtime, pgvector, hard filter·fallback과 index-delivery 분리를 승인한다. |
+| [ADR](../adr/README.md) | 필요 | [ADR-0060](../adr/game/0060-approved-catalog-ai-embedding-scope.md)과 [ADR-0072](../adr/game/0072-search-quality-corpus-membership-and-versioning.md)의 승인 release·corpus membership·version 경계를 전제로 [ADR-0086](../adr/game/0086-search-04-dense-serving-architecture.md)가 `dense-bge-m3`, Python runtime, pgvector, hard filter·fallback과 index-delivery 분리를 승인한다. |
 | 운영 가이드 | 필요 | index build·검증·활성화·rollback, 고정 fixture와 release SHA, 장애 시 fallback/disabled 판단, query 원문 금지와 지표 확인 절차를 추가한다. 기존 [P1 검색 성능 가이드](../guides/P1_SEARCH_PERFORMANCE.md)는 P1 이름 부분일치와 `pg_trgm` 측정 경계로 유지하며 P2 의미 품질 계약으로 재해석하지 않는다. |
 
 ## 완료 기준

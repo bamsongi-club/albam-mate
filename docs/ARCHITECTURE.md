@@ -155,7 +155,7 @@ AI-01~AI-03 협력 계약은 책임을 소유한 모듈의 `contract`에 둔다.
 
 `game.contract.SemanticGameSearchQuery`는 #871이 호출하는 내부 read contract이고, `game.contract.DenseCandidateSource`는 dense 후보 ID·내부 relevance를 제공하는 port다. `game` service는 후보 결과를 신뢰하지 않고 `GameListSpecification`으로 P1 hard filter, `playedFilter`, 현재 catalog 유효성을 다시 조회한 뒤 `relevance DESC, name ASC, id ASC` 순서와 페이지를 만든다. relevance·vector·query 원문은 internal adapter 경계 밖 result에 노출하지 않는다.
 
-`infra.search`는 `DenseCandidateSource`만 구현하며 `game`의 Entity·Repository·DTO를 참조하지 않는다. 기본 adapter는 index 부재를 fail-closed로 표현하고, dense 불능 시 core는 같은 hard filter의 lexical fallback 또는 `UNAVAILABLE`로 수렴한다. #836은 model 실행·pgvector schema를 소유하지 않는다. 별도 Python BGE-M3 service, pgvector-enabled image/extension, release-bound backfill·`BUILDING → READY` activation·rollback은 [ADR-0084](adr/game/0084-search-04-dense-serving-architecture.md)와 [#942](https://github.com/bamsongi-club/albam-mate/issues/942)가 소유한다.
+`infra.search`는 `DenseCandidateSource`만 구현하며 `game`의 Entity·Repository·DTO를 참조하지 않는다. 기본 adapter는 index 부재를 fail-closed로 표현하고, dense 불능 시 core는 같은 hard filter의 lexical fallback 또는 `UNAVAILABLE`로 수렴한다. #836은 model 실행·pgvector schema를 소유하지 않는다. 별도 Python BGE-M3 service, pgvector-enabled image/extension, release-bound backfill·`BUILDING → READY` activation·rollback은 [ADR-0086](adr/game/0086-search-04-dense-serving-architecture.md)와 [#942](https://github.com/bamsongi-club/albam-mate/issues/942)가 소유한다.
 
 ### P2 MATCH 모듈 계약
 

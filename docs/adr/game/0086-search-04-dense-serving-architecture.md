@@ -1,4 +1,4 @@
-# ADR-0084: SEARCH-04 dense semantic serving core와 index delivery를 분리한다
+# ADR-0086: SEARCH-04 dense semantic serving core와 index delivery를 분리한다
 
 - 상태: 승인됨
 - 작성일: 2026-08-20
@@ -88,10 +88,10 @@ candidate source는 초기 corpus 전체의 결정적 `(gameId, relevance)` 순�
 - 상태: 미검증
 - 근거:
   - 계약: [#836 승인 코멘트](https://github.com/bamsongi-club/albam-mate/issues/836#issuecomment-5357413078)가 다섯 결정과 T1~T6을 고정했고, [#942](https://github.com/bamsongi-club/albam-mate/issues/942)가 actual index delivery 범위를 분리했다.
-  - 구현: `game.contract`의 `SemanticGameSearch`·`DenseCandidateSource`와 `game.service.SemanticGameSearchService`가 후보 ID를 P1 `GameListSpecification`으로 재검증하고, `infra.search`의 fail-closed adapter가 index 부재를 lexical fallback 경로로 연결한다.
-  - 테스트: #836 H2·PostgreSQL T1~T6 selector와 `jacocoAllTestCoverageVerification`이 로컬에서 통과해 P1 filter·결정적 페이지·empty/fallback/unavailable·기존 P1 목록 회귀를 확인했다.
+  - 구현: `game.contract`의 `SemanticGameSearch`·`DenseCandidateSource`와 `game.service.SemanticGameSearchService`가 후보 ID를 P1 `GameListSpecification`으로 재검증하고, `infra.search`의 fail-closed adapter가 index 부재를 lexical fallback 경로로 연결한다. provider/index 불능만 lexical fallback으로 전환하며 semantic core 오류는 숨기지 않는다.
+  - 테스트: rebase 뒤 `SemanticGameSearchServiceTest`의 T2~T6 exact selector 9개와 `SemanticGameSearchPostgresTest`의 T1·T2·T4 exact selector 4개가 통과해 P1 filter·결정적 페이지·empty/fallback/unavailable 경계를 확인했다.
 - 미검증:
-  - #836의 remote PR·CI와 #871 API/UI 연결
+  - #836의 최신 remote PR·CI와 #871 API/UI 연결
   - #942의 model/pgvector deployment, release-bound backfill, activation·rollback과 운영 실측
 
 > 상태 값과 번호·대체 규칙은 [README](README.md)를 따른다.

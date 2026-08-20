@@ -283,7 +283,7 @@ node scripts/p2-search-evaluation.mjs \
 
 - 의미 검색 API·DTO·응답 계약
 - 실제 lexical/Sparse/Dense/Hybrid/RRF 검색 구현
-- embedding model/provider/vector DB의 Final Quality·production 선택 (implementation-only `dense-bge-m3` runtime 경계는 [ADR-0084](../../adr/game/0084-search-04-dense-serving-architecture.md)가 소유)
+- embedding model/provider/vector DB의 Final Quality·production 선택 (implementation-only `dense-bge-m3` runtime 경계는 [ADR-0086](../../adr/game/0086-search-04-dense-serving-architecture.md)가 소유)
 - Flyway / production index / backfill
 - backend/frontend 기능 구현
 - 17만 건 전체 한국어 설명 자동 번역

@@ -21,6 +21,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import cloud.bamsongi.albammate.game.contract.DenseCandidateSource;
 import cloud.bamsongi.albammate.game.contract.SemanticGameSearchMode;
 import cloud.bamsongi.albammate.game.contract.SemanticGameSearchQuery;
+import cloud.bamsongi.albammate.game.contract.SemanticSearchUnavailableException;
 import cloud.bamsongi.albammate.game.dto.GameListRequest;
 import cloud.bamsongi.albammate.game.dto.PlayedFilter;
 import cloud.bamsongi.albammate.game.entity.Game;
@@ -138,12 +139,37 @@ class SemanticGameSearchPostgresTest extends SharedPostgresIntegrationSupport {
 			.saveAndFlush(UserPlayedGame.create(user.getId(), wrongPlayerCount.getId(), Instant.now()));
 		userPlayedGameRepository
 			.saveAndFlush(UserPlayedGame.create(user.getId(), privateMechanism.getId(), Instant.now()));
-		when(candidateSource.findCandidates(anyString())).thenThrow(new IllegalStateException("dense unavailable"));
+		when(candidateSource.findCandidates(anyString())).thenThrow(new SemanticSearchUnavailableException());
 
 		var result = semanticGameSearchService.search(query(user.getId(), 0, 10));
 
 		assertEquals(SemanticGameSearchMode.LEXICAL_FALLBACK, result.mode());
 		assertEquals(List.of(eligible.getId()), result.content().stream().map(game -> game.id()).toList());
+	}
+
+	@Test
+	void T4_lexical_fallback은_P1_인기순과_DB_Slice_페이지경계를_유지한다() {
+		Game lessPopular = game(836_501L, "전략 협동 게임 Alpha", 2, 4);
+		Game popularFirstByName = game(836_502L, "전략 협동 게임 Bravo", 2, 4);
+		Game popularSecondByName = game(836_503L, "전략 협동 게임 Charlie", 2, 4);
+		ReflectionTestUtils.setField(lessPopular, "popularityScore", new BigDecimal("0.100000"));
+		ReflectionTestUtils.setField(popularFirstByName, "popularityScore", new BigDecimal("0.200000"));
+		ReflectionTestUtils.setField(popularSecondByName, "popularityScore", new BigDecimal("0.200000"));
+		gameRepository.saveAllAndFlush(List.of(lessPopular, popularFirstByName, popularSecondByName));
+		when(candidateSource.findCandidates(anyString())).thenThrow(new SemanticSearchUnavailableException());
+
+		var firstPage = semanticGameSearchService.search(query(null, 0, 1));
+		var secondPage = semanticGameSearchService.search(query(null, 1, 1));
+		var thirdPage = semanticGameSearchService.search(query(null, 2, 1));
+
+		assertEquals(SemanticGameSearchMode.LEXICAL_FALLBACK, firstPage.mode());
+		assertEquals(List.of(popularFirstByName.getId()), firstPage.content().stream().map(game -> game.id()).toList());
+		assertTrue(firstPage.hasNext());
+		assertEquals(List.of(popularSecondByName.getId()),
+			secondPage.content().stream().map(game -> game.id()).toList());
+		assertTrue(secondPage.hasNext());
+		assertEquals(List.of(lessPopular.getId()), thirdPage.content().stream().map(game -> game.id()).toList());
+		assertFalse(thirdPage.hasNext());
 	}
 
 	private SemanticGameSearchQuery query(Long currentUserId, int page, int size) {
