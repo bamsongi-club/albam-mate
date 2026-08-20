@@ -18,6 +18,7 @@ public class AssistantConsentEndpointPolicyContributor implements ApiEndpointPol
 	public List<ApiEndpointPolicy> policies() {
 		return List.of(
 			new ApiEndpointPolicy(HttpMethod.GET, "/api/assistant/consent", AUTHENTICATED, false),
-			new ApiEndpointPolicy(HttpMethod.PUT, "/api/assistant/consent", AUTHENTICATED, true));
+			new ApiEndpointPolicy(HttpMethod.PUT, "/api/assistant/consent", AUTHENTICATED, true),
+			new ApiEndpointPolicy(HttpMethod.POST, "/api/assistant/recommendations", AUTHENTICATED, true));
 	}
 }

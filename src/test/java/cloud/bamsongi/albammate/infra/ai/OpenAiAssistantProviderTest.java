@@ -72,7 +72,13 @@ class OpenAiAssistantProviderTest {
 	}
 
 	@Test
-	void T2_gameStyles는_허용된_code와_1개이상_중복없는_최대8개만_허용한다() {
+	void T2_action별_gameStyles_cardinality와_허용된_code를_검증한다() {
+		assertTrue(responseFor("{\"action\":\"NEEDS_INPUT\",\"gameStyles\":[]}").succeeded());
+		assertEquals("NEEDS_INPUT", responseFor("{\"action\":\"NEEDS_INPUT\",\"gameStyles\":[]}").action());
+		assertTrue(responseFor("{\"action\":\"UNSUPPORTED\",\"gameStyles\":[]}").succeeded());
+		assertEquals("UNSUPPORTED", responseFor("{\"action\":\"UNSUPPORTED\",\"gameStyles\":[]}").action());
+		assertEquals(AiProviderFailure.INVALID_SCHEMA,
+			responseFor("{\"action\":\"NEEDS_INPUT\",\"gameStyles\":[\"STRATEGY\"]}").failure());
 		assertEquals(AiProviderFailure.INVALID_SCHEMA,
 			responseFor("{\"action\":\"RECOMMEND\",\"gameStyles\":[\"UNKNOWN\"]}").failure());
 		assertEquals(AiProviderFailure.INVALID_SCHEMA,

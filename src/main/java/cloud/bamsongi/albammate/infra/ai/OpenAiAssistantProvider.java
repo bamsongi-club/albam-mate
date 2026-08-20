@@ -29,12 +29,15 @@ import tools.jackson.databind.ObjectMapper;
 final class OpenAiAssistantProvider implements AiProviderClient {
 
 	private static final String TOOL_NAME = "propose_game_room_intent";
+	private static final Set<String> ALLOWED_ACTIONS = Set.of("RECOMMEND", "NEEDS_INPUT", "UNSUPPORTED");
 	private static final Set<String> ALLOWED_GAME_STYLES = Set.of(
 		"STRATEGY", "ABSTRACT_STRATEGY", "COLLECTIBLE", "FAMILY",
 		"CHILDREN", "THEMATIC", "PARTY", "WARGAME");
 	private static final String V1_INSTRUCTION = """
 		You extract a board-game room intent from exactly one current user sentence.
 		Call propose_game_room_intent exactly once and return only arguments matching its schema.
+		Use RECOMMEND when a game style is present, NEEDS_INPUT when a required style is absent,
+		and UNSUPPORTED when the request is not a board-game recommendation.
 		Never call any other tool, search for games, create rooms, execute SQL, or infer identifiers.
 		Use only the current user sentence, the server-provided missing field names, and Asia/Seoul as reference zone.
 		""";
@@ -44,10 +47,10 @@ final class OpenAiAssistantProvider implements AiProviderClient {
 		  "type":"object",
 		  "additionalProperties":false,
 		  "properties":{
-		    "action":{"type":"string","enum":["RECOMMEND"]},
+		    "action":{"type":"string","enum":["RECOMMEND","NEEDS_INPUT","UNSUPPORTED"]},
 		    "gameStyles":{
 		      "type":"array",
-		      "minItems":1,
+		      "minItems":0,
 		      "maxItems":8,
 		      "uniqueItems":true,
 		      "items":{
@@ -56,7 +59,11 @@ final class OpenAiAssistantProvider implements AiProviderClient {
 		      }
 		    }
 		  },
-		  "required":["action","gameStyles"]
+		  "required":["action","gameStyles"],
+		  "oneOf":[
+		    {"properties":{"action":{"const":"RECOMMEND"},"gameStyles":{"minItems":1}},"required":["action","gameStyles"]},
+		    {"properties":{"action":{"enum":["NEEDS_INPUT","UNSUPPORTED"]},"gameStyles":{"maxItems":0}},"required":["action","gameStyles"]}
+		  ]
 		}
 		""";
 	private static final ToolCallback INTENT_TOOL = new ToolCallback() {
@@ -169,7 +176,10 @@ final class OpenAiAssistantProvider implements AiProviderClient {
 		if (action == null || !action.isTextual() || gameStyles == null || !gameStyles.isArray()) {
 			return false;
 		}
-		if (gameStyles.size() < 1 || gameStyles.size() > 8) {
+		String actionValue = action.asText();
+		if (!ALLOWED_ACTIONS.contains(actionValue)
+			|| ("RECOMMEND".equals(actionValue) && (gameStyles.size() < 1 || gameStyles.size() > 8))
+			|| (!"RECOMMEND".equals(actionValue) && !gameStyles.isEmpty())) {
 			return false;
 		}
 		Set<String> seenGameStyles = new HashSet<>();
@@ -180,7 +190,7 @@ final class OpenAiAssistantProvider implements AiProviderClient {
 				return false;
 			}
 		}
-		return "RECOMMEND".equals(action.asText());
+		return true;
 	}
 
 	private List<String> styles(JsonNode gameStyles) {

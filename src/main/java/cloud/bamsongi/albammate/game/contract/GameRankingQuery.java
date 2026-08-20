@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.game.contract;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -18,6 +19,9 @@ public interface GameRankingQuery {
 	 * @return 집계 모임 수 내림차순, 게임 ID 오름차순으로 정렬된 게임별 집계
 	 */
 	List<GameRoomCount> findOverallRanking(int limit);
+
+	/** 후보 집합에 포함된 게임만 전체 RANK-01 규칙으로 집계한다. */
+	List<GameRoomCount> findOverallRankingForGameIds(Collection<Long> gameIds);
 
 	/**
 	 * {@code [fromInclusive, toExclusive)}에 시작하는 방만 집계해 상위 {@code limit}개까지 조회한다.

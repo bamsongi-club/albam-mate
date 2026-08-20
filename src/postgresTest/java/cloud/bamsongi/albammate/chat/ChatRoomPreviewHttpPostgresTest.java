@@ -55,6 +55,7 @@ class ChatRoomPreviewHttpPostgresTest extends SharedPostgresIntegrationSupport {
 
 	private static final String PASSWORD = "123456789012345";
 	private static final Instant NOW = Instant.parse("2026-08-19T00:00:00Z");
+	private static final Instant FUTURE_START_AT = Instant.parse("2099-08-19T00:00:00Z");
 
 	@Autowired
 	private RoomRepository roomRepository;
@@ -137,7 +138,7 @@ class ChatRoomPreviewHttpPostgresTest extends SharedPostgresIntegrationSupport {
 				null,
 				ExperienceLevel.ALL_LEVELS,
 				false,
-				NOW.plusSeconds(3600),
+				FUTURE_START_AT,
 				"홍대",
 				4));
 		chatRoomRepository.saveAndFlush(ChatRoom.create(room.getId()));
