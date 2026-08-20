@@ -733,7 +733,10 @@ test("원자적 JSON 출력은 write·rename 실패에서 기존 결과와 임�
         assert.throws(
             () => writeJsonAtomically(outputPath, "next\n", {
                 randomId: () => "write-failure",
-                writeFile: () => { throw new Error("write failed"); },
+                writeFile: (fileDescriptor) => {
+                    fs.writeSync(fileDescriptor, "partial");
+                    throw new Error("write failed");
+                },
             }),
             /write failed/u,
         );

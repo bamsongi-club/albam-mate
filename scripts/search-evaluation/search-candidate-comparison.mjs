@@ -1069,7 +1069,9 @@ function writeNewJson(outputPath, value, inputPaths = []) {
 }
 
 export function writeJsonAtomically(outputPath, contents, {
-    writeFile = fs.writeFileSync,
+    openFile = (filePath, flags, mode) => fs.openSync(filePath, flags, mode),
+    writeFile = (fileDescriptor, value, options) => fs.writeFileSync(fileDescriptor, value, options),
+    closeFile = fs.closeSync,
     publish = fs.linkSync,
     unlink = fs.unlinkSync,
     randomId = randomUUID,
@@ -1078,14 +1080,31 @@ export function writeJsonAtomically(outputPath, contents, {
         path.dirname(outputPath),
         `.${path.basename(outputPath)}.${randomId()}.tmp`,
     );
+    let fileDescriptor = null;
     let temporaryCreated = false;
     try {
-        writeFile(temporaryPath, contents, { encoding: "utf8", flag: "wx", mode: 0o600 });
+        fileDescriptor = openFile(temporaryPath, "wx", 0o600);
         temporaryCreated = true;
+        try {
+            writeFile(fileDescriptor, contents, { encoding: "utf8" });
+        } finally {
+            if (fileDescriptor !== null) {
+                const descriptorToClose = fileDescriptor;
+                fileDescriptor = null;
+                closeFile(descriptorToClose);
+            }
+        }
         publish(temporaryPath, outputPath);
         unlink(temporaryPath);
         temporaryCreated = false;
     } catch (error) {
+        if (fileDescriptor !== null) {
+            try {
+                closeFile(fileDescriptor);
+            } catch {
+                // Preserve the original write/publish error.
+            }
+        }
         if (temporaryCreated) {
             try {
                 unlink(temporaryPath);
