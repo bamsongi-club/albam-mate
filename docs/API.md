@@ -1101,6 +1101,19 @@ PostgreSQL에 커밋된 매칭 요청·제안·성공 파티·채팅 접근 관�
 
 `room.contract` 확인형 command는 식별자만 반환하고 Room 상세 HTTP DTO를 반환하지 않는다. 상세가 필요한 화면은 `roomId`로 기존 `GET /api/rooms/{roomId}`를 호출한다.
 
+### 4.40 ChatRoomUpdatedEvent
+
+> **도입 단계: P2** · **기능: CHAT-08** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+
+`GET /api/users/me/chat/ws`로 Upgrade한 사용자 단위 WebSocket이 보내는 서버 발신 텍스트 이벤트다. [ChatMessageEvent](#417-chatmessageevent)와 달리 메시지 본문이나 시스템 메시지 조립 결과를 담지 않는 최소 신호다.
+
+| 필드 | 타입 | 필수 | nullable | 설명 |
+|---|---|:---:|:---:|---|
+| `roomId` | integer | Y | N | 새 메시지가 커밋된 방 ID |
+| `messageId` | integer | Y | N | 커밋된 메시지의 `messageId`. 클라이언트는 이 값을 화면에 직접 반영하지 않는다 |
+
+클라이언트는 이 이벤트를 수신하면 [CHAT-07 채팅 목록 마지막 메시지·방별 미읽음 상태 계약](#chat-07-채팅-목록-마지막-메시지방별-미읽음-상태-계약)의 배치 조회로 해당 방의 최신 값을 다시 가져온 뒤 화면을 갱신한다. 이 이벤트는 표시할 데이터의 정본이 아니며, 유실·중복·순서 역전이 있어도 재조회 결과가 항상 최종값이다.
+
 ## 5. 인증·프로필 API
 
 ### 인증 요청 남용 제한
@@ -2686,6 +2699,35 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 |---|---:|---|
 | 세션이 없거나 유효하지 않음 | 401 | `UNAUTHENTICATED` |
 | 세션 상태 저장소를 확인할 수 없음 | 503 | `SERVICE_UNAVAILABLE` |
+
+### CHAT-08 채팅 목록 실시간 갱신 계약
+
+> **도입 단계: P2** · **기능: CHAT-08** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+>
+> 이 절의 엔드포인트·이벤트는 승인된 목표 계약이며 현재 제공 기능이 아니다. 제품 상태는 [P2 기능 상태의 `CHAT-08`](p2/README.md#기능별-현재-상태)에서만 판정한다.
+
+제품 규칙은 [CHAT-08 명세](p2/chat.md#chat-08-채팅-목록-실시간-갱신), 채널 구조 선택 이유는 [ADR-0082](adr/chat/0082-chat-list-per-user-realtime-channel.md)를 따른다. 이 계약은 기존 방별 WebSocket([CHAT-03](#chat-03-실시간-메시지-구독))을 대체하지 않고 병렬로 추가한다.
+
+| 항목 | 값 |
+|---|---|
+| Method / Path | `GET /api/users/me/chat/ws` WebSocket Upgrade |
+| 인증 / CSRF | 필요 / 불필요 |
+| handshake | 기존 `JSESSIONID` 세션 검증. 방 단위 권한 검사는 하지 않는다 |
+| 성공 | `101 Switching Protocols`, 서버 발신 텍스트 프레임의 JSON [ChatRoomUpdatedEvent](#440-chatroomupdatedevent) |
+
+- 이 채널은 서버 발신 전용이다. 클라이언트가 애플리케이션 메시지 프레임을 보내면 서버는 처리하지 않고 정책 위반으로 연결을 종료한다.
+- 연결된 사용자가 참가 중인 어느 방에서든 메시지가 커밋되면, 그 방의 현재 참가자 전원의 연결에 [ChatRoomUpdatedEvent](#440-chatroomupdatedevent)를 전송한다. 발신자 본인도 참가자이므로 함께 받는다.
+- 이 연결은 방 접근 권한을 다시 확인하지 않는다. 어떤 방의 이벤트를 받을지는 그 방의 현재 참가자 목록 조회로만 결정하며, 참가자가 아니게 된 방의 이벤트는 더 이상 받지 않는다.
+- 인스턴스 간 전달은 [ADR-0033](adr/chat/0033-postgresql-source-after-commit-delivery.md)의 기존 Redis 채널을 재사용한다. 신호는 at-most-once이며, 유실·중복·순서 역전은 클라이언트의 [CHAT-07](#chat-07-채팅-목록-마지막-메시지방별-미읽음-상태-계약) 재조회로 수렴한다.
+- 연결이 끊어졌다가 재연결되면 서버는 별도 catch-up 이력을 전달하지 않는다. 클라이언트가 재연결 시점에 한 번 채팅 목록을 재조회해 단절 구간의 갱신을 복구한다.
+
+#### 오류
+
+| 발생 조건 | HTTP | code |
+|---|---:|---|
+| 세션이 없거나 유효하지 않음 | 401 | `UNAUTHENTICATED` |
+| 허용되지 않은 `Origin` | 403 | `FORBIDDEN` |
+| Upgrade 전에 세션 상태 저장소를 확인할 수 없음 | 503 | `SERVICE_UNAVAILABLE` |
 
 ## MATCH-01 실시간 파티 매칭 API
 
