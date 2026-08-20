@@ -406,6 +406,8 @@ tasks.withType(JavaExec).configureEach {
 tasks.withType(Test).configureEach {
     useJUnitPlatform()
     systemProperty 'user.timezone', 'UTC'
+    maxHeapSize = '2g'
+    jvmArgs '-XX:+HeapDumpOnOutOfMemoryError'
 }
 
 // 개발 셸의 SPRING_DATASOURCE_* 값이 테스트 경계를 흐리지 않도록 두 Test 태스크에

@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '../api';
 import { App } from '../main';
@@ -34,6 +34,23 @@ function stubApi({ authenticated = true } = {}) {
   vi.spyOn(api, 'getMyRooms').mockResolvedValue(page([]));
   vi.spyOn(api, 'getGameRankings').mockResolvedValue({ overall: [], pastWeek: [] });
   vi.spyOn(api, 'getGames').mockResolvedValue(page(GAMES));
+  vi.spyOn(api, 'getAssistantConsent').mockResolvedValue({
+    status: 'GRANTED',
+    provider: 'OPENAI',
+    consentVersion: 'AI-01-CONSENT-V1',
+    policyVersion: 'OPENAI-2026-08',
+    policyUrl: 'https://example.com/provider-policy',
+    store: false,
+    grantedAt: '2026-08-20T09:00:00Z',
+    revokedAt: null
+  });
+  vi.spyOn(api, 'getActiveAssistantDraft').mockResolvedValue(null);
+  vi.spyOn(api, 'recommendAssistant').mockResolvedValue({
+    state: 'NEEDS_INPUT',
+    conditions: { categories: [], mechanisms: [], themes: [] },
+    missingFields: ['GAME_STYLE'],
+    candidates: []
+  });
 }
 
 async function renderApp(hash) {
@@ -79,7 +96,7 @@ describe('P2 시안 진입', () => {
     vi.restoreAllMocks();
     stubApi({ authenticated: false });
 
-    await renderApp('#/bot');
+    await renderApp('#/assistant');
 
     await waitFor(() => expect(screen.getByText('알밤봇을 쓰려면 로그인해주세요.')).toBeTruthy());
   });
@@ -97,15 +114,15 @@ describe('P2 시안은 서버가 할 일을 실행하지 않는다', () => {
     expect(screen.queryByRole('button', { name: '매칭 취소' })).toBeNull();
   });
 
-  it('알밤봇의 확인 카드와 전송은 준비 중임을 알린다', async () => {
-    await renderApp('#/bot');
-    await waitFor(() => expect(screen.getByRole('heading', { name: '모임 만들기' })).toBeTruthy());
-    expect(screen.getByText('누를 때까지는 아무것도 실행되지 않아요.')).toBeTruthy();
+  it('알밤봇은 서버 추천 API를 호출하고 추가 질문을 표시한다', async () => {
+    await renderApp('#/assistant');
+    await waitFor(() => expect(screen.getByRole('heading', { name: '같이 할 게임을 찾아볼까요?' })).toBeTruthy());
 
-    await press('이 조건으로 만들기');
+    await act(async () => { fireEvent.change(screen.getByLabelText('알밤봇에게 묻기'), { target: { value: '게임 추천해줘' } }); });
+    await press('추천 받기');
 
-    expect(toastText()).toBe('아직 준비 중인 기능이에요.');
-    expect(window.location.hash).toBe('#/bot');
+    await waitFor(() => expect(screen.getByRole('heading', { name: '조금만 더 알려주세요' })).toBeTruthy());
+    expect(api.recommendAssistant).toHaveBeenCalledWith('게임 추천해줘', null);
   });
 
   it('온라인 방의 표는 참가자 수와 같고, 정하기와 아레나 열기는 준비 중임을 알린다', async () => {
