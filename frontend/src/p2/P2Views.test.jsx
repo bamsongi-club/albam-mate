@@ -116,12 +116,12 @@ describe('P2 시안은 서버가 할 일을 실행하지 않는다', () => {
 
   it('알밤봇은 서버 추천 API를 호출하고 추가 질문을 표시한다', async () => {
     await renderApp('#/assistant');
-    await waitFor(() => expect(screen.getByRole('heading', { name: '같이 할 게임을 찾아볼까요?' })).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('같이 할 게임을 찾아볼까요? 인원, 시간, 게임 분위기 중 아는 것부터 편하게 알려주세요.')).toBeTruthy());
 
     await act(async () => { fireEvent.change(screen.getByLabelText('알밤봇에게 묻기'), { target: { value: '게임 추천해줘' } }); });
-    await press('추천 받기');
+    await press('전송');
 
-    await waitFor(() => expect(screen.getByRole('heading', { name: '조금만 더 알려주세요' })).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('어떤 분위기나 게임 스타일을 원하는지 알려주세요.')).toBeTruthy());
     expect(api.recommendAssistant).toHaveBeenCalledWith('게임 추천해줘', null);
   });
 
