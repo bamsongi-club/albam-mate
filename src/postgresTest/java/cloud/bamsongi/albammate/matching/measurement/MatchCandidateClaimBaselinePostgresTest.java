@@ -9,6 +9,7 @@ import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -97,6 +98,7 @@ class MatchCandidateClaimBaselinePostgresTest {
 		MatchCandidateClaimBaselineSupport.FixtureReportInput reportFixture = MatchCandidateClaimBaselineSupport
 			.reportFixture(jdbcTemplate, first, materialized);
 		assertEquals(first.inputCsv(), reportFixture.inputCsv());
+		assertEquals("MATCH-01-CANDIDATE-BASELINE-V2", reportFixture.generator());
 		assertEquals(first.fixtureInputSha256(), reportFixture.fixtureInputSha256());
 		assertEquals(1_000, reportFixture.manifest().size());
 		assertEquals(2, reportFixture.manifest().getFirst().minPartySize());
@@ -200,11 +202,13 @@ class MatchCandidateClaimBaselinePostgresTest {
 			.createSmallProcessFixture();
 		MatchCandidateClaimBaselineSupport.MaterializedFixture materialized = MatchCandidateClaimBaselineSupport
 			.materialize(jdbcTemplate, fixture);
+		MatchCandidateClaimBaselineSupport.FixtureReportInput fixtureReport = MatchCandidateClaimBaselineSupport
+			.reportFixture(jdbcTemplate, fixture, materialized);
 
 		MatchCandidateClaimBaselineSupport.SmallRoundReport report = MatchCandidateClaimBaselineSupport
 			.collectSmallRound(
 				POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword(), jdbcTemplate,
-				fixture, materialized, 1, MatchCandidateClaimBaselineSupport.TieProbeResult.notApplicable());
+				fixture, materialized, fixtureReport, 1);
 
 		assertEquals(2, report.logicalClaims().size());
 		assertEquals(2, report.reportInput().matcherProcesses().size());
@@ -224,7 +228,16 @@ class MatchCandidateClaimBaselinePostgresTest {
 		assertTrue(report.pgStatStatements().rows() >= 0);
 		assertTrue(report.pgStatStatements().sharedBlockHits() >= 0);
 		assertTrue(report.pgStatStatements().sharedBlockReads() >= 0);
+		assertFalse(report.pgStatStatements().candidateStatements().isEmpty());
+		assertTrue(report.pgStatStatements().candidateStatements().stream()
+			.allMatch(statement -> statement.calls() > 0
+				&& statement.query().toLowerCase().contains("order by priority_since")
+				&& statement.query().toLowerCase().contains("for update skip locked")));
 		assertEquals(10, report.lockSamples().intervalMs());
+		assertTrue(report.lockSamples().observationStartedAtUtc() != null);
+		assertTrue(report.lockSamples().observationFinishedAtUtc() != null);
+		assertTrue(Instant.parse(report.lockSamples().observationStartedAtUtc())
+			.compareTo(Instant.parse(report.lockSamples().observationFinishedAtUtc())) <= 0);
 		assertTrue(report.lockSamples().snapshotCount() > 0);
 		assertEquals(null, report.lockSamples().samplingFailure());
 		assertFalse(report.queryPlan().isBlank());
@@ -235,6 +248,7 @@ class MatchCandidateClaimBaselinePostgresTest {
 		assertEquals(0, report.correctnessInput().duplicateClaimCount());
 		assertEquals(0, report.correctnessInput().partialClaimCount());
 		assertTrue(report.correctnessInput().tieOrderMatches());
+		assertTrue(report.correctnessInput().tiePairResults().isEmpty());
 	}
 
 	@Test
@@ -245,6 +259,21 @@ class MatchCandidateClaimBaselinePostgresTest {
 	@Test
 	void Node_판정기는_관측_누락을_INVALID로_완결_정합성_위반을_FAILED로_분리한다() throws Exception {
 		assertEquals(0, nodeContractTest("관측과 process 누락은 INVALID, 완료 뒤 정합성 위반은 FAILED로 판정한다"));
+	}
+
+	@Test
+	void Node_판정기는_고정_fixture_generator와_ordinal_계약을_검증한다() throws Exception {
+		assertEquals(0, nodeContractTest("고정 fixture generator와 모든 ordinal 규칙이 아니면 INVALID로 거절한다"));
+	}
+
+	@Test
+	void Node_판정기는_raw_배열_누락을_INVALID_decision으로_보존한다() throws Exception {
+		assertEquals(0, nodeContractTest("raw 배열 누락 CLI 입력도 INVALID decision JSON으로 보존한다"));
+	}
+
+	@Test
+	void Node_판정기는_lock_관측_창과_실제_fixture_tie_결과를_검증한다() throws Exception {
+		assertEquals(0, nodeContractTest("lock 관측 창과 실제 fixture의 100개 tie 결과가 없으면 INVALID다"));
 	}
 
 	@Test
@@ -263,9 +292,6 @@ class MatchCandidateClaimBaselinePostgresTest {
 		MatchCandidateClaimBaselineSupport.FixtureReportInput fixtureReport = null;
 		for (int round = 0; round < 4; round++) {
 			truncateMeasurementTables();
-			MatchCandidateClaimBaselineSupport.TieProbeResult tieProbe = MatchCandidateClaimBaselineSupport
-				.runTieBreakProbe(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword(), jdbcTemplate);
-			truncateMeasurementTables();
 			MatchCandidateClaimBaselineSupport.CandidateFixture fixture = MatchCandidateClaimBaselineSupport
 				.createContractFixture();
 			MatchCandidateClaimBaselineSupport.MaterializedFixture materialized = MatchCandidateClaimBaselineSupport
@@ -275,10 +301,11 @@ class MatchCandidateClaimBaselinePostgresTest {
 			MatchCandidateClaimBaselineSupport.SmallRoundReport collected = MatchCandidateClaimBaselineSupport
 				.collectSmallRound(
 					POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword(), jdbcTemplate,
-					fixture, materialized, 500, tieProbe);
+					fixture, materialized, fixtureReport, 500);
 			assertEquals(1_000, collected.logicalClaims().size());
 			assertTrue(collected.logicalClaims().stream()
 				.allMatch(claim -> claim.retryCount() == 0 && claim.retryRawDurationsNanos().isEmpty()));
+			assertEquals(100, collected.correctnessInput().tiePairResults().size());
 			MatchCandidateClaimBaselineSupport.ReportRoundInput reportRound = MatchCandidateClaimBaselineSupport
 				.withRound(collected, round);
 			if (round == 0) {
@@ -294,7 +321,12 @@ class MatchCandidateClaimBaselinePostgresTest {
 		new ObjectMapper().writerWithDefaultPrettyPrinter().writeValue(inputPath.toFile(),
 			Map.of("fixture", fixtureReport, "warmUp", warmUp, "measured", measuredRounds));
 		runNodeReport(inputPath, outputPath);
-		assertTrue(Files.readString(outputPath).contains("BASELINE_ACCEPTED"));
+		boolean allTieOrdersMatch = measuredRounds.stream()
+			.allMatch(round -> round.correctnessInput().tieOrderMatches());
+		String expectedOutcome = allTieOrdersMatch ? "BASELINE_ACCEPTED" : "FAILED";
+		String output = Files.readString(outputPath);
+		assertTrue(output.contains("\"outcome\": \"" + expectedOutcome + "\""));
+		assertFalse(output.contains("\"outcome\": \"INVALID\""));
 	}
 
 	private void truncateMeasurementTables() {

@@ -4,6 +4,8 @@ import { readFileSync, writeFileSync } from "node:fs";
 const MEASURED_ROUND_COUNT = 3;
 const LOGICAL_CLAIM_COUNT = 1_000;
 const REQUIRED_PROCESS_COUNT = 2;
+const FIXTURE_GENERATOR = "MATCH-01-CANDIDATE-BASELINE-V2";
+const FIXTURE_BASE_TIME_MS = Date.UTC(2026, 0, 1);
 const FIXTURE_MANIFEST_FIELDS = [
   "fixtureOrdinal", "userFixtureOrdinal", "queuedAt", "prioritySince", "minPartySize", "maxPartySize",
   "userId", "requestId", "expectedTieOrder",
@@ -21,50 +23,58 @@ export function nearestRank(values, percentile) {
 }
 
 function reportRound(round) {
-  const durations = round.logicalClaims.map((claim) => claim.durationNanos);
+  const matcherProcesses = Array.isArray(round?.matcherProcesses) ? round.matcherProcesses : [];
+  const logicalClaims = Array.isArray(round?.logicalClaims) ? round.logicalClaims : [];
+  const durations = logicalClaims.map((claim) => claim.durationNanos);
   return {
-    round: round.round,
-    matcherProcesses: round.matcherProcesses.map((process) => ({
-      pid: process.pid,
-      exitCode: process.exitCode,
-      completed: process.completed,
+    round: round?.round,
+    matcherProcesses: matcherProcesses.map((process) => ({
+      pid: process?.pid,
+      exitCode: process?.exitCode,
+      completed: process?.completed,
     })),
-    logicalClaims: round.logicalClaims.map((claim) => ({
-      durationNanos: claim.durationNanos,
-      retryCount: claim.retryCount,
-      retryRawDurationsNanos: [...claim.retryRawDurationsNanos],
+    logicalClaims: logicalClaims.map((claim) => ({
+      durationNanos: claim?.durationNanos,
+      retryCount: claim?.retryCount,
+      retryRawDurationsNanos: Array.isArray(claim?.retryRawDurationsNanos)
+        ? [...claim.retryRawDurationsNanos]
+        : null,
     })),
-    throughputPerSecond: round.throughputPerSecond,
-    pgStatStatements: round.pgStatStatements,
-    lockSamples: round.lockSamples,
-    queryPlan: round.queryPlan,
-    correctnessInput: round.correctnessInput,
-    integrity: round.integrity,
-    statistics: {
-      p50Nanos: nearestRank(durations, 0.5),
-      p95Nanos: nearestRank(durations, 0.95),
-      p99Nanos: nearestRank(durations, 0.99),
-    },
+    throughputPerSecond: round?.throughputPerSecond,
+    pgStatStatements: round?.pgStatStatements,
+    lockSamples: round?.lockSamples,
+    queryPlan: round?.queryPlan,
+    correctnessInput: round?.correctnessInput,
+    integrity: round?.integrity,
+    statistics: durations.length === 0
+      ? { p50Nanos: null, p95Nanos: null, p99Nanos: null }
+      : {
+        p50Nanos: nearestRank(durations, 0.5),
+        p95Nanos: nearestRank(durations, 0.95),
+        p99Nanos: nearestRank(durations, 0.99),
+      },
   };
 }
 
 function fixtureSummary(fixture) {
+  const manifest = Array.isArray(fixture?.manifest) ? fixture.manifest : [];
   return {
-    fixtureInputSha256: fixture.fixtureInputSha256,
-    materializedManifestSha256: fixture.materializedManifestSha256,
-    inputCsv: fixture.inputCsv,
-    manifest: fixture.manifest.map((entry) => Object.fromEntries(
-      FIXTURE_MANIFEST_FIELDS.map((field) => [field, entry[field]]),
+    generator: fixture?.generator,
+    fixtureInputSha256: fixture?.fixtureInputSha256,
+    materializedManifestSha256: fixture?.materializedManifestSha256,
+    inputCsv: fixture?.inputCsv,
+    manifest: manifest.map((entry) => Object.fromEntries(
+      FIXTURE_MANIFEST_FIELDS.map((field) => [field, entry?.[field]]),
     )),
   };
 }
 
-export function buildCandidateBaselineReport({ fixture, warmUp, measured }) {
-  if (measured.length !== MEASURED_ROUND_COUNT) {
-    throw new Error("measured round는 정확히 3회여야 합니다.");
-  }
-  const measuredRounds = measured.map(reportRound);
-  const p95Values = measuredRounds.map((round) => round.statistics.p95Nanos).sort((left, right) => left - right);
+export function buildCandidateBaselineReport(input) {
+  const { fixture, warmUp, measured } = input ?? {};
+  const measuredRounds = Array.isArray(measured) ? measured.map(reportRound) : [];
+  const p95Values = measuredRounds.length === MEASURED_ROUND_COUNT
+    ? measuredRounds.map((round) => round.statistics.p95Nanos).sort((left, right) => left - right)
+    : [];
   return {
     schemaVersion: 1,
     fixture: fixtureSummary(fixture),
@@ -97,7 +107,9 @@ function hasCompleteObservations(round) {
     && Number.isFinite(round.pgStatStatements?.rows)
     && Number.isFinite(round.pgStatStatements?.sharedBlockHits)
     && Number.isFinite(round.pgStatStatements?.sharedBlockReads)
+    && hasContractCandidateStatements(round.pgStatStatements?.candidateStatements)
     && round.lockSamples?.intervalMs === 10
+    && isOrderedUtcWindow(round.lockSamples.observationStartedAtUtc, round.lockSamples.observationFinishedAtUtc)
     && Number.isInteger(round.lockSamples.snapshotCount)
     && round.lockSamples.snapshotCount > 0
     && round.lockSamples.samplingFailure === null
@@ -109,12 +121,47 @@ function hasCompleteObservations(round) {
     && Number.isFinite(round.correctnessInput?.waitingRequestCount)
     && Number.isFinite(round.correctnessInput?.duplicateClaimCount)
     && Number.isFinite(round.correctnessInput?.partialClaimCount)
-    && typeof round.correctnessInput?.tieOrderMatches === "boolean";
+    && typeof round.correctnessInput?.tieOrderMatches === "boolean"
+    && hasCompleteTiePairResults(round.correctnessInput?.tiePairResults);
+}
+
+function isOrderedUtcWindow(startedAtUtc, finishedAtUtc) {
+  if (typeof startedAtUtc !== "string" || typeof finishedAtUtc !== "string") return false;
+  const startedAt = Date.parse(startedAtUtc);
+  const finishedAt = Date.parse(finishedAtUtc);
+  return Number.isFinite(startedAt) && Number.isFinite(finishedAt) && startedAt <= finishedAt;
+}
+
+function hasCompleteTiePairResults(tiePairResults) {
+  return Array.isArray(tiePairResults)
+    && tiePairResults.length === 100
+    && tiePairResults.every((result, pair) => result?.firstFixtureOrdinal === (pair * 2) + 1
+      && result?.secondFixtureOrdinal === (pair * 2) + 2
+      && typeof result?.sameProposal === "boolean");
+}
+
+function hasContractCandidateStatements(candidateStatements) {
+  return Array.isArray(candidateStatements)
+    && candidateStatements.length > 0
+    && candidateStatements.every((statement) => typeof statement?.query === "string"
+      && Number.isInteger(statement?.calls) && statement.calls > 0
+      && normalizeCandidateQuery(statement.query).includes("order by priority_since asc, id asc")
+      && normalizeCandidateQuery(statement.query).includes("for update skip locked"));
+}
+
+function normalizeCandidateQuery(query) {
+  return query.toLowerCase().replaceAll(/\s+/g, " ").trim();
+}
+
+function fixtureTimestamp(ordinal) {
+  const prioritySecond = ordinal <= 200 ? Math.ceil(ordinal / 2) : ordinal;
+  return new Date(FIXTURE_BASE_TIME_MS + (prioritySecond * 1_000)).toISOString().replace(".000Z", "Z");
 }
 
 function hasCompleteFixture(fixture) {
-  if (typeof fixture?.fixtureInputSha256 !== "string" || typeof fixture?.inputCsv !== "string"
+  if (fixture?.generator !== FIXTURE_GENERATOR || typeof fixture?.fixtureInputSha256 !== "string" || typeof fixture?.inputCsv !== "string"
     || fixture.fixtureInputSha256 !== fixtureInputSha256(fixture.inputCsv) || typeof fixture.materializedManifestSha256 !== "string" || !Array.isArray(fixture.manifest)) return false;
+  if (fixture.inputCsv.includes("\r") || !fixture.inputCsv.endsWith("\n")) return false;
   const lines = fixture.inputCsv.trimEnd().split("\n");
   if (lines.length !== 1_001 || lines[0] !== "fixtureOrdinal,userFixtureOrdinal,queuedAt,prioritySince,minPartySize,maxPartySize") return false;
   const userIds = new Set(); const requestIds = new Set(); const tiePairs = [];
@@ -122,7 +169,11 @@ function hasCompleteFixture(fixture) {
     const values = lines[index + 1].split(","); const entry = fixture.manifest[index];
     if (values.length !== 6 || !entry || !FIXTURE_MANIFEST_FIELDS.every((field) => entry[field] !== undefined)) return false;
     const [fixtureOrdinal, userFixtureOrdinal, queuedAt, prioritySince, minPartySize, maxPartySize] = values;
-    if (Number(fixtureOrdinal) !== index + 1 || Number(userFixtureOrdinal) !== index + 1
+    const ordinal = index + 1;
+    const expectedTimestamp = fixtureTimestamp(ordinal);
+    if (fixtureOrdinal !== String(ordinal) || userFixtureOrdinal !== String(ordinal)
+      || queuedAt !== expectedTimestamp || prioritySince !== expectedTimestamp
+      || minPartySize !== "2" || maxPartySize !== "4"
       || entry.fixtureOrdinal !== Number(fixtureOrdinal) || entry.userFixtureOrdinal !== Number(userFixtureOrdinal)
       || entry.queuedAt !== queuedAt || entry.prioritySince !== prioritySince
       || entry.minPartySize !== Number(minPartySize) || entry.maxPartySize !== Number(maxPartySize)
@@ -141,7 +192,8 @@ function hasCandidateClaimIntegrity(round) {
   return correctness.proposalCount === 500 && correctness.memberCount === 1_000
     && correctness.claimedRequestCount === 1_000 && correctness.waitingRequestCount === 0
     && correctness.duplicateClaimCount === 0 && correctness.partialClaimCount === 0
-    && correctness.tieOrderMatches === true;
+    && correctness.tieOrderMatches === true
+    && correctness.tiePairResults.every((result) => result.sameProposal === true);
 }
 
 function hasIntegrityMismatch(round) {
@@ -151,7 +203,7 @@ function hasIntegrityMismatch(round) {
 }
 
 export function evaluateCandidateBaseline(report) {
-  if (!hasCompleteFixture(report.fixture)) {
+  if (!report || typeof report !== "object" || !hasCompleteFixture(report.fixture)) {
     return { outcome: "INVALID", reason: "fixture input 또는 materialized manifest가 완결되지 않았습니다." };
   }
   if (!Array.isArray(report.measuredRounds) || report.measuredRounds.length !== MEASURED_ROUND_COUNT) {

@@ -79,12 +79,6 @@ public final class MatchCandidateClaimBaselineSupport {
 			new FixtureRequest(4, "P4", 2, 2, FIXTURE_TIME.plusSeconds(4))), List.of());
 	}
 
-	static CandidateFixture createTieProbeFixture() {
-		return fixture(List.of(
-			new FixtureRequest(1, "T1", 1, 1, FIXTURE_TIME),
-			new FixtureRequest(2, "T2", 1, 1, FIXTURE_TIME)), List.of(new TiePair(1, 2)));
-	}
-
 	static CandidateFixture createDistinctQueuedAtFixture() {
 		return fixture(List.of(new FixtureRequest(1, "Q1", 2, 4, FIXTURE_TIME, FIXTURE_TIME.plusSeconds(1))),
 			List.of());
@@ -212,7 +206,7 @@ public final class MatchCandidateClaimBaselineSupport {
 			.collect(java.util.stream.Collectors.joining("\n",
 				"fixtureOrdinal,userFixtureOrdinal,queuedAt,prioritySince,minPartySize,maxPartySize,userId,requestId,expectedTieOrder\n",
 				"\n"));
-		return new FixtureReportInput(fixture.fixtureInputSha256(), fixture.inputCsv(), sha256(manifestBytes),
+		return new FixtureReportInput(fixture.generator(), fixture.fixtureInputSha256(), fixture.inputCsv(), sha256(manifestBytes),
 			List.copyOf(manifest));
 	}
 
@@ -248,6 +242,17 @@ public final class MatchCandidateClaimBaselineSupport {
 		CandidateFixture fixture,
 		MaterializedFixture materialized,
 		int claimAttempts) throws Exception {
+		return runMatcherProcesses(jdbcUrl, jdbcUsername, jdbcPassword, fixture, materialized, claimAttempts, () -> {});
+	}
+
+	private static ProcessOrchestration runMatcherProcesses(
+		String jdbcUrl,
+		String jdbcUsername,
+		String jdbcPassword,
+		CandidateFixture fixture,
+		MaterializedFixture materialized,
+		int claimAttempts,
+		Runnable barrierReleased) throws Exception {
 		verifyWorkerInput(fixture, materialized, fixture.fixtureInputSha256());
 		String gitSha = currentGitSha();
 		String configurationSha = sha256("matcherCount=" + MATCHER_COUNT + ";claimAttempts=" + claimAttempts);
@@ -271,6 +276,7 @@ public final class MatchCandidateClaimBaselineSupport {
 					client.writer().write("GO\n");
 					client.writer().flush();
 				}
+				barrierReleased.run();
 				for (BarrierClient client : clients) {
 					String done = client.reader().readLine();
 					if (done == null || !done.startsWith("DONE|")) {
@@ -357,33 +363,6 @@ public final class MatchCandidateClaimBaselineSupport {
 		}
 	}
 
-	/** 비경합 단일 coordinator 호출의 DB delta로 prioritySince ASC, requestId ASC tie-break를 증명한다. */
-	static TieProbeResult runTieBreakProbe(
-		String jdbcUrl, String jdbcUsername, String jdbcPassword, JdbcTemplate jdbcTemplate) throws Exception {
-		CandidateFixture fixture = createTieProbeFixture();
-		MaterializedFixture materialized = materialize(jdbcTemplate, fixture);
-		long lowerRequestId = materialized.requests().getFirst().requestId();
-		long higherRequestId = materialized.requests().get(1).requestId();
-		if (lowerRequestId >= higherRequestId) {
-			return new TieProbeResult(true, false);
-		}
-		runSingleMatcherProcess(jdbcUrl, jdbcUsername, jdbcPassword, fixture, materialized);
-		String lowerStatus = jdbcTemplate.queryForObject("select status from match_requests where id = ?", String.class,
-			lowerRequestId);
-		String higherStatus = jdbcTemplate.queryForObject("select status from match_requests where id = ?",
-			String.class, higherRequestId);
-		if (!"PROPOSED".equals(lowerStatus) || !"WAITING".equals(higherStatus)
-			|| jdbcTemplate.queryForObject("select count(*) from match_proposals", Integer.class) != 1
-			|| jdbcTemplate.queryForObject("select count(*) from match_proposal_members", Integer.class) != 1) {
-			return new TieProbeResult(true, false);
-		}
-		runSingleMatcherProcess(jdbcUrl, jdbcUsername, jdbcPassword, fixture, materialized);
-		return new TieProbeResult(true, "PROPOSED"
-			.equals(jdbcTemplate.queryForObject("select status from match_requests where id = ?", String.class,
-				higherRequestId))
-			&& jdbcTemplate.queryForObject("select count(*) from match_proposals", Integer.class) == 2);
-	}
-
 	private static List<LogicalClaim> logicalClaimsFromDone(String done) {
 		if (done == null || !done.startsWith("DONE|")) {
 			throw new IllegalArgumentException("matcher가 barrier 이후 완료를 보고하지 않았습니다.");
@@ -407,35 +386,43 @@ public final class MatchCandidateClaimBaselineSupport {
 		JdbcTemplate jdbcTemplate,
 		CandidateFixture fixture,
 		MaterializedFixture materialized,
-		int claimAttempts,
-		TieProbeResult tieProbeResult) throws Exception {
+		FixtureReportInput fixtureReport,
+		int claimAttempts) throws Exception {
 		jdbcTemplate.execute("create extension if not exists pg_stat_statements");
 		jdbcTemplate.execute("select pg_stat_statements_reset()");
 		LockSampler lockSampler = new LockSampler(jdbcTemplate);
-		lockSampler.start();
 		long roundStartedAt = System.nanoTime();
 		ProcessOrchestration orchestration;
 		try {
 			orchestration = runMatcherProcesses(
-				jdbcUrl, jdbcUsername, jdbcPassword, fixture, materialized, claimAttempts);
+				jdbcUrl, jdbcUsername, jdbcPassword, fixture, materialized, claimAttempts, lockSampler::start);
 		} finally {
 			lockSampler.stop();
 		}
 		long roundDurationNanos = System.nanoTime() - roundStartedAt;
+		List<CandidateClaimStatement> candidateStatements = jdbcTemplate.query("""
+			select query, calls
+			from pg_stat_statements
+			where dbid = (select oid from pg_database where datname = current_database())
+				and lower(query) like '%from match_requests%'
+				and lower(query) like '%for update skip locked%'
+			""", (resultSet, rowNumber) -> new CandidateClaimStatement(
+			resultSet.getString(1), resultSet.getLong(2)));
 		PgStatStatements pgStatStatements = jdbcTemplate.queryForObject("""
 			select coalesce(sum(calls), 0), coalesce(sum(total_exec_time), 0), coalesce(sum(rows), 0),
 				coalesce(sum(shared_blks_hit), 0), coalesce(sum(shared_blks_read), 0)
 			from pg_stat_statements
 			where dbid = (select oid from pg_database where datname = current_database())
-				and query not like '%pg_stat_statements%'
+				and lower(query) like '%from match_requests%'
+				and lower(query) like '%for update skip locked%'
 			""", (resultSet, rowNumber) -> new PgStatStatements(
 			resultSet.getLong(1), resultSet.getDouble(2), resultSet.getLong(3), resultSet.getLong(4),
-			resultSet.getLong(5)));
+			resultSet.getLong(5), List.copyOf(candidateStatements)));
 		Object queryPlan = jdbcTemplate.queryForObject("""
 			explain (format json)
 			select id from match_requests where status = 'WAITING' order by priority_since, id
 			""", Object.class);
-		CorrectnessInput correctnessInput = readCorrectnessInput(jdbcTemplate, tieProbeResult);
+		CorrectnessInput correctnessInput = readCorrectnessInput(jdbcTemplate, fixtureReport);
 		double throughputPerSecond = orchestration.logicalClaims().isEmpty()
 			? 0.0
 			: orchestration.logicalClaims().size() / (roundDurationNanos / 1_000_000_000.0);
@@ -472,7 +459,7 @@ public final class MatchCandidateClaimBaselineSupport {
 			input.integrity());
 	}
 
-	private static CorrectnessInput readCorrectnessInput(JdbcTemplate jdbcTemplate, TieProbeResult tieProbeResult) {
+	private static CorrectnessInput readCorrectnessInput(JdbcTemplate jdbcTemplate, FixtureReportInput fixtureReport) {
 		long proposalCount = jdbcTemplate.queryForObject("select count(*) from match_proposals", Long.class);
 		long memberCount = jdbcTemplate.queryForObject("select count(*) from match_proposal_members", Long.class);
 		long claimedRequestCount = jdbcTemplate.queryForObject(
@@ -492,10 +479,32 @@ public final class MatchCandidateClaimBaselineSupport {
 				having count(member.match_request_id) <> proposal.party_size
 			) partial_claims
 			""", Long.class);
-		boolean tieOrderMatches = !tieProbeResult.applicable() || tieProbeResult.lowerRequestIdWon();
+		List<TiePairResult> tiePairResults = readTiePairResults(jdbcTemplate, fixtureReport);
+		boolean tieOrderMatches = tiePairResults.stream().allMatch(TiePairResult::sameProposal);
 		return new CorrectnessInput(
 			proposalCount, memberCount, claimedRequestCount, waitingRequestCount,
-			duplicateClaimCount, partialClaimCount, tieOrderMatches);
+			duplicateClaimCount, partialClaimCount, tieOrderMatches, tiePairResults);
+	}
+
+	private static List<TiePairResult> readTiePairResults(JdbcTemplate jdbcTemplate, FixtureReportInput fixtureReport) {
+		List<TiePairResult> results = new ArrayList<>();
+		List<MaterializedManifestEntry> manifest = fixtureReport.manifest();
+		if (manifest.size() != 1_000) {
+			return List.of();
+		}
+		for (int index = 0; index + 1 < manifest.size() && index < 200; index += 2) {
+			MaterializedManifestEntry first = manifest.get(index);
+			MaterializedManifestEntry second = manifest.get(index + 1);
+			Long commonProposalCount = jdbcTemplate.queryForObject("""
+				select count(*)
+				from match_proposal_members first_member
+				join match_proposal_members second_member on second_member.proposal_id = first_member.proposal_id
+				where first_member.match_request_id = ? and second_member.match_request_id = ?
+				""", Long.class, first.requestId(), second.requestId());
+			boolean sameProposal = commonProposalCount != null && commonProposalCount == 1;
+			results.add(new TiePairResult(first.fixtureOrdinal(), second.fixtureOrdinal(), sameProposal));
+		}
+		return List.copyOf(results);
 	}
 
 	private static WorkerProcess startWorker(
@@ -755,7 +764,7 @@ public final class MatchCandidateClaimBaselineSupport {
 	record MaterializedRequest(int fixtureOrdinal, String label, long userId, long requestId) {
 	}
 
-	record FixtureReportInput(String fixtureInputSha256, String inputCsv, String materializedManifestSha256,
+	record FixtureReportInput(String generator, String fixtureInputSha256, String inputCsv, String materializedManifestSha256,
 		List<MaterializedManifestEntry> manifest) {
 	}
 
@@ -785,12 +794,6 @@ public final class MatchCandidateClaimBaselineSupport {
 	}
 
 	record LogicalClaim(long durationNanos, int retryCount, List<Long> retryRawDurationsNanos) {
-	}
-
-	record TieProbeResult(boolean applicable, boolean lowerRequestIdWon) {
-		static TieProbeResult notApplicable() {
-			return new TieProbeResult(false, true);
-		}
 	}
 
 	record SmallRoundReport(
@@ -825,10 +828,20 @@ public final class MatchCandidateClaimBaselineSupport {
 		double totalExecutionTimeMs,
 		long rows,
 		long sharedBlockHits,
-		long sharedBlockReads) {
+		long sharedBlockReads,
+		List<CandidateClaimStatement> candidateStatements) {
 	}
 
-	record LockSamples(int intervalMs, int snapshotCount, int lockWaitSnapshotCount, String samplingFailure) {
+	record CandidateClaimStatement(String query, long calls) {
+	}
+
+	record LockSamples(
+		int intervalMs,
+		String observationStartedAtUtc,
+		String observationFinishedAtUtc,
+		int snapshotCount,
+		int lockWaitSnapshotCount,
+		String samplingFailure) {
 	}
 
 	record CorrectnessInput(
@@ -838,7 +851,14 @@ public final class MatchCandidateClaimBaselineSupport {
 		long waitingRequestCount,
 		long duplicateClaimCount,
 		long partialClaimCount,
-		boolean tieOrderMatches) {
+		boolean tieOrderMatches,
+		List<TiePairResult> tiePairResults) {
+	}
+
+	record TiePairResult(
+		int firstFixtureOrdinal,
+		int secondFixtureOrdinal,
+		boolean sameProposal) {
 	}
 
 	record Integrity(
@@ -858,6 +878,8 @@ public final class MatchCandidateClaimBaselineSupport {
 		private final AtomicInteger snapshotCount = new AtomicInteger();
 		private final AtomicInteger lockWaitSnapshotCount = new AtomicInteger();
 		private final AtomicReference<String> samplingFailure = new AtomicReference<>();
+		private final AtomicReference<Instant> observationStartedAt = new AtomicReference<>();
+		private final AtomicReference<Instant> observationFinishedAt = new AtomicReference<>();
 		private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
 
 		private LockSampler(JdbcTemplate jdbcTemplate) {
@@ -865,6 +887,7 @@ public final class MatchCandidateClaimBaselineSupport {
 		}
 
 		private void start() {
+			observationStartedAt.compareAndSet(null, Instant.now());
 			sample();
 			executor.scheduleAtFixedRate(this::sample, INTERVAL_MILLIS, INTERVAL_MILLIS, TimeUnit.MILLISECONDS);
 		}
@@ -894,11 +917,16 @@ public final class MatchCandidateClaimBaselineSupport {
 				Thread.currentThread().interrupt();
 				executor.shutdownNow();
 			}
+			if (observationStartedAt.get() != null) {
+				observationFinishedAt.compareAndSet(null, Instant.now());
+			}
 		}
 
 		private LockSamples snapshot() {
 			return new LockSamples(
 				INTERVAL_MILLIS,
+				observationStartedAt.get() == null ? null : observationStartedAt.get().toString(),
+				observationFinishedAt.get() == null ? null : observationFinishedAt.get().toString(),
 				snapshotCount.get(),
 				lockWaitSnapshotCount.get(),
 				samplingFailure.get());

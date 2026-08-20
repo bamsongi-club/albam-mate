@@ -1,4 +1,8 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 
 import {
@@ -27,8 +31,21 @@ function completeRound(index) {
       rows: 1_000,
       sharedBlockHits: 2_000,
       sharedBlockReads: 10,
+      candidateStatements: [
+        {
+          query: "select * from match_requests where status = 'WAITING' order by priority_since asc, id asc limit $1 for update skip locked",
+          calls: 1_000,
+        },
+      ],
     },
-    lockSamples: { intervalMs: 10, snapshotCount: 3, lockWaitSnapshotCount: 0, samplingFailure: null },
+    lockSamples: {
+      intervalMs: 10,
+      observationStartedAtUtc: "2026-01-01T00:00:00Z",
+      observationFinishedAtUtc: "2026-01-01T00:00:01Z",
+      snapshotCount: 3,
+      lockWaitSnapshotCount: 0,
+      samplingFailure: null,
+    },
     queryPlan: "fixture candidate claim plan",
     correctnessInput: {
       proposalCount: 500,
@@ -38,6 +55,11 @@ function completeRound(index) {
       duplicateClaimCount: 0,
       partialClaimCount: 0,
       tieOrderMatches: true,
+      tiePairResults: Array.from({ length: 100 }, (_, pair) => ({
+        firstFixtureOrdinal: (pair * 2) + 1,
+        secondFixtureOrdinal: (pair * 2) + 2,
+        sameProposal: true,
+      })),
     },
     integrity: {
       proposalCount: 500,
@@ -55,7 +77,8 @@ function completeFixture() {
   const manifest = [];
   for (let ordinal = 1; ordinal <= 1_000; ordinal += 1) {
     const prioritySecond = ordinal <= 200 ? Math.ceil(ordinal / 2) : ordinal;
-    const timestamp = `2026-01-01T00:00:${String(prioritySecond).padStart(2, "0")}Z`;
+    const timestamp = new Date(Date.UTC(2026, 0, 1) + (prioritySecond * 1_000))
+      .toISOString().replace(".000Z", "Z");
     rows.push(`${ordinal},${ordinal},${timestamp},${timestamp},2,4`);
     manifest.push({ fixtureOrdinal: ordinal, userFixtureOrdinal: ordinal, queuedAt: timestamp, prioritySince: timestamp,
       minPartySize: 2, maxPartySize: 4, userId: ordinal, requestId: ordinal, expectedTieOrder: ordinal });
@@ -64,7 +87,13 @@ function completeFixture() {
   const materializedManifestSha256 = fixtureInputSha256(
     `fixtureOrdinal,userFixtureOrdinal,queuedAt,prioritySince,minPartySize,maxPartySize,userId,requestId,expectedTieOrder\n${manifest.map((entry) => [entry.fixtureOrdinal, entry.userFixtureOrdinal, entry.queuedAt, entry.prioritySince, entry.minPartySize, entry.maxPartySize, entry.userId, entry.requestId, entry.expectedTieOrder].join(",")).join("\n")}\n`,
   );
-  return { fixtureInputSha256: fixtureInputSha256(inputCsv), inputCsv, materializedManifestSha256, manifest };
+  return {
+    generator: "MATCH-01-CANDIDATE-BASELINE-V2",
+    fixtureInputSha256: fixtureInputSha256(inputCsv),
+    inputCsv,
+    materializedManifestSha256,
+    manifest,
+  };
 }
 
 test("warm-up을 제외하고 measured round 원자료와 nearest-rank 통계를 보존한다", () => {
@@ -81,6 +110,7 @@ test("warm-up을 제외하고 measured round 원자료와 nearest-rank 통계를
   assert.equal(report.series.p95MedianNanos, 950_000);
   assert.equal(report.series.p95MaximumNanos, 950_000);
   assert.equal(report.measuredRounds[0].lockSamples.intervalMs, 10);
+  assert.equal(report.measuredRounds[0].lockSamples.observationStartedAtUtc, "2026-01-01T00:00:00Z");
   assert.equal(report.fixture.inputCsv.includes("minPartySize,maxPartySize"), true);
   assert.equal(report.fixture.manifest[0].userId, 1);
   assert.equal(report.fixture.manifest[0].requestId, 1);
@@ -91,6 +121,81 @@ test("warm-up을 제외하고 measured round 원자료와 nearest-rank 통계를
   assert.deepEqual(report.measuredRounds[0].logicalClaims[0].retryRawDurationsNanos, []);
   assert.deepEqual(nearestRank([1, 2, 3, 4], 0.95), 4);
   assert.equal(JSON.stringify(report).includes("real-user"), false);
+});
+
+test("고정 fixture generator와 모든 ordinal 규칙이 아니면 INVALID로 거절한다", () => {
+  const valid = buildCandidateBaselineReport({
+    fixture: completeFixture(),
+    warmUp: completeRound(0),
+    measured: [completeRound(1), completeRound(2), completeRound(3)],
+  });
+  assert.equal(valid.fixture.generator, "MATCH-01-CANDIDATE-BASELINE-V2");
+  assert.equal(evaluateCandidateBaseline(valid).outcome, "BASELINE_ACCEPTED");
+
+  const wrongGenerator = structuredClone(valid);
+  wrongGenerator.fixture.generator = "other";
+  assert.equal(evaluateCandidateBaseline(wrongGenerator).outcome, "INVALID");
+
+  const wrongRange = structuredClone(valid);
+  wrongRange.fixture.manifest[300].minPartySize = 1;
+  assert.equal(evaluateCandidateBaseline(wrongRange).outcome, "INVALID");
+
+  const wrongTiePriority = structuredClone(valid);
+  wrongTiePriority.fixture.manifest[1].prioritySince = "2026-01-01T00:00:09Z";
+  assert.equal(evaluateCandidateBaseline(wrongTiePriority).outcome, "INVALID");
+
+  const wrongDistinctPriority = structuredClone(valid);
+  wrongDistinctPriority.fixture.manifest[200].prioritySince = valid.fixture.manifest[199].prioritySince;
+  assert.equal(evaluateCandidateBaseline(wrongDistinctPriority).outcome, "INVALID");
+});
+
+test("raw 배열 누락 CLI 입력도 INVALID decision JSON으로 보존한다", () => {
+  const directory = mkdtempSync(join(tmpdir(), "match01-invalid-input-"));
+  const inputPath = join(directory, "input.json");
+  const outputPath = join(directory, "output.json");
+  const input = {
+    fixture: completeFixture(),
+    warmUp: completeRound(0),
+    measured: [completeRound(1), completeRound(2), completeRound(3)],
+  };
+  delete input.measured[1].logicalClaims;
+  writeFileSync(inputPath, JSON.stringify(input));
+  try {
+    const result = spawnSync(process.execPath, ["scripts/measurements/match01-candidate-baseline-report.mjs", "--input", inputPath, "--output", outputPath]);
+    assert.equal(result.status, 0, result.stderr.toString());
+    const output = JSON.parse(readFileSync(outputPath, "utf8"));
+    assert.equal(output.decision.outcome, "INVALID");
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("lock 관측 창과 실제 fixture의 100개 tie 결과가 없으면 INVALID다", () => {
+  const valid = buildCandidateBaselineReport({
+    fixture: completeFixture(),
+    warmUp: completeRound(0),
+    measured: [completeRound(1), completeRound(2), completeRound(3)],
+  });
+  const missingLockWindow = structuredClone(valid);
+  delete missingLockWindow.measuredRounds[0].lockSamples.observationStartedAtUtc;
+  assert.equal(evaluateCandidateBaseline(missingLockWindow).outcome, "INVALID");
+
+  const reversedLockWindow = structuredClone(valid);
+  reversedLockWindow.measuredRounds[0].lockSamples.observationFinishedAtUtc = "2025-12-31T23:59:59Z";
+  assert.equal(evaluateCandidateBaseline(reversedLockWindow).outcome, "INVALID");
+
+  const missingTiePair = structuredClone(valid);
+  missingTiePair.measuredRounds[0].correctnessInput.tiePairResults.pop();
+  assert.equal(evaluateCandidateBaseline(missingTiePair).outcome, "INVALID");
+
+  const failedTiePair = structuredClone(valid);
+  failedTiePair.measuredRounds[0].correctnessInput.tiePairResults[0].sameProposal = false;
+  assert.equal(evaluateCandidateBaseline(failedTiePair).outcome, "FAILED");
+
+  const reversedCandidateSql = structuredClone(valid);
+  reversedCandidateSql.measuredRounds[0].pgStatStatements.candidateStatements[0].query =
+    "select * from match_requests where status = 'WAITING' order by priority_since desc, id asc limit $1 for update skip locked";
+  assert.equal(evaluateCandidateBaseline(reversedCandidateSql).outcome, "INVALID");
 });
 
 test("관측과 process 누락은 INVALID, 완료 뒤 정합성 위반은 FAILED로 판정한다", () => {
