@@ -1293,9 +1293,16 @@ class RoomWaitlistConcurrencyBaselinePostgresTest {
 
 		void before(Method method, Object[] arguments) {
 			Scenario scenario = activeScenario.get();
-			if (scenario == null || arguments == null || arguments.length < 2
-				|| !(arguments[0] instanceof Long roomId) || !(arguments[1] instanceof Long userId)
-				|| scenario.roomId != roomId || scenario.firstWaitingUserId != userId) {
+			if (scenario == null || !isTargetRoom(method, arguments, scenario)) {
+				return;
+			}
+			if (method.getName().equals("promoteFirstWaitingByRoomId")) {
+				if (scenario.order == TransitionOrder.CANCEL_FIRST) {
+					await(scenario.cancellationCompleted, "첫 WAITING 취소 확정");
+				}
+				return;
+			}
+			if (!isFirstWaitingUser(arguments, scenario)) {
 				return;
 			}
 			if (method.getName().equals("promoteWaiting") && scenario.order == TransitionOrder.CANCEL_FIRST) {
@@ -1306,11 +1313,22 @@ class RoomWaitlistConcurrencyBaselinePostgresTest {
 			}
 		}
 
-		void after(Method method, Object[] arguments) {
+		void after(Method method, Object[] arguments, Object result) {
 			Scenario scenario = activeScenario.get();
-			if (scenario == null || arguments == null || arguments.length < 2
-				|| !(arguments[0] instanceof Long roomId) || !(arguments[1] instanceof Long userId)
-				|| scenario.roomId != roomId || scenario.firstWaitingUserId != userId) {
+			if (scenario == null || !isTargetRoom(method, arguments, scenario)) {
+				return;
+			}
+			if (method.getName().equals("promoteFirstWaitingByRoomId")) {
+				if (scenario.order == TransitionOrder.PROMOTION_FIRST
+					&& result instanceof Optional<?> optional
+					&& optional.orElse(null) instanceof RoomWaitlistRepository.FirstWaitingPromotionProjection promotion
+					&& promotion.getUserId() == scenario.firstWaitingUserId
+					&& Boolean.TRUE.equals(promotion.getPromoted())) {
+					scenario.promotionCompleted.countDown();
+				}
+				return;
+			}
+			if (!isFirstWaitingUser(arguments, scenario)) {
 				return;
 			}
 			if (method.getName().equals("cancelWaiting") && scenario.order == TransitionOrder.CANCEL_FIRST) {
@@ -1319,6 +1337,22 @@ class RoomWaitlistConcurrencyBaselinePostgresTest {
 			if (method.getName().equals("promoteWaiting") && scenario.order == TransitionOrder.PROMOTION_FIRST) {
 				scenario.promotionCompleted.countDown();
 			}
+		}
+
+		private boolean isTargetRoom(Method method, Object[] arguments, Scenario scenario) {
+			return arguments != null
+				&& arguments.length >= 2
+				&& arguments[0] instanceof Long roomId
+				&& scenario.roomId == roomId
+				&& (method.getName().equals("cancelWaiting")
+					|| method.getName().equals("promoteWaiting")
+					|| method.getName().equals("promoteFirstWaitingByRoomId"));
+		}
+
+		private boolean isFirstWaitingUser(Object[] arguments, Scenario scenario) {
+			return arguments.length >= 2
+				&& arguments[1] instanceof Long userId
+				&& scenario.firstWaitingUserId == userId;
 		}
 
 		void deactivate() {
@@ -1405,7 +1439,7 @@ class RoomWaitlistConcurrencyBaselinePostgresTest {
 			try {
 				waitlistTransitionGate.before(method, arguments);
 				Object result = method.invoke(delegate, arguments);
-				waitlistTransitionGate.after(method, arguments);
+				waitlistTransitionGate.after(method, arguments, result);
 				return result;
 			} catch (InvocationTargetException exception) {
 				throw exception.getCause();
