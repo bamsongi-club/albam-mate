@@ -1,15 +1,19 @@
 # ROOM 잠금 전략 비교 의사결정 보고서
 
-## 기술 요약: C는 이번 T1 비교에서 제외하고, A와 B는 아직 최종 선택하지 않는다
+## 결론: 이번 T1 timeboxed 근거로 A를 선택한다
 
 이번 timeboxed 측정에서 C(비관 write lock)는 유효한 후보·source provenance가 있는 p4 실행에서 실제 5xx 4건과 response contract failure 4건을 냈다. 따라서 C는 이 T1 조건의 성능 순위와 추가 반복에서 제외한다. `INVALID`은 nonzero k6 종료 뒤 `resource-signals.json`이 없는 runner artifact 상태이며, 이 5xx를 PASS로 바꾸지 않는다.
 
-A(현행 낙관적 락)와 B(낙관적 락 + bounded jitter)는 각각 4회 모두 T7 hard gate를 통과했다. 같은 T1·constant-mixed·c8 조건에서 A의 관측 지연 중앙값은 B보다 낮다. 다만 A/B는 후보당 4회, 한 시나리오·한 부하 조건의 표본뿐이므로 이 차이는 **이 조건에서의 방향성 있는 관측**이지 최종 잠금 전략의 증명이나 winner 선언이 아니다.
+A(현행 낙관적 락)와 B(낙관적 락 + bounded jitter)는 각각 4회 모두 T7 hard gate를 통과했다. 같은 T1·constant-mixed·c8 조건에서 A의 관측 지연 중앙값은 B보다 낮고, B가 A보다 나은 지표는 없었다. 따라서 이번 timeboxed 범위의 생산 적용 전략은 **A로 선택한다**.
 
-따라서 이 보고서가 현재 뒷받침하는 판단은 두 가지다.
+선택의 근거와 경계는 다음과 같다.
 
-- C는 원인 확인 전에는 이번 T1 성능 비교 대상으로 다시 넣지 않는다.
-- A는 이 T1 조건에서 B보다 낮은 p50·p95·p99를 보였지만, A/B 중 최종 생산 전략을 선택하려면 사람의 위험 수용 판단 또는 추가 검증이 필요하다.
+- A를 생산 적용 전략으로 선택한다. A는 A/B 모두 통과한 T1 조건에서 더 낮은 p50·p95·p99를 보였다.
+- B는 선택하지 않는다. bounded jitter를 추가했지만 성공률 이점은 없고, 측정한 모든 latency percentile이 A보다 높았다.
+- C는 5xx correctness failure 때문에 선택 대상에서 제외한다.
+- 이 선택은 T1·constant-mixed·c8의 근거에 한정한다. 모든 경합 조건에서 A가 항상 우수하다는 주장은 아니다.
+
+`campaign-report.json`의 `winner: null`은 runner가 기계적으로 winner를 만들지 않는다는 뜻으로 유지한다. 이 문서는 원자료를 사람이 해석해 남기는 선택 기록이며, #787은 이 선택을 ADR로 공식화한다. 후보 PR의 병합을 이 보고서가 승인하는 것은 아니다.
 
 > 측정 기준 시각: 2026-08-20 UTC. 정본 데이터는 [campaign report](campaign-report.json), [campaign plan](campaign-plan.json), [raw digest](raw-digests.json), [비교 계약](../../room-lock-strategy-comparison-contract.md)이다.
 
@@ -17,11 +21,11 @@ A(현행 낙관적 락)와 B(낙관적 락 + bounded jitter)는 각각 4회 모�
 
 모든 A/B 행은 `ROOM 시나리오 T1`, `constant-arrival-rate`, `constant-mixed`, c8(초당 8 ROOM 요청), 60초, 실행당 480 ROOM 요청이라는 같은 조건이다. A/B의 합계는 각각 4회, 1,920 ROOM 요청이다.
 
-| 후보 | 잠금 방식 | 유효 실행 | ROOM 요청 | 성공 | 계약상 허용된 동시성 409 | 예상 밖 4xx | 5xx | contract failure | T7 상태 |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| A | 현행 낙관적 락 | 4 | 1,920 | 1,918 (99.896%) | 2 (0.104%) | 0 | 0 | 0 | PASS |
-| B | 낙관적 락 + bounded jitter | 4 | 1,920 | 1,917 (99.844%) | 3 (0.156%) | 0 | 0 | 0 | PASS |
-| C | 비관 write lock | 성능 집계 제외 (p4 FAIL) | p4 기준 480 | 476 (99.167%) | 0 | 0 | 4 (0.833%) | 4 (0.833%) | 1차 FAIL, runner artifact INVALID |
+| 후보 | 잠금 방식 | 유효 실행 | ROOM 요청 | 성공 | 계약상 허용된 동시성 409 | 예상 밖 4xx | 5xx | contract failure | T7 상태 | 선택 |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |
+| A | 현행 낙관적 락 | 4 | 1,920 | 1,918 (99.896%) | 2 (0.104%) | 0 | 0 | 0 | PASS | 선택 |
+| B | 낙관적 락 + bounded jitter | 4 | 1,920 | 1,917 (99.844%) | 3 (0.156%) | 0 | 0 | 0 | PASS | 미선택 |
+| C | 비관 write lock | 성능 집계 제외 (p4 FAIL) | p4 기준 480 | 476 (99.167%) | 0 | 0 | 4 (0.833%) | 4 (0.833%) | 1차 FAIL, runner artifact INVALID | 제외 |
 
 `계약상 허용된 동시성 409`는 응답 코드가 `ROOM_CONCURRENT_MODIFICATION`이고 응답 envelope가 계약에 맞은 경우다. 성공으로는 세지 않지만, 예상 밖 4xx·5xx나 contract failure와 달리 T7 hard gate를 실패시키지 않는다. C의 5xx 4건과 contract failure 4건은 **서로 다른 8건이 아니라 같은 4개 응답이 두 counter에 함께 기록된 것**이다.
 
@@ -33,7 +37,7 @@ A(현행 낙관적 락)와 B(낙관적 락 + bounded jitter)는 각각 4회 모�
 
 지연 수치는 각 실행의 `room_request_duration{outcome:success}` percentile을 먼저 계산하고, A/B 각각 4개 실행 percentile의 중앙값을 다시 계산한 값이다. 즉 1,920 요청을 한꺼번에 합친 pooled percentile이 아니다.
 
-## A와 B의 차이: 지연 차이는 보이지만, 통계적 winner는 아니다
+## A와 B의 차이: A를 선택한 근거
 
 | 지표 | A | B | A - B | 읽는 법 |
 | --- | ---: | ---: | ---: | --- |
@@ -43,7 +47,7 @@ A(현행 낙관적 락)와 B(낙관적 락 + bounded jitter)는 각각 4회 모�
 | p99 중앙값 | 179.609 ms | 287.297 ms | -107.688 ms (-37.483%) | 아주 느린 성공 요청에서 A가 더 낮게 관측됐지만, 실행 간 범위가 넓어 주의가 필요하다. |
 | 평균 HTTP RPS | 8.140 | 8.111 | +0.029 (+0.358%) | 부하 발생기가 유사하게 동작했는지 보는 보조값이며, 업무 처리량 우열은 아니다. |
 
-A의 p99 실행별 범위는 81.033–331.018 ms, B는 80.338–350.009 ms다. 두 후보 모두 tail 값이 실행마다 크게 움직인다. 따라서 위 지연 차이를 "A가 항상 더 빠르다"거나 jitter의 인과 효과라고 해석하면 안 된다.
+A의 p99 실행별 범위는 81.033–331.018 ms, B는 80.338–350.009 ms다. 두 후보 모두 tail 값이 실행마다 크게 움직인다. 이 변동은 A가 모든 조건에서 항상 더 빠르다는 증명은 아니지만, 이번에 승인한 T1 범위에서 A를 선택하지 않을 근거는 아니다. B는 추가한 bounded jitter의 이점을 이 조건에서 보이지 못했다.
 
 ## 숫자의 의미와 분모
 
@@ -69,16 +73,17 @@ C p4는 source/candidate provenance가 맞고 raw `k6-summary.json`과 after dia
 
 ### 현재 결정 가능한 것
 
-- C는 이번 T1 조건에서 correctness hard gate를 통과하지 못했으므로 성능 순위 대상에서 제외한다.
-- A/B는 이 T1 조건에서 모두 correctness hard gate를 통과했다.
-- A는 이 T1 조건의 관측 p50·p95·p99 중앙값에서 B보다 낮다.
+- 이번 생산 적용 전략은 A(현행 낙관적 락)로 선택한다.
+- B는 A보다 성공률 이점이 없고 p50·p95·p99가 모두 높으므로 선택하지 않는다.
+- C는 이번 T1 조건에서 correctness hard gate를 통과하지 못했으므로 선택 대상에서 제외한다.
+- #787은 위 선택과 근거·재검토 조건을 ADR로 공식화한다. 후보 PR 병합은 별도 변경·CI·리뷰 단계다.
 
 ### 현재 결정할 수 없는 것
 
 - A가 B보다 모든 경합 조건과 T2에서도 우수하다는 결론
 - C가 모든 환경에서 사용할 수 없다는 전역 결론 또는 5xx의 근본 원인
 - 운영 SLO, 용량 한계, DB lock wait·retry 비용의 우열
-- A/B/C 중 최종 생산 잠금 전략과 candidate PR 병합
+- 후보 PR 병합 순서, rebase 필요성, 현재 develop 기준 CI 결과
 
 ## 한계와 최소 후속 판단
 
@@ -87,9 +92,9 @@ C p4는 source/candidate provenance가 맞고 raw `k6-summary.json`과 after dia
 - DB lock wait·retry·pool·CPU 원자료는 bundle에 남아 있지만 이번 timeboxed report에는 후보별 비교 지표로 정규화하지 않았다.
 - C는 p4가 FAIL이어서 success latency를 A/B와 비교할 수 없다.
 
-#787에서 지금 데이터를 사용해 결정한다면, 결론은 "C는 제외하고 A가 이 T1 조건에서 더 낮은 지연을 보였다"까지로 한정해야 한다. A/B의 최종 선택은 이 제한을 명시한 사람의 위험 수용 결정이어야 한다. 데이터만으로 A/B winner를 선언하려면 같은 T1 조건의 다섯 번째 A/B paired run이 가장 작은 추가 표본이며, T2까지 일반화하려면 T2는 별도 증거가 필요하다.
+위 한계는 이번 선택을 무효화하지 않는다. #786은 승인된 최소 범위에서 A를 선택할 근거를 제공했고, #787은 그 선택을 ADR로 공식화한다. 다섯 번째 A/B 반복이나 T2 측정은 A 선택의 선행 조건이 아니다. 새로운 고경합 조건·운영 장애·SLO 문제가 발견될 때 재검토 증거로만 추가한다.
 
-## 추가로 답해야 할 질문
+## 향후 재검토 시 답할 질문
 
 - C p4의 5xx는 어떤 코드 경로·DB 상태·lock interaction에서 발생했는가?
 - B의 bounded jitter 효과가 T1 mixed c8 외의 hot 또는 T2에서 달라지는가?

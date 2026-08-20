@@ -15,7 +15,7 @@ Issue #786에서 #785가 고정한 A/B/C 후보를 같은 AWS 환경·release �
 - C p4는 유효 provenance에서 5xx·server failure·contract failure가 각각 4건 발생해 T7의 1차 분류가 `FAIL`이다. nonzero k6 종료 뒤 resource signal이 빠져 runner 최종 상태는 `INVALID`로 남지만, 두 상태를 함께 보존하고 C 성능 순위에는 넣지 않는다.
 - 실행 전 중단한 A p3, C p1·p2 bundle도 제외 사유와 함께 보존한다.
 
-실제 실행 목록·candidate SHA·원자료 digest·정규화 metric은 [campaign plan](results/room-lock-strategy-comparison/campaign-plan.json), [campaign report](results/room-lock-strategy-comparison/campaign-report.json), [의사결정 보고서](results/room-lock-strategy-comparison/decision-report.md), [raw digest](results/room-lock-strategy-comparison/raw-digests.json)에 있다. 이 기록은 #786의 증거이며 최종 winner·ADR·생산 병합을 만들지 않는다.
+실제 실행 목록·candidate SHA·원자료 digest·정규화 metric은 [campaign plan](results/room-lock-strategy-comparison/campaign-plan.json), [campaign report](results/room-lock-strategy-comparison/campaign-report.json), [의사결정 보고서](results/room-lock-strategy-comparison/decision-report.md), [raw digest](results/room-lock-strategy-comparison/raw-digests.json)에 있다. 기계 생성 campaign report는 winner를 자동으로 만들지 않지만, 의사결정 보고서는 이 timeboxed 증거로 A를 생산 적용 전략으로 선택한다. #787은 그 선택을 ADR로 공식화하며, #786은 후보 코드 병합을 수행하지 않는다.
 
 ## 현재 구현
 
@@ -98,7 +98,7 @@ node load-tests/k6/jiwon/tools/room-lock-comparison.mjs aggregate-campaign `
   --output docs/measurements/results/room-lock-strategy-comparison/campaign-report.json
 ```
 
-report는 유효·제외 candidate와 정규화 metric을 남기며 winner는 자동으로 만들지 않는다. 최종 생산 전략은 report와 raw artifact를 사람이 확인한 뒤 별도 결정한다. 이번 timeboxed report는 A/B 4회와 C T7 FAIL을 정직하게 기록하며, full 5회 gate를 통과했다고 주장하지 않는다.
+campaign report는 유효·제외 candidate와 정규화 metric을 남기며 winner를 자동으로 만들지 않는다. 사람이 읽는 의사결정 보고서는 report와 raw artifact를 근거로 A를 선택하고, #787이 이를 ADR로 공식화한다. 이번 timeboxed report는 A/B 4회와 C T7 FAIL을 정직하게 기록하며, full 5회 gate를 통과했다고 주장하지 않는다.
 
 ## 금지 범위
 

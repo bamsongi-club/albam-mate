@@ -36,11 +36,11 @@ room-lock-strategy-comparison/
 
 ## 2026-08-20 timeboxed 결과
 
-이번 결과는 T1·constant-mixed·c8·8 req/s·60초의 A/B 4회 실행과 C fail-fast 원자료로 한정한다. 전체 600회 matrix의 결과가 아니며 winner·최종 잠금 전략·ADR을 만들지 않는다.
+이번 결과는 T1·constant-mixed·c8·8 req/s·60초의 A/B 4회 실행과 C fail-fast 원자료로 한정한다. 기계 생성 `campaign-report.json`은 winner를 자동으로 만들지 않지만, 사람이 읽는 `decision-report.md`는 이 범위의 근거로 A를 생산 적용 전략으로 선택한다. #787은 그 선택을 ADR로 공식화하며, 이 결과 자체가 후보 PR 병합을 승인하지는 않는다.
 
 - `campaign-plan.json`: 사용자 승인 4회 범위, 후보 SHA, 포함·제외 실행 목록
 - `campaign-report.json`: A/B의 제한된 T1 metric, C의 T7 1차 `FAIL`과 runner artifact `INVALID` 부가 상태, teardown 결과
-- `decision-report.md`: A/B/C 수치의 분모·metric 정의·해석·결정 가능/불가능 범위를 설명하는 사람이 읽는 의사결정 보고서
+- `decision-report.md`: A/B/C 수치의 분모·metric 정의·해석·결정 범위와 A 선택 근거를 설명하는 사람이 읽는 의사결정 보고서
 - `raw/`: 완결·중단 bundle 13개의 non-secret 원자료 371개 파일을 원본 구조로 보존한 경로
 - `raw-digests.json`: source 397개 파일의 SHA-256, Git 보관 371개 파일의 원본 대조 결과, 제외한 26개 credential-derived fixture artifact의 SHA-256·크기·사유
 
