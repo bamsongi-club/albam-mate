@@ -16,6 +16,7 @@ const DEFAULT_FIXTURE_MANIFEST = path.join(
 );
 const DEFAULT_OUTPUT = path.join(REPOSITORY_ROOT, "build/k6/game-list-867/concurrency.json");
 const HEX_SHA = /^[0-9a-f]{40}$/u;
+const SHA256_HEX = /^[0-9a-f]{64}$/u;
 const WORKLOADS = new Set(["mixed", "base", "relation", "complex"]);
 
 function fail(message) {
@@ -205,8 +206,8 @@ function fixtureProvenance(manifestPath) {
   if (manifest.games?.rowCount !== 170005) {
     fail(`fixture games rowCount가 170,005가 아닙니다: ${manifest.games?.rowCount}`);
   }
-  if (typeof manifest.games?.bggIdSetSha256 !== "string") {
-    fail("fixture manifest의 BGG ID set SHA-256이 없습니다.");
+  if (!SHA256_HEX.test(manifest.games?.bggIdSetSha256 || "")) {
+    fail("fixture manifest의 BGG ID set SHA-256이 올바르지 않습니다.");
   }
   return {
     manifestPath: path.relative(REPOSITORY_ROOT, manifestPath),
@@ -220,6 +221,77 @@ function fixtureProvenance(manifestPath) {
       gameCategoryRelations: manifest.metadata?.gameCategoryRelations,
       gamePlayerPreferences: manifest.metadata?.gamePlayerPreferences,
     },
+  };
+}
+
+function postgresQuery(options, sql, maxBuffer = 4 * 1024 * 1024) {
+  return run(options.docker, [
+    "exec",
+    "-e",
+    "PGAPPNAME=game-list-867-fixture-check",
+    options.postgresContainer,
+    "psql",
+    "-U",
+    options.dbUser,
+    "-d",
+    options.dbName,
+    "-At",
+    "-v",
+    "ON_ERROR_STOP=1",
+    "-c",
+    sql,
+  ], { maxBuffer });
+}
+
+export function parsePostgresGameCount(output) {
+  const value = output.trim();
+  if (!/^\d+$/u.test(value)) {
+    fail(`PostgreSQL games row count가 정수가 아닙니다: ${JSON.stringify(output)}`);
+  }
+  const count = Number(value);
+  if (!Number.isSafeInteger(count)) {
+    fail(`PostgreSQL games row count가 안전한 정수가 아닙니다: ${value}`);
+  }
+  return count;
+}
+
+export function parsePostgresBggIdSet(output) {
+  const ids = output.trim() === "" ? [] : output.trim().split(/\s+/u);
+  const digest = createHash("sha256");
+  let previousId = 0;
+  for (const rawId of ids) {
+    const id = Number(rawId);
+    if (!Number.isSafeInteger(id) || id <= previousId) {
+      fail(`PostgreSQL BGG ID가 정렬된 양의 정수가 아닙니다: ${JSON.stringify(rawId)}`);
+    }
+    previousId = id;
+    digest.update(`${id}\n`);
+  }
+  return { count: ids.length, bggIdSetSha256: digest.digest("hex") };
+}
+
+function verifyFixtureAgainstPostgres(options, fixture) {
+  const observedGameCount = parsePostgresGameCount(
+    postgresQuery(options, "SELECT count(*) FROM games;"),
+  );
+  if (observedGameCount !== fixture.gameCount) {
+    fail(`PostgreSQL fixture games row count 불일치: expected=${fixture.gameCount}, actual=${observedGameCount}`);
+  }
+
+  const observedBggIds = parsePostgresBggIdSet(
+    postgresQuery(options, "SELECT bgg_id FROM games ORDER BY bgg_id;", 16 * 1024 * 1024),
+  );
+  if (observedBggIds.count !== observedGameCount) {
+    fail(`PostgreSQL fixture BGG ID 수와 games row count가 다릅니다: bggIds=${observedBggIds.count}, games=${observedGameCount}`);
+  }
+  if (observedBggIds.bggIdSetSha256 !== fixture.bggIdSetSha256) {
+    fail(`PostgreSQL fixture BGG ID 집합 지문 불일치: expected=${fixture.bggIdSetSha256}, actual=${observedBggIds.bggIdSetSha256}`);
+  }
+
+  return {
+    verifiedAgainstPostgres: true,
+    observedGameCount,
+    observedBggIdSetSha256: observedBggIds.bggIdSetSha256,
   };
 }
 
@@ -331,6 +403,25 @@ function postgresActivity(options) {
   return parsePostgresActivity(output);
 }
 
+export function summarizeResourceSampling(samples, configuredIntervalMs) {
+  const timestamps = samples.map((sample) => Date.parse(sample.at));
+  if (timestamps.some((timestamp) => !Number.isFinite(timestamp))) {
+    fail("자원 표본 timestamp가 올바른 ISO 시각이 아닙니다.");
+  }
+  const intervals = timestamps.slice(1).map((timestamp, index) => timestamp - timestamps[index]);
+  return {
+    configuredIntervalMs,
+    sampleCount: samples.length,
+    observedIntervalMs: intervals.length === 0
+      ? null
+      : {
+        min: Math.min(...intervals),
+        max: Math.max(...intervals),
+        average: intervals.reduce((sum, interval) => sum + interval, 0) / intervals.length,
+      },
+  };
+}
+
 function resourceSample(options, at) {
   return {
     at,
@@ -410,9 +501,19 @@ function phaseRun(options, concurrency, resourcesDirectory) {
   const output = fs.openSync(logPath, "w");
   const child = spawn(options.k6, args, { cwd: REPOSITORY_ROOT, env: process.env, stdio: ["ignore", output, output] });
   return new Promise((resolve, reject) => {
-    child.once("error", (error) => reject(new Error(`k6 실행 실패: ${error.message}`)));
+    let outputClosed = false;
+    const closeOutput = () => {
+      if (!outputClosed) {
+        fs.closeSync(output);
+        outputClosed = true;
+      }
+    };
+    child.once("error", (error) => {
+      closeOutput();
+      reject(new Error(`k6 실행 실패: ${error.message}`));
+    });
     child.once("exit", (code, signal) => {
-      fs.closeSync(output);
+      closeOutput();
       if (code !== 0) {
         reject(new Error(`k6 ${phase} 실패 (exit=${code}, signal=${signal ?? "none"}). 로그: ${logPath}`));
         return;
@@ -467,6 +568,7 @@ async function measurePhase(options, concurrency, resourcesDirectory) {
     startedAt,
     finishedAt: new Date().toISOString(),
     resourceSamples: samples,
+    resourceSampling: summarizeResourceSampling(samples, options.sampleIntervalMs),
     restartCounts: {
       start: startRestartCounts,
       end: {
@@ -491,10 +593,12 @@ async function main() {
   const startedAt = new Date().toISOString();
   const resourcesDirectory = path.join(path.dirname(options.output), "raw");
   fs.mkdirSync(resourcesDirectory, { recursive: true });
+  const fixture = fixtureProvenance(path.resolve(options.fixtureManifest));
+  const observedFixture = verifyFixtureAgainstPostgres(options, fixture);
   const provenance = {
     runner: sourceProvenance(options),
     serverCommit: options.serverCommit,
-    fixture: fixtureProvenance(path.resolve(options.fixtureManifest)),
+    fixture: { ...fixture, ...observedFixture },
     k6: k6Version(options.k6),
     docker: run(options.docker, ["version", "--format", "{{.Server.Version}}"]).trim(),
     node: process.version,

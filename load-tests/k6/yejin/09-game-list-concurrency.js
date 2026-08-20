@@ -69,6 +69,7 @@ function checkSlice(response, label) {
       && Number.isInteger(data?.size)
       && data.size > 0
       && typeof data.hasNext === 'boolean'
+      && Array.isArray(data?.content)
       && data.content.length <= data.size,
   });
 }

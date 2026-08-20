@@ -6,9 +6,12 @@ import { fileURLToPath } from "node:url";
 
 import {
   parseDockerStats,
+  parsePostgresBggIdSet,
+  parsePostgresGameCount,
   parseK6Summary,
   parsePostgresActivity,
   parseWorkload,
+  summarizeResourceSampling,
 } from "./game-list-concurrency.mjs";
 
 const scriptPath = fileURLToPath(new URL("./game-list-concurrency.mjs", import.meta.url));
@@ -34,6 +37,16 @@ test("PostgreSQL pg_stat_activity 요약을 추출한다", () => {
     idleConnections: 5,
     waitingConnections: 1,
   });
+});
+
+test("PostgreSQL fixture 게임 수와 BGG ID 집합 지문을 추출한다", () => {
+  assert.equal(parsePostgresGameCount("3\n"), 3);
+  assert.deepEqual(parsePostgresBggIdSet("10\n20\n"), {
+    count: 2,
+    bggIdSetSha256: "4a1547d4d4d247f66eb1df3b9a673357715e8e64761f48b32fa592ae764d2383",
+  });
+  assert.throws(() => parsePostgresGameCount("not-a-count"), /row count/u);
+  assert.throws(() => parsePostgresBggIdSet("20\n10\n"), /정렬된 양의 정수/u);
 });
 
 test("게임 목록 workload 선택값을 제한한다", () => {
@@ -93,6 +106,21 @@ test("p99가 없는 k6 summary는 fail-closed로 거절한다", () => {
       },
     }),
     /k6 p\(99\)/u,
+  );
+});
+
+test("자원 표본 수와 설정 대비 실제 간격을 기록한다", () => {
+  assert.deepEqual(
+    summarizeResourceSampling([
+      { at: "2026-08-20T00:00:00.000Z" },
+      { at: "2026-08-20T00:00:01.000Z" },
+      { at: "2026-08-20T00:00:02.500Z" },
+    ], 1000),
+    {
+      configuredIntervalMs: 1000,
+      sampleCount: 3,
+      observedIntervalMs: { min: 1000, max: 1500, average: 1250 },
+    },
   );
 });
 

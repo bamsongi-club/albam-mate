@@ -170,6 +170,13 @@ test('a non-200 realistic workload response fails the k6 run', async () => {
   assert.match(`${result.stdout}\n${result.stderr}`, /checks/);
 });
 
+test('a non-200 game-list Slice preflight response fails the k6 run', async () => {
+  const result = await runScenario('09-game-list-concurrency.js', 'workload-204');
+
+  assert.notEqual(result.status, 0, result.stderr || result.stdout);
+  assert.match(`${result.stdout}\n${result.stderr}`, /Slice preflight|checks/);
+});
+
 test('the keyword scenario sends the configured fixed keyword', async () => {
   const result = await runScenario('02-game-keyword.js', 'success', {
     KEYWORD: '누스피요르드',
