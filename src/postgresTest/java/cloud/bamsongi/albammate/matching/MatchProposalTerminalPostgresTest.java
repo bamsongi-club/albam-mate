@@ -5,8 +5,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import java.sql.Timestamp;
 import java.time.Clock;
@@ -23,6 +28,7 @@ import javax.sql.DataSource;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -39,8 +45,11 @@ import cloud.bamsongi.albammate.matching.dto.CurrentMatchStateResponse;
 import cloud.bamsongi.albammate.matching.dto.MatchRequestCreateRequest;
 import cloud.bamsongi.albammate.matching.entity.MatchPartyParticipant;
 import cloud.bamsongi.albammate.matching.repository.MatchPartyParticipantRepository;
+import cloud.bamsongi.albammate.matching.service.command.MatchProposalResponseCompletionProbe;
+import cloud.bamsongi.albammate.matching.service.command.MatchProposalResponseCoordinator;
 import cloud.bamsongi.albammate.matching.service.command.MatchProposalResponseService;
 import cloud.bamsongi.albammate.matching.service.command.MatchRequestCommandService;
+import cloud.bamsongi.albammate.matching.service.query.MatchCurrentStateQueryCoordinator;
 import cloud.bamsongi.albammate.testsupport.SharedPostgresIntegrationSupport;
 
 @Testcontainers
@@ -53,6 +62,8 @@ class MatchProposalTerminalPostgresTest extends SharedPostgresIntegrationSupport
 	@Autowired
 	private MatchProposalResponseService matchProposalResponseService;
 	@Autowired
+	private MatchProposalResponseCoordinator matchProposalResponseCoordinator;
+	@Autowired
 	private MatchRequestCommandService matchRequestCommandService;
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
@@ -60,12 +71,235 @@ class MatchProposalTerminalPostgresTest extends SharedPostgresIntegrationSupport
 	private DataSource dataSource;
 	@MockitoSpyBean
 	private MatchPartyParticipantRepository participantRepository;
+	@MockitoSpyBean
+	private MatchProposalResponseCompletionProbe completionProbe;
+	@MockitoSpyBean
+	private MatchCurrentStateQueryCoordinator currentStateQueryCoordinator;
 
 	@AfterEach
 	void tearDown() {
 		reset(participantRepository);
+		reset(completionProbe);
+		reset(currentStateQueryCoordinator);
 		jdbcTemplate.execute(
 			"truncate table match_idempotency_records, match_proposal_members, match_proposals, match_party_participants, match_parties, match_requests, users restart identity cascade");
+	}
+
+	@Test
+	void 최초_유효_응답만_PostgreSQL_command_operationTime으로_관측을_시작하고_멱등성_재생은_시작하지_않는다() {
+		long userId = insertUser("completion-start");
+		long otherUserId = insertUser("completion-start-other");
+		long requestId = insertRequest(userId);
+		long otherRequestId = insertRequest(otherUserId);
+		long proposalId = insertOpenProposal();
+		insertProposalMember(proposalId, requestId, userId);
+		insertProposalMember(proposalId, otherRequestId, otherUserId);
+		ArgumentCaptor<Instant> operationTime = ArgumentCaptor.forClass(Instant.class);
+
+		doAnswer(invocation -> {
+			assertEquals("ACCEPTED", responseStatus(proposalId, requestId));
+			assertEquals(1, jdbcTemplate.queryForObject(
+				"select count(*) from match_idempotency_records where user_id = ? and idempotency_key = ?",
+				Integer.class, userId, "completion-key"));
+			return null;
+		}).when(completionProbe).complete();
+
+		CurrentMatchStateResponse currentState = matchProposalResponseCoordinator.respond(
+			userId, proposalId, MatchProposalResponseAction.ACCEPT, "completion-key");
+		CurrentMatchStateResponse replayedCurrentState = matchProposalResponseCoordinator.respond(
+			userId, proposalId, MatchProposalResponseAction.ACCEPT, "completion-key");
+
+		verify(completionProbe, times(1)).start(operationTime.capture());
+		verify(completionProbe, times(1)).complete();
+		assertEquals(MatchCurrentState.PROPOSED, currentState.state());
+		assertEquals(MatchCurrentState.PROPOSED, replayedCurrentState.state());
+		assertEquals(operationTime.getValue(), jdbcTemplate.queryForObject(
+			"select responded_at from match_proposal_members where proposal_id = ? and match_request_id = ?",
+			Timestamp.class, proposalId, requestId).toInstant());
+		assertEquals(operationTime.getValue(), jdbcTemplate.queryForObject(
+			"select created_at from match_idempotency_records where user_id = ? and idempotency_key = ?",
+			Timestamp.class, userId, "completion-key").toInstant());
+	}
+
+	@Test
+	void 현재_상태_DTO_조합_실패는_이미_commit된_응답과_멱등성_기록을_되돌리지_않는다() {
+		long userId = insertUser("completion-dto-failure");
+		long requestId = insertRequest(userId);
+		long proposalId = insertOpenProposal();
+		insertProposalMember(proposalId, requestId, userId);
+		IllegalStateException expected = new IllegalStateException("forced current state assembly failure");
+		doThrow(expected).when(currentStateQueryCoordinator).read(userId);
+
+		IllegalStateException actual = assertThrows(IllegalStateException.class,
+			() -> matchProposalResponseCoordinator.respond(
+				userId, proposalId, MatchProposalResponseAction.ACCEPT, "dto-failure-key"));
+
+		assertEquals(expected, actual);
+		verify(completionProbe).fail(MatchProposalResponseCompletionProbe.FailureStage.CURRENT_STATE_ASSEMBLY);
+		verify(completionProbe, never()).complete();
+		assertEquals("ACCEPTED", responseStatus(proposalId, requestId));
+		assertEquals(1, jdbcTemplate.queryForObject(
+			"select count(*) from match_idempotency_records where user_id = ? and idempotency_key = ?",
+			Integer.class, userId, "dto-failure-key"));
+	}
+
+	@Test
+	void 제안_참가자가_아닌_사용자의_응답_거절은_관측을_시작하지_않는다() {
+		long participantUserId = insertUser("completion-participant");
+		long rejectedUserId = insertUser("completion-rejected");
+		long requestId = insertRequest(participantUserId);
+		long proposalId = insertOpenProposal();
+		insertProposalMember(proposalId, requestId, participantUserId);
+
+		BusinessException exception = assertThrows(BusinessException.class,
+			() -> matchProposalResponseCoordinator.respond(
+				rejectedUserId, proposalId, MatchProposalResponseAction.ACCEPT, "rejected-key"));
+
+		assertEquals(ErrorCode.MATCH_PROPOSAL_RESPONSE_NOT_AVAILABLE, exception.getErrorCode());
+		verify(completionProbe, never()).start(any(Instant.class));
+		verify(completionProbe, never()).complete();
+		verify(completionProbe, never()).fail(any(MatchProposalResponseCompletionProbe.FailureStage.class));
+	}
+
+	@Test
+	void PostgreSQL_commit_단계_실패도_COMMAND_TRANSACTION_한번만_기록하고_다음_시도에_남지_않는다() {
+		long firstUser = insertUser("completion-commit-first");
+		long secondUser = insertUser("completion-commit-second");
+		long firstRequest = insertRequest(firstUser);
+		long secondRequest = insertRequest(secondUser);
+		long proposalId = insertOpenProposal();
+		insertProposalMember(proposalId, firstRequest, firstUser);
+		insertProposalMember(proposalId, secondRequest, secondUser);
+		matchProposalResponseCoordinator.respond(firstUser, proposalId, MatchProposalResponseAction.ACCEPT,
+			"first-key");
+		reset(completionProbe);
+		createDeferredIdempotencyCommitFailureTrigger();
+
+		try {
+			assertThrows(RuntimeException.class, () -> matchProposalResponseCoordinator.respond(
+				secondUser, proposalId, MatchProposalResponseAction.ACCEPT, "deferred-commit-failure-key"));
+		} finally {
+			dropDeferredIdempotencyCommitFailureTrigger();
+		}
+
+		verify(completionProbe).start(any(Instant.class));
+		verify(completionProbe, times(1)).fail(MatchProposalResponseCompletionProbe.FailureStage.COMMAND_TRANSACTION);
+		verify(completionProbe, never()).complete();
+		assertEquals("OPEN", proposalStatus(proposalId));
+		assertEquals("PENDING", responseStatus(proposalId, secondRequest));
+		assertEquals(0, jdbcTemplate.queryForObject(
+			"select count(*) from match_idempotency_records where user_id = ? and idempotency_key = ?",
+			Integer.class, secondUser, "deferred-commit-failure-key"));
+
+		reset(completionProbe);
+		assertDoesNotThrow(() -> matchProposalResponseCoordinator.respond(
+			secondUser, proposalId, MatchProposalResponseAction.ACCEPT, "deferred-commit-failure-key"));
+
+		verify(completionProbe).start(any(Instant.class));
+		verify(completionProbe).complete();
+		assertEquals("CONFIRMED", proposalStatus(proposalId));
+	}
+
+	@Test
+	void Command_rollback은_성공_완료_없이_bounded_실패_단계만_기록하고_다음_시도에_남지_않는다() {
+		long firstUser = insertUser("completion-rollback-first");
+		long secondUser = insertUser("completion-rollback-second");
+		long firstRequest = insertRequest(firstUser);
+		long secondRequest = insertRequest(secondUser);
+		long proposalId = insertOpenProposal();
+		insertProposalMember(proposalId, firstRequest, firstUser);
+		insertProposalMember(proposalId, secondRequest, secondUser);
+		matchProposalResponseService.respond(firstUser, proposalId, MatchProposalResponseAction.ACCEPT, "first-key");
+		reset(completionProbe);
+		doThrow(new IllegalStateException("forced participant save failure"))
+			.when(participantRepository).save(any(MatchPartyParticipant.class));
+
+		assertThrows(IllegalStateException.class, () -> matchProposalResponseService.respond(
+			secondUser, proposalId, MatchProposalResponseAction.ACCEPT, "second-key"));
+
+		verify(completionProbe).start(any(Instant.class));
+		verify(completionProbe).fail(MatchProposalResponseCompletionProbe.FailureStage.COMMAND_TRANSACTION);
+		verify(completionProbe, never()).complete();
+		assertEquals("OPEN", proposalStatus(proposalId));
+		assertEquals("PENDING", responseStatus(proposalId, secondRequest));
+
+		reset(participantRepository, completionProbe);
+		matchProposalResponseService.respond(secondUser, proposalId, MatchProposalResponseAction.ACCEPT, "second-key");
+
+		verify(completionProbe).start(any(Instant.class));
+		verify(completionProbe, never()).fail(any(MatchProposalResponseCompletionProbe.FailureStage.class));
+		assertEquals("CONFIRMED", proposalStatus(proposalId));
+	}
+
+	@Test
+	void 관측_시작과_실패_기록_오류는_원래_Command_결과와_rollback_예외를_바꾸지_않는다() {
+		long firstUser = insertUser("completion-probe-start-first");
+		long secondUser = insertUser("completion-probe-start-second");
+		long firstRequest = insertRequest(firstUser);
+		long secondRequest = insertRequest(secondUser);
+		long proposalId = insertOpenProposal();
+		insertProposalMember(proposalId, firstRequest, firstUser);
+		insertProposalMember(proposalId, secondRequest, secondUser);
+		doThrow(new IllegalStateException("probe start failure")).when(completionProbe).start(any(Instant.class));
+
+		CurrentMatchStateResponse currentState = assertDoesNotThrow(() -> matchProposalResponseCoordinator.respond(
+			firstUser, proposalId, MatchProposalResponseAction.ACCEPT, "probe-start-key"));
+
+		assertEquals(MatchCurrentState.PROPOSED, currentState.state());
+		assertEquals("ACCEPTED", responseStatus(proposalId, firstRequest));
+		doNothing().when(completionProbe).start(any(Instant.class));
+		doThrow(new IllegalStateException("forced participant save failure"))
+			.when(participantRepository).save(any(MatchPartyParticipant.class));
+		doThrow(new IllegalStateException("probe failure recording failed")).when(completionProbe)
+			.fail(MatchProposalResponseCompletionProbe.FailureStage.COMMAND_TRANSACTION);
+
+		IllegalStateException exception = assertThrows(IllegalStateException.class,
+			() -> matchProposalResponseCoordinator.respond(
+				secondUser, proposalId, MatchProposalResponseAction.ACCEPT, "probe-failure-key"));
+
+		assertEquals("forced participant save failure", exception.getMessage());
+		assertEquals("OPEN", proposalStatus(proposalId));
+		assertEquals("PENDING", responseStatus(proposalId, secondRequest));
+
+		reset(participantRepository);
+		doNothing().when(completionProbe)
+			.fail(MatchProposalResponseCompletionProbe.FailureStage.COMMAND_TRANSACTION);
+
+		assertDoesNotThrow(() -> matchProposalResponseCoordinator.respond(
+			secondUser, proposalId, MatchProposalResponseAction.ACCEPT, "probe-failure-key"));
+
+		verify(completionProbe, times(3)).start(any(Instant.class));
+		verify(completionProbe, times(2)).complete();
+		verify(completionProbe, times(1))
+			.fail(MatchProposalResponseCompletionProbe.FailureStage.COMMAND_TRANSACTION);
+		assertEquals("CONFIRMED", proposalStatus(proposalId));
+	}
+
+	@Test
+	void 관측_완료_기록_오류는_commit된_응답을_바꾸지_않고_다음_요청에_남지_않는다() {
+		long firstUser = insertUser("completion-probe-complete-first");
+		long secondUser = insertUser("completion-probe-complete-second");
+		long firstRequest = insertRequest(firstUser);
+		long secondRequest = insertRequest(secondUser);
+		long proposalId = insertOpenProposal();
+		insertProposalMember(proposalId, firstRequest, firstUser);
+		insertProposalMember(proposalId, secondRequest, secondUser);
+		doThrow(new IllegalStateException("probe completion failure")).when(completionProbe).complete();
+
+		CurrentMatchStateResponse currentState = assertDoesNotThrow(() -> matchProposalResponseCoordinator.respond(
+			firstUser, proposalId, MatchProposalResponseAction.ACCEPT, "probe-complete-first-key"));
+
+		assertEquals(MatchCurrentState.PROPOSED, currentState.state());
+		assertEquals("ACCEPTED", responseStatus(proposalId, firstRequest));
+		doNothing().when(completionProbe).complete();
+
+		assertDoesNotThrow(() -> matchProposalResponseCoordinator.respond(
+			secondUser, proposalId, MatchProposalResponseAction.ACCEPT, "probe-complete-second-key"));
+
+		verify(completionProbe, times(2)).start(any(Instant.class));
+		verify(completionProbe, times(2)).complete();
+		verify(completionProbe, never()).fail(any(MatchProposalResponseCompletionProbe.FailureStage.class));
+		assertEquals("CONFIRMED", proposalStatus(proposalId));
 	}
 
 	@Test
@@ -684,6 +918,31 @@ class MatchProposalTerminalPostgresTest extends SharedPostgresIntegrationSupport
 			values (?, ?, 'MATCH_PROPOSAL_RESPONSE', ?, 'MATCH_PROPOSAL', ?, 'RESPONDED', ?, ?)
 			""", userId, idempotencyKey, proposalId + ":ACCEPT", proposalId, Timestamp.from(now.minusSeconds(86_400)),
 			Timestamp.from(now.minusSeconds(1)));
+	}
+
+	private void createDeferredIdempotencyCommitFailureTrigger() {
+		jdbcTemplate.execute("""
+			create function fail_deferred_match_response_idempotency() returns trigger language plpgsql as $$
+			begin
+				if new.idempotency_key = 'deferred-commit-failure-key' then
+					raise exception 'forced deferred match response idempotency failure';
+				end if;
+				return new;
+			end;
+			$$
+			""");
+		jdbcTemplate.execute("""
+			create constraint trigger fail_deferred_match_response_idempotency_trigger
+			after insert on match_idempotency_records
+			deferrable initially deferred
+			for each row execute function fail_deferred_match_response_idempotency()
+			""");
+	}
+
+	private void dropDeferredIdempotencyCommitFailureTrigger() {
+		jdbcTemplate.execute(
+			"drop trigger if exists fail_deferred_match_response_idempotency_trigger on match_idempotency_records");
+		jdbcTemplate.execute("drop function if exists fail_deferred_match_response_idempotency()");
 	}
 
 	@TestConfiguration

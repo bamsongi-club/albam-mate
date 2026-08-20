@@ -9,6 +9,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
@@ -94,6 +96,7 @@ public class MatchProposalResponseExecutor {
 	private final UserRowLockPort userRowLockPort;
 	private final JdbcTemplate jdbcTemplate;
 	private final EntityManager entityManager;
+	private final MatchProposalResponseCompletionProbe completionProbe;
 
 	public MatchProposalResponseExecutor(
 		MatchProposalRepository proposalRepository,
@@ -104,7 +107,8 @@ public class MatchProposalResponseExecutor {
 		MatchIdempotencyRecordRepository idempotencyRecordRepository,
 		UserRowLockPort userRowLockPort,
 		JdbcTemplate jdbcTemplate,
-		EntityManager entityManager) {
+		EntityManager entityManager,
+		MatchProposalResponseCompletionProbe completionProbe) {
 		this.proposalRepository = proposalRepository;
 		this.proposalMemberRepository = proposalMemberRepository;
 		this.requestRepository = requestRepository;
@@ -114,10 +118,11 @@ public class MatchProposalResponseExecutor {
 		this.userRowLockPort = userRowLockPort;
 		this.jdbcTemplate = jdbcTemplate;
 		this.entityManager = entityManager;
+		this.completionProbe = completionProbe;
 	}
 
 	@Transactional(propagation = Propagation.REQUIRES_NEW)
-	public void respond(long userId, long proposalId, MatchProposalResponseAction action, String idempotencyKey) {
+	public boolean respond(long userId, long proposalId, MatchProposalResponseAction action, String idempotencyKey) {
 		String fingerprint = proposalId + ":" + action.name();
 		Instant precheckTime = currentDatabaseTime();
 		MatchIdempotencyRecord activeRecord = idempotencyRecordRepository
@@ -128,7 +133,7 @@ public class MatchProposalResponseExecutor {
 		}
 		if (activeRecord != null && !activeRecord.isExpiredAt(precheckTime)) {
 			if (activeRecord.hasSameMeaning(MatchIdempotencyOperation.MATCH_PROPOSAL_RESPONSE, fingerprint)) {
-				return;
+				return false;
 			}
 			throw new BusinessException(ErrorCode.IDEMPOTENCY_KEY_CONFLICT);
 		}
@@ -143,7 +148,7 @@ public class MatchProposalResponseExecutor {
 			.orElse(null);
 		if (record != null && !record.isExpiredAt(operationTime)) {
 			if (record.hasSameMeaning(MatchIdempotencyOperation.MATCH_PROPOSAL_RESPONSE, fingerprint)) {
-				return;
+				return false;
 			}
 			throw new BusinessException(ErrorCode.IDEMPOTENCY_KEY_CONFLICT);
 		}
@@ -157,10 +162,11 @@ public class MatchProposalResponseExecutor {
 		if (currentMember.getResponseStatus() != MatchProposalResponseStatus.PENDING) {
 			throw new BusinessException(ErrorCode.MATCH_PROPOSAL_RESPONSE_NOT_AVAILABLE);
 		}
+		startCompletionProbe(operationTime);
 		if (action == MatchProposalResponseAction.REQUEUE) {
 			declineForRequeue(proposal, members, currentMember, operationTime);
 			storeIdempotency(record, userId, idempotencyKey, fingerprint, proposalId, operationTime);
-			return;
+			return true;
 		}
 		if (action == MatchProposalResponseAction.CANCEL) {
 			proposal.cancel(operationTime);
@@ -174,7 +180,7 @@ public class MatchProposalResponseExecutor {
 				}
 			}
 			storeIdempotency(record, userId, idempotencyKey, fingerprint, proposalId, operationTime);
-			return;
+			return true;
 		}
 		if (action != MatchProposalResponseAction.ACCEPT) {
 			throw new BusinessException(ErrorCode.MATCH_PROPOSAL_RESPONSE_NOT_AVAILABLE);
@@ -184,6 +190,31 @@ public class MatchProposalResponseExecutor {
 			confirm(proposal, members, operationTime);
 		}
 		storeIdempotency(record, userId, idempotencyKey, fingerprint, proposalId, operationTime);
+		return true;
+	}
+
+	private void startCompletionProbe(Instant operationTime) {
+		try {
+			completionProbe.start(operationTime);
+		} catch (RuntimeException ignored) {
+			// 측정 기록 시작 실패는 업무 명령을 바꾸지 않는다.
+		}
+		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+			@Override
+			public void afterCompletion(int status) {
+				if (status != STATUS_COMMITTED) {
+					safelyRecordCommandFailure();
+				}
+			}
+		});
+	}
+
+	private void safelyRecordCommandFailure() {
+		try {
+			completionProbe.fail(MatchProposalResponseCompletionProbe.FailureStage.COMMAND_TRANSACTION);
+		} catch (RuntimeException ignored) {
+			// 측정 기록 실패는 원래 transaction 결과를 바꾸지 않는다.
+		}
 	}
 
 	private void storeIdempotency(
