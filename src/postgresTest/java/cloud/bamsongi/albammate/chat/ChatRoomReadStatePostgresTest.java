@@ -42,6 +42,7 @@ import cloud.bamsongi.albammate.testsupport.SharedPostgresIntegrationSupport;
 class ChatRoomReadStatePostgresTest extends SharedPostgresIntegrationSupport {
 
 	private static final Instant NOW = Instant.parse("2026-08-19T00:00:00Z");
+	private static final Instant FUTURE_START_AT = Instant.parse("2099-08-19T00:00:00Z");
 
 	@Autowired
 	private ChatRoomReadService chatRoomReadService;
@@ -167,7 +168,7 @@ class ChatRoomReadStatePostgresTest extends SharedPostgresIntegrationSupport {
 				null,
 				ExperienceLevel.ALL_LEVELS,
 				false,
-				NOW.plusSeconds(3600),
+				FUTURE_START_AT,
 				"홍대",
 				4));
 		chatRoomRepository.saveAndFlush(ChatRoom.create(room.getId()));
