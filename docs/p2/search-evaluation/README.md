@@ -71,10 +71,15 @@ Final Quality Evaluation 완료 전에는 SEARCH-04 최종 검색 방식, produc
 ## 파일 계약
 
 - `manifest.json`: profile, catalog release, quality corpus release, checksum, cohort, approval gate
+- `search-candidate-semantic-30-input.json.judgementPacket`: canonical blind packet 경로·SHA-256 descriptor
 - `quality-corpus.json`: pinned ranking snapshot/hash, mapping·dedupe·정렬·target N 규칙과 fixture 참조 membership projection
 - `queries.json`: query, cohort, hard filter, expected/excluded game ID, relevance reason, source/version
 - `search-candidate-semantic-30-input.json`: #885 `semantic-30-v1` 후보 비교 manifest
 - `search-candidate-comparison/semantic-30-queries.json`: 의미기반 30 query와 `semantic-core`·`contrast-hard-semantic`·`hybrid-hard-filter` 분류
+- `search-candidate-comparison/semantic-30-human-judgement-packet.json`: 후보명·score·source rank를 숨긴 독립 판정용 packet
+- [`search-candidate-comparison/semantic-30-evaluation-report.md`](search-candidate-comparison/semantic-30-evaluation-report.md): 현재 provisional 평가 범위·지표·한계 요약
+- `search-04-search-candidate-qrels`: 두 독립 판정과 불일치 query의 제3 판정을 합의한 qrels 형식. `packetSha256`는 canonical packet descriptor와 일치해야 함
+- 원본 판정 packet·qrels·metrics는 실행 시 생성하거나 승인된 외부 artifact 저장소에 보관하며, 이 PR에는 전체 JSON을 커밋하지 않음
 - `queriesSha256`·`qualityCorpusSha256`: 원자료 변경 감지용 SHA-256
 - `manifest.index`: corpus version/checksum과 `BUILDING → READY` 또는 `FAILED`, 실패 시 이전 `READY` 유지 규칙
 
@@ -94,7 +99,7 @@ Catalog Dataset Release 승인과 Search/Embedding Execution 승인은 분리합
 - 경계: Q-010~Q-012는 사람 판정 전 `unjudged`이며, 이 결과는 quality-ready·finalist·production model 승인으로 해석하지 않는다.
 - gold 준비: 후보 설명을 붙인 독립 사람 판정 packet은 다음 명령으로 생성한다. packet의 `grade`는 두 사람이 독립적으로 0·1·2를 채운 뒤 불일치 시 제3 판정으로 합의해야 하며, 빈 packet은 gold qrels가 아니다.
 - 현재 packet: [`dense-bge-m3/gold-judgement-packet.json`](dense-bge-m3/gold-judgement-packet.json)은 3개 query·60개 후보의 설명만 포함하며 아직 gold qrels가 아니다.
-- #884의 15개 query fixture와 #878의 3개 Dense query fixture는 기존 evidence로 보존하며, 공통 방식 비교에는 사용하지 않는다. #885에서 승인한 `semantic-30-v1`은 별도 동일 fixture로 Lexical·Sparse·Dense를 재실행했지만, 독립 human qrels 전까지 Hybrid/RRF와 최종 검색 방식 선택은 `pending`이다.
+- #884의 15개 query fixture와 #878의 3개 Dense query fixture는 기존 evidence로 보존하며, 공통 방식 비교에는 사용하지 않는다. #885에서 승인한 `semantic-30-v1`은 별도 동일 fixture로 Lexical·Sparse·Dense를 재실행했다. 현재 provisional 결과는 [`semantic-30-evaluation-report.md`](search-candidate-comparison/semantic-30-evaluation-report.md)에 요약하며, 최종 방식은 승인하지 않는다.
 
 실행 manifest와 모든 입력·출력 checksum은 [`dense-bge-m3/manifest.json`](dense-bge-m3/manifest.json)에 보존한다. 승인된 로컬 모델 snapshot과 고정된 [`model-artifact-manifest.json`](dense-bge-m3/model-artifact-manifest.json)을 준비한 뒤 다음 명령으로 새 results를 생성한다. 모델 파일과 입력 manifest가 승인 snapshot과 다르면 실행을 거부한다.
 
@@ -147,7 +152,67 @@ node scripts/search-evaluation/search-candidate-comparison.mjs \
   --out /tmp/search-04-candidate-judgement-packet.json
 ```
 
+생성된 packet을 두 판정자에게 각각 복사해 `grade`(0·1·2)와 `rationale`를 독립적으로 입력합니다. 두 packet은 query·candidate·evidence를 수정하지 않아야 하며, 조립기는 packet 구조와 candidate pool을 다시 대조합니다. 원본 packet과 qrels는 실행 환경 또는 승인된 외부 artifact 저장소에 보관하고, 이 PR에는 커밋하지 않습니다.
+
+```bash
+node scripts/search-evaluation/search-candidate-comparison.mjs \
+  --qrels \
+  --manifest /path/to/search-candidate-semantic-30-input.json \
+  --canonical-packet /path/to/semantic-30-human-judgement-packet.json \
+  --judge-a /path/to/semantic-30-judge-a.json \
+  --judge-b /path/to/semantic-30-judge-b.json \
+  --judge-a-id judge-a \
+  --judge-b-id judge-b \
+  --out /tmp/approved-search-candidate-qrels.json
+```
+
+`--manifest`의 `judgementPacket.path`가 가리키는 동일 파일을 `--canonical-packet`으로 지정해야 하며, 조립기는 manifest descriptor의 SHA-256도 다시 검증합니다. packet을 다시 생성하면 manifest의 descriptor SHA-256도 함께 갱신·검증해야 합니다.
+canonical packet은 `status: pending-independent-human-judgement`이고 모든 candidate의 `grade`·`rationale`이 비어 있어야 하며, 이미 채점된 packet은 blind 입력으로 사용할 수 없습니다. canonical·A/B/C source가 같은 실제 파일·symlink·hardlink를 가리키는 경우에도 독립 판정이 아니므로 조립을 거부합니다.
+
+불일치 query가 있으면 제3 판정 packet을 추가합니다. 제3 판정자는 불일치 candidate만 `grade`·`rationale`를 채우고 나머지는 빈 값으로 둡니다. 조립 결과는 canonical packet SHA-256, 각 판정자의 grade·rationale, query별 합의 방식(`independent-agreement` 또는 `third-judge-majority`)을 보존합니다.
+
+현재 semantic-30은 A/B 불일치 585건, A/B/C 3-way 충돌 117건을 포함한다. AI C 값은 `provisional-ai-adjudication` 참고용일 뿐 독립 human qrels가 아니며, 현재 평가 해석은 [`semantic-30-evaluation-report.md`](search-candidate-comparison/semantic-30-evaluation-report.md)에 기록한다.
+
+```bash
+node scripts/search-evaluation/search-candidate-comparison.mjs \
+  --qrels \
+  --manifest /path/to/search-candidate-semantic-30-input.json \
+  --canonical-packet /path/to/semantic-30-human-judgement-packet.json \
+  --judge-a /path/to/semantic-30-judge-a.json \
+  --judge-b /path/to/semantic-30-judge-b.json \
+  --judge-c /path/to/semantic-30-judge-c-independent-packet.json \
+  --judge-a-id judge-a \
+  --judge-b-id judge-b \
+  --judge-c-id judge-c \
+  --out /tmp/approved-search-candidate-qrels.json
+```
+
 독립 판정자 2명의 0·1·2 grade와 불일치 시 제3 판정 consensus가 `approved` 된 뒤에만 `--metrics`가 Recall@10·MRR@10·nDCG@10·hard-filter violation을 계산한다. qrels의 `evaluation.topK`·`candidatePoolSha256`가 packet과 다르면 metrics를 거부한다. 지표가 준비되어도 최종 방식은 자동 선택하지 않고 선택·탈락 근거를 별도로 기록한다.
+
+현재처럼 독립 human C 대신 AI C worklist를 임시 사용해야 할 때는 반드시 명시적인 provisional flag를 붙인다. A/B 일치값은 유지하고, A/B 불일치값은 C를 provisional consensus로 사용하며, 3-way 충돌도 허용한다. 결과 상태는 `provisional-ai-adjudication`이고 approved qrels가 아니다.
+
+```bash
+node scripts/search-evaluation/search-candidate-comparison.mjs \
+  --qrels \
+  --provisional-ai-adjudication \
+  --manifest /path/to/search-candidate-semantic-30-input.json \
+  --canonical-packet /path/to/semantic-30-human-judgement-packet.json \
+  --judge-a /path/to/semantic-30-judge-a.json \
+  --judge-b /path/to/semantic-30-judge-b.json \
+  --judge-c /path/to/semantic-30-judge-c.json \
+  --judge-a-id judge-a \
+  --judge-b-id judge-b \
+  --judge-c-id judge-c-ai-drafted \
+  --out /tmp/provisional-ai-adjudication-qrels.json
+
+node scripts/search-evaluation/search-candidate-comparison.mjs \
+  --metrics \
+  --provisional-ai-adjudication \
+  --hybrid-rrf \
+  --manifest /path/to/search-candidate-semantic-30-input.json \
+  --judgements /tmp/provisional-ai-adjudication-qrels.json \
+  --out /tmp/provisional-ai-adjudication-metrics.json
+```
 
 Hybrid/RRF는 필요할 때만 이미 검증된 ranked output에 `--hybrid-rrf`를 붙여 한 번 추가한다. 결합 규칙은 고정 `RRF k=60`, 동일 query의 기존 후보 union, `score DESC·gameId ASC` tie-break이며 새 후보를 생성하거나 결과에 맞춰 파라미터를 튜닝하지 않는다.
 
@@ -160,7 +225,12 @@ node scripts/search-evaluation/search-candidate-comparison.mjs \
   --out /tmp/search-04-candidate-comparison.json
 ```
 
-`semantic-30-v1` 실행 manifest는 [`search-candidate-semantic-30-input.json`](search-candidate-semantic-30-input.json)이다. 승인된 fixture SHA-256은 `84522f97b196d12db33b082fc26529218555b9408a973e6b6da3577587387142`이고 evaluation Top-K는 20이다. 결과는 `search-candidate-comparison/semantic-30-lexical-results.json`, `semantic-30-sparse-results.json`, `semantic-30-dense-results.json`에 보존한다. blind packet은 30 query·1,369 candidate row이며 후보명·score·source rank를 숨기고, packet의 candidate pool checksum을 기록한다. 현재 qrels가 없어 metrics/RRF report는 `pending-human-judgement`, 방식 선택은 null이다.
+`semantic-30-v1` 실행 manifest는 [`search-candidate-semantic-30-input.json`](search-candidate-semantic-30-input.json)이다. 승인된 fixture SHA-256은 `84522f97b196d12db33b082fc26529218555b9408a973e6b6da3577587387142`이고 evaluation Top-K는 20이다. 결과는 `search-candidate-comparison/semantic-30-lexical-results.json`, `semantic-30-sparse-results.json`, `semantic-30-dense-results.json`에 보존한다. blind packet은 30 query·1,369 candidate row이며 후보명·score·source rank를 숨기고, packet의 candidate pool checksum을 기록한다. 현재 AI C 기준 provisional 지표와 한계는 [`semantic-30-evaluation-report.md`](search-candidate-comparison/semantic-30-evaluation-report.md)에 요약하며, 독립 제3 인간 판정 전에는 최종 방식을 승인하지 않는다. 독립 human qrels만 사용하려면 provisional flag 없이 표준 qrels·metrics 경로를 다시 실행한다.
+`--judgements`로 별도 approved 또는 provisional qrels를 주는 경우에는 qrels의 `provenance`에 canonical packet과 A/B/C source packet의 경로·SHA-256·독립성 표기가 있어야 하며, metrics 단계가 해당 source packet으로 qrels를 재생성해 결과를 대조한다. 이 provenance가 없거나 source packet이 변경되면 임의 qrels override를 거부한다.
+
+provenance의 상대 경로는 운영체제와 무관한 `/` 구분자로 기록하며, reader는 기존 Windows `\` 구분자도 현재 실행 환경의 경로로 정규화한다.
+
+현재 결과는 평가 요약 문서에 기록된 provisional 참고값이며 Final Quality Evaluation 또는 production 전환 승인으로 해석하지 않는다. 최종 60+ query 품질 게이트는 별도로 충족해야 한다.
 
 ### 구조 검증
 
