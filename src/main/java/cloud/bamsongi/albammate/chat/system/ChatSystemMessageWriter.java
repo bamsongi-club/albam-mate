@@ -2,9 +2,11 @@ package cloud.bamsongi.albammate.chat.system;
 
 import java.util.Objects;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
+import cloud.bamsongi.albammate.chat.contract.MessageCommitted;
 import cloud.bamsongi.albammate.chat.entity.ChatMessage;
 import cloud.bamsongi.albammate.chat.entity.ChatRoom;
 import cloud.bamsongi.albammate.chat.entity.ChatSystemEventKey;
@@ -26,14 +28,17 @@ public class ChatSystemMessageWriter {
 	private final ChatSystemMessageActivationGateRepository gateRepository;
 	private final ChatRoomRepository chatRoomRepository;
 	private final ChatMessageRepository chatMessageRepository;
+	private final ApplicationEventPublisher eventPublisher;
 
 	public ChatSystemMessageWriter(
 		ChatSystemMessageActivationGateRepository gateRepository,
 		ChatRoomRepository chatRoomRepository,
-		ChatMessageRepository chatMessageRepository) {
+		ChatMessageRepository chatMessageRepository,
+		ApplicationEventPublisher eventPublisher) {
 		this.gateRepository = Objects.requireNonNull(gateRepository, "gateRepository");
 		this.chatRoomRepository = Objects.requireNonNull(chatRoomRepository, "chatRoomRepository");
 		this.chatMessageRepository = Objects.requireNonNull(chatMessageRepository, "chatMessageRepository");
+		this.eventPublisher = Objects.requireNonNull(eventPublisher, "eventPublisher");
 	}
 
 	@EventListener
@@ -48,8 +53,9 @@ public class ChatSystemMessageWriter {
 		}
 
 		ChatSystemEventKey eventKey = toEventKey(event.kind());
-		chatMessageRepository.save(
+		ChatMessage saved = chatMessageRepository.save(
 			ChatMessage.createSystemMessage(chatRoom.getId(), eventKey, event.subjectUserId(), event.occurredAt()));
+		eventPublisher.publishEvent(MessageCommitted.messageCreated(event.roomId(), saved.getId()));
 	}
 
 	private boolean isActiveNow() {
