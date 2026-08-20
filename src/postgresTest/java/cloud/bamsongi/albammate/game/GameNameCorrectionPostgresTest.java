@@ -53,10 +53,10 @@ class GameNameCorrectionPostgresTest extends SharedPostgresIntegrationSupport {
 			List.of(
 				game(101, "오토매틱 캔디데이트", "Automatic Candidate"),
 				game(102, "검수된 한글명", "Reviewed Candidate")),
-				"101,Automatic Candidate,오토매틱 캔디데이트,추정번역(자동음차),N\n"
-					+ "102,Reviewed Candidate,검수된 한글명,국내 정발명,Y\n",
-				"<item id=\"101\"><name type=\"primary\" value=\"Automatic Candidate\"/></item>"
-					+ "<item id=\"102\"><name type=\"primary\" value=\"Reviewed Candidate\"/></item>");
+			"101,Automatic Candidate,오토매틱 캔디데이트,추정번역(자동음차),N\n"
+				+ "102,Reviewed Candidate,검수된 한글명,국내 정발명,Y\n",
+			"<item id=\"101\"><name type=\"primary\" value=\"Automatic Candidate\"/></item>"
+				+ "<item id=\"102\"><name type=\"primary\" value=\"Reviewed Candidate\"/></item>");
 
 		execute(correctedSql);
 
@@ -171,7 +171,8 @@ class GameNameCorrectionPostgresTest extends SharedPostgresIntegrationSupport {
 			where games.bgg_id=%d and game_categories.code='NAME_CORRECTION'
 			on conflict do nothing;
 			commit;
-			""".formatted(values, games.getFirst().bggId());
+			"""
+			.formatted(values, games.getFirst().bggId());
 	}
 
 	private void execute(Path sql) throws Exception {
