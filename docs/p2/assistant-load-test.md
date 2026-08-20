@@ -83,4 +83,4 @@ manifest hash는 `manifestSha256` 필드를 제외한 전체 manifest를 JSON ob
 
 ## 실행 게이트
 
-이 설계의 정책 전제는 완료된 [#795](https://github.com/bamsongi-club/albam-mate/issues/795)·[#796](https://github.com/bamsongi-club/albam-mate/issues/796), [#944](https://github.com/bamsongi-club/albam-mate/issues/944)와 승인된 ADR-0074~0076·0084으로 확정됐다. 다만 구현 이슈가 runner 경로·cwd·shell·시간 측정·결과 경로를 고정하기 전에는 실행 계약으로 승격하지 않는다. 이번 전달 범위에서는 자동 부하테스트 runner를 실행하지 않으며, 필요한 경우 별도 승인 뒤 fake provider 계약 검증과 부하 실행을 재개한다.
+이 설계의 정책 전제는 완료된 [#795](https://github.com/bamsongi-club/albam-mate/issues/795)·[#796](https://github.com/bamsongi-club/albam-mate/issues/796), [#944](https://github.com/bamsongi-club/albam-mate/issues/944)와 승인된 ADR-0074~0076·0085으로 확정됐다. 다만 구현 이슈가 runner 경로·cwd·shell·시간 측정·결과 경로를 고정하기 전에는 실행 계약으로 승격하지 않는다. 이번 전달 범위에서는 자동 부하테스트 runner를 실행하지 않으며, 필요한 경우 별도 승인 뒤 fake provider 계약 검증과 부하 실행을 재개한다.

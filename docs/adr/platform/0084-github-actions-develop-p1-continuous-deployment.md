@@ -1,4 +1,4 @@
-# ADR-0083: develop 기준 P1 GitHub Actions 연속 배포 경계
+# ADR-0084: develop 기준 P1 GitHub Actions 연속 배포 경계
 
 - 상태: 승인됨
 - 작성일: 2026-08-20

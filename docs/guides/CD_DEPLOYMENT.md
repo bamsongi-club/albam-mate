@@ -1,6 +1,6 @@
 # develop P1 자동 CD 가이드
 
-이 가이드는 [ADR-0083](../adr/platform/0083-github-actions-develop-p1-continuous-deployment.md)에서 승인한 P1 자동 CD의 실행·확인 경계를 설명한다.
+이 가이드는 [ADR-0084](../adr/platform/0084-github-actions-develop-p1-continuous-deployment.md)에서 승인한 P1 자동 CD의 실행·확인 경계를 설명한다.
 
 > - 문서 상태: **승인·구현 전**
 > - 적용 환경: **P1 App1·App2·PostgreSQL·Redis EC2**

@@ -123,9 +123,9 @@ Provider egress·secret/config·release·migration·feature gate·rollback과 �
 
 | 슬라이스 | 책임 | 구현 전제 |
 | --- | --- | --- |
-| `AI-01a` | 동의·철회, 인증·인가·CSRF, AI 요청 진입과 추천 orchestration | API·아키텍처·ADR-0074·0084 계약 |
+| `AI-01a` | 동의·철회, 인증·인가·CSRF, AI 요청 진입과 추천 orchestration | API·아키텍처·ADR-0074·0085 계약 |
 | `AI-01b` | `#/assistant` 화면, 동의 설정, 추천·추가 질문·확인 카드, 수동 Room 회귀 | `AI-01a`·`AI-02a`·`AI-03a` 공개 응답 계약 |
-| `AI-02a` | provider adapter, fake provider, payload allowlist, 정확 게임명 resolver·후보 DTO, quota·timeout·고정 예약 비용·fail-closed·usage event | ADR-0074·0084, 설정·관측 계약 |
+| `AI-02a` | provider adapter, fake provider, payload allowlist, 정확 게임명 resolver·후보 DTO, quota·timeout·고정 예약 비용·fail-closed·usage event | ADR-0074·0085, 설정·관측 계약 |
 | `AI-03a` | 임시 초안, 장소 입력, 지역 검증, 확인형 Room command와 멱등성 | ADR-0075·0076, ERD·API·Room 계약 |
 | `AI-04a` | 운영 인프라·Provider egress·secret/config 배포 | 운영 권한·Terraform/Compose·Secret 계약 |
 | `AI-04b` | production release·migration·feature gate·rollback | `AI-01a`·`AI-02a`·`AI-03a` 고정 release |
