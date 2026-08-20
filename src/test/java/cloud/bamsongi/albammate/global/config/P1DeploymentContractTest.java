@@ -208,6 +208,33 @@ class P1DeploymentContractTest {
 	}
 
 	@Test
+	void T1_T3_App1과_App2는_동일한_AI_release_gate와_의존성_입력을_전달한다() throws IOException {
+		String app1Compose = file("compose.production.yml");
+		String app2Compose = file("compose.app2.yml");
+		String example = file(".env.production.example");
+		String app1Example = section(example, "# App1 (/etc/albam-mate/app1.env)", "# App2 (/etc/albam-mate/app2.env)");
+		String app2Example = section(example, "# App2 (/etc/albam-mate/app2.env)",
+			"# PostgreSQL (/etc/albam-mate/postgres.env)");
+
+		for (String input : new String[] {
+			"ALBAM_MATE_ASSISTANT_ENABLED", "ALBAM_MATE_ASSISTANT_PROVIDER",
+			"ALBAM_MATE_ASSISTANT_PROVIDER_CONFIGURED", "ALBAM_MATE_ASSISTANT_NO_RETENTION_VERIFIED",
+			"ALBAM_MATE_ASSISTANT_NO_TRAINING_VERIFIED", "ALBAM_MATE_ASSISTANT_POLICY_VERSION",
+			"ALBAM_MATE_ASSISTANT_POLICY_URL", "ALBAM_MATE_ASSISTANT_PRICING_SNAPSHOT",
+			"ALBAM_MATE_ASSISTANT_INPUT_TOKEN_PRICE_USD_PER_MILLION",
+			"ALBAM_MATE_ASSISTANT_OUTPUT_TOKEN_PRICE_USD_PER_MILLION",
+			"ALBAM_MATE_ASSISTANT_MAX_INPUT_TOKENS", "ALBAM_MATE_ASSISTANT_MAX_OUTPUT_TOKENS",
+			"ALBAM_MATE_ASSISTANT_OPENAI_API_KEY"
+		}) {
+			assertTrue(app1Compose.contains(input));
+			assertTrue(app2Compose.contains(input));
+			assertTrue(app1Example.contains(input + "="));
+			assertTrue(app2Example.contains(input + "="));
+		}
+		assertFalse(example.contains("sk-"));
+	}
+
+	@Test
 	void PostgreSQL_healthcheck은_컨테이너_내부_사용자와_DB를_검사한다() throws IOException {
 		String compose = file("compose.db.yml");
 

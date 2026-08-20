@@ -65,6 +65,22 @@ class ProductionProfileConfigurationTest {
 		assertEquals(1, occurrences(configuration, "password: ${ALBAM_MATE_DB_PASSWORD}"));
 	}
 
+	@Test
+	void T2_production_AI는_기본_fake_비활성과_명시적_환경_gate를_사용한다() {
+		Properties properties = productionProperties();
+
+		assertEquals("${ALBAM_MATE_ASSISTANT_ENABLED:false}", properties.getProperty("app.assistant.enabled"));
+		assertEquals("${ALBAM_MATE_ASSISTANT_PROVIDER:fake}", properties.getProperty("app.assistant.provider"));
+		assertEquals("${ALBAM_MATE_ASSISTANT_PROVIDER_CONFIGURED:false}",
+			properties.getProperty("app.assistant.provider-configured"));
+		assertEquals("${ALBAM_MATE_ASSISTANT_POLICY_VERSION:}",
+			properties.getProperty("app.assistant.policy-version"));
+		assertEquals("${ALBAM_MATE_ASSISTANT_PRICING_SNAPSHOT:}",
+			properties.getProperty("app.assistant.pricing-snapshot"));
+		assertEquals("${ALBAM_MATE_ASSISTANT_OPENAI_API_KEY:}",
+			properties.getProperty("spring.ai.openai.api-key"));
+	}
+
 	private String productionConfiguration() throws IOException {
 		try (var inputStream = new ClassPathResource("application-production.yml").getInputStream()) {
 			return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
