@@ -51,6 +51,7 @@ class AiProviderRuntimeConfigurationTest {
 		openAiProperties.setOutputTokenPriceUsdPerMillion(new BigDecimal("1.00"));
 		MockEnvironment localEnvironment = new MockEnvironment();
 		localEnvironment.setActiveProfiles("local");
+		localEnvironment.setProperty("spring.ai.openai.api-key", "test-api-key");
 		assertInstanceOf(
 			OpenAiAssistantProvider.class,
 			AiProviderRuntimeConfiguration.selectProvider(openAiProperties, localEnvironment, mock(ChatModel.class)));
@@ -95,11 +96,25 @@ class AiProviderRuntimeConfigurationTest {
 			.thenReturn(AiProviderResponse.success("RECOMMEND", List.of("PARTY"), 1, 1, BigDecimal.ZERO));
 
 		AssistantIntentExtractor extractor = configuration.assistantIntentExtractor(
-			provider, quotaLedgerProvider, usageEventSink, properties);
+			provider, quotaLedgerProvider, usageEventSink, properties, new MockEnvironment());
 
 		assertEquals(AssistantIntentStatus.NOT_ENABLED,
 			extractor.extract(AssistantIntentRequest.forUser("42", "파티 게임을 추천해줘", List.of())).status());
 		verifyNoInteractions(provider, quotaLedger, usageEventSink);
+	}
+
+	@Test
+	void T2_local_openai에_API_key가_없으면_동의가_남아도_quota와_provider를_호출하지_않는다() {
+		assertNotEnabledBeforeAnyAiInvocation(new MockEnvironment());
+	}
+
+	@Test
+	void T2_local_openai가_허용되지_않은_profile이면_동의가_남아도_quota와_provider를_호출하지_않는다() {
+		MockEnvironment unsupportedEnvironment = new MockEnvironment();
+		unsupportedEnvironment.setActiveProfiles("test");
+		unsupportedEnvironment.setProperty("spring.ai.openai.api-key", "test-api-key");
+
+		assertNotEnabledBeforeAnyAiInvocation(unsupportedEnvironment);
 	}
 
 	@Test
@@ -174,6 +189,22 @@ class AiProviderRuntimeConfigurationTest {
 		properties.setInputTokenPriceUsdPerMillion(new BigDecimal("1.00"));
 		properties.setOutputTokenPriceUsdPerMillion(new BigDecimal("1.00"));
 		return properties;
+	}
+
+	private void assertNotEnabledBeforeAnyAiInvocation(MockEnvironment environment) {
+		AiProviderRuntimeConfiguration configuration = new AiProviderRuntimeConfiguration();
+		AiProviderClient provider = mock(AiProviderClient.class);
+		AiQuotaLedger quotaLedger = mock(AiQuotaLedger.class);
+		@SuppressWarnings("unchecked") ObjectProvider<AiQuotaLedger> quotaLedgerProvider = mock(ObjectProvider.class);
+		AssistantUsageEventSink usageEventSink = mock(AssistantUsageEventSink.class);
+		when(quotaLedgerProvider.getIfAvailable(any())).thenReturn(quotaLedger);
+
+		AssistantIntentExtractor extractor = configuration.assistantIntentExtractor(
+			provider, quotaLedgerProvider, usageEventSink, configuredOpenAiProperties(), environment);
+
+		assertEquals(AssistantIntentStatus.NOT_ENABLED,
+			extractor.extract(AssistantIntentRequest.forUser("42", "파티 게임을 추천해줘", List.of())).status());
+		verifyNoInteractions(provider, quotaLedger, usageEventSink);
 	}
 
 }

@@ -43,7 +43,8 @@ class AiProviderRuntimeConfiguration {
 		AiProviderClient provider,
 		ObjectProvider<AiQuotaLedger> quotaLedgerProvider,
 		AssistantUsageEventSink usageEventSink,
-		AiProviderProperties properties) {
+		AiProviderProperties properties,
+		Environment environment) {
 		AiQuotaLedger configuredLedger = quotaLedgerProvider.getIfAvailable();
 		AiQuotaLedger quotaLedger = configuredLedger != null && "fake".equals(properties.getProvider())
 			? new NoOpAiQuotaLedger()
@@ -52,7 +53,7 @@ class AiProviderRuntimeConfiguration {
 			provider,
 			quotaLedger,
 			usageEventSink,
-			settings(properties),
+			runtimeSettings(properties, environment),
 			Clock.systemUTC());
 	}
 
@@ -60,14 +61,15 @@ class AiProviderRuntimeConfiguration {
 		AiProviderProperties properties,
 		Environment environment,
 		ChatModel openAiModel) {
+		AiProviderSettings settings = runtimeSettings(properties, environment);
 		if ("fake".equals(properties.getProvider())) {
 			return new DeterministicFakeAssistantProvider();
 		}
 		if ("local-openai".equals(properties.getProvider())) {
-			if (!allowsOpenAi(environment) || !settings(properties).readyForCall() || openAiModel == null) {
+			if (!settings.readyForCall() || openAiModel == null) {
 				return new UnavailableAiProvider();
 			}
-			return new OpenAiAssistantProvider(openAiModel, settings(properties, true));
+			return new OpenAiAssistantProvider(openAiModel, settings);
 		}
 		return new UnavailableAiProvider();
 	}
@@ -75,9 +77,7 @@ class AiProviderRuntimeConfiguration {
 	private static ChatModel openAiModel(AiProviderProperties properties, Environment environment) {
 		String apiKey = environment.getProperty("spring.ai.openai.api-key", "");
 		if (!"local-openai".equals(properties.getProvider())
-			|| !allowsOpenAi(environment)
-			|| apiKey.isBlank()
-			|| !settings(properties).readyForCall()) {
+			|| !runtimeSettings(properties, environment).readyForCall()) {
 			return null;
 		}
 		return OpenAiChatModel.builder()
@@ -96,8 +96,15 @@ class AiProviderRuntimeConfiguration {
 		return environment.acceptsProfiles(Profiles.of("local", "production"));
 	}
 
-	private static AiProviderSettings settings(AiProviderProperties properties) {
-		return settings(properties, "fake".equals(properties.getProvider()) || properties.isProviderConfigured());
+	private static AiProviderSettings runtimeSettings(AiProviderProperties properties, Environment environment) {
+		boolean providerConfigured = switch (properties.getProvider()) {
+			case "fake" -> true;
+			case "local-openai" -> properties.isProviderConfigured()
+				&& allowsOpenAi(environment)
+				&& environment.getProperty("spring.ai.openai.api-key", "").isBlank() == false;
+			default -> false;
+		};
+		return settings(properties, providerConfigured);
 	}
 
 	private static AiProviderSettings settings(AiProviderProperties properties, boolean providerConfigured) {
