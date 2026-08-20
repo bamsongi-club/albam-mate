@@ -155,6 +155,127 @@ describe('알림 조회 API', () => {
   });
 });
 
+describe('AI 모임 도우미 API', () => {
+  it('활성 초안 조회는 200 초안을 반환하고 204는 새 흐름으로 구분한다', async () => {
+    const activeDraft = { draftId: 7, draftVersion: 2, status: 'ACTIVE', input: {}, result: null };
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(successfulResponse(activeDraft))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(api.getActiveAssistantDraft()).resolves.toEqual(activeDraft);
+    await expect(api.getActiveAssistantDraft()).resolves.toBeNull();
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      '/api/assistant/drafts/active',
+      expect.objectContaining({ method: 'GET', credentials: 'include' })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/assistant/drafts/active',
+      expect.objectContaining({ method: 'GET', credentials: 'include' })
+    );
+  });
+
+  it('동의·추천·초안 확인은 공통 CSRF 경계와 고정 멱등 키를 사용한다', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(successfulResponse({ headerName: 'X-CSRF-TOKEN', token: 'assistant-csrf-token' }))
+      .mockResolvedValueOnce(successfulResponse({ status: 'GRANTED' }))
+      .mockResolvedValueOnce(successfulResponse({ state: 'RECOMMENDED', conditions: {}, missingFields: [], candidates: [] }))
+      .mockResolvedValueOnce(successfulResponse({ roomId: 42, chatRoomId: 43 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await api.changeAssistantConsent({ decision: 'GRANT', consentVersion: 'AI-01-CONSENT-V1' });
+    await api.recommendAssistant('초보 환영 모임을 찾아줘', null);
+    await api.confirmAssistantDraft(7, 2, 'assistant-confirm-key');
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/assistant/consent',
+      expect.objectContaining({
+        method: 'PUT',
+        headers: expect.objectContaining({ 'X-CSRF-TOKEN': 'assistant-csrf-token' }),
+        body: JSON.stringify({ decision: 'GRANT', consentVersion: 'AI-01-CONSENT-V1' })
+      })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      '/api/assistant/recommendations',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({ 'X-CSRF-TOKEN': 'assistant-csrf-token' }),
+        body: JSON.stringify({ message: '초보 환영 모임을 찾아줘', conditions: null })
+      })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      4,
+      '/api/assistant/drafts/7/confirm',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'X-CSRF-TOKEN': 'assistant-csrf-token',
+          'Idempotency-Key': 'assistant-confirm-key'
+        }),
+        body: JSON.stringify({ draftVersion: 2 })
+      })
+    );
+  });
+
+  it('초안 생성·수정·폐기는 계약된 경로와 CSRF 경계를 사용한다', async () => {
+    const input = {
+      roomType: 'GAME_FOCUSED',
+      title: '주말 협력 게임 모임',
+      description: null,
+      gameId: 101,
+      experienceLevel: 'BEGINNER_WELCOME',
+      isRulemasterLed: false,
+      startsAt: '2026-08-23T19:00:00+09:00',
+      region: '홍대',
+      place: null,
+      recruitmentCapacity: 3
+    };
+    const update = { draftVersion: 2, region: '강남', place: '강남 보드게임 카페' };
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(successfulResponse({ headerName: 'X-CSRF-TOKEN', token: 'assistant-csrf-token' }))
+      .mockResolvedValueOnce(successfulResponse({ draftId: 7 }))
+      .mockResolvedValueOnce(successfulResponse({ draftId: 7, draftVersion: 3 }))
+      .mockResolvedValueOnce(successfulResponse({ discarded: true }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await api.createAssistantDraft(input);
+    await api.updateAssistantDraft(7, update);
+    await api.discardAssistantDraft(7);
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/assistant/drafts',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({ 'X-CSRF-TOKEN': 'assistant-csrf-token' }),
+        body: JSON.stringify(input)
+      })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      '/api/assistant/drafts/7',
+      expect.objectContaining({
+        method: 'PATCH',
+        headers: expect.objectContaining({ 'X-CSRF-TOKEN': 'assistant-csrf-token' }),
+        body: JSON.stringify(update)
+      })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      4,
+      '/api/assistant/drafts/7',
+      expect.objectContaining({
+        method: 'DELETE',
+        headers: expect.objectContaining({ 'X-CSRF-TOKEN': 'assistant-csrf-token' })
+      })
+    );
+  });
+});
+
 function stubFetch() {
   const fetchMock = vi.fn().mockResolvedValue(successfulResponse({ content: [] }));
   vi.stubGlobal('fetch', fetchMock);
