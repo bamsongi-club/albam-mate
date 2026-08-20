@@ -1,6 +1,8 @@
 package cloud.bamsongi.albammate.game.service;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -18,6 +20,7 @@ import cloud.bamsongi.albammate.game.repository.GameCategoryRepository;
 import cloud.bamsongi.albammate.game.repository.GameMechanismRepository;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
 import cloud.bamsongi.albammate.game.repository.GameThemeRepository;
+import cloud.bamsongi.albammate.global.exception.BusinessException;
 
 class AssistantGameCandidateQueryServiceTest {
 
@@ -54,6 +57,31 @@ class AssistantGameCandidateQueryServiceTest {
 
 		assertEquals(List.of(), result);
 		verifyNoInteractions(gameRankingQuery);
+	}
+
+	@Test
+	void T5_카탈로그_조건과_gameId_검증은_유효_무효_경로를_구분한다() {
+		GameRepository gameRepository = org.mockito.Mockito.mock(GameRepository.class);
+		GameRankingQuery gameRankingQuery = org.mockito.Mockito.mock(GameRankingQuery.class);
+		GameCategoryRepository categoryRepository = org.mockito.Mockito.mock(GameCategoryRepository.class);
+		GameMechanismRepository mechanismRepository = org.mockito.Mockito.mock(GameMechanismRepository.class);
+		GameThemeRepository themeRepository = org.mockito.Mockito.mock(GameThemeRepository.class);
+		when(categoryRepository.countByCodeIn(List.of("STRATEGY"))).thenReturn(1L);
+		when(mechanismRepository.countByCodeInAndIsPublicTrue(List.of("WORKER_PLACEMENT"))).thenReturn(1L);
+		when(themeRepository.countByCodeIn(List.of("FANTASY"))).thenReturn(1L);
+		when(gameRepository.existsById(42L)).thenReturn(true, false);
+
+		var service = new AssistantGameCandidateQueryService(
+			gameRepository, gameRankingQuery, categoryRepository, mechanismRepository, themeRepository);
+
+		var criteriaWithGameId = new AssistantGameCandidateQuery.Criteria(
+			List.of("STRATEGY"), List.of("WORKER_PLACEMENT"), List.of("FANTASY"),
+			null, null, 42L, null);
+		assertDoesNotThrow(() -> service.validateCriteria(criteriaWithGameId));
+		assertThrows(BusinessException.class, () -> service.validateCriteria(criteriaWithGameId));
+		assertDoesNotThrow(() -> service.validateCriteria(new AssistantGameCandidateQuery.Criteria(
+			List.of("STRATEGY"), List.of("WORKER_PLACEMENT"), List.of("FANTASY"),
+			null, null, null, null)));
 	}
 
 	private AssistantGameCandidateQueryService service(
