@@ -262,6 +262,35 @@ flowchart LR
     accessCheck --> upsert["CHAT_ROOM_READ_STATES<br/>GREATEST UPSERT"]
 ```
 
+### P2 CHAT-08 채팅 목록 실시간 갱신 흐름 (계획·미구현)
+
+> 이 절은 P2 `CHAT-08`의 승인된 목표 구조다. 아래 공개 계약은 아직 존재하지 않으며, 현재 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)로만 판정한다. 제품 규칙은 [CHAT-08 명세](p2/chat.md#chat-08-채팅-목록-실시간-갱신), 채널 구조 선택 이유는 [ADR-0082](adr/chat/0082-chat-list-per-user-realtime-channel.md)가 소유한다.
+
+`CHAT-08`은 기존 방별 실시간 경로(`ChatWebSocketHandler`, 방 단위 `ChatConnectionRegistry`)를 바꾸지 않고, 사용자 단위 연결과 레지스트리를 병렬로 추가한다. 메시지 커밋 뒤 `AFTER_COMMIT` 신호 발행 지점은 [CHAT-06/07 흐름](#p2-chat-06-입장퇴장-시스템-메시지-흐름-계획미구현)과 같은 `ChatMessageCommittedListener`이며, 이 listener가 기존 방 단위 팬아웃과 별개로 사용자 단위 팬아웃을 함께 트리거한다.
+
+| 계약 | 방향 | 책임 |
+| --- | --- | --- |
+| `GET /api/users/me/chat/ws` | `chat` controller가 처리 | 사용자 단위 WebSocket handshake. 기존 세션만 검증하고 방 권한은 확인하지 않는다 |
+| `chat` 신규 `ChatUserConnectionRegistry` | 인스턴스 로컬 | userId를 키로 이 인스턴스에 연결된 사용자 단위 WebSocket을 관리한다. 방 단위 `ChatConnectionRegistry`와는 별개 자료구조다 |
+| `room.contract`의 참가자 ID 목록 조회(신규) | `chat`이 호출하고 `room`이 구현 | 주어진 `roomId`의 현재 주최자·`ACTIVE` 참가자 user id 전체를 반환한다. 기존 `ChatAccessGuard`는 한 사용자의 접근 여부만 확인하므로 이 팬아웃에는 재사용할 수 없다 |
+
+메시지 커밋 뒤 `ChatMessageCommittedListener`는 기존처럼 `chat.contract.ChatRealtimePublisher`로 `roomId`·`messageId` 신호를 Redis에 발행한다. 각 인스턴스의 구독자는 이 신호를 받으면 (1) 기존처럼 방 단위 `ChatConnectionRegistry`에서 그 방에 연결된 소켓을 찾아 전달하고, (2) 추가로 `room.contract` 참가자 ID 목록을 조회해 그 인스턴스에 연결된 사용자 단위 소켓을 찾아 [ChatRoomUpdatedEvent](API.md#440-chatroomupdatedevent)(`roomId`, `messageId`만 포함)를 전달한다. 두 팬아웃은 같은 Redis 신호에서 갈라지는 독립 경로이며, 사용자 단위 팬아웃 실패가 방 단위 팬아웃이나 메시지 저장에 영향을 주지 않는다.
+
+```mermaid
+flowchart LR
+    committed["원인 트랜잭션 커밋"] --> afterCommit["ChatMessageCommittedListener<br/>AFTER_COMMIT"]
+    afterCommit --> publishPort["chat.contract<br/>ChatRealtimePublisher<br/>roomId·messageId 신호"]
+    publishPort --> redis["Redis Pub/Sub"]
+    redis --> roomFanout["방 단위 ChatConnectionRegistry<br/>기존 경로"]
+    redis --> userFanout["사용자 단위 팬아웃<br/>신규"]
+    userFanout --> participants["room.contract<br/>참가자 ID 목록 조회"]
+    participants --> userRegistry["ChatUserConnectionRegistry<br/>인스턴스 로컬"]
+    userRegistry --> userSocket["/api/users/me/chat/ws<br/>ChatRoomUpdatedEvent 전송"]
+    userSocket --> clientRefetch["클라이언트<br/>CHAT-07 배치 재조회"]
+```
+
+사용자 단위 연결은 방 단위 연결과 독립적으로 열리고 끊긴다. 한 사용자가 채팅방 "안" 화면(방별 WebSocket)과 채팅 목록 화면(사용자 단위 WebSocket)을 동시에 열면 두 연결이 동시에 존재할 수 있으며, 이는 [ADR-0082](adr/chat/0082-chat-list-per-user-realtime-channel.md)가 감수하기로 한 비용이다. 사용자 단위 채널은 신호만 전달하고 표시 데이터의 정본이 아니므로, 재연결 시 별도 catch-up 이력을 전달하지 않는다. 클라이언트는 재연결 시점에 [CHAT-07](API.md#chat-07-채팅-목록-마지막-메시지방별-미읽음-상태-계약)의 배치 조회를 한 번 호출해 연결 단절 구간의 갱신을 복구한다.
+
 ### 패키지 구조
 
 패키지는 파일 목록이 아니라 책임 경계로 관리한다. 다음 패턴 안에서 클래스나 하위 구현을 추가할 때는 이 문서를 갱신하지 않는다.
