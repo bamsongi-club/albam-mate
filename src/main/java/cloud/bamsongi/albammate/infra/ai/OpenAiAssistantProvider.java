@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
@@ -28,6 +30,7 @@ import tools.jackson.databind.ObjectMapper;
 /** 명시적인 local-openai 경계에서만 Spring AI OpenAI adapter를 호출한다. */
 final class OpenAiAssistantProvider implements AiProviderClient {
 
+	private static final Logger log = LoggerFactory.getLogger(OpenAiAssistantProvider.class);
 	private static final String TOOL_NAME = "propose_game_room_intent";
 	private static final Set<String> ALLOWED_ACTIONS = Set.of("RECOMMEND", "NEEDS_INPUT", "UNSUPPORTED");
 	private static final Set<String> ALLOWED_GAME_STYLES = Set.of(
@@ -41,9 +44,10 @@ final class OpenAiAssistantProvider implements AiProviderClient {
 		Never call any other tool, search for games, create rooms, execute SQL, or infer identifiers.
 		Use only the current user sentence, the server-provided missing field names, and Asia/Seoul as reference zone.
 		""";
+	// action·gameStyles 개수 관계(RECOMMEND면 1개 이상, 아니면 0개)는 OpenAI가 top-level에서 금지하는
+	// oneOf로 못 표현해 스키마에서는 빼고, isValidOutput()에서 응답을 받은 뒤 검증한다.
 	private static final String TOOL_SCHEMA = """
 		{
-		  "$schema":"https://json-schema.org/draft/2020-12/schema",
 		  "type":"object",
 		  "additionalProperties":false,
 		  "properties":{
@@ -59,11 +63,7 @@ final class OpenAiAssistantProvider implements AiProviderClient {
 		      }
 		    }
 		  },
-		  "required":["action","gameStyles"],
-		  "oneOf":[
-		    {"properties":{"action":{"const":"RECOMMEND"},"gameStyles":{"minItems":1}},"required":["action","gameStyles"]},
-		    {"properties":{"action":{"enum":["NEEDS_INPUT","UNSUPPORTED"]},"gameStyles":{"maxItems":0}},"required":["action","gameStyles"]}
-		  ]
+		  "required":["action","gameStyles"]
 		}
 		""";
 	private static final ToolCallback INTENT_TOOL = new ToolCallback() {
@@ -119,8 +119,10 @@ final class OpenAiAssistantProvider implements AiProviderClient {
 				outputTokens,
 				costEstimate(inputTokens, outputTokens));
 		} catch (JacksonException exception) {
+			log.warn("assistant provider returned an unparseable tool payload", exception);
 			return AiProviderResponse.failure(AiProviderFailure.INVALID_SCHEMA);
 		} catch (RuntimeException exception) {
+			log.warn("assistant provider call failed", exception);
 			return AiProviderResponse.failure(failureFor(exception));
 		}
 	}
@@ -141,6 +143,7 @@ final class OpenAiAssistantProvider implements AiProviderClient {
 			.toolChoice("{\"type\":\"function\",\"function\":{\"name\":\"" + TOOL_NAME + "\"}}")
 			.parallelToolCalls(false)
 			.internalToolExecutionEnabled(false)
+			.reasoningEffort("none")
 			.build();
 	}
 
