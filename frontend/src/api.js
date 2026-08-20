@@ -227,6 +227,12 @@ export function openChatWebSocket(roomId, { afterMessageId } = {}) {
   return new WebSocket(url.toString());
 }
 
+export function openChatListWebSocket() {
+  const url = new URL(endpoint('/api/users/me/chat/ws'), window.location.href);
+  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+  return new WebSocket(url.toString());
+}
+
 export function clearCsrfToken() {
   csrfToken = undefined;
 }
@@ -346,6 +352,7 @@ export const api = {
     return request('/api/rooms/' + roomId + '/chat/messages' + query(options), { signal });
   },
   openChatWebSocket,
+  openChatListWebSocket,
   sendChatMessage: (roomId, message, signal, onRequestStarted) => mutate(
     '/api/rooms/' + roomId + '/chat/messages',
     { method: 'POST', body: message, signal, onRequestStarted }
