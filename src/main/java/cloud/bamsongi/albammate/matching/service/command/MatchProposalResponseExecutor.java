@@ -122,7 +122,7 @@ public class MatchProposalResponseExecutor {
 	}
 
 	@Transactional(propagation = Propagation.REQUIRES_NEW)
-	public void respond(long userId, long proposalId, MatchProposalResponseAction action, String idempotencyKey) {
+	public boolean respond(long userId, long proposalId, MatchProposalResponseAction action, String idempotencyKey) {
 		String fingerprint = proposalId + ":" + action.name();
 		Instant precheckTime = currentDatabaseTime();
 		MatchIdempotencyRecord activeRecord = idempotencyRecordRepository
@@ -133,7 +133,7 @@ public class MatchProposalResponseExecutor {
 		}
 		if (activeRecord != null && !activeRecord.isExpiredAt(precheckTime)) {
 			if (activeRecord.hasSameMeaning(MatchIdempotencyOperation.MATCH_PROPOSAL_RESPONSE, fingerprint)) {
-				return;
+				return false;
 			}
 			throw new BusinessException(ErrorCode.IDEMPOTENCY_KEY_CONFLICT);
 		}
@@ -148,7 +148,7 @@ public class MatchProposalResponseExecutor {
 			.orElse(null);
 		if (record != null && !record.isExpiredAt(operationTime)) {
 			if (record.hasSameMeaning(MatchIdempotencyOperation.MATCH_PROPOSAL_RESPONSE, fingerprint)) {
-				return;
+				return false;
 			}
 			throw new BusinessException(ErrorCode.IDEMPOTENCY_KEY_CONFLICT);
 		}
@@ -166,7 +166,7 @@ public class MatchProposalResponseExecutor {
 		if (action == MatchProposalResponseAction.REQUEUE) {
 			declineForRequeue(proposal, members, currentMember, operationTime);
 			storeIdempotency(record, userId, idempotencyKey, fingerprint, proposalId, operationTime);
-			return;
+			return true;
 		}
 		if (action == MatchProposalResponseAction.CANCEL) {
 			proposal.cancel(operationTime);
@@ -180,7 +180,7 @@ public class MatchProposalResponseExecutor {
 				}
 			}
 			storeIdempotency(record, userId, idempotencyKey, fingerprint, proposalId, operationTime);
-			return;
+			return true;
 		}
 		if (action != MatchProposalResponseAction.ACCEPT) {
 			throw new BusinessException(ErrorCode.MATCH_PROPOSAL_RESPONSE_NOT_AVAILABLE);
@@ -190,6 +190,7 @@ public class MatchProposalResponseExecutor {
 			confirm(proposal, members, operationTime);
 		}
 		storeIdempotency(record, userId, idempotencyKey, fingerprint, proposalId, operationTime);
+		return true;
 	}
 
 	private void startCompletionProbe(Instant operationTime) {

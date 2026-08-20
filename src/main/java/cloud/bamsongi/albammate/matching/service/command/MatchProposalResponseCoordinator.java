@@ -27,7 +27,10 @@ public class MatchProposalResponseCoordinator {
 		long proposalId,
 		MatchProposalResponseAction action,
 		String idempotencyKey) {
-		responseService.respond(userId, proposalId, action, idempotencyKey);
+		boolean responseAttemptStarted = responseService.respond(userId, proposalId, action, idempotencyKey);
+		if (!responseAttemptStarted) {
+			return currentStateQueryCoordinator.read(userId);
+		}
 		try {
 			CurrentMatchStateResponse currentState = currentStateQueryCoordinator.read(userId);
 			safelyCompleteProbe();

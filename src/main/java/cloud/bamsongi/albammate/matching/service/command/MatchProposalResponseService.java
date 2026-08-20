@@ -19,8 +19,8 @@ public class MatchProposalResponseService {
 		this.proposalRepository = proposalRepository;
 	}
 
-	public void respond(long userId, long proposalId, MatchProposalResponseAction action, String idempotencyKey) {
-		executor.respond(userId, proposalId, action, idempotencyKey);
+	public boolean respond(long userId, long proposalId, MatchProposalResponseAction action, String idempotencyKey) {
+		return executor.respond(userId, proposalId, action, idempotencyKey);
 	}
 
 	public void expireDueProposals() {

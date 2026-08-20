@@ -109,7 +109,7 @@ class MatchProposalTerminalPostgresTest extends SharedPostgresIntegrationSupport
 			userId, proposalId, MatchProposalResponseAction.ACCEPT, "completion-key");
 
 		verify(completionProbe, times(1)).start(operationTime.capture());
-		verify(completionProbe, times(2)).complete();
+		verify(completionProbe, times(1)).complete();
 		assertEquals(MatchCurrentState.PROPOSED, currentState.state());
 		assertEquals(MatchCurrentState.PROPOSED, replayedCurrentState.state());
 		assertEquals(operationTime.getValue(), jdbcTemplate.queryForObject(

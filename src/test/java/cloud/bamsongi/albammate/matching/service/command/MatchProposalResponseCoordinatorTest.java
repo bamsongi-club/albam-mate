@@ -7,6 +7,7 @@ import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.Instant;
@@ -28,6 +29,7 @@ class MatchProposalResponseCoordinatorTest {
 		CurrentMatchStateResponse currentState = CurrentMatchStateResponse.empty(Instant.EPOCH);
 		MatchProposalResponseCoordinator coordinator = new MatchProposalResponseCoordinator(
 			responseService, currentStateQueryCoordinator, completionProbe);
+		when(responseService.respond(1L, 2L, MatchProposalResponseAction.ACCEPT, "response-key")).thenReturn(true);
 		when(currentStateQueryCoordinator.read(1L)).thenReturn(currentState);
 
 		CurrentMatchStateResponse result = coordinator.respond(
@@ -47,6 +49,7 @@ class MatchProposalResponseCoordinatorTest {
 		MatchProposalResponseCompletionProbe completionProbe = mock(MatchProposalResponseCompletionProbe.class);
 		MatchProposalResponseCoordinator coordinator = new MatchProposalResponseCoordinator(
 			responseService, currentStateQueryCoordinator, completionProbe);
+		when(responseService.respond(1L, 2L, MatchProposalResponseAction.ACCEPT, "response-key")).thenReturn(true);
 		IllegalStateException expected = new IllegalStateException("current-state assembly failed");
 		doThrow(expected).when(currentStateQueryCoordinator).read(1L);
 
@@ -66,6 +69,7 @@ class MatchProposalResponseCoordinatorTest {
 		CurrentMatchStateResponse currentState = CurrentMatchStateResponse.empty(Instant.EPOCH);
 		MatchProposalResponseCoordinator coordinator = new MatchProposalResponseCoordinator(
 			responseService, currentStateQueryCoordinator, completionProbe);
+		when(responseService.respond(1L, 2L, MatchProposalResponseAction.ACCEPT, "response-key")).thenReturn(true);
 		when(currentStateQueryCoordinator.read(1L)).thenReturn(currentState);
 		doThrow(new IllegalStateException("completion recording failed")).when(completionProbe).complete();
 
@@ -78,5 +82,24 @@ class MatchProposalResponseCoordinatorTest {
 
 		assertSame(expected, assertThrows(IllegalStateException.class, () -> coordinator.respond(
 			1L, 2L, MatchProposalResponseAction.ACCEPT, "response-key")));
+	}
+
+	@Test
+	void 멱등성_재생은_현재_상태_DTO를_반환하고_관측_완료나_실패를_호출하지_않는다() {
+		MatchProposalResponseService responseService = mock(MatchProposalResponseService.class);
+		MatchCurrentStateQueryCoordinator currentStateQueryCoordinator = mock(MatchCurrentStateQueryCoordinator.class);
+		MatchProposalResponseCompletionProbe completionProbe = mock(MatchProposalResponseCompletionProbe.class);
+		CurrentMatchStateResponse currentState = CurrentMatchStateResponse.empty(Instant.EPOCH);
+		MatchProposalResponseCoordinator coordinator = new MatchProposalResponseCoordinator(
+			responseService, currentStateQueryCoordinator, completionProbe);
+		when(responseService.respond(1L, 2L, MatchProposalResponseAction.ACCEPT, "response-key")).thenReturn(false);
+		when(currentStateQueryCoordinator.read(1L)).thenReturn(currentState);
+
+		CurrentMatchStateResponse result = coordinator.respond(
+			1L, 2L, MatchProposalResponseAction.ACCEPT, "response-key");
+
+		assertSame(currentState, result);
+		verify(currentStateQueryCoordinator).read(1L);
+		verifyNoInteractions(completionProbe);
 	}
 }
