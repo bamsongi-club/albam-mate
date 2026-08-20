@@ -3,7 +3,7 @@
 - 상태: 승인됨
 - 작성일: 2026-08-17
 - 결정일: 2026-08-18
-- 관련: [#794](https://github.com/bamsongi-club/albam-mate/issues/794), [#796](https://github.com/bamsongi-club/albam-mate/issues/796), [AI-01 명세](../../p2/assistant.md), [ROOM-03 API](../../API.md#room-03-방-생성)
+- 관련: [#794](https://github.com/bamsongi-club/albam-mate/issues/794), [#796](https://github.com/bamsongi-club/albam-mate/issues/796), [#920](https://github.com/bamsongi-club/albam-mate/issues/920), [AI-01 명세](../../p2/assistant.md), [ROOM-03 API](../../API.md#room-03-방-생성)
 - 대체 대상: 없음
 - 후속 ADR: 없음
 
@@ -29,6 +29,7 @@
 - `RECOMMEND`는 검색 조건이 유효할 때 후보 집합만 반환한다. 검색 조건이 없으면 `NEEDS_INPUT`으로 추천 조건만 되묻고, 활성 초안·Room을 만들지 않는다.
 - `CREATE_ROOM`으로 전환해 방 생성 정보를 채운 경우에만 서버가 15분 임시 초안을 만든다. 초안 만료는 생성 시각부터 계산하며 새 명령은 기존 활성 초안을 `DISCARDED`로 종결하고 새 초안을 만든다. 동의 철회·명시 폐기·만료도 기존 활성 초안을 종결한다.
 - 사용자당 활성 초안은 하나다. `UNIQUE (user_id) WHERE status = 'ACTIVE'` 부분 유일 제약으로 보장하며 별도 `active_slot` 컬럼이나 `SUPERSEDED` 상태는 추가하지 않는다.
+- 재진입 조회는 단건 ID가 아니라 `GET /api/assistant/drafts/active`만 제공한다. 이 경로는 유효한 활성 초안이면 `200`, 활성 초안이 없거나 종결됐으면 `204`, 논리적으로 만료된 `ACTIVE` 초안이면 `410`으로 끝난다. provider를 호출하지 않아 인증만 요구하며, 클라이언트가 `draftId`를 영속 보관하지 않아도 확인 카드를 복구할 수 있다.
 - 상세 장소는 확인 카드에서 사용자가 직접 입력한다. 모델 결과·raw prompt에서 장소를 추출하거나 저장하지 않는다.
 
 ### 확인·멱등성·동시성
@@ -41,8 +42,8 @@
 - 멱등성 범위는 최소 `(currentUserId, draft/resource, operation)`이다. 기능 gate를 통과한 요청에서 같은 범위의 이미 확인된 key는 초안 상태·만료·draft version 검사보다 먼저 같은 Room·ChatRoom 결과를 반환한다.
 - 다른 사용자·draft/resource·operation의 같은 key, 다른 key, 오래된 version, 만료 초안은 새 Room을 만들지 않는다.
 - 초안 생성·수정·확인은 모두 PostgreSQL에서 대상 `USERS` 행 → 초안 행 → 멱등성 기록 순서로만 잠그며, confirm은 그 안에서 version을 조건으로 갱신한다. 사용자 단위 선행 잠금은 같은 사용자의 초안 생성·수정·확인이 멱등성 기록을 동시에 정리하지 않도록 직렬화하고, 활성 초안 유일 제약을 잠금 순서나 배타성 근거로 쓰지 않는다. 같은 범위의 key에는 유일 제약을 함께 두어 재시도와 동시 요청이 방 하나로 수렴하도록 한다.
-- 공개 오류 의미는 다른 key·범위 밖 key·동시성 충돌 `409`, 만료 초안 `410`, 타인 또는 없는 초안 `404`로 고정한다.
-- 만료는 명령·조회·장소 입력·확인 요청의 시작 시각에 판정한다. 만료 판정은 `ACTIVE` 초안에만 적용하고, 이미 종결된 `CONFIRMED`·`DISCARDED` 초안은 상태 판정이 만료 판정보다 먼저다. 응답에 남은 시간을 노출하지 않으며 별도 cleanup scheduler는 P2 범위에 넣지 않는다.
+- 공개 오류 의미는 다른 key·범위 밖 key·동시성 충돌 `409`, 만료 초안 `410`, 단건 명령에서 타인 또는 없는 초안 `404`로 고정한다. 활성 초안 조회는 단건 식별자를 받지 않으므로 활성 초안이 없으면 `204`로 끝난다.
+- 만료는 대상 `ACTIVE` 초안의 수정·폐기·확인과 활성 초안 조회 요청의 시작 시각에 판정한다. 이미 종결된 `CONFIRMED`·`DISCARDED` 초안은 활성 초안 조회의 대상이 아니다. 조회는 만료 초안을 `DISCARDED`로 바꾸지 않으며, 이후 새 초안 생성 명령이 기존 활성 초안을 종결한다. 응답에 남은 시간을 노출하지 않으며 별도 cleanup scheduler는 P2 범위에 넣지 않는다.
 
 ### Room command와 원자성
 
