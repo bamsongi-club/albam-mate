@@ -128,7 +128,7 @@ exit "\${FAKE_K6_EXIT:-0}"
   chmodSync(executable, 0o755);
 }
 
-for (const scenario of ['02-game-keyword.js', '08-game-realistic.js']) {
+for (const scenario of ['02-game-keyword.js', '08-game-realistic.js', '09-game-list-concurrency.js']) {
   test(`${scenario} is a valid k6 bundle`, () => {
     const result = spawnSync('k6', ['inspect', path.join(gameDirectory, scenario)], {
       encoding: 'utf8',
@@ -168,6 +168,13 @@ test('a non-200 realistic workload response fails the k6 run', async () => {
 
   assert.notEqual(result.status, 0, result.stderr || result.stdout);
   assert.match(`${result.stdout}\n${result.stderr}`, /checks/);
+});
+
+test('a non-200 game-list Slice preflight response fails the k6 run', async () => {
+  const result = await runScenario('09-game-list-concurrency.js', 'workload-204');
+
+  assert.notEqual(result.status, 0, result.stderr || result.stdout);
+  assert.match(`${result.stdout}\n${result.stderr}`, /Slice preflight|checks/);
 });
 
 test('the keyword scenario sends the configured fixed keyword', async () => {

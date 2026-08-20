@@ -54,10 +54,22 @@ public final class GameListSpecification {
 			if (complexityMax != null) {
 				predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("complexity"), complexityMax));
 			}
-			addMechanismPredicate(
-				root, query, criteriaBuilder, predicates, criteria.getMechanisms(), criteria.getMechanismMatch());
+			boolean hasAnyThemeAndMechanism = !criteria.getThemes().isEmpty()
+				&& !criteria.getMechanisms().isEmpty()
+				&& criteria.getThemeMatch() == ThemeMatch.ANY
+				&& criteria.getMechanismMatch() == MechanismMatch.ANY;
+			if (hasAnyThemeAndMechanism) {
+				addAnyThemeAndMechanismPredicate(root, query, criteriaBuilder, predicates, criteria.getThemes(),
+					criteria.getMechanisms());
+			} else {
+				addMechanismPredicate(
+					root, query, criteriaBuilder, predicates, criteria.getMechanisms(), criteria.getMechanismMatch());
+			}
 			addCategoryPredicate(root, query, criteriaBuilder, predicates, criteria.getCategories());
-			addThemePredicate(root, query, criteriaBuilder, predicates, criteria.getThemes(), criteria.getThemeMatch());
+			if (!hasAnyThemeAndMechanism) {
+				addThemePredicate(root, query, criteriaBuilder, predicates, criteria.getThemes(),
+					criteria.getThemeMatch());
+			}
 			addPlayerPreferencePredicate(
 				root, query, criteriaBuilder, predicates, criteria.getRecommendedPlayerCounts(), true);
 			addPlayerPreferencePredicate(root, query, criteriaBuilder, predicates, criteria.getBestPlayerCounts(),
@@ -66,6 +78,27 @@ public final class GameListSpecification {
 				criteria.getCurrentUserId());
 			return criteriaBuilder.and(predicates.toArray(Predicate[]::new));
 		};
+	}
+
+	private static void addAnyThemeAndMechanismPredicate(
+		Root<Game> root,
+		jakarta.persistence.criteria.CriteriaQuery<?> query,
+		CriteriaBuilder criteriaBuilder,
+		List<Predicate> predicates,
+		List<String> themes,
+		List<String> mechanisms) {
+		var subquery = query.subquery(Long.class);
+		Root<GameThemeRelation> themeRelation = subquery.from(GameThemeRelation.class);
+		Root<GameMechanismRelation> mechanismRelation = subquery.from(GameMechanismRelation.class);
+		var theme = themeRelation.join("theme");
+		var mechanism = mechanismRelation.join("mechanism");
+		subquery.select(themeRelation.get("game").get("id")).distinct(true);
+		subquery.where(
+			criteriaBuilder.equal(themeRelation.get("game"), mechanismRelation.get("game")),
+			theme.get("code").in(themes),
+			mechanism.get("code").in(mechanisms),
+			criteriaBuilder.isTrue(mechanism.get("isPublic")));
+		predicates.add(root.get("id").in(subquery));
 	}
 
 	private static void addCategoryPredicate(

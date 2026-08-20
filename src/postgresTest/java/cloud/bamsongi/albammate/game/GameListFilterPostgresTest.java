@@ -153,6 +153,8 @@ class GameListFilterPostgresTest extends SharedPostgresIntegrationSupport {
 		Game both = saveGame(2101L, "Relation-Alpha", 2, 4, 20, new BigDecimal("2.00"));
 		Game themeAllMechanismAny = saveGame(2102L, "Relation-Charlie", 2, 4, 20, new BigDecimal("2.00"));
 		Game themeAnyMechanismAll = saveGame(2103L, "Relation-Bravo", 2, 4, 20, new BigDecimal("2.00"));
+		Game themeOnly = saveGame(2104L, "Relation-Theme-Only", 2, 4, 20, new BigDecimal("2.00"));
+		Game mechanismOnly = saveGame(2105L, "Relation-Mechanism-Only", 2, 4, 20, new BigDecimal("2.00"));
 		linkTheme(both, fantasy);
 		linkTheme(both, war);
 		linkMechanism(both, hand);
@@ -163,6 +165,8 @@ class GameListFilterPostgresTest extends SharedPostgresIntegrationSupport {
 		linkTheme(themeAnyMechanismAll, fantasy);
 		linkMechanism(themeAnyMechanismAll, hand);
 		linkMechanism(themeAnyMechanismAll, dice);
+		linkTheme(themeOnly, fantasy);
+		linkMechanism(mechanismOnly, hand);
 
 		Logger sqlLogger = (Logger)org.slf4j.LoggerFactory.getLogger("org.hibernate.SQL");
 		Level originalLevel = sqlLogger.getLevel();
@@ -183,7 +187,8 @@ class GameListFilterPostgresTest extends SharedPostgresIntegrationSupport {
 				.filter(sql -> sql.contains("from games"))
 				.findFirst()
 				.orElseThrow();
-			assertTrue(relationSql.contains("in ((select"));
+			assertTrue(relationSql.contains("in ((select distinct"));
+			assertEquals(1, relationSql.split("in \\(\\(select", -1).length - 1);
 			assertTrue(relationSql.contains("game_theme_relations"));
 			assertTrue(relationSql.contains("game_mechanism_relations"));
 		} finally {

@@ -45,7 +45,7 @@ test("문서 변경은 backend와 frontend를 실행하지 않는다", () => {
   );
 });
 
-test("k6 측정 도구 변경은 backend와 frontend를 실행하지 않는다", () => {
+test("k6·동시 부하 측정 도구 변경은 backend와 frontend를 실행하지 않는다", () => {
   assert.deepEqual(
     classifyCiPaths([
       "load-tests/k6/jiwon/lib/room-k6.js",
@@ -53,6 +53,10 @@ test("k6 측정 도구 변경은 backend와 frontend를 실행하지 않는다",
       "load-tests/k6/jiwon/tests/write-response-contract.test.mjs",
       "scripts/ci/classify-ci-paths.mjs",
       "scripts/ci/classify-ci-paths.test.mjs",
+      "load-tests/k6/yejin/09-game-list-concurrency.js",
+      "load-tests/k6/yejin/tests/scenarios.test.mjs",
+      "scripts/measurements/game-list-concurrency.mjs",
+      "scripts/measurements/game-list-concurrency.test.mjs",
     ]),
     noBackend(false),
   );

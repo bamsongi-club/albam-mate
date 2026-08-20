@@ -13,6 +13,7 @@ const NON_BACKEND_ONLY_PATTERNS = [
   /^\.github\/ISSUE_TEMPLATE\//,
   /^load-tests\//,
   /^scripts\/ci\/classify-ci-paths(?:\.test)?\.mjs$/,
+  /^scripts\/measurements\/game-list-concurrency(?:\.test)?\.mjs$/,
   /^scripts\/docs\/check-(?:doc-links|monitoring-contract)(?:\.test)?\.mjs$/,
   /^scripts\/(?:ci\/classify-postgres-requirement|verify-changed-h2-coverage)\.test\.mjs$/,
   /^scripts\/validate-(?:packet|backend-test-manifest|coverage-ratchet)(?:\.test)?\.mjs$/,
