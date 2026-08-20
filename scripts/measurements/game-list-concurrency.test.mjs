@@ -59,6 +59,23 @@ test("k6 summary에서 p50/p95/p99·처리량·오류율을 추출한다", () =>
   });
 });
 
+test("k6 2.x summary의 metric value 형식도 추출한다", () => {
+  const result = parseK6Summary({
+    metrics: {
+      http_req_duration: { med: 12, "p(95)": 30, "p(99)": 45, max: 60 },
+      http_reqs: { count: 120, rate: 4 },
+      http_req_failed: { value: 0, fails: 0 },
+      checks: { value: 1, passes: 120, fails: 0 },
+    },
+  });
+
+  assert.equal(result.http.p95Ms, 30);
+  assert.equal(result.http.p99Ms, 45);
+  assert.equal(result.http.throughputRps, 4);
+  assert.equal(result.http.failedRate, 0);
+  assert.equal(result.http.checksRate, 1);
+});
+
 test("p99가 없는 k6 summary는 fail-closed로 거절한다", () => {
   assert.throws(
     () => parseK6Summary({

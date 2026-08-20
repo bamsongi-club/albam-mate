@@ -333,10 +333,13 @@ function k6Version(k6) {
 
 function parseMetric(metrics, name, label) {
   const metric = metrics?.[name];
-  if (!metric?.values) {
+  const values = metric?.values ?? metric;
+  if (!values || typeof values !== "object") {
     fail(`k6 summary에 ${label} metric이 없습니다.`);
   }
-  return metric.values;
+  return values.rate === undefined && metric.value !== undefined
+    ? { ...values, rate: metric.value }
+    : values;
 }
 
 export function parseK6Summary(summary) {
@@ -345,7 +348,7 @@ export function parseK6Summary(summary) {
   const requests = parseMetric(metrics, "http_reqs", "http_reqs");
   const failed = parseMetric(metrics, "http_req_failed", "http_req_failed");
   const checks = parseMetric(metrics, "checks", "checks");
-  for (const [key, value] of [["med", duration.med], ["p(95)", duration["p(95)"]], ["p(99)", duration["p(99)"]], ["rate", requests.rate], ["failed rate", failed.rate], ["checks rate", checks.rate]]) {
+  for (const [key, value] of [["med", duration.med], ["p(95)", duration["p(95)"]], ["p(99)", duration["p(99)"]], ["max", duration.max], ["rate", requests.rate], ["failed rate", failed.rate], ["checks rate", checks.rate]]) {
     finiteNonnegative(value, `k6 ${key}`);
   }
   return {
