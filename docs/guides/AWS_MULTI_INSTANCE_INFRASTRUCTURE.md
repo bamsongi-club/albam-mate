@@ -27,7 +27,7 @@
 | 문서·저장소 | 소유 내용 |
 | --- | --- |
 | 승인된 ADR-0051 | Nginx 진입점, 자체 운영 데이터 서비스, EC2 수와 트레이드오프 |
-| 승인된 ADR-0083, [develop P1 자동 CD 가이드](CD_DEPLOYMENT.md) | `develop` 자동 CD의 SHA·OIDC/SSM·직렬 실행·migrator·앱 rollback 경계. 실제 workflow·권한·실행 증거는 아직 소유·구현되지 않았다. |
+| 승인된 ADR-0083, [develop P1 자동 CD 가이드](CD_DEPLOYMENT.md) | `develop` 자동 CD의 SHA·OIDC/SSM·직렬 실행·App2 migrator·LKG manifest·측정 freeze·앱 rollback 경계. 실제 workflow·권한·실행 증거는 아직 소유·구현되지 않았다. |
 | 이 가이드 | 생성·배포·측정·확장·철거 순서, 검증 체크리스트와 P1 최소 배포 목표 상태 |
 | `docs/archive/p1/P1-spec.md`, `docs/ARCHITECTURE.md` | P1 애플리케이션 실행 계약과 다중 인스턴스 동작 |
 | `docs/p2/monitoring.md`, ADR-0071·ADR-0059 | P2 운영 질문·완료 기준과 애플리케이션 metric·구조화 log 전송 경계. 이 P1 실행안은 해당 구현·검증 상태를 소유하지 않는다. |
@@ -129,7 +129,7 @@ App1 Elastic IP는 외부 DNS가 가리킬 안정적인 진입 주소다. 실제
 
 현재 실행 가능한 상태는 아래 [ECR 저장소 이름과 수동 이미지 릴리스](#5-ecr-저장소-이름과-수동-이미지-릴리스)와 수동 배포 흐름이다. [ADR-0083](../adr/platform/0083-github-actions-develop-p1-continuous-deployment.md)은 이후 `develop` 병합 뒤 같은 SHA의 CI 통과·ARM64 image·OIDC/SSM 배포·전용 Flyway migrator·App2→App1 앱 rollback을 목표 계약으로 승인했다.
 
-이 자동 CD는 아직 구현·검증되지 않았다. Terraform apply, P1 초기 생성·데이터 노드 기동, k6 실행, DB 자동 rollback 및 App1 무중단 보장은 여전히 이 범위 밖이다. 실제 workflow와 배포 실행 기록이 생기기 전에는 아래 수동 절차를 자동화됐다고 표현하지 않는다.
+이 자동 CD는 아직 구현·검증되지 않았다. Terraform apply, P1 초기 생성·데이터 노드 기동, k6 실행, DB 자동 rollback 및 App1 무중단 보장은 여전히 이 범위 밖이다. 자동 CD 구현에는 App2의 `/etc/albam-mate/app2.env`를 재사용하는 SSM migrator, 비밀이 아닌 LKG·deployment freeze Parameter bootstrap과 해당 IAM 경계가 포함된다. 실제 workflow와 배포 실행 기록이 생기기 전에는 아래 수동 절차를 자동화됐다고 표현하지 않는다.
 
 ### 최초 배포 접근과 인증서 순서
 
@@ -155,6 +155,7 @@ web의 Nginx는 `ssl_certificate`와 `ssl_certificate_key` 파일이 없으면 �
 
 측정 전환은 부하 발생기에서 App1의 외부 HTTPS endpoint로 직접 접속할 때만 수행한다.
 
+0. 현재 App1·App2의 release SHA·backend/web digest와 health/smoke를 기록하고, 실행 중인 CD가 없는지 확인한 뒤 `/albam-mate/p1/deployment-freeze`를 설정한다. freeze 이후에는 이 release를 바꾸지 않는다.
 1. 부하 발생기의 고정 source CIDR을 먼저 정한다. `0.0.0.0/0`은 사용하지 않으며, `DIRECT_HOST`는 실제 HTTPS URL의 hostname이면서 배치한 인증서의 SAN에 포함된 값으로 고정한다.
 2. Terraform 입력과 App1·App2에 전달하는 `/etc/albam-mate/app1.env`, `/etc/albam-mate/app2.env`를 다음처럼 바꾼다. `ALBAM_MATE_CHAT_WEBSOCKET_ALLOWED_ORIGIN`에는 SSM용 `https://127.0.0.1:<포워딩 포트>`가 아니라 직접 접속 URL의 정확한 Origin을 넣는다. 기본 HTTPS 포트 443이면 포트를 생략하고, 비표준 포트면 포트까지 포함한다.
 
@@ -188,7 +189,7 @@ web의 Nginx는 `ssl_certificate`와 `ssl_certificate_key` 파일이 없으면 �
    ```
 
    App1 Nginx access log에 해당 요청과 WebSocket `101`이 남고, `/api/` HTTP 응답의 `X-Albam-Mate-Upstream=app1|app2` 또는 upstream 로그로 App1·App2 분산을 확인한 뒤에만 부하를 시작한다. 응답 header는 raw upstream 주소를 내보내지 않으며, 내부 `upstream_addr`는 private infra가 manifest와 대조해 역할로 변환한다. 이 접속 확인과 부하 모두 SSM 포워딩이 아닌 동일한 직접 경로에서 수행한다.
-7. 측정 시작 시각, release SHA·이미지 digest, Terraform commit, 허용 CIDR, `DIRECT_HOST`, 두 Origin 값과 전환·원복 시각을 함께 기록한다.
+7. 측정 시작 시각, release SHA·이미지 digest, Terraform commit, 허용 CIDR, `DIRECT_HOST`, 두 Origin 값, freeze owner·Parameter version과 전환·원복 시각을 함께 기록한다.
 
 #### 측정 후 원복
 
@@ -216,6 +217,7 @@ web의 Nginx는 `ssl_certificate`와 `ssl_certificate_key` 파일이 없으면 �
    ```
 
 4. 부하 발생기의 직접 HTTPS 접속이 더 이상 성공하지 않고, SSM 포트 포워딩을 통한 기능 스모크만 성공하는지 확인한다. 직접 443이 닫히고 SSM 경로가 복구된 뒤에야 원복 완료로 기록한다.
+5. 측정 결과·로그·지표와 원복 증거를 보존한 뒤 `/albam-mate/p1/deployment-freeze`를 해제하고 해제 시각과 Parameter version을 기록한다. 이 순서 전에는 develop 자동 CD를 재개하지 않는다.
 
 ### 1. web 컨테이너 기동 계약
 
@@ -333,7 +335,7 @@ Spring 컨테이너가 구조화 로그 파일을 쓸 수 있도록 App1·App2 �
 | TLS | web 컨테이너가 인증서를 직접 마운트하고 최초 배포는 임시 인증서를 쓴다. | 공인 인증서의 발급·저장·갱신 주체와 HTTP 80 리스너·80→443 전환 절차를 확정한다. |
 | PostgreSQL TLS | production 접속이 TLS를 쓰지 않는다. | 자체 운영 PostgreSQL의 서버 인증서와 Spring 접속 검증 수준을 확정한다. |
 | Redis 보안 | production 설정은 host와 port만 받는다. | password·TLS 사용 여부와 Spring 환경변수 계약을 확정한다. |
-| Flyway | production Spring 기동마다 Flyway가 자동 실행된다. | [ADR-0083](../adr/platform/0083-github-actions-develop-p1-continuous-deployment.md)의 전용 1회 migrator와 앱별 Flyway 비활성화를 구현·검증한다. |
+| Flyway | production Spring 기동마다 Flyway가 자동 실행된다. | [ADR-0083](../adr/platform/0083-github-actions-develop-p1-continuous-deployment.md)의 App2 SSM one-shot migrator, 앱별 Flyway 비활성화와 expand/contract를 구현·검증한다. |
 | 프로필 이미지 | App1·App2가 각자 로컬 named volume을 쓴다. | 공유 객체 스토리지로 옮기고 다중 노드에서 업로드·조회를 검증한다. |
 
 ## Terraform 저장소 구성

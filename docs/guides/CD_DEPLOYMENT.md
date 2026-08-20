@@ -37,10 +37,22 @@ flowchart LR
 | 실행 권한 | GitHub Actions OIDC의 짧은 수명 image-publish role과 deploy role | 두 role의 trust policy, workflow 권한, ECR/SSM 실행 결과 |
 | 배포 대상 | P1의 App2 뒤 App1 | instance 식별자와 대상별 release SHA |
 | 동시성 | 한 P1 배포만 실행하고 실행 중인 deploy는 취소하지 않음 | 실행 이력에서 겹치지 않는 deployment sequence |
+| last-known-good | `/albam-mate/p1/last-known-good`의 비밀이 아닌 단일 release manifest | Parameter version, source SHA, 두 앱 SHA·digest, health/smoke 성공 기록 |
+| 측정 freeze | `/albam-mate/p1/deployment-freeze`가 켜진 동안 image·EC2 상태를 변경하지 않음 | owner, reason, 고정 release, 시작·해제 시각과 배포 로그 |
 
 workflow는 PR head나 배포 직전에 다시 읽은 branch tip을 입력으로 쓰지 않는다. CI가 확인한 SHA와 image digest를 배포 시작 시 고정한다. ECR tag가 immutable이므로 실패한 image push를 같은 tag에 덮어써 재시도하지 않는다.
 
-두 OIDC role은 `albam-mate`의 허용 workflow·`develop` 배포로 subject를 제한한다. image-publish role은 backend·web ECR 저장소에 image를 쓰는 범위만, deploy role은 그 image 읽기와 P1 대상 SSM 명령·결과 조회 범위만 가진다. Terraform apply, IAM 변경, 장기 access key, SSH key, DB 비밀값 조회는 두 role 모두의 권한이 아니다.
+두 OIDC role은 `albam-mate`의 허용 workflow·`develop` 배포로 subject를 제한한다. image-publish role은 backend·web ECR 저장소에 image를 쓰는 범위만, deploy role은 그 image 읽기, P1 대상 SSM 명령·결과 조회와 위 두 비밀이 아닌 상태 Parameter의 고정 경로 읽기·쓰기만 가진다. Terraform apply, IAM 변경, 장기 access key, SSH key, DB 비밀값 조회는 두 role 모두의 권한이 아니다.
+
+### last-known-good bootstrap
+
+자동 CD를 활성화하기 전에 운영자는 현재 App1·App2가 같은 release SHA·backend/web digest로 동작하고 health·upstream·기능 smoke를 통과하는지 확인한 뒤 `/albam-mate/p1/last-known-good` manifest를 기록한다. manifest가 없거나 두 앱의 release·digest가 일치하지 않으면 workflow는 migrator와 앱 교체를 시작하지 않는다. 노드의 `ALBAM_MATE_RELEASE`는 현재 상태 확인에만 사용하며 rollback 정본으로 쓰지 않는다.
+
+배포가 성공하면 두 앱의 health·upstream·기능 smoke와 digest를 모두 확인한 뒤 source SHA, backend·web digest, 두 앱의 검증 SHA, 성공 시각과 Parameter version을 새 manifest로 기록한다. App rollback은 이 manifest의 한 release만 사용하고 DB migration은 rollback하지 않는다.
+
+### 측정 중 deployment freeze
+
+직접 HTTP·WebSocket 부하 또는 k6 측정 전에는 운영자가 `/albam-mate/p1/deployment-freeze`를 설정한다. owner, reason, 고정 release SHA·digest와 시작 시각을 함께 기록한다. CD는 image 게시 전과 모든 SSM 명령 직전에 이 상태를 확인하며, freeze 중에는 image 게시·EC2 상태 변경을 하지 않는다. freeze 중 병합된 SHA는 측정 종료·결과 보존·직접 경로와 Compose 원복 후 freeze를 해제한 다음 최신 SHA 하나만 다시 처리한다. freeze가 없거나 측정 중 release가 바뀌면 해당 결과는 고정 release의 배포·부하 증거가 아니다.
 
 ## 직렬 배포 규칙
 
@@ -59,8 +71,8 @@ workflow는 PR head나 배포 직전에 다시 읽은 branch tip을 입력으로
 
 배포의 첫 상태 변경은 전용 migrator다.
 
-1. 새 backend image로 Flyway `validate`를 수행한다.
-2. 같은 one-shot 작업에서 `migrate`를 한 번 실행하고 종료한다.
+1. deploy role이 App2 EC2를 대상으로 SSM 명령을 보내고, App2의 `/etc/albam-mate/app2.env`를 읽는 새 backend image로 Flyway `validate`를 수행한다.
+2. 같은 one-shot 작업에서 `migrate`를 한 번 실행하고 종료한다. SSM 실행 주체는 DB secret을 조회하지 않으며 명령 인자·출력·배포 기록에 secret을 남기지 않는다.
 3. 성공하기 전에는 App2·App1 image를 바꾸지 않는다.
 4. 성공한 뒤 일반 App2·App1 기동에서는 Flyway를 비활성화한다.
 
@@ -87,12 +99,12 @@ Flyway 실패는 “데이터베이스가 전혀 바뀌지 않았다”는 뜻�
 
 ### 정상 순서
 
-1. CI가 통과한 SHA의 backend·web digest와 현재 last-known-good SHA를 기록한다.
-2. one-shot migrator를 실행한다.
+1. `/albam-mate/p1/last-known-good` manifest를 읽고 현재 App1·App2의 동일 SHA·digest와 health/smoke 기록을 확인한다. manifest가 없거나 불일치하면 이 run은 migrator 전에 실패시킨다.
+2. 측정 freeze가 켜져 있지 않은지 확인하고, one-shot migrator를 App2에서 실행한다.
 3. App2를 새 SHA로 바꾸고, 컨테이너 health·App1에서 보이는 upstream 응답·release SHA를 확인한다.
 4. App1을 새 SHA로 바꾸고, Nginx를 통한 App1·App2 upstream 응답과 각 release SHA를 확인한다.
 5. 인증된 기능 smoke를 실행한다. Nginx 자체 `/healthz` 응답만으로는 App1·App2가 새 image로 정상 동작했다는 증거가 아니다.
-6. 성공한 SHA와 image digest를 새로운 last-known-good release로 기록한다.
+6. 성공한 SHA와 image digest를 새로운 last-known-good manifest로 기록한다.
 
 App1은 외부 Nginx와 함께 재생성되므로 이 단계에서 짧은 HTTP 재시도·WebSocket 재연결이 생길 수 있다. 현재 P1은 트래픽 drain, standby slot, ALB health cutover를 제공하지 않으므로 무중단을 약속하지 않는다.
 
@@ -101,6 +113,8 @@ App1은 외부 Nginx와 함께 재생성되므로 이 단계에서 짧은 HTTP �
 | 실패 지점 | 기존 서비스 | 새 릴리스 처리 | DB 처리 |
 | --- | --- | --- | --- |
 | CI 또는 image build | 그대로 유지 | 배포를 시작하지 않음 | 변경 없음 |
+| last-known-good 없음·불일치 | 그대로 유지 | bootstrap 또는 일치 검증 전에는 migrator·앱 교체를 시작하지 않음 | 변경 없음 |
+| measurement freeze 활성 | 그대로 유지 | image 게시·SSM·EC2 상태 변경 없이 대기하고 해제 뒤 최신 SHA 하나만 처리 | 변경 없음 |
 | migrator validate/migrate | App1·App2 컨테이너는 그대로 유지 | 새 릴리스 실패·원인 알림 | 이미 성공한 앞 migration은 남을 수 있음; 자동 rollback 없음 |
 | App2 health/upstream | App1과 기존 또는 복귀한 App2가 서빙 | App2만 last-known-good SHA로 자동 복귀 | expand된 schema 유지 |
 | App1 health/upstream 또는 기능 smoke | 복귀 과정 중 짧은 재연결 가능 | App1까지 바뀌었으면 App1 → App2 순서로 모두 같은 last-known-good SHA로 복귀하고 두 앱을 재검증 | expand된 schema 유지 |
@@ -116,6 +130,7 @@ App1은 외부 Nginx와 함께 재생성되므로 이 단계에서 짧은 HTTP �
 - migrator validate/migrate 결과와 적용된 schema history의 요약
 - App2·App1별 health/upstream·release SHA와 기능 smoke 결과
 - 성공한 last-known-good SHA 또는 rollback된 SHA와 실패 지점
+- LKG·freeze Parameter version, freeze owner/reason과 설정·해제 시각
 
 실패 알림은 migration 실패와 앱 롤아웃 실패를 구분한다. 로그·알림에는 DB 비밀번호, session cookie, OIDC token, 환경 파일 원문을 남기지 않는다.
 
@@ -123,6 +138,7 @@ App1은 외부 Nginx와 함께 재생성되므로 이 단계에서 짧은 HTTP �
 
 - `main` 또는 다른 환경의 자동 배포를 정의하지 않는다.
 - Terraform apply, 인프라 생성·삭제, k6 부하 실행을 deployment workflow에 넣지 않는다.
+- 부하 측정 중인 환경의 freeze를 우회해 자동 배포하지 않는다.
 - 자동 DB rollback, backup/PITR 복원, 고가용성·무중단 배포를 보장하지 않는다.
 - 현재 수동 배포·P1 AWS 실측을 자동 CD 구현·운영 검증으로 바꾸지 않는다.
 
