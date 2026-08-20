@@ -207,7 +207,8 @@ public final class ApiEndpointPolicyRegistry {
 			policy(HttpMethod.GET, "/api/rooms/{roomId}/chat/ws", AUTHENTICATED, false),
 			policy(HttpMethod.POST, "/api/rooms/{roomId}/chat/read", AUTHENTICATED, true),
 			policy(HttpMethod.GET, "/api/users/me/rooms", AUTHENTICATED, false),
-			policy(HttpMethod.GET, "/api/users/me/chat/unread-summary", AUTHENTICATED, false));
+			policy(HttpMethod.GET, "/api/users/me/chat/unread-summary", AUTHENTICATED, false),
+			policy(HttpMethod.GET, "/api/users/me/chat/ws", AUTHENTICATED, false));
 	}
 
 	private static List<ApiEndpointPolicy> policiesFrom(List<ApiEndpointPolicyContributor> contributors) {
