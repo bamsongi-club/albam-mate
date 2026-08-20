@@ -239,6 +239,7 @@ flowchart LR
 | --- | --- | --- |
 | `chat.contract.ChatRoomPreviewQuery` | `room`이 호출하고 `chat`이 구현 | 요청한 `chatRoomId` 집합과 조회자 사용자 ID로, 방마다 마지막 메시지 미리보기·시각과 파생 미읽음 개수를 배치로 반환한다. 방 개수만큼 반복 호출하지 않는다 |
 | `POST /api/rooms/{roomId}/chat/read` | `chat` controller가 처리 | 요청자가 확인한 최신 지점(`upToMessageId`)까지 `CHAT_ROOM_READ_STATES` 커서를 전진시킨다 |
+| `GET /api/users/me/chat/unread-summary` | `room` controller가 처리 | 상단 채팅 아이콘 배지 전용 경량 조회다. `chatAvailable = true`인 내 방 `chatRoomId` 집합을 모은 뒤 같은 `ChatRoomPreviewQuery`를 한 번 호출해, 파생 `unreadCount > 0`인 방의 개수(`unreadRoomCount`)만 센다. 방 목록 페이지네이션·`lastMessagePreview`는 만들지 않는다 |
 
 `ChatRoomPreviewQuery`는 기존 `chat → room.contract`(CHAT-06 listener) 방향과 반대로 `room → chat.contract` 방향의 새 의존을 추가한다. 두 방향은 서로 다른 목적의 별도 인터페이스이므로 컴파일 순환은 만들지 않지만, `room`과 `chat`이 서로를 참조하는 유일한 사례가 된다는 점은 [ADR-0079](adr/chat/0079-chat-room-read-cursor-and-derived-unread-count.md)의 감수 비용으로 기록한다.
 
