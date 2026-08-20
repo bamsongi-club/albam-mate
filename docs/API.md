@@ -264,7 +264,7 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 | 37.2 | P2 | [AI-01](#ai-01-동의-변경) · [정본](p2/assistant.md#ai-01-ai-모임-도우미) · API 계약 확정·AI-01a T1~T5 검증 범위 제공 | PUT | `/api/assistant/consent` | Y | Y | 200 |
 | 37.3 | P2 | [AI-02](#ai-02-자연어-추천) · [정본](p2/assistant.md#ai-02-ai-의도-추출추천provider-운영) · API 계약 확정·AI-01a T1~T5 검증 범위 제공 | POST | `/api/assistant/recommendations` | Y | Y | 200 |
 | 37.4 | P2 | [AI-03](#ai-03-초안-생성) · [정본](p2/assistant.md#ai-03-ai-초안확인형-room-생성) · API 계약 확정·구현 보류 | POST | `/api/assistant/drafts` | Y | Y | 201 |
-| 37.5 | P2 | [AI-03](#ai-03-초안-조회) · [정본](p2/assistant.md#ai-03-ai-초안확인형-room-생성) · API 계약 확정·구현 보류 | GET | `/api/assistant/drafts/{draftId}` | Y | N | 200 |
+| 37.5 | P2 | [AI-03](#ai-03-활성-초안-조회) · [정본](p2/assistant.md#ai-03-ai-초안확인형-room-생성) · API 계약 확정·구현 보류 | GET | `/api/assistant/drafts/active` | Y | N | 200·204 |
 | 37.6 | P2 | [AI-03](#ai-03-초안-수정) · [정본](p2/assistant.md#ai-03-ai-초안확인형-room-생성) · API 계약 확정·구현 보류 | PATCH | `/api/assistant/drafts/{draftId}` | Y | Y | 200 |
 | 37.7 | P2 | [AI-03](#ai-03-초안-폐기) · [정본](p2/assistant.md#ai-03-ai-초안확인형-room-생성) · API 계약 확정·구현 보류 | DELETE | `/api/assistant/drafts/{draftId}` | Y | Y | 200 |
 | 37.8 | P2 | [AI-03](#ai-03-초안-확인과-room-생성) · [정본](p2/assistant.md#ai-03-ai-초안확인형-room-생성) · API 계약 확정·구현 보류 | POST | `/api/assistant/drafts/{draftId}/confirm` | Y | Y | 201·200 |
@@ -1069,7 +1069,7 @@ PostgreSQL에 커밋된 매칭 요청·제안·성공 파티·채팅 접근 관�
 | `input` | AssistantRoomDraftInput | Y | N | 현재 서버 저장 초안. `place`는 확인 전 `null`일 수 있음 |
 | `result` | AssistantRoomCreationResult | Y | Y | `CONFIRMED`일 때만 Room·ChatRoom 결과. 그 밖에는 `null` |
 
-응답에는 만료 시각이나 남은 시간을 포함하지 않는다. 초안 만료는 요청 시작 시각에 판정하고 만료된 초안은 `410 ASSISTANT_DRAFT_EXPIRED`로 처리한다.
+응답에는 만료 시각이나 남은 시간을 포함하지 않는다. 활성 초안 조회는 유효한 `ACTIVE` 초안만 이 응답으로 반환하며, 만료 초안은 요청 시작 시각에 판정해 `410 ASSISTANT_DRAFT_EXPIRED`로 처리한다.
 
 ### 4.38 AssistantRoomDraftInput
 
@@ -2039,15 +2039,15 @@ Vary: Cookie
 
 새 초안을 만들면 같은 사용자의 이전 `ACTIVE` 초안은 `DISCARDED`로 종결한다. 이 endpoint는 provider를 호출하지 않으며 Room·ChatRoom·참가 관계를 만들지 않는다. 초안은 생성 시점부터 15분 동안 유효하지만 응답에는 만료 시각이나 남은 시간을 포함하지 않는다.
 
-### AI-03 초안 조회
+### AI-03 활성 초안 조회
 
 | 항목 | 값 |
 |---|---|
-| Method / Path | `GET /api/assistant/drafts/{draftId}` |
+| Method / Path | `GET /api/assistant/drafts/active` |
 | 인증 / CSRF | 필요 / 불필요 |
-| 성공 | `200 OK`, `data`: `AssistantDraftResponse` |
+| 성공 | 유효한 활성 초안은 `200 OK`, `data`: `AssistantDraftResponse`; 활성 초안이 없으면 `204 No Content` |
 
-현재 사용자 소유 초안만 조회한다. 만료 판정은 `ACTIVE` 초안에만 적용하며, `ACTIVE` 초안의 요청 시작 시각에 `expiresAt`이 지났으면 `410 ASSISTANT_DRAFT_EXPIRED`다. 이미 종결된 `CONFIRMED`·`DISCARDED` 초안은 만료로 재판정하지 않고 현재 상태와 결과를 그대로 반환한다. 타인 초안이나 없는 초안은 `404 ASSISTANT_DRAFT_NOT_FOUND`다.
+현재 사용자의 유효한 `ACTIVE` 초안 하나만 조회해, 새로고침·이탈 뒤 확인 카드를 복구한다. 클라이언트는 `draftId`를 URL이나 브라우저 저장소에 보관하지 않는다. 초안이 없거나 이미 `CONFIRMED`·`DISCARDED`이면 `204 No Content`이며, 다른 사용자의 초안이나 종결 초안은 조회 대상이 아니다. `ACTIVE` 초안의 요청 시작 시각에 `expiresAt`이 지났으면 `410 ASSISTANT_DRAFT_EXPIRED`이고, 조회 자체는 상태를 `DISCARDED`로 바꾸지 않는다. 이 endpoint는 provider를 호출하지 않으므로 feature gate·외부 처리 동의 검사를 적용하지 않고 인증만 요구한다.
 
 ### AI-03 초안 수정
 
@@ -3163,7 +3163,7 @@ MATCH 채팅 경로(`/api/matches/parties/{partyId}/chat/**`)는 성공 파티 �
 | `PUT /api/assistant/consent` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `CSRF_TOKEN_INVALID`, `GRANT`에만 `ASSISTANT_NOT_ENABLED`·`ASSISTANT_CONSENT_VERSION_MISMATCH` |
 | `POST /api/assistant/recommendations` | `UNAUTHENTICATED`, `ASSISTANT_NOT_ENABLED`, `ASSISTANT_CONSENT_REQUIRED`, `VALIDATION_ERROR`, `ASSISTANT_INPUT_NOT_ALLOWED`, `ASSISTANT_PROVIDER_UNAVAILABLE`, `ASSISTANT_PROVIDER_RESPONSE_INVALID`, `RATE_LIMIT_EXCEEDED`, `ASSISTANT_COST_LIMIT_EXCEEDED`, `SERVICE_UNAVAILABLE`, `CSRF_TOKEN_INVALID` |
 | `POST /api/assistant/drafts` | `UNAUTHENTICATED`, `ASSISTANT_NOT_ENABLED`, `ASSISTANT_CONSENT_REQUIRED`, `VALIDATION_ERROR`, `GAME_NOT_FOUND`, `CSRF_TOKEN_INVALID` |
-| `GET /api/assistant/drafts/{draftId}` | `UNAUTHENTICATED`, `ASSISTANT_DRAFT_NOT_FOUND`, `ASSISTANT_DRAFT_EXPIRED` |
+| `GET /api/assistant/drafts/active` | `UNAUTHENTICATED`, `ASSISTANT_DRAFT_EXPIRED` |
 | `PATCH /api/assistant/drafts/{draftId}` | `UNAUTHENTICATED`, `ASSISTANT_DRAFT_NOT_FOUND`, `ASSISTANT_DRAFT_EXPIRED`, `ASSISTANT_DRAFT_CONFLICT`, `VALIDATION_ERROR`, `GAME_NOT_FOUND`, `CSRF_TOKEN_INVALID` |
 | `DELETE /api/assistant/drafts/{draftId}` | `UNAUTHENTICATED`, `ASSISTANT_DRAFT_NOT_FOUND`, `ASSISTANT_DRAFT_EXPIRED`, `ASSISTANT_DRAFT_CONFLICT`, `CSRF_TOKEN_INVALID` |
 | `POST /api/assistant/drafts/{draftId}/confirm` | `UNAUTHENTICATED`, `ASSISTANT_NOT_ENABLED`, `ASSISTANT_CONSENT_REQUIRED`, `ASSISTANT_DRAFT_NOT_FOUND`, `ASSISTANT_DRAFT_EXPIRED`, `ASSISTANT_DRAFT_CONFLICT`, `VALIDATION_ERROR`, `GAME_NOT_FOUND`, `ROOM_CONCURRENT_MODIFICATION`, `CSRF_TOKEN_INVALID` |
