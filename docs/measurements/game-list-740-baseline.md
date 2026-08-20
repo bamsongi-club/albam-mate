@@ -74,6 +74,56 @@ canonical games 지문은 목록 결과에 영향을 주는 name·alias·image·
 
 결과는 기본적으로 `docs/measurements/results/game-list-740/` 아래 JSON/CSV로 생성한다. 결과 파일을 커밋할 때에는 실행 당시 `runnerCommit`, `serverCommit`, 데이터 건수, SHA-256이 맞는지 먼저 확인한다. 측정 중 non-200 또는 네트워크 오류가 발생하면 `status=failed`와 이미 수집한 raw sample을 함께 저장하며, 실패 report는 정상 baseline으로 사용하지 않는다.
 
+## #867 V0~V3 relation·complex 후보 비교
+
+[#867](https://github.com/bamsongi-club/albam-mate/issues/867)은 #770 Slice를 V0 control로 두고 V1(query shape), V2(PostgreSQL theme relation index), V3(결합)를 비교한다. 선택·rollback 경계는 [ADR-0081](../adr/game/0081-game-list-relation-filter-performance-selection.md)에서 정한다. cache·cursor·projection과 동시 HTTP·CPU·오류율은 이 비교에 넣지 않으며 후자는 [#863](https://github.com/bamsongi-club/albam-mate/issues/863)에서만 다룬다.
+
+각 variant는 독립 fixture DB에서 여섯 scenario를 warm-up 5회 뒤 순차 20회로 실행한다. V0~V3은 다음 순서를 정확히 한 번씩 써서 총 16개 성공 artifact를 만든다.
+
+| round | 실행 순서 |
+| --- | --- |
+| 1 | V0 → V1 → V2 → V3 |
+| 2 | V1 → V2 → V3 → V0 |
+| 3 | V2 → V3 → V0 → V1 |
+| 4 | V3 → V0 → V1 → V2 |
+
+각 artifact는 runner file SHA-256, games `170,005`, BGG ID set SHA-256, relation metadata와 시작·종료 fixture provenance가 같아야 한다. 실패 artifact는 삭제하지 않지만 아래 비교기의 입력으로 쓰지 않는다. `serverCommit`·컨테이너 ID는 candidate마다 달라도 되며 runner source SHA와 fixture fingerprint는 달라지면 안 된다.
+
+16개가 모두 성공한 뒤 다음을 실행한다.
+
+원본 HTTP/SQL/EXPLAIN capture는 저장소에 커밋하지 않고 로컬 evidence 디렉터리에 보관한다. 아래 명령은 `ALBAM_MATE_GAME_LIST_EVIDENCE_ROOT`에 그 디렉터리를 지정해 실행한다.
+
+```bash
+measurement_root="${ALBAM_MATE_GAME_LIST_EVIDENCE_ROOT:?set local game-list-867 evidence root}"
+
+node scripts/measurements/game-list-variant-comparison.mjs \
+  --artifact "V0:1:$measurement_root/http/v0-r1.json" \
+  --artifact "V0:2:$measurement_root/http/v0-r2.json" \
+  --artifact "V0:3:$measurement_root/http/v0-r3.json" \
+  --artifact "V0:4:$measurement_root/http/v0-r4.json" \
+  --artifact "V1:1:$measurement_root/http/v1-r1.json" \
+  --artifact "V1:2:$measurement_root/http/v1-r2.json" \
+  --artifact "V1:3:$measurement_root/http/v1-r3.json" \
+  --artifact "V1:4:$measurement_root/http/v1-r4.json" \
+  --artifact "V2:1:$measurement_root/http/v2-r1.json" \
+  --artifact "V2:2:$measurement_root/http/v2-r2.json" \
+  --artifact "V2:3:$measurement_root/http/v2-r3.json" \
+  --artifact "V2:4:$measurement_root/http/v2-r4.json" \
+  --artifact "V3:1:$measurement_root/http/v3-r1.json" \
+  --artifact "V3:2:$measurement_root/http/v3-r2.json" \
+  --artifact "V3:3:$measurement_root/http/v3-r3.json" \
+  --artifact "V3:4:$measurement_root/http/v3-r4.json" \
+  --evidence-root "$measurement_root/sql-captures" \
+  --output "$measurement_root/comparison.json" \
+  --markdown-output docs/measurements/results/game-list-740/game-list-770-relation-variant-comparison-2026-08-19.md
+```
+
+비교기는 scenario별 네 batch p50/p95/max와 p95 median을 보존한다. V1~V3은 여섯 scenario 모두 V0 p95의 105% 이내이고, `relation-theme-mechanism`과 `complex` p95가 모두 V0보다 낮아야 한다. 통과 후보가 여럿이면 두 scenario p95 합이 더 작은 것을 고르고 동률이면 V1, V2, V3 순으로 고른다. 하나도 통과하지 않으면 `selectedVariant=null`이며 V0를 유지한다.
+
+각 variant의 여섯 scenario는 실제 SQL capture와 가장 느린 읽기 SQL의 `EXPLAIN (ANALYZE, BUFFERS, VERBOSE, FORMAT TEXT)`를 별도로 보존한다. 이 one-shot EXPLAIN execution time은 HTTP p95와 같은 통계가 아니므로 합산하지 않는다. base capture는 `size + 1` 조회와 game exact count SQL 부재를 보여야 한다.
+
+2026-08-19 실측 결과는 [#867 relation·complex 후보 비교 결과](results/game-list-740/game-list-867-2026-08-19.md)에 문서로 보존했다. 16개 artifact가 모두 `VALID`였고, 여섯 scenario의 5% p95 회귀 제한과 relation·complex 개선을 모두 통과한 V1만 선택했다. V2/V3은 relation plan을 더 좁혔지만 다른 scenario의 p95 회귀로 탈락했다. 원본 capture는 로컬 evidence 디렉터리에 남긴다.
+
 ## 측정 매트릭스
 
 | 시나리오 | 목적 |
