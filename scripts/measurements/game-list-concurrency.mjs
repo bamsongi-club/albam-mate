@@ -16,6 +16,7 @@ const DEFAULT_FIXTURE_MANIFEST = path.join(
 );
 const DEFAULT_OUTPUT = path.join(REPOSITORY_ROOT, "build/k6/game-list-867/concurrency.json");
 const HEX_SHA = /^[0-9a-f]{40}$/u;
+const WORKLOADS = new Set(["mixed", "base", "relation", "complex"]);
 
 function fail(message) {
   throw new Error(message);
@@ -53,6 +54,14 @@ function parseLevels(value) {
   return levels;
 }
 
+export function parseWorkload(value) {
+  const workload = nonEmptyString(value, "--workload");
+  if (!WORKLOADS.has(workload)) {
+    fail(`--workload는 mixed, base, relation, complex 중 하나여야 합니다: ${workload}`);
+  }
+  return workload;
+}
+
 function parseArgs(argv) {
   const options = {
     baseUrl: process.env.BASE_URL || "http://127.0.0.1:5173",
@@ -65,6 +74,7 @@ function parseArgs(argv) {
     dbName: process.env.ALBAM_MATE_LOCAL_DB_NAME || "albam_mate_local",
     levels: process.env.CONCURRENCY_LEVELS || "2,4,8",
     duration: process.env.DURATION || "20s",
+    workload: process.env.WORKLOAD || "mixed",
     sampleIntervalMs: process.env.SAMPLE_INTERVAL_MS || "1000",
     output: DEFAULT_OUTPUT,
     script: DEFAULT_K6_SCRIPT,
@@ -83,6 +93,7 @@ function parseArgs(argv) {
     ["--db-name", "dbName"],
     ["--levels", "levels"],
     ["--duration", "duration"],
+    ["--workload", "workload"],
     ["--sample-interval-ms", "sampleIntervalMs"],
     ["--output", "output"],
     ["--script", "script"],
@@ -107,6 +118,7 @@ function parseArgs(argv) {
     return options;
   }
   options.levels = parseLevels(options.levels);
+  options.workload = parseWorkload(options.workload);
   options.sampleIntervalMs = positiveInteger(options.sampleIntervalMs, "--sample-interval-ms");
   options.serverCommit = nonEmptyString(options.serverCommit, "--server-commit");
   if (!HEX_SHA.test(options.serverCommit)) {
@@ -136,6 +148,8 @@ function printHelp() {
   --fixture-manifest <path>       170,005 fixture manifest
   --levels <2,4,8>                동시성 단계
   --duration <20s>                단계별 k6 시간
+  --workload <mixed|base|relation|complex>
+                                  측정할 게임 목록 시나리오
   --sample-interval-ms <1000>     App/DB 자원 표본 주기
   --output <path>                 기본값: build/k6/game-list-867/concurrency.json
 `);
@@ -368,7 +382,7 @@ export function parseK6Summary(summary) {
 }
 
 function phaseRun(options, concurrency, resourcesDirectory) {
-  const phase = `vus-${concurrency}`;
+  const phase = options.workload === "mixed" ? `vus-${concurrency}` : `vus-${concurrency}-${options.workload}`;
   const summaryPath = path.join(resourcesDirectory, `${phase}.summary.json`);
   const logPath = path.join(resourcesDirectory, `${phase}.k6.log`);
   const args = [
@@ -385,6 +399,8 @@ function phaseRun(options, concurrency, resourcesDirectory) {
     `CONCURRENCY=${concurrency}`,
     "-e",
     `DURATION=${options.duration}`,
+    "-e",
+    `WORKLOAD=${options.workload}`,
     "-e",
     `RUN_ID=${options.runId}`,
     "-e",
@@ -503,6 +519,7 @@ async function main() {
     configuration: {
       levels: options.levels,
       duration: options.duration,
+      workload: options.workload,
       sampleIntervalMs: options.sampleIntervalMs,
       appRoles: ["app1", "app2"],
       databaseRole: "postgres",

@@ -8,6 +8,7 @@ import {
   parseDockerStats,
   parseK6Summary,
   parsePostgresActivity,
+  parseWorkload,
 } from "./game-list-concurrency.mjs";
 
 const scriptPath = fileURLToPath(new URL("./game-list-concurrency.mjs", import.meta.url));
@@ -33,6 +34,11 @@ test("PostgreSQL pg_stat_activity 요약을 추출한다", () => {
     idleConnections: 5,
     waitingConnections: 1,
   });
+});
+
+test("게임 목록 workload 선택값을 제한한다", () => {
+  assert.equal(parseWorkload("relation"), "relation");
+  assert.throws(() => parseWorkload("unknown"), /mixed, base, relation, complex/u);
 });
 
 test("k6 summary에서 p50/p95/p99·처리량·오류율을 추출한다", () => {

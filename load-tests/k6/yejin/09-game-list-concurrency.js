@@ -6,9 +6,15 @@ const CONCURRENCY = Number(__ENV.CONCURRENCY || '2');
 const DURATION = __ENV.DURATION || '30s';
 const RUN_ID = __ENV.RUN_ID || 'game-list-867-local';
 const PHASE = __ENV.PHASE || `vus-${CONCURRENCY}`;
+const WORKLOAD = __ENV.WORKLOAD || 'mixed';
+const WORKLOADS = ['mixed', 'base', 'relation', 'complex'];
 
 if (!Number.isInteger(CONCURRENCY) || CONCURRENCY <= 0) {
   throw new Error(`CONCURRENCY는 양의 정수여야 합니다: ${CONCURRENCY}`);
+}
+
+if (!WORKLOADS.includes(WORKLOAD)) {
+  throw new Error(`WORKLOAD는 mixed, base, relation, complex 중 하나여야 합니다: ${WORKLOAD}`);
 }
 
 export const options = {
@@ -98,10 +104,10 @@ export function setup() {
 }
 
 export default function (data) {
-  const selection = Math.random();
-  if (selection < 0.34) {
+  const selection = WORKLOAD === 'mixed' ? Math.random() : null;
+  if (WORKLOAD === 'base' || (selection !== null && selection < 0.34)) {
     getGameList({ page: 0, size: 24 }, 'game-list-base');
-  } else if (selection < 0.67) {
+  } else if (WORKLOAD === 'relation' || (selection !== null && selection < 0.67)) {
     getGameList({
       page: 0,
       size: 24,
@@ -110,7 +116,7 @@ export default function (data) {
       mechanism: data.mechanism,
       mechanismMatch: 'ANY',
     }, 'game-list-relation');
-  } else {
+  } else if (WORKLOAD === 'complex' || selection !== null) {
     getGameList({
       page: 0,
       size: 24,
@@ -124,6 +130,8 @@ export default function (data) {
       themeMatch: 'ANY',
       mechanismMatch: 'ANY',
     }, 'game-list-complex');
+  } else {
+    throw new Error(`지원하지 않는 WORKLOAD입니다: ${WORKLOAD}`);
   }
   sleep(0.05);
 }
