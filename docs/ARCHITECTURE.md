@@ -73,10 +73,11 @@ flowchart LR
     matching -.->|"기술 기반"| global
     infra["infra"] -.->|"기술 기반"| global
     infra -->|"assistant.contract<br/>provider adapter"| assistant
+    infra -->|"game.contract<br/>dense candidate adapter"| game
     infra -->|"실시간 전달 port 구현"| chat
 ```
 
-현재 허용된 업무 모듈 의존 방향은 `auth → user`, `room → user·game`, `chat → room.contract·user.contract`, `notification → room.contract`, `matching → user.contract`, `chat → matching.contract`, `assistant → game.contract·room.contract`, `infra → assistant.contract`이다. `assistant`는 `game`·`room`의 Entity·Repository와 `infra.ai`를 직접 참조하지 않고 공개 계약만 사용한다. `chat`은 `room`·`user`·`matching`의 Entity와 Repository를, `notification`은 `room`의 Entity와 Repository를, `matching`은 `user`의 Entity와 Repository를 직접 참조하지 않고 공개 계약만 사용한다. 이 금지는 타입 참조뿐 아니라 JPQL에서 다른 모듈의 Entity를 조인하는 경로에도 적용한다. `matching → chat` 직접 의존은 만들지 않으며 반대 방향의 직접 참조와 순환 의존은 허용하지 않는다.
+현재 허용된 업무 모듈 의존 방향은 `auth → user`, `room → user·game`, `chat → room.contract·user.contract`, `notification → room.contract`, `matching → user.contract`, `chat → matching.contract`, `assistant → game.contract·room.contract`, `infra → assistant.contract·game.contract`이다. `assistant`는 `game`·`room`의 Entity·Repository와 `infra.ai`를 직접 참조하지 않고 공개 계약만 사용한다. `chat`은 `room`·`user`·`matching`의 Entity와 Repository를, `notification`은 `room`의 Entity와 Repository를, `matching`은 `user`의 Entity와 Repository를 직접 참조하지 않고 공개 계약만 사용한다. 이 금지는 타입 참조뿐 아니라 JPQL에서 다른 모듈의 Entity를 조인하는 경로에도 적용한다. `matching → chat` 직접 의존은 만들지 않으며 반대 방향의 직접 참조와 순환 의존은 허용하지 않는다.
 
 런타임 호출 방향과 컴파일 의존 방향이 다를 수 있다. 예를 들어 `game`이 예정 모임 수를 조회할 때는 [`game.contract.UpcomingRoomCountQuery`](../src/main/java/cloud/bamsongi/albammate/game/contract/UpcomingRoomCountQuery.java)를 [`room.service.query.RoomUpcomingRoomCountQuery`](../src/main/java/cloud/bamsongi/albammate/room/service/query/RoomUpcomingRoomCountQuery.java)가 구현한다. 런타임 호출은 game에서 room으로 이어지지만, 컴파일 의존은 `room → game.contract`로 유지된다.
 
@@ -90,14 +91,14 @@ RANK-02의 외부·내부 인기 점수는 런타임 모듈 호출이 아니라 
 | --- | --- | --- |
 | `auth` | 회원가입·이메일·소셜 로그인·로그아웃·CSRF, OAuth 흐름과 인증 요청 보호 | 사용자·외부 신원 영속 구조, 사용자 프로필 HTTP 흐름 |
 | `user` | 사용자 계정·비밀번호 자격증명·외부 신원 연결·프로필·공개 사용자 조회 | OAuth 제공자 통신, 세션 생성·폐기 |
-| `game` | 게임 목록·검색·상세, RANK-02 저장 인기 점수와 게임 요약 계약 | 방 데이터 직접 조회 |
+| `game` | 게임 목록·검색·상세, RANK-02 저장 인기 점수와 게임 요약 계약, SEARCH-04 내부 semantic result·candidate port와 P1 filter 재검증 | 방 데이터 직접 조회, BGE-M3·pgvector 구체 구현, public semantic HTTP 경계 |
 | `room` | 방·참가 관계·정원·상태 전이·재시도·상태 보정 | 사용자·게임 내부 구현 |
 | `assistant` (P2 AI-01a·AI-03a 구현) | 외부 처리 동의·철회, 자연어 의도 추출 orchestration, 서버 후보 추천, 15분 초안·확인·멱등성 HTTP 흐름 | provider SDK·원문 보존, game·room Entity/Repository, 사용자 확인 없는 Room 변경 |
 | `matching` (P2 일부 구현) | MATCH 요청·제안·응답·성공 파티·참가자 접근, 후보 선점·복구·멱등성·신고·차단. 현재 생산 코드는 저장 구조와 chat 접근 계약뿐이고 나머지는 P2 계획 | MATCH 채팅방·메시지·실시간 전달, 사용자 내부 구현 |
 | `chat` (P1 구현, P2 MATCH 일부 구현) | P1 ROOM별 채팅방·메시지 저장, 이력 cursor 조회, 현재 관계자 접근 검증과 실시간 전달. P2에서는 `matching.contract`를 통해 MATCH 전용 채팅방·URL 텍스트를 포함한 메시지·실시간 전달만 담당하며, 현재 생산 코드는 그 저장 구조뿐이고 adapter·유스케이스는 P2 계획 | 방·참가·MATCH 요청·제안·응답·성공 파티·참가자 접근 Entity/Repository, 인증 세션 내부 구현 |
 | `notification` (P1) | 웹 알림 조회·읽음, Outbox·수신자 스냅샷·알림 저장, relay·재시도·복구·보존 정리 | 방 상태 전이·수신자 재계산, 이메일·모바일 푸시·Web Push·SMS 전달 |
 | `global` | 공통 응답·예외·보안·설정·UTC 시간 기반 | 업무 Entity·DTO·규칙 |
-| `infra` (P1) | Redis 세션·채팅 fan-out과 PostgreSQL 스케줄 잠금 같은 기술 adapter | 업무 규칙·Entity·HTTP DTO |
+| `infra` (P1 + SEARCH-04 계획) | Redis 세션·채팅 fan-out과 PostgreSQL 스케줄 잠금 같은 기술 adapter, `game.contract.DenseCandidateSource`의 BGE-M3/vector adapter | 업무 규칙·Entity·HTTP DTO |
 
 참가 관계는 방의 정원과 상태 불변식을 같은 트랜잭션에서 변경하므로 별도 모듈이 아니라 `room`이 소유한다. URL 경로보다 데이터와 불변식을 소유한 모듈을 우선한다.
 
@@ -149,6 +150,12 @@ AI-01~AI-03 협력 계약은 책임을 소유한 모듈의 `contract`에 둔다.
 6. 확인 성공은 같은 트랜잭션에서 `AssistantRoomCreationCommand`를 호출해 Room과 ChatRoom을 만들고, 동기 handoff로 받은 `chatRoomId`를 포함한 초안·확인 결과 참조를 `CONFIRMED`로 커밋한다. handoff 또는 어느 저장 경계라도 실패하면 세 저장 경계를 함께 롤백한다. 같은 사용자·draft·operation의 같은 key 재시도는 결과를 반환하고 다른 key·오래된 version은 Room을 만들지 않는다.
 
 `REVOKE`는 활성 초안을 `DISCARDED`로 만들고 이후 추천·초안·확인을 차단한다. `assistant`는 `room`의 Entity·Repository를 직접 잠그지 않으며, Room 생성의 잠금·참가·알림·ChatRoom 불변식은 `room.contract`와 Room 내부 Executor가 소유한다. `assistant → infra.ai` 직접 의존이나 provider 호출을 Room 트랜잭션 안에 넣는 구조는 허용하지 않는다.
+
+### P2 SEARCH-04 semantic serving core (승인된 설계·#836 internal core)
+
+`game.contract.SemanticGameSearchQuery`는 #871이 호출하는 내부 read contract이고, `game.contract.DenseCandidateSource`는 dense 후보 ID·내부 relevance를 제공하는 port다. `game` service는 후보 결과를 신뢰하지 않고 `GameListSpecification`으로 P1 hard filter, `playedFilter`, 현재 catalog 유효성을 다시 조회한 뒤 `relevance DESC, name ASC, id ASC` 순서와 페이지를 만든다. relevance·vector·query 원문은 internal adapter 경계 밖 result에 노출하지 않는다.
+
+`infra.search`는 `DenseCandidateSource`만 구현하며 `game`의 Entity·Repository·DTO를 참조하지 않는다. 기본 adapter는 index 부재를 fail-closed로 표현하고, dense 불능 시 core는 같은 hard filter의 lexical fallback 또는 `UNAVAILABLE`로 수렴한다. #836은 model 실행·pgvector schema를 소유하지 않는다. 별도 Python BGE-M3 service, pgvector-enabled image/extension, release-bound backfill·`BUILDING → READY` activation·rollback은 [ADR-0084](adr/game/0084-search-04-dense-serving-architecture.md)와 [#942](https://github.com/bamsongi-club/albam-mate/issues/942)가 소유한다.
 
 ### P2 MATCH 모듈 계약
 

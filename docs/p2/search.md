@@ -7,14 +7,14 @@
 ## 문서 책임
 
 - 이 문서가 소유하는 기능 동작과 완료 기준: 사용자가 게임을 이름이 아니라 플레이 의도와 자연어 조건으로 찾는 의미 기반 검색의 사용자 흐름, 검색 결과 품질, P1 조건 필터와의 결합, 실패·fallback·복구 경계와 `SEARCH-04` 완료 기준.
-- 이 문서가 소유하지 않는 API·ERD·아키텍처·기술 결정: HTTP 경로·요청/응답 타입, 테이블·컬럼·제약, 모듈 의존과 트랜잭션 구조, embedding 모델·vector 저장소·검색 엔진 선택. 각 내용은 해당 정본과 승인 ADR이 소유한다.
+- 이 문서가 소유하지 않는 API·ERD·아키텍처·기술 결정: HTTP 경로·요청/응답 타입, 테이블·컬럼·제약, 모듈 의존과 트랜잭션 구조, embedding 모델·vector 저장소·검색 엔진 선택. `dense-bge-m3` implementation selection과 Python service·pgvector·fallback 경계는 [ADR-0084](../adr/game/0084-search-04-dense-serving-architecture.md)가 소유하며, 각 내용은 해당 정본과 승인 ADR이 소유한다.
 - 연결할 P1 종료 계약과 P2 공통 규칙: [P1 검색 종료 명세](../archive/p1/search.md)의 `SEARCH-01`~`SEARCH-03`, [P1 검색 성능·인덱스 가이드](../guides/P1_SEARCH_PERFORMANCE.md)의 측정 경계, [P1 기능 종료 상태](../archive/p1/README.md#기능별-종료-상태), 현재 [P2 공통 명세](../P2-spec.md)와 [P2 기능 상태](README.md#기능별-현재-상태).
 
 현재 `GET /api/games?keyword=...`의 이름 부분일치 의미와 RANK-02의 `popularity_score DESC, name ASC, id ASC` 기본 정렬은 P1·3차 MVP 계약으로 유지한다. `SEARCH-04`는 기존 요청을 조용히 의미 검색으로 바꾸지 않고 별도 검색 계약으로 추가한다. 이 문서의 기능 ID·경로·현재 상태는 [P2 기능 상태](README.md#기능별-현재-상태)와 [P2 공통 명세](../P2-spec.md)에 함께 등록한다. 문서 작성은 계약 준비·구현·검증 완료를 뜻하지 않는다.
 
 BGG 기반 검색 입력은 정책 승인된 [데이터셋의 AI·embedding 사용 범위](../game-catalog/2026-08-14-bgg-ai-embedding-approval.md)와 [ADR-0060](../adr/game/0060-approved-catalog-ai-embedding-scope.md)의 정확한 catalog release·필드·가공 allowlist를 따른다. 먼저 `catalog-dataset-release` manifest가 고정 dataset profile·field provenance·실제 artifact/SQL coverage를 통과해야 하고, 실행 manifest는 그 release의 `releaseId`·`datasetId`·manifest SHA-256을 `datasetRelease`로 참조해야 한다. `prepare-game-catalog.mjs`는 dataset-only manifest의 직접 실행을 차단한 뒤 참조 SHA/ID와 기존 `validateApprovedReleaseManifest`의 입출력 checksum·행 수·`approval.references`를 차례로 검증한다. 현재 저장소에는 실행 가능한 구체 release manifest가 등록되지 않았으므로 BGG 기반 AI·embedding 입력을 실행 승인으로 간주하지 않으며, API·ERD·아키텍처·모델 선택과 품질 검증도 완료된 것이 아니다.
 
-SEARCH-04 평가 corpus의 deterministic membership, pinned snapshot/version, 1,000·5,000·10,000 quality scale과 약 17만 catalog의 경계, index cutover·rollback은 [ADR-0072](../adr/game/0072-search-quality-corpus-membership-and-versioning.md)와 [실행 fixture](search-evaluation/README.md)가 소유합니다. 이 문서는 사용자 동작·실패·완료 기준을 소유하며, fixture의 provisional 상태를 제품 품질 승인으로 해석하지 않습니다.
+SEARCH-04 평가 corpus의 deterministic membership, pinned snapshot/version, 1,000·5,000·10,000 quality scale과 약 17만 catalog의 경계, index cutover·rollback은 [ADR-0072](../adr/game/0072-search-quality-corpus-membership-and-versioning.md)와 [실행 fixture](search-evaluation/README.md)가 소유합니다. [#897](https://github.com/bamsongi-club/albam-mate/issues/897)의 `dense-bge-m3` 선택은 [#836](https://github.com/bamsongi-club/albam-mate/issues/836)의 implementation selection일 뿐 `provisional-ai-adjudication`을 human qrels·Final Quality Evaluation·production 승인으로 승격하지 않습니다. 이 문서는 사용자 동작·실패·완료 기준을 소유하며, fixture의 provisional 상태를 제품 품질 승인으로 해석하지 않습니다.
 
 ## SEARCH-04
 
@@ -48,7 +48,7 @@ SEARCH-04 평가 corpus의 deterministic membership, pinned snapshot/version, 1,
 
 ### 자연어 조건 해석 규칙
 
-- `4인`, `3인 이상`, `30분 이하`, 연령·난이도처럼 수치와 범위가 분명한 표현은 P1 hard filter로 변환하고, 후보 생성 뒤에도 같은 조건을 다시 검증한다.
+- `4인`, `3인 이상`, `30분 이하`, 연령·난이도처럼 수치와 범위가 분명한 조건은 별도의 P1 hard filter 값으로 전달하고, 후보 생성 뒤에도 같은 조건을 다시 검증한다. #836은 raw query에서 이를 파싱하지 않으며 #871이 기존 구조화 filter를 전달한다.
 - `트릭테이킹`, `일꾼 놓기`, `협력`처럼 사용자가 메커니즘·카테고리·테마를 명시하면 검수된 관계와 Sparse 신호를 우선한다. Dense 유사도만으로 명시 조건을 대체하지 않는다.
 - `가볍게 웃으면서`, `초보자와 즐기기 좋은`, `서로 눈치 보는`처럼 플레이 경험을 표현하면 semantic 후보·순위 신호로 사용한다. 이 경우에도 공개 데이터와 평가 fixture에 근거하지 않은 경험을 사실처럼 만들지 않는다.
 - 조건이 서로 충돌하거나 “재미있는 게임”처럼 제품 기준이 없는 표현만 남으면 임의의 기본값으로 검색하지 않고 [DISCOVERY-01 게임 탐색 도우미](game-discovery-assistant.md#discovery-01)가 clarification을 요청한다.
@@ -58,7 +58,7 @@ SEARCH-04 평가 corpus의 deterministic membership, pinned snapshot/version, 1,
 ### 포함 범위
 
 - 게임명만이 아니라 승인 manifest의 `approvedFields`에 포함된 게임 설명·별칭·카테고리·테마·메커니즘과 정규화된 인원·시간·복잡도·최소 연령을 이용한 의도 검색 후보 생성. 아래 필드명은 후보 목록이며 manifest allowlist를 대신하지 않는다.
-- lexical·semantic·hybrid 후보 생성 방식의 평가와 선택. 특정 모델·검색 엔진·vector DB는 이 문서에서 확정하지 않는다.
+- lexical·semantic·hybrid 후보 생성 방식의 평가를 같은 fixture에서 보존한다. runtime primary candidate generation은 [ADR-0084](../adr/game/0084-search-04-dense-serving-architecture.md)에 따라 `dense-bge-m3`만 사용하며, Hybrid/RRF·다른 provider는 #836 runtime에 섞지 않는다.
 - 후보 생성 뒤 `SEARCH-01`~`SEARCH-03`의 hard filter, 공개 게임 범위, `playedFilter` 권한과 페이지 경계를 적용하는 규칙.
 - 의미 검색 결과의 결정적 관련도 정렬, 동일 결과 중복 제거, 빈 결과와 fallback 상태 표시.
 - 기존 필터·Sparse·Dense·Hybrid 후보를 같은 질의와 fixture로 비교하는 단계별 평가 게이트.
@@ -98,7 +98,7 @@ SEARCH-04 평가 corpus의 deterministic membership, pinned snapshot/version, 1,
 1. 대표 질의와 기대 결과·필수 조건을 먼저 고정하고, 성공을 hard-filter 정확도·검색 품질·지연·비용으로 나눈다.
 2. `Game`의 출처가 확인된 필드로 deterministic한 `search_text`를 만들고 누락·중복·변경 감지 기준을 확인한다. 이 단계에서는 운영 migration이나 전체 backfill을 하지 않는다.
 3. 기존 구조화·이름 검색을 baseline으로 저장한 뒤 Sparse/FTS와 `pg_trgm`을 비교한다. `pg_trgm` 결과를 의미 검색 품질로 표현하지 않는다.
-4. 기준선 개선이 확인될 때만 Dense offline PoC에서 모델·차원·비용·지연·재생성 부담을 비교한다. Word2Vec·SBERT·BGE-M3·pgvector는 평가 전 채택하지 않는다.
+4. Dense offline PoC는 모델·차원·비용·지연·재생성 부담을 비교한다. #897이 고정한 `dense-bge-m3` implementation selection은 #836 core에만 적용하며, Final Quality Evaluation·production index/migration/backfill 승인을 뜻하지 않는다.
 5. Dense가 채택되면 별도 semantic mode/endpoint로 최소 구현하고, 명시 조건은 hard filter와 Sparse로 계속 보호한다. 기존 P1 목록 API의 정렬 의미는 바꾸지 않는다.
 6. Dense·Sparse 후보를 결합할 때 RRF는 순위 결합으로만 사용하며 hard filter를 대체하지 않는다. reranker는 상위 후보의 품질 개선 근거가 있을 때만 후속 검토한다.
 7. 운영 반영·API·ADR·Issue 갱신은 대표 질의와 확장 fixture에서 baseline 대비 개선이 재현된 뒤 진행한다. 그 다음 단계에서만 대화형 게임 탐색 도우미를 연결한다.
@@ -134,8 +134,8 @@ SEARCH-04 평가 corpus의 deterministic membership, pinned snapshot/version, 1,
 
 - 업무 거절: 빈 query, 허용 길이 초과, 잘못된 page/size·P1 filter·검색 mode는 `400 VALIDATION_ERROR`로 거절한다. 로그인 없이 `playedFilter`를 사용하면 `401 UNAUTHENTICATED`다.
 - 정상적인 no-result: 모든 hard filter와 검색 후보를 적용한 뒤 `200 OK`의 빈 페이지를 반환한다. 결과가 없다는 이유로 인원·시간·연령·테마 필터를 자동 완화하지 않는다.
-- semantic/hybrid index timeout·provider 오류: 요청 전체 timeout 안에서 제한된 단일 내부 재시도 후 승인된 lexical fallback을 사용한다. 응답에는 fallback 상태를 명시하고 `fallback_count`와 원인 코드를 관측한다.
-- semantic `READY` index가 없는 것만으로는 실패로 판정하지 않는다. 승인된 lexical fallback source가 있으면 P1 hard filter를 적용한 `200 OK` 결과와 명시적 fallback 상태(`SEMANTIC_INDEX_UNAVAILABLE`)를 반환한다. semantic index와 lexical fallback을 모두 사용할 수 없을 때만 `503 SEARCH_UNAVAILABLE`을 반환하며, 부분 후보를 성공 결과로 포장하지 않고 기존 P1 이름 검색 endpoint에는 영향을 주지 않는다.
+- semantic/hybrid index timeout·provider 오류: 요청 전체 timeout 안에서 제한된 단일 내부 재시도 후 승인된 lexical fallback을 사용한다. #836 internal result는 `LEXICAL_FALLBACK`으로만 표현하고, #871이 public response의 fallback 상태·원인 코드를 계약한다.
+- semantic `READY` index가 없는 것만으로는 실패로 판정하지 않는다. 승인된 lexical fallback source가 있으면 P1 hard filter를 적용한 `200 OK` 결과와 명시적 fallback 상태(`SEMANTIC_INDEX_UNAVAILABLE`)를 반환한다. #836 internal result의 `UNAVAILABLE`은 semantic index와 lexical fallback을 모두 사용할 수 없을 때만이며, #871이 그 경우의 `503 SEARCH_UNAVAILABLE` HTTP 계약을 소유한다. 부분 후보를 성공 결과로 포장하지 않고 기존 P1 이름 검색 endpoint에는 영향을 주지 않는다.
 - build 실패·배포 중단: 이전 `READY` index를 계속 서빙하고 새 버전은 활성화하지 않는다. 이전 버전이 없더라도 승인된 lexical fallback source가 있으면 semantic 기능을 명시적 fallback 상태의 `200 OK`로 제공한다. semantic index와 lexical fallback이 모두 없으면 semantic 요청만 `503 SEARCH_UNAVAILABLE`로 반환하고 catalog 원본과 P1 검색은 계속 제공한다.
 - 복구는 원인 코드와 source release를 고정해 재생성하고, fixture·index 검증을 다시 통과한 뒤 atomic cutover한다. rollback은 이전 `READY` pointer로 되돌리며 사용자 데이터나 게임 원천을 보상 삭제하지 않는다.
 
@@ -146,7 +146,7 @@ SEARCH-04 평가 corpus의 deterministic membership, pinned snapshot/version, 1,
 | [API](../API.md) | 필요 | 별도 의미 검색 요청·응답·fallback 상태·`SEARCH_UNAVAILABLE` 오류·인증/필터 계약을 등록한다. 기존 [GAME-01](../API.md#game-01-게임-목록검색)의 `keyword` 의미와 응답 호환성은 유지한다. |
 | [ERD](../ERD.md) | 조건부 필요 | 영속 index metadata·source release·version·상태·활성 pointer가 필요하다고 결정될 때만 테이블·제약·보존을 반영한다. vector/검색 projection은 승인 release·필드 allowlist와 rollback/삭제 경계를 연결해 반영한다. |
 | [아키텍처](../ARCHITECTURE.md) | 필요 | `game` 내부 의미 검색 read service와 projection/index build port의 책임, 외부 검색 adapter 의존 방향, query·catalog·fallback 흐름을 반영한다. 현재 `game` 모듈의 게임 목록·검색 책임은 유지한다. |
-| [ADR](../adr/README.md) | 필요 | [ADR-0060](../adr/game/0060-approved-catalog-ai-embedding-scope.md)과 [ADR-0072](../adr/game/0072-search-quality-corpus-membership-and-versioning.md)의 승인 release·corpus membership·version 경계를 전제로 lexical/semantic/hybrid 대안, hard filter 적용 경계, index version/cutover, fallback·품질 합격 기준과 물리 선택을 별도 ADR로 승인한다. |
+| [ADR](../adr/README.md) | 필요 | [ADR-0060](../adr/game/0060-approved-catalog-ai-embedding-scope.md)과 [ADR-0072](../adr/game/0072-search-quality-corpus-membership-and-versioning.md)의 승인 release·corpus membership·version 경계를 전제로 [ADR-0084](../adr/game/0084-search-04-dense-serving-architecture.md)가 `dense-bge-m3`, Python runtime, pgvector, hard filter·fallback과 index-delivery 분리를 승인한다. |
 | 운영 가이드 | 필요 | index build·검증·활성화·rollback, 고정 fixture와 release SHA, 장애 시 fallback/disabled 판단, query 원문 금지와 지표 확인 절차를 추가한다. 기존 [P1 검색 성능 가이드](../guides/P1_SEARCH_PERFORMANCE.md)는 P1 이름 부분일치와 `pg_trgm` 측정 경계로 유지하며 P2 의미 품질 계약으로 재해석하지 않는다. |
 
 ## 완료 기준
