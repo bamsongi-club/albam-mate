@@ -55,6 +55,8 @@ test("k6·동시 부하 측정 도구 변경은 backend와 frontend를 실행하
       "scripts/ci/classify-ci-paths.test.mjs",
       "load-tests/k6/yejin/09-game-list-concurrency.js",
       "load-tests/k6/yejin/tests/scenarios.test.mjs",
+      "scripts/ci/classify-ci-paths.mjs",
+      "scripts/ci/classify-ci-paths.test.mjs",
       "scripts/measurements/game-list-concurrency.mjs",
       "scripts/measurements/game-list-concurrency.test.mjs",
     ]),
