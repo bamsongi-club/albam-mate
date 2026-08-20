@@ -61,6 +61,25 @@ mixed 결과의 `494.930ms` tail 원인을 분리하기 위해 같은 170,005건
 
 이 분리 실행은 각 시나리오 한 round의 진단 자료이므로, 네 round 교차 순서로 확정한 V1 후보 선택 gate를 다시 판정하지 않는다. 특히 complex의 단일 실행은 V1이 V0보다 높게 관측되어 반복 확인이 필요하다. 현재 결과만으로 V2/V3 인덱스를 다시 채택하지 않으며, relation 절대 p95를 더 낮추려면 전 시나리오 회귀 gate를 포함한 별도 인덱스·query tuning 실험이 필요하다.
 
+## V1 복합 인덱스 후보 gate
+
+relation 지연의 원인을 확인하기 위해 V1 query shape를 고정한 채, 동일한 170,005건 frozen fixture에서 `game_theme_relations (theme_id, game_id)` 임시 인덱스 유무를 비교했다. 이 인덱스는 실험 DB에만 생성했고 Flyway migration에는 추가하지 않았다. 양쪽 모두 warm-up 5회 뒤 6개 시나리오를 순차 20회씩 실행했으며, 실행 순서는 `무인덱스 → 인덱스`, `인덱스 → 무인덱스`를 두 번 반복한 4 round다. baseline runner commit은 `c54a2cb21f188c7f1e4ec3a8d83a49847c72e679`, 8개 artifact 모두 HTTP 오류·계약 오류 없이 종료됐다.
+
+판정 기준은 각 시나리오의 네 round p95 중앙값이 무인덱스 대비 `+5%` 이내이고, relation·complex가 각각 무인덱스보다 실제로 낮아야 한다는 것이다.
+
+| 시나리오 | 무인덱스 p95 중앙값 | 복합 인덱스 p95 중앙값 | 변화 | 판정 |
+| --- | ---: | ---: | ---: | --- |
+| base | 76.433ms | 136.761ms | +78.93% | 실패 |
+| keyword | 45.157ms | 41.673ms | -7.72% | 통과 |
+| player-count | 53.196ms | 44.502ms | -16.34% | 통과 |
+| relation-theme-mechanism | 394.080ms | 400.545ms | +1.64% | 개선 아님 |
+| complex | 551.671ms | 782.917ms | +41.92% | 실패 |
+| flags-upcoming-exact | 71.911ms | 50.351ms | -29.98% | 통과 |
+
+전체 시나리오 회귀 gate와 relation·complex 개선 조건을 모두 만족하지 못했으므로 복합 인덱스 후보는 `REJECTED`다. 따라서 현재 PR에는 인덱스 migration을 추가하지 않고 V1 query shape를 유지한다.
+
+EXPLAIN에서도 인덱스는 theme subquery의 `ix_game_theme_relations_theme_game_experiment_867` index-only scan(4,258행)에는 사용됐지만, mechanism subquery가 만드는 24,419건의 `games` PK lookup은 그대로 남았다. 즉 후보 인덱스가 관계 필터 전체 비용의 일부만 줄이며, complex 회귀와 relation 중앙값 정체를 설명한다. 다음 실험 대상은 인덱스 추가 자체가 아니라 두 relation subquery의 join/order와 mechanism→games lookup 비용이며, 동일한 6시나리오 gate를 다시 적용해야 한다.
+
 ## App·PostgreSQL 자원
 
 CPU는 Docker stats가 보고한 컨테이너 CPU percentage라서 PostgreSQL처럼 multi-core를 사용하는 컨테이너는 100%를 넘을 수 있다. memory는 사용량 MiB의 단계별 최댓값이다. DB connection은 `pg_stat_activity`의 단계별 최댓값이다.
