@@ -54,9 +54,9 @@ class AiQuotaRedisPostgresTest {
 	}
 
 	@Test
-	void T2_여러_ledger_인스턴스도_KST_경계와_사용자별_동시성을_공유한다() {
+	void T1_여러_ledger_인스턴스도_KST_일_10회_월_150회와_사용자별_동시성을_공유한다() {
 		RedisAiQuotaLedger otherInstance = new RedisAiQuotaLedger(redis, event -> {});
-		for (int index = 0; index < 5; index++) {
+		for (int index = 0; index < 10; index++) {
 			AiQuotaReservation reservation = ledger.reserve("sensitive-user-id", JANUARY_31_KST, BigDecimal.ZERO);
 			assertEquals(AiQuotaReservationStatus.ACQUIRED, reservation.status());
 			assertEquals(AiQuotaCompletionStatus.COMPLETED, otherInstance.complete(reservation, BigDecimal.ZERO));
@@ -66,6 +66,16 @@ class AiQuotaRedisPostgresTest {
 		assertEquals(AiQuotaReservationStatus.ACQUIRED,
 			otherInstance.reserve("sensitive-user-id", Instant.parse("2026-01-31T15:00:00Z"), BigDecimal.ZERO)
 				.status());
+		for (int index = 0; index < 150; index++) {
+			Instant day = Instant.parse("2026-01-01T00:00:00Z").plusSeconds((index / 10) * 86_400L);
+			AiQuotaReservation reservation = ledger.reserve("monthly-user", day, BigDecimal.ZERO);
+			assertEquals(AiQuotaReservationStatus.ACQUIRED, reservation.status());
+			assertEquals(AiQuotaCompletionStatus.COMPLETED, otherInstance.complete(reservation, BigDecimal.ZERO));
+		}
+		assertEquals(AiQuotaReservationStatus.USER_LIMIT_REACHED,
+			ledger.reserve("monthly-user", Instant.parse("2026-01-30T00:00:00Z"), BigDecimal.ZERO).status());
+		assertEquals(AiQuotaReservationStatus.ACQUIRED,
+			ledger.reserve("monthly-user", Instant.parse("2026-01-31T15:00:00Z"), BigDecimal.ZERO).status());
 		Set<String> keys = redis.keys("albam:ai:quota:*");
 		assertTrue(keys != null && !keys.isEmpty());
 		assertFalse(keys.stream().collect(Collectors.joining(" ")).contains("sensitive-user-id"));
@@ -91,18 +101,19 @@ class AiQuotaRedisPostgresTest {
 	}
 
 	@Test
-	void T3_Redis_비용_예약은_경고를_한번만_기록하고_hard_cap을_차단한다() {
+	void T3_Redis_고정_USD_0_10_예약은_40번째_경고_50번째_허용_51번째_차단을_원자적으로_보장한다() {
 		java.util.concurrent.atomic.AtomicInteger warnings = new java.util.concurrent.atomic.AtomicInteger();
 		ledger = new RedisAiQuotaLedger(redis, event -> warnings.incrementAndGet());
-		AiQuotaReservation first = ledger.reserve("user-a", JANUARY_31_KST, new BigDecimal("4.50"));
-		assertEquals(AiQuotaReservationStatus.ACQUIRED, first.status());
-		assertEquals(AiQuotaCompletionStatus.COMPLETED, ledger.complete(first, new BigDecimal("4.00")));
-		AiQuotaReservation second = ledger.reserve("user-b", JANUARY_31_KST, new BigDecimal("1.00"));
-		assertEquals(AiQuotaReservationStatus.ACQUIRED, second.status());
-		assertEquals(AiQuotaCompletionStatus.COMPLETED, ledger.complete(second, new BigDecimal("1.00")));
+		for (int index = 1; index <= 50; index++) {
+			AiQuotaReservation reservation = ledger.reserve("cost-user-" + index, JANUARY_31_KST,
+				new BigDecimal("0.10"));
+			assertEquals(AiQuotaReservationStatus.ACQUIRED, reservation.status());
+			assertEquals(AiQuotaCompletionStatus.COMPLETED, ledger.complete(reservation, new BigDecimal("0.01")));
+			assertEquals(index >= 40 ? 1 : 0, warnings.get());
+		}
 		assertEquals(1, warnings.get());
 		assertEquals(AiQuotaReservationStatus.COST_CAP_REACHED,
-			ledger.reserve("user-c", JANUARY_31_KST, new BigDecimal("0.01")).status());
+			ledger.reserve("cost-user-51", JANUARY_31_KST, new BigDecimal("0.10")).status());
 	}
 
 	@Test
@@ -127,7 +138,7 @@ class AiQuotaRedisPostgresTest {
 	}
 
 	@Test
-	void T4_재기동과_active_TTL_이후에도_같은_token_completion은_한번만_재조정한다() {
+	void T2_재기동과_active_TTL_이후에도_같은_token_completion은_고정_예약을_재정산하지_않는다() {
 		ledger = new RedisAiQuotaLedger(redis, event -> {}, Duration.ofMillis(25));
 		AiQuotaReservation expiredActive = ledger.reserve("ttl-user", JANUARY_31_KST, BigDecimal.ZERO);
 		assertEquals(AiQuotaReservationStatus.ACQUIRED, expiredActive.status());
@@ -142,10 +153,10 @@ class AiQuotaRedisPostgresTest {
 		RedisAiQuotaLedger afterRestart = new RedisAiQuotaLedger(redis, event -> {});
 		assertEquals(AiQuotaCompletionStatus.COMPLETED, afterRestart.complete(expiredActive, BigDecimal.ZERO));
 		assertEquals(AiQuotaCompletionStatus.COMPLETED, afterRestart.complete(afterTtl, BigDecimal.ZERO));
-		awaitCostCents("20");
+		awaitCostCents("10");
 		assertEquals(AiQuotaCompletionStatus.COMPLETED, afterRestart.complete(reservation, new BigDecimal("0.20")));
 		assertEquals(AiQuotaReservationStatus.COST_CAP_REACHED,
-			afterRestart.reserve("user-b", JANUARY_31_KST, new BigDecimal("4.81")).status());
+			afterRestart.reserve("user-b", JANUARY_31_KST, new BigDecimal("4.91")).status());
 	}
 
 	private AiQuotaReservation reserveWhenStarted(

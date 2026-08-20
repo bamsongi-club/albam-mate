@@ -22,7 +22,7 @@ final class InMemoryAiQuotaLedger implements AiQuotaLedger {
 	private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 	private static final BigDecimal WARNING_THRESHOLD_USD = new BigDecimal("4.00");
 	private static final BigDecimal HARD_CAP_USD = new BigDecimal("5.00");
-	private static final int DAILY_LIMIT = 5;
+	private static final int DAILY_LIMIT = 10;
 	private static final int MONTHLY_LIMIT = 150;
 
 	private final AiCostWarningEventSink warningEventSink;
@@ -74,7 +74,7 @@ final class InMemoryAiQuotaLedger implements AiQuotaLedger {
 		String token = UUID.randomUUID().toString();
 		activeReservations.put(quotaSubject, token);
 		reservations.put(token, new ReservationState(
-			quotaSubject, quotaMonth, reservationCostUsd, now.plus(RedisAiQuotaLedger.ACTIVE_RESERVATION_TTL)));
+			quotaSubject, quotaMonth, now.plus(RedisAiQuotaLedger.ACTIVE_RESERVATION_TTL)));
 		monthlyCosts.put(quotaMonth, nextCost);
 		publishWarningIfFirstReached(quotaMonth, nextCost);
 		return AiQuotaReservation.acquired(quotaSubject, quotaMonth, token, reservationCostUsd);
@@ -86,7 +86,6 @@ final class InMemoryAiQuotaLedger implements AiQuotaLedger {
 			|| reservation.reservationToken().isBlank()) {
 			return AiQuotaCompletionStatus.NOT_ACQUIRED;
 		}
-		BigDecimal actualCostUsd = normalizeCost(costUsd);
 		ReservationState state = reservations.get(reservation.reservationToken());
 		if (state == null) {
 			return AiQuotaCompletionStatus.NOT_ACQUIRED;
@@ -96,10 +95,6 @@ final class InMemoryAiQuotaLedger implements AiQuotaLedger {
 		}
 		state.completed = true;
 		activeReservations.remove(state.quotaSubject, reservation.reservationToken());
-		BigDecimal nextCost = monthlyCosts.getOrDefault(state.quotaMonth, BigDecimal.ZERO)
-			.add(actualCostUsd.subtract(state.reservedCostUsd));
-		monthlyCosts.put(state.quotaMonth, nextCost);
-		publishWarningIfFirstReached(state.quotaMonth, nextCost);
 		return AiQuotaCompletionStatus.COMPLETED;
 	}
 
@@ -132,15 +127,13 @@ final class InMemoryAiQuotaLedger implements AiQuotaLedger {
 
 		private final String quotaSubject;
 		private final YearMonth quotaMonth;
-		private final BigDecimal reservedCostUsd;
 		private final Instant expiresAt;
 		private boolean completed;
 
 		private ReservationState(
-			String quotaSubject, YearMonth quotaMonth, BigDecimal reservedCostUsd, Instant expiresAt) {
+			String quotaSubject, YearMonth quotaMonth, Instant expiresAt) {
 			this.quotaSubject = quotaSubject;
 			this.quotaMonth = quotaMonth;
-			this.reservedCostUsd = reservedCostUsd;
 			this.expiresAt = expiresAt;
 		}
 	}
