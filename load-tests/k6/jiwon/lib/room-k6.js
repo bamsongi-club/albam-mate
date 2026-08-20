@@ -17,6 +17,7 @@ export { writeOptions };
 const RUN_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{0,79}$/;
 const FIXTURE_SCHEMA_VERSION = 2;
 const PREPARE_OWNERSHIP_PATTERN = /^[0-9a-f]{32}$/;
+const T2_WAITLIST_POSITION_LIMIT = 16;
 
 export const roomRequestDuration = new Trend('room_request_duration', true);
 export const roomStartSkewMilliseconds = new Trend('room_start_skew_ms', true);
@@ -29,7 +30,7 @@ export const roomUnexpected4xx = new Counter('room_unexpected_4xx');
 export const roomServerFailures = new Counter('room_server_failures');
 export const roomContractFailures = new Counter('room_contract_failures');
 const roomWaitlistPositionCounters = Array.from(
-  { length: 8 },
+  { length: T2_WAITLIST_POSITION_LIMIT },
   (_, index) => new Counter(`room_waitlist_position_${index + 1}`),
 );
 

@@ -96,6 +96,14 @@ function summaryWith(counts = {}) {
     'room_waitlist_position_6',
     'room_waitlist_position_7',
     'room_waitlist_position_8',
+    'room_waitlist_position_9',
+    'room_waitlist_position_10',
+    'room_waitlist_position_11',
+    'room_waitlist_position_12',
+    'room_waitlist_position_13',
+    'room_waitlist_position_14',
+    'room_waitlist_position_15',
+    'room_waitlist_position_16',
   ];
   const metrics = {};
   metricNames.forEach((name) => {
@@ -515,7 +523,7 @@ test('snapshot SQL은 파생 테이블의 quoted camelCase alias로 정렬한다
   assert.match(snapshotSql, /ORDER BY waitlist_row\."roomId", waitlist_row\."queueOrder", waitlist_row\."userId"/);
 });
 
-test('T2 duplicate는 동시성 2 이외의 입력을 거절한다', () => {
+test('T2 duplicate는 hot c2 이외의 입력을 거절한다', () => {
   assert.throws(
     () => createFixturePlan({
       scenario: 't2',
@@ -525,6 +533,16 @@ test('T2 duplicate는 동시성 2 이외의 입력을 거절한다', () => {
       concurrency: 4,
     }),
     /concurrency=2/,
+  );
+  assert.throws(
+    () => createFixturePlan({
+      scenario: 't2',
+      runId: 'fixture-invalid-duplicate-spread',
+      mode: 'spread',
+      subcase: 'duplicate',
+      concurrency: 2,
+    }),
+    /mode=hot/,
   );
 });
 
@@ -613,6 +631,51 @@ test('T2 distinct 사후 검증은 201 수와 새 WAITING 행 수를 대조한�
 
   delete summary.metrics.room_created;
   assert.equal(evaluateFixture(fixture, snapshot, 'after', summary).status, 'FAIL');
+});
+
+test('T2 hot c16 사후 검증은 position 1~16 응답 수를 모두 대조한다', () => {
+  const { fixture } = fixtureFor({
+    scenario: 't2',
+    runId: 'fixture-t2-hot-c16-after',
+    profile: 'spike',
+    mode: 'hot',
+    subcase: 'distinct',
+    concurrency: 16,
+  });
+  const snapshot = initialSnapshot(fixture);
+  fixture.targets.forEach((target, index) => {
+    const room = fixture.rooms[target.roomKey];
+    snapshot.waitlists.push({
+      roomId: room.id,
+      userId: fixture.users[target.actorKey].id,
+      status: 'WAITING',
+      queueOrder: index + 1,
+      queuedAt: '2030-01-01T00:01:00Z',
+    });
+  });
+
+  const positionCounts = {};
+  for (let position = 1; position <= 16; position += 1) {
+    positionCounts[`room_waitlist_position_${position}`] = 1;
+  }
+  const summary = summaryWith({
+    room_requests: 16,
+    room_success: 16,
+    room_created: 16,
+    ...positionCounts,
+  });
+
+  assert.deepEqual(evaluateFixture(fixture, snapshot, 'after', summary), {
+    status: 'PASS',
+    failures: [],
+  });
+
+  summary.metrics.room_waitlist_position_9.values.count = 2;
+  summary.metrics.room_waitlist_position_10.values.count = 0;
+  const invalidResult = evaluateFixture(fixture, snapshot, 'after', summary);
+  assert.equal(invalidResult.status, 'FAIL');
+  assert.match(invalidResult.failures.join('\n'), /position=9/);
+  assert.match(invalidResult.failures.join('\n'), /position=10/);
 });
 
 test('T3 wait-first 사후 검증은 PROMOTED + ACTIVE 종단만 통과시킨다', () => {

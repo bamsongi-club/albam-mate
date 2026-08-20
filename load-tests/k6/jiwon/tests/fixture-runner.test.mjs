@@ -2035,7 +2035,7 @@ test('portable bundle은 DB·k6 없이 full closure와 immutable 계약을 생�
   }
 });
 
-test('T1 c10과 T1·T2 c16 portable bundle은 승인된 options를 보존하고 c32는 생성 전에 거절한다', () => {
+test('T1 c10과 T1·T2 c16 portable bundle은 승인된 options를 보존하고 미승인 입력은 생성 전에 거절한다', () => {
   const root = mkdtempSync(path.join(os.tmpdir(), 'room-k6-contention-limit-'));
   const buildRoot = path.join(root, 'build', 'k6', 'room');
   const context = {
@@ -2103,6 +2103,20 @@ test('T1 c10과 T1·T2 c16 portable bundle은 승인된 options를 보존하고 
       );
       assert.equal(existsSync(rejectedBuildRoot), false);
     });
+
+    const rejectedDuplicateBuildRoot = path.join(root, 'rejected-build-duplicate-spread');
+    assert.throws(
+      () => renderBundle({
+        scenario: 't2',
+        runId: 'contention-limit-rejected-duplicate-spread',
+        profile: 'spike',
+        mode: 'spread',
+        subcase: 'duplicate',
+        concurrency: 2,
+      }, { ...context, buildRoot: rejectedDuplicateBuildRoot }, provenance),
+      /mode=hot/,
+    );
+    assert.equal(existsSync(rejectedDuplicateBuildRoot), false);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

@@ -283,6 +283,9 @@ export function normalizeFixtureOptions(input) {
 
   if (scenario === 't2') {
     normalized.subcase = oneOf(input.subcase || 'distinct', 'subcase', new Set(['distinct', 'duplicate']));
+    if (normalized.subcase === 'duplicate' && normalized.mode !== 'hot') {
+      fail('T2 duplicate subcase는 mode=hot이어야 합니다.');
+    }
     if (normalized.subcase === 'duplicate' && normalized.concurrency !== 2) {
       fail('T2 duplicate subcase는 같은 사용자 요청 두 건만 비교하므로 concurrency=2여야 합니다.');
     }
@@ -1221,7 +1224,7 @@ function evaluateT2(fixture, snapshot, failures, summary) {
       addFailure(failures, created === waitingByActor.length, 'T2 201 신규 성공 수와 WAITING 행 수가 다릅니다.');
     }
     if (summary && created !== null) {
-      const expectedPositionCounts = Array.from({ length: 8 }, () => 0);
+      const expectedPositionCounts = Array.from({ length: fixture.options.concurrency }, () => 0);
       for (const room of Object.values(fixture.rooms)) {
         const waitingCount = waitlistsFor(snapshot, room.id)
           .filter((entry) => entry.status === 'WAITING').length;
@@ -1233,7 +1236,7 @@ function evaluateT2(fixture, snapshot, failures, summary) {
           expectedPositionCounts[0] += waitingCount;
         }
       }
-      for (let position = 1; position <= 8; position += 1) {
+      for (let position = 1; position <= fixture.options.concurrency; position += 1) {
         const observed = metricCount(summary, `room_waitlist_position_${position}`);
         const expected = expectedPositionCounts[position - 1];
         addFailure(
