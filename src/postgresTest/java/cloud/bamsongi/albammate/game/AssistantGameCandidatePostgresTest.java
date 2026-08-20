@@ -87,6 +87,25 @@ class AssistantGameCandidatePostgresTest {
 			result.stream().map(candidate -> candidate.id()).toList());
 	}
 
+	@Test
+	void T5_PostgreSQL_고카디널리티_후보도_전체_ID를_적재하지_않고_상위10개를_반환한다() {
+		List<Long> candidates = new ArrayList<>();
+		for (int index = 0; index < 501; index++) {
+			candidates.add(insertGame("고카디널리티 후보 " + index, true));
+		}
+		long highest = candidates.getLast();
+		for (int index = 0; index < 3; index++) {
+			insertRoom(highest, index);
+		}
+
+		var result = candidateQuery.findCandidates(new AssistantGameCandidateQuery.Criteria(List.of("STRATEGY")));
+
+		List<Long> expected = new ArrayList<>();
+		expected.add(highest);
+		expected.addAll(candidates.subList(0, 9));
+		assertEquals(expected, result.stream().map(candidate -> candidate.id()).toList());
+	}
+
 	private long insertGame(String name, boolean strategy) {
 		long bggId = 9_000_000L + jdbcTemplate.queryForObject("select count(*) from games", Long.class);
 		jdbcTemplate.update(

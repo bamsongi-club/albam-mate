@@ -37,7 +37,12 @@ public class AssistantIntentOrchestrationService {
 		if (extraction.status() != AssistantIntentStatus.SUCCESS) {
 			throw new BusinessException(errorCodeFor(extraction.status()));
 		}
-		if (extraction.proposal() == null || !"RECOMMEND".equals(extraction.proposal().action())) {
+		if (extraction.proposal() == null || "UNSUPPORTED".equals(extraction.proposal().action())) {
+			return response(AssistantRecommendationState.UNSUPPORTED,
+				AssistantConditionSummary.empty(), java.util.List.of());
+		}
+		if (!"RECOMMEND".equals(extraction.proposal().action())
+			&& !"NEEDS_INPUT".equals(extraction.proposal().action())) {
 			return response(AssistantRecommendationState.UNSUPPORTED,
 				AssistantConditionSummary.empty(), java.util.List.of());
 		}
@@ -46,20 +51,28 @@ public class AssistantIntentOrchestrationService {
 		AssistantConditionSummary conditions = request.conditions() == null
 			? extractedConditions
 			: request.conditions().merge(extractedConditions);
-		if (!conditions.hasRecommendationSearchCondition()) {
-			return response(AssistantRecommendationState.NEEDS_INPUT, conditions,
-				java.util.List.of(AssistantMissingField.GAME_STYLE));
-		}
-		var candidates = assistantGameCandidateQuery.findCandidates(new AssistantGameCandidateQuery.Criteria(
+		AssistantGameCandidateQuery.Criteria criteria = new AssistantGameCandidateQuery.Criteria(
 			conditions.categories(),
 			conditions.mechanisms(),
 			conditions.themes(),
 			conditions.complexityMax(),
 			conditions.playTimeMax(),
 			conditions.gameId(),
-			conditions.playerCount()));
+			conditions.playerCount());
+		if (hasCatalogCriteria(conditions)) {
+			assistantGameCandidateQuery.validateCriteria(criteria);
+		}
+		if (!conditions.hasRecommendationSearchCondition()) {
+			return response(AssistantRecommendationState.NEEDS_INPUT, conditions,
+				java.util.List.of(AssistantMissingField.GAME_STYLE));
+		}
+		var candidates = assistantGameCandidateQuery.findCandidates(criteria);
 		return response(candidates.isEmpty() ? AssistantRecommendationState.NO_CANDIDATES
 			: AssistantRecommendationState.RECOMMENDED, conditions, java.util.List.of(), candidates);
+	}
+
+	private boolean hasCatalogCriteria(AssistantConditionSummary conditions) {
+		return conditions.hasRecommendationSearchCondition() || conditions.gameId() != null;
 	}
 
 	private AssistantRecommendationResponse response(
@@ -82,8 +95,14 @@ public class AssistantIntentOrchestrationService {
 		return switch (status) {
 			case NOT_ENABLED -> ErrorCode.ASSISTANT_NOT_ENABLED;
 			case CONSENT_REQUIRED -> ErrorCode.ASSISTANT_CONSENT_REQUIRED;
+			case SENSITIVE_INPUT_REJECTED -> ErrorCode.ASSISTANT_INPUT_NOT_ALLOWED;
+			case SERVICE_UNAVAILABLE -> ErrorCode.SERVICE_UNAVAILABLE;
 			case QUOTA_EXCEEDED -> ErrorCode.RATE_LIMIT_EXCEEDED;
-			default -> ErrorCode.SERVICE_UNAVAILABLE;
+			case COST_CAP_REACHED -> ErrorCode.ASSISTANT_COST_LIMIT_EXCEEDED;
+			case PROVIDER_TIMEOUT, PROVIDER_RATE_LIMITED, PROVIDER_INPUT_TOO_LARGE ->
+				ErrorCode.ASSISTANT_PROVIDER_UNAVAILABLE;
+			case INVALID_PROVIDER_SCHEMA -> ErrorCode.ASSISTANT_PROVIDER_RESPONSE_INVALID;
+			case SUCCESS -> throw new IllegalArgumentException("successful extraction has no error code");
 		};
 	}
 }

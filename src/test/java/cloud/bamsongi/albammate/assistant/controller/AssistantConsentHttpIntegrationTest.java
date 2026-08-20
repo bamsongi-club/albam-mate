@@ -16,7 +16,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.stream.Stream;
+
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -253,6 +258,41 @@ class AssistantConsentHttpIntegrationTest {
 			.andExpect(jsonPath("$.data.missingFields.length()").value(1))
 			.andExpect(jsonPath("$.data.candidates.length()").value(0));
 		verifyNoInteractions(assistantGameCandidateQuery);
+	}
+
+	@ParameterizedTest
+	@MethodSource("intentFailureMappings")
+	void T4_의도_추출_실패_상태는_공개_AI_오류_코드로_변환된다(
+		AssistantIntentStatus intentStatus,
+		ErrorCode errorCode) throws Exception {
+		User user = userRepository.saveAndFlush(User.create(
+			"assistant-error-" + intentStatus.name().toLowerCase(java.util.Locale.ROOT) + "@example.com",
+			"{bcrypt}hash",
+			"AI 오류 사용자"));
+		grant(user);
+		given(assistantIntentExtractor.extract(any())).willReturn(
+			new AssistantIntentExtraction(intentStatus, null, null, false));
+
+		mockMvc.perform(recommendationPost("전략 게임 추천")
+			.with(authenticationFor(user.getId()))
+			.with(csrf()))
+			.andExpect(status().is(errorCode.getStatus()))
+			.andExpect(jsonPath("$.code").value(errorCode.getCode()))
+			.andExpect(jsonPath("$.message").value(errorCode.getMessage()));
+	}
+
+	private static Stream<Arguments> intentFailureMappings() {
+		return Stream.of(
+			Arguments.of(AssistantIntentStatus.NOT_ENABLED, ErrorCode.ASSISTANT_NOT_ENABLED),
+			Arguments.of(AssistantIntentStatus.CONSENT_REQUIRED, ErrorCode.ASSISTANT_CONSENT_REQUIRED),
+			Arguments.of(AssistantIntentStatus.SENSITIVE_INPUT_REJECTED, ErrorCode.ASSISTANT_INPUT_NOT_ALLOWED),
+			Arguments.of(AssistantIntentStatus.SERVICE_UNAVAILABLE, ErrorCode.SERVICE_UNAVAILABLE),
+			Arguments.of(AssistantIntentStatus.QUOTA_EXCEEDED, ErrorCode.RATE_LIMIT_EXCEEDED),
+			Arguments.of(AssistantIntentStatus.COST_CAP_REACHED, ErrorCode.ASSISTANT_COST_LIMIT_EXCEEDED),
+			Arguments.of(AssistantIntentStatus.PROVIDER_TIMEOUT, ErrorCode.ASSISTANT_PROVIDER_UNAVAILABLE),
+			Arguments.of(AssistantIntentStatus.PROVIDER_RATE_LIMITED, ErrorCode.ASSISTANT_PROVIDER_UNAVAILABLE),
+			Arguments.of(AssistantIntentStatus.PROVIDER_INPUT_TOO_LARGE, ErrorCode.ASSISTANT_PROVIDER_UNAVAILABLE),
+			Arguments.of(AssistantIntentStatus.INVALID_PROVIDER_SCHEMA, ErrorCode.ASSISTANT_PROVIDER_RESPONSE_INVALID));
 	}
 
 	private int countConsentRows(long userId) {
