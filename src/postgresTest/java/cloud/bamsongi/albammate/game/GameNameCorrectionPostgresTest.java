@@ -142,25 +142,29 @@ class GameNameCorrectionPostgresTest extends SharedPostgresIntegrationSupport {
 		Path xml = xmlDirectory.resolve("batch.xml");
 		Files.writeString(xml, "<items>" + items + "</items>");
 		Files.writeString(xmlManifest, "{\"schemaVersion\":1,\"files\":[{\"file\":\"batch.xml\",\"requestIds\":["
-			+ games.stream().map(GameRow::bggId).map(String::valueOf).reduce((left, right) -> left + "," + right).orElseThrow()
+			+ games.stream().map(GameRow::bggId).map(String::valueOf).reduce((left, right) -> left + "," + right)
+				.orElseThrow()
 			+ "],\"responseIds\":["
-			+ games.stream().map(GameRow::bggId).map(String::valueOf).reduce((left, right) -> left + "," + right).orElseThrow()
+			+ games.stream().map(GameRow::bggId).map(String::valueOf).reduce((left, right) -> left + "," + right)
+				.orElseThrow()
 			+ "],\"httpStatus\":200,\"bytes\":" + Files.size(xml) + ",\"sha256\":\"" + sha(xml)
 			+ "\",\"acquiredAt\":\"2026-08-10T00:00:00.000Z\"}]}\n");
 		Path implementation = Path.of(System.getProperty("user.dir"), "scripts/game-catalog/game-name-correction.mjs");
 		Path runner = temp.resolve("game-name-correction-test-runner.mjs");
-		Files.writeString(runner, """
-			import { correctGameNames } from "%s";
-			const [inputSql, candidateCsv, xmlDirectory, xmlManifest, expectedXmlManifestSha256, out] = process.argv.slice(2);
-			await correctGameNames({
-			    inputSql,
-			    candidatePaths: [candidateCsv],
-			    xmlDirectory,
-			    xmlManifest,
-			    expectedXmlManifestSha256,
-			    out,
-			});
-			""".formatted(implementation.toUri()));
+		Files.writeString(runner,
+			"""
+				import { correctGameNames } from "%s";
+				const [inputSql, candidateCsv, xmlDirectory, xmlManifest, expectedXmlManifestSha256, out] = process.argv.slice(2);
+				await correctGameNames({
+				    inputSql,
+				    candidatePaths: [candidateCsv],
+				    xmlDirectory,
+				    xmlManifest,
+				    expectedXmlManifestSha256,
+				    out,
+				});
+				"""
+				.formatted(implementation.toUri()));
 
 		Process process = new ProcessBuilder(
 			"node",
