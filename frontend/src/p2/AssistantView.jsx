@@ -365,6 +365,15 @@ export function AssistantView({ onBack, onNavigate }) {
     if (isConsentRequiredError(error)) retryBootstrap();
     throw error;
   };
+  const recoverActiveDraftError = (error) => {
+    if (isExpiredDraftError(error)) {
+      confirmKeys.current.clear();
+      setDraftState({ loading: false, draft: null, expired: true, error: '' });
+    } else if (isConsentRequiredError(error)) {
+      retryBootstrap();
+    }
+    throw error;
+  };
 
   useEffect(() => {
     let active = true;
@@ -421,7 +430,7 @@ export function AssistantView({ onBack, onNavigate }) {
       setDraftState({ loading: false, draft: updated, expired: false, error: '' });
       return updated;
     } catch (error) {
-      recoverConsentRequired(error);
+      recoverActiveDraftError(error);
     }
   };
 
@@ -431,7 +440,7 @@ export function AssistantView({ onBack, onNavigate }) {
       confirmKeys.current.clear();
       setDraftState({ loading: false, draft: null, expired: false, error: '' });
     } catch (error) {
-      recoverConsentRequired(error);
+      recoverActiveDraftError(error);
     }
   };
 
@@ -444,7 +453,7 @@ export function AssistantView({ onBack, onNavigate }) {
       const result = await api.confirmAssistantDraft(draft.draftId, draft.draftVersion, key);
       onNavigate('/session/' + result.roomId, { replace: true });
     } catch (error) {
-      recoverConsentRequired(error);
+      recoverActiveDraftError(error);
     }
   };
 

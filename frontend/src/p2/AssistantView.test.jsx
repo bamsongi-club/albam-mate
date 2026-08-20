@@ -144,6 +144,24 @@ describe('AI 모임 도우미 화면', () => {
     expect(screen.getByLabelText('알밤봇에게 묻기')).toBeTruthy();
   });
 
+  it('열린 활성 초안의 확인이 410이면 만료 안내에서 새 흐름을 시작한다', async () => {
+    vi.spyOn(api, 'getActiveAssistantDraft').mockResolvedValue(activeDraft());
+    vi.spyOn(api, 'confirmAssistantDraft').mockRejectedValue(new ApiError({
+      status: 410,
+      code: 'ASSISTANT_DRAFT_EXPIRED',
+      message: '초안이 만료되었습니다.'
+    }));
+
+    render(<AssistantView onBack={vi.fn()} onNavigate={vi.fn()} />);
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: '주말 협력 게임 모임' })).toBeTruthy());
+    await act(async () => { screen.getByRole('button', { name: '방 만들기 확정' }).click(); });
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: '초안이 만료됐어요' })).toBeTruthy());
+    await act(async () => { screen.getByRole('button', { name: '새로 시작하기' }).click(); });
+    expect(screen.getByLabelText('알밤봇에게 묻기')).toBeTruthy();
+  });
+
   it('다른 탭에서 동의를 철회하면 동의 카드를 다시 불러온다', async () => {
     vi.spyOn(api, 'getAssistantConsent')
       .mockResolvedValueOnce(GRANTED)
