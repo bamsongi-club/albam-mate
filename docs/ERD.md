@@ -1,6 +1,6 @@
 # 알밤메이트 ERD
 
-이 문서는 현재 P0·P1 데이터 모델과 데이터 제약, 승인된 P2 `AI-01`~`AI-03` 계획 저장 계약과 구현된 P2 `MATCH-01` 저장 구조를 정의한다. 이 문서에 적은 P1 알림·채팅·다중 인스턴스 스케줄 잠금·소셜 계정·대기열·게임 검색 수치·메타데이터·메커니즘·사용자별 해 본 게임 관계와 P2 MATCH 저장 구조는 전진 Flyway 마이그레이션과 생산 코드에 반영돼 있다. 아래 P2 AI 기능군 절은 구현 목표일 뿐 아직 Flyway·JPA 엔티티·생산 코드에 반영되지 않았다. P1 종료 상태는 [P1 기능 종료 상태](archive/p1/README.md#기능별-종료-상태), P2 진행 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)를 따른다.
+이 문서는 현재 P0·P1 데이터 모델과 데이터 제약, P2 `AI-01` 동의·`AI-03` 초안·확인 저장 계약 및 구현된 P2 `MATCH-01` 저장 구조를 정의한다. 이 문서에 적은 P1 알림·채팅·다중 인스턴스 스케줄 잠금·소셜 계정·대기열·게임 검색 수치·메타데이터·메커니즘·사용자별 해 본 게임 관계, AI-01·AI-03 저장 계약과 P2 MATCH 저장 구조는 전진 Flyway 마이그레이션과 생산 코드에 반영돼 있다. AI-02의 provider 호출·추천 결과·정확 게임명 직접 조회는 영속하지 않으며 현재 제공·검증 상태는 이 문서가 아닌 [P2 기능 상태](p2/README.md#기능별-현재-상태)를 따른다. P1 종료 상태는 [P1 기능 종료 상태](archive/p1/README.md#기능별-종료-상태)에서 확인한다.
 
 ### 이 문서의 범위
 
@@ -8,7 +8,7 @@
 |---|---|
 | 이 문서가 정본인 것 | 테이블·컬럼·타입·DB 제약, 저장 계산식과 저장 불변식 |
 | 이 문서가 담지 않는 것 | 제품 규칙(상태 전이·권한·시간·정원)은 [P2 명세](P2-spec.md), [P1 종료 명세](archive/p1/README.md)와 [P0-spec](archive/p0/P0-spec.md#공통-규칙), 요청·응답 계약은 [API](API.md), 기술 결정 이유는 [ADR](adr/README.md) |
-| P2 AI-01~AI-03 표기 | 아래 P2 AI 기능군 테이블·인덱스는 승인된 계획 계약이며 아직 물리 schema·JPA 매핑에 반영되지 않았다. |
+| P2 AI-01~AI-03 표기 | 아래 AI-01 동의·AI-03 초안·확인 테이블·인덱스는 물리 schema·JPA 매핑에 반영됐다. AI-02는 추천 원문·후보를 저장하지 않으므로 별도 테이블을 만들지 않는다. |
 | P2 MATCH 표기 | 아래 P2 MATCH 테이블·인덱스는 승인된 저장 계약이며 물리 schema·JPA 매핑은 존재한다. 기능 제공·검증·배포·실측 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)로 판정한다. |
 | 변경 시 함께 갱신 | 스키마를 바꾸면 Flyway 마이그레이션과 JPA 엔티티를 같은 변경에서 일치시킨다(→ [마이그레이션 작업 안내](../src/main/resources/db/migration/AGENTS.md), [ADR-0008](adr/platform/0008-flyway-database-migrations.md)) |
 
@@ -826,9 +826,9 @@ Outbox의 `occurred_at`과 Notification의 `created_at`은 애플리케이션 `C
 
 ## P2 AI 기능군 저장 계약
 
-> 이 절의 AI-01 동의와 AI-03 초안·확인 저장 계약은 Flyway·JPA 엔티티·생산 테이블로 제공한다. 현재 배포·실측 여부는 [P2 기능 상태](p2/README.md#기능별-현재-상태)에서만 판정한다. 외부 provider·동의·보존·비용 경계는 [ADR-0074](adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md), 초안·확인·멱등성은 [ADR-0075](adr/room/0075-p2-ai-draft-confirmation-and-idempotent-room-command.md), 지역은 [ADR-0076](adr/room/0076-p2-room-region-closed-set-and-compatibility.md)을 따른다.
+> 이 절의 AI-01 동의와 AI-03 초안·확인 저장 계약은 Flyway·JPA 엔티티·생산 테이블로 제공한다. 현재 배포·실측 여부는 [P2 기능 상태](p2/README.md#기능별-현재-상태)에서만 판정한다. 외부 provider·동의·보존 경계는 [ADR-0074](adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md), AI-02의 호출 quota·고정 예약 비용·정확 게임명 직접 조회는 [ADR-0085](adr/platform/0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md), 초안·확인·멱등성은 [ADR-0075](adr/room/0075-p2-ai-draft-confirmation-and-idempotent-room-command.md), 지역은 [ADR-0076](adr/room/0076-p2-room-region-closed-set-and-compatibility.md)을 따른다.
 
-이 절은 AI-01 동의와 AI-03 초안·확인 멱등성의 저장 이름·타입·제약과 저장 효과만 소유한다. AI-02의 자연어 요청·provider payload·모델 원문 응답·대화 이력·게임 후보는 저장하지 않으며, HTTP 필드·오류는 [AI 기능군 API](API.md#ai-기능군-api), 모듈·트랜잭션 흐름은 [아키텍처의 AI 기능군 모듈 계약](ARCHITECTURE.md#p2-ai-기능군-모듈-계약-승인된-계획미구현)이 소유한다.
+이 절은 AI-01 동의와 AI-03 초안·확인 멱등성의 저장 이름·타입·제약과 저장 효과만 소유한다. AI-02의 자연어 요청·provider payload·모델 원문 응답·대화 이력·게임 후보는 저장하지 않으며, HTTP 필드·오류는 [AI 기능군 API](API.md#ai-기능군-api), 모듈·트랜잭션 흐름은 [아키텍처의 AI 기능군 모듈 계약](ARCHITECTURE.md#p2-ai-기능군-모듈-계약-현재-구현승인된-확장)이 소유한다.
 
 ### 소유 경계와 관계도
 

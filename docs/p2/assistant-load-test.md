@@ -9,7 +9,7 @@
 ## 검증 원칙
 
 - 기본 runner는 결정적 fake provider를 사용한다. 같은 입력·schema version·fixture hash는 같은 구조화 결과와 오류를 반환해야 한다.
-- 실제 provider는 [ADR-0074](../adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md)의 실행 권한, model ID 확인, payload allowlist와 비용 상한 확인 뒤 별도 수동 smoke에서만 사용한다.
+- 실제 provider는 [ADR-0074](../adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md)·[ADR-0085](../adr/platform/0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md)의 실행 권한, model ID 확인, payload allowlist와 고정 예약 상한 확인 뒤 별도 수동 smoke에서만 사용한다.
 - 테스트는 `AI-01a`·`AI-01b`·`AI-02a`·`AI-03a`의 계약을 기능별로 분리해 판정하고, setup 실패·관측 누락·generator 포화는 기능 실패가 아닌 `INVALID`로 기록한다.
 - prompt·응답·Tool 인자·게임 후보·사용자 ID·세션·비밀값을 결과 파일·metric label·central log에 남기지 않는다.
 
@@ -25,6 +25,8 @@ manifest hash는 `manifestSha256` 필드를 제외한 전체 manifest를 JSON ob
 | --- | --- | --- |
 | 추천 입력 없음 | `RECOMMEND`에 `게임 추천해줘`처럼 검색 조건이 없음 | `NEEDS_INPUT`; `missingFields == recommendationSearchFields`, `missingFields ∩ roomCreationFields == ∅`, 후보 조회 trace 0건, 활성 임시 초안 0개 |
 | 추천 | 유효한 `RECOMMEND` 검색 조건 | `missingFields == ∅`, 후보 조회 trace 1건과 후보·적용 조건 반환, 활성 임시 초안·Room 0개 |
+| 정확 게임명 직접 조회 | 정규화한 단독 정식 게임명과 유일한 카탈로그 매치 | `RECOMMENDED`, 후보 1건·일치한 `gameId`, provider·quota ledger·비용 예약·usage event 0건, 초안·Room 0개 |
+| 정확 게임명 미확정 | 0건 또는 복수 정식명 매치 | 직접 조회 성공 0건 뒤 기존 provider 기반 추천 흐름으로 fallback |
 | 다회 입력 병합 | 1턴에서 게임 스타일 조건을 확보하고 2턴은 총 인원만 언급하며 직전 `conditions`를 되돌려 보냄 | 2턴 응답의 `categories`·`mechanisms`·`themes`가 1턴 값과 같고, 새로 언급한 필드만 대체되며, `conditions`를 생략한 요청은 이전 조건을 잇지 않음 |
 | 방 생성 입력 부족 | `CREATE_ROOM`의 총 인원·시작 시각·지역·게임 선택 중 일부 누락 | `NEEDS_INPUT`; `missingFields`가 확인되지 않은 `roomCreationFields`와 정확히 일치하고 추천 검색 조건을 섞지 않으며 Room·ChatRoom을 만들지 않음 |
 | 후보 없음 | 유효한 `RECOMMEND` 조건으로 조회했지만 결과가 없음 | `NO_CANDIDATES`; `missingFields == ∅`, 유효 조건의 후보 조회 trace 정확히 1건과 0건 결과, 활성 임시 초안·Room 0개 |
@@ -42,7 +44,7 @@ manifest hash는 `manifestSha256` 필드를 제외한 전체 manifest를 JSON ob
 
 1. 인증·동의·CSRF·feature flag가 호출 경계에서 판정되는지 확인한다.
 2. fake provider에 전달되는 필드가 allowlist와 schema version을 벗어나지 않는지, PII·secret 탐지 후 승인된 마스킹 또는 fail-closed가 적용되는지, provider no-retention·no-training 조건이 확인되는지 검사한다.
-3. 모델이 반환한 구조화 조건을 서버가 다시 검증하고, 후보 조회가 모든 조건을 AND로 적용한 뒤 내부 `RANK-01` 순서로 정렬하며, 후보·지역·Room 쓰기 권한을 모델에 위임하지 않는지 확인한다.
+3. 모델이 반환한 구조화 조건을 서버가 다시 검증하고, provider 기반 후보 조회가 모든 조건을 AND로 적용한 뒤 내부 `RANK-01` 순서로 정렬하며, 후보·지역·Room 쓰기 권한을 모델에 위임하지 않는지 확인한다. 유일한 정확 게임명은 provider·quota ledger·비용 예약 없이 `game.contract`만으로 반환되고 0건·복수건은 provider 기반 흐름으로 가는지도 확인한다.
 4. 확인 전 Room·ChatRoom·참가 관계가 생성되지 않는지 확인한다.
 5. 유효한 새 초안 confirm이 성공 응답과 Room 정확히 1개·ChatRoom 정확히 1개를 만들고, 두 ID가 같은 생성 결과를 가리키는지 확인한다.
 6. 동일 `(currentUserId, draft/resource, operation)` 범위의 `Idempotency-Key`·draft version 재시도는 최초 성공 응답·Room ID·ChatRoom ID를 반환하고 새 Room·ChatRoom을 만들지 않는지 확인한다.
@@ -52,12 +54,13 @@ manifest hash는 `manifestSha256` 필드를 제외한 전체 manifest를 JSON ob
 
 ## 부하 시나리오
 
-호출 제한값은 [ADR-0074](../adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md)의 사용자 KST 일 5회·월 150회·동시 1회·timeout 10초·retry 0을 사용한다. 10분 이동 창은 두지 않으며, 앱 전체 월 hard cap은 `$5`, 80% 알림 기준은 `$4`다. 초기 보장 규모는 사용자 40명·월 6,000회 계획으로 둔다. 이 정책값은 목표 SLO나 capacity 증거를 대신하지 않는다.
+실제 외부 provider 호출 제한값은 [ADR-0085](../adr/platform/0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md)의 사용자 KST 일 10회·월 150회·동시 1회·timeout 10초·retry 0을 사용한다. 10분 이동 창은 두지 않으며, 호출당 USD `0.10` 고정 예약을 적용한 앱 전체 월 hard cap은 `$5`, warning 기준은 `$4`다. 40명은 초기 대상 사용자 수일 뿐 개인별 provider 호출 보장이나 공유 예산 배분을 뜻하지 않는다. `40명 × 사용자별 월 150회 = 6,000회`는 사용자 quota의 이론상 합계이며, 실제 외부 provider 호출은 공유 예약 예산에 의해 빈 월 최대 50회로 먼저 제한된다. 결정적 fake provider를 쓰는 격리 synthetic 부하는 이 공유 예산 가용량을 증명하지 않는다.
 
 | 시나리오 | 목적 | 관찰값 |
 | --- | --- | --- |
 | 단일 정상 요청 | 기본 latency·상태 전이 | provider 호출 수, 구조화 성공, 응답 지연 |
-| 사용자 한도 경계 | 5회/초과 요청의 원자 판정 | 허용·거절 수, quota 소비, 상태 부수효과 |
+| 사용자 한도 경계 | 10회/11번째 요청과 월 150/151번째 요청의 원자 판정 | 허용·거절 수, quota 소비, 상태 부수효과 |
+| 공유 예약 예산 경계 | 40번째 warning, 50번째 허용, 51번째 거절 | warning 수, provider 호출 수, USD `0.10` 예약 누계, `ASSISTANT_COST_LIMIT_EXCEEDED` |
 | 동시 요청 | 동시 1회와 초안/confirm 수렴 | 중복 초안·Room·provider call, lock wait |
 | timeout·429 반복 | retry 없음·fail-closed | 오류 상태, latency, quota 소비, 부분 저장 |
 | Redis 불능 | 비용·quota 저장소 장애 | AI 명령 거절, fallback 여부, 저장 부수효과 |
@@ -66,9 +69,9 @@ manifest hash는 `manifestSha256` 필드를 제외한 전체 manifest를 JSON ob
 ## 비용·지연 판정
 
 - 측정 경계는 인증·동의·quota 판정이 끝나 AI 명령이 수락된 시점부터 최종 상태 응답을 조합한 시점까지의 end-to-end latency와, provider adapter가 payload를 전송한 시점부터 구조화 응답 검증 또는 timeout까지의 provider latency로 나눈다. fixture 생성·setup·generator warm-up은 latency 표본에서 제외하고 provider 대기·schema 검증은 포함한다.
-- 추정 비용은 고정된 provider/model 가격 snapshot의 input token 수·output token 수와 요청별 고정 과금을 각각 곱해 더한다. 가격 snapshot·usage·호출 trace 중 하나라도 없으면 비용 `0`으로 대체하지 않고 `NO_OBSERVATION` 또는 `INVALID`로 판정한다.
-- cost cap은 [ADR-0074](../adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md)의 앱 전체 월 `$5`와 80% 알림 기준 `$4`를 사용한다. latency threshold는 구현 이슈의 테스트 계약에서 별도 승인하며, threshold·cap이 없거나 실제 provider 관측을 실행하지 않은 결과는 `NOT_RUN`이다.
-- `PASS`는 manifest/hash·trace·부수효과가 완전하고, 승인된 latency threshold와 cost cap을 모두 만족하며 금지 데이터가 없는 경우에만 부여한다. 실행·관측 계약은 충족했지만 threshold 초과·cost cap 초과·금지 데이터가 확인되면 `FAIL`, manifest/hash·trace·측정 자료가 누락되면 `INVALID`로 판정한다. provider 호출·가격 snapshot·승인값이 없는 경우는 `NOT_RUN` 또는 `NO_OBSERVATION`이며 `AI-02-AC3`의 quota·비용 근거나 `AI-04-AC2`의 배포 후 관측 근거로 세지 않는다.
+- 예약 비용은 실제 외부 provider 호출 수에 호출당 USD `0.10`을 곱해 계산한다. 49번째 예약 뒤 `$4.90`, 50번째 예약 뒤 `$5.00`, 51번째 요청은 예약 전 거절이어야 한다. input/output token과 가격 snapshot은 이 cap의 계산값이 아니라 예약값 적정성·사용량 관측 근거다. 예약 trace가 없으면 비용 `0`으로 대체하지 않고 `NO_OBSERVATION` 또는 `INVALID`로 판정한다.
+- cost cap은 [ADR-0085](../adr/platform/0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md)의 앱 전체 월 `$5`와 warning 기준 `$4`를 사용한다. latency threshold는 구현 이슈의 테스트 계약에서 별도 승인하며, threshold·cap이 없거나 실제 provider 관측을 실행하지 않은 결과는 `NOT_RUN`이다.
+- `PASS`는 manifest/hash·trace·부수효과가 완전하고, 승인된 latency threshold와 고정 예약 cap을 모두 만족하며 금지 데이터가 없는 경우에만 부여한다. 실행·관측 계약은 충족했지만 threshold 초과·cap 초과·금지 데이터가 확인되면 `FAIL`, manifest/hash·trace·측정 자료가 누락되면 `INVALID`로 판정한다. provider 호출·가격 snapshot·승인값이 없는 경우는 `NOT_RUN` 또는 `NO_OBSERVATION`이며 `AI-02-AC3`의 quota·비용 근거나 `AI-04-AC2`의 배포 후 관측 근거로 세지 않는다.
 
 ## 판정 기준
 
@@ -80,4 +83,4 @@ manifest hash는 `manifestSha256` 필드를 제외한 전체 manifest를 JSON ob
 
 ## 실행 게이트
 
-이 설계의 정책 전제는 완료된 [#795](https://github.com/bamsongi-club/albam-mate/issues/795)·[#796](https://github.com/bamsongi-club/albam-mate/issues/796)와 승인된 ADR-0074~0076으로 확정됐다. 다만 구현 이슈가 runner 경로·cwd·shell·시간 측정·결과 경로를 고정하기 전에는 실행 계약으로 승격하지 않는다. 이번 전달 범위에서는 자동 부하테스트 runner를 실행하지 않으며, 필요한 경우 별도 승인 뒤 fake provider 계약 검증과 부하 실행을 재개한다.
+이 설계의 정책 전제는 완료된 [#795](https://github.com/bamsongi-club/albam-mate/issues/795)·[#796](https://github.com/bamsongi-club/albam-mate/issues/796), [#944](https://github.com/bamsongi-club/albam-mate/issues/944)와 승인된 ADR-0074~0076·0085으로 확정됐다. 다만 구현 이슈가 runner 경로·cwd·shell·시간 측정·결과 경로를 고정하기 전에는 실행 계약으로 승격하지 않는다. 이번 전달 범위에서는 자동 부하테스트 runner를 실행하지 않으며, 필요한 경우 별도 승인 뒤 fake provider 계약 검증과 부하 실행을 재개한다.

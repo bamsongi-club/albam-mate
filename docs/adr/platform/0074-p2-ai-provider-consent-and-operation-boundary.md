@@ -5,7 +5,7 @@
 - 결정일: 2026-08-18
 - 관련: [#794](https://github.com/bamsongi-club/albam-mate/issues/794), [#795](https://github.com/bamsongi-club/albam-mate/issues/795), [AI-01 명세](../../p2/assistant.md), [OPS-04](../../p2/monitoring.md#ops-04-ai-사용량과-추정-비용), [ADR-0019](../game/0019-bgg-full-catalog-staged-enrichment.md)
 - 대체 대상: 없음
-- 후속 ADR: 없음
+- 후속 ADR: [ADR-0085](0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md) (`기본 실행·제한·비용` 중 사용자별 호출 한도와 앱 월 비용 예약·상한을 부분 대체)
 
 ## 맥락
 
@@ -85,7 +85,9 @@
 ## 검증
 
 - 상태: 미검증
-- 근거: 없음
+- 근거:
+  - 구현: `assistant`·`infra.ai`의 fake/OpenAI adapter, Redis quota·비용 예약과 Redis fail-closed 경계가 존재한다.
+  - 테스트: `AiQuotaPolicyTest`, `AiQuotaRedisPostgresTest`가 기존 일 5회·월 150회·비용 예약 경계를 다룬다. 이 ADR 갱신에서 재실행한 근거는 아니다.
 - 미검증:
   - provider model ID·정책 URL·실제 비용 알림 경로 확인
-  - dependency·설정·fake provider·quota·Redis fail-closed 구현과 테스트
+  - ADR-0085의 일 10회, 고정 예약 정산, 정확 게임명 providerless 조회 구현과 테스트

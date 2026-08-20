@@ -3,9 +3,9 @@
 - 상태: 승인됨
 - 작성일: 2026-07-24
 - 결정일: 2026-07-24
-- 관련: [ADR-0002](0002-postgresql-primary-database.md), [ADR-0010](0010-h2-postgresql-test-boundary.md), [ADR-0083](0083-github-actions-develop-p1-continuous-deployment.md), [ERD](../../ERD.md), [build.gradle](../../../build.gradle), [프로젝트 컨벤션](../../CONVENTIONS.md)
+- 관련: [ADR-0002](0002-postgresql-primary-database.md), [ADR-0010](0010-h2-postgresql-test-boundary.md), [ADR-0084](0084-github-actions-develop-p1-continuous-deployment.md), [ERD](../../ERD.md), [build.gradle](../../../build.gradle), [프로젝트 컨벤션](../../CONVENTIONS.md)
 - 대체 대상: 없음
-- 후속 ADR: [ADR-0083](0083-github-actions-develop-p1-continuous-deployment.md) (P1 production App1·App2의 Flyway 실행 위치 범위)
+- 후속 ADR: [ADR-0084](0084-github-actions-develop-p1-continuous-deployment.md) (P1 production App1·App2의 Flyway 실행 위치 범위)
 
 ## 맥락
 

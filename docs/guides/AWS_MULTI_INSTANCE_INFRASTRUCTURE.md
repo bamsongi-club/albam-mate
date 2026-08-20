@@ -27,7 +27,7 @@
 | 문서·저장소 | 소유 내용 |
 | --- | --- |
 | 승인된 ADR-0051 | Nginx 진입점, 자체 운영 데이터 서비스, EC2 수와 트레이드오프 |
-| 승인된 ADR-0083, [develop P1 자동 CD 가이드](CD_DEPLOYMENT.md) | `develop` 자동 CD의 SHA·OIDC/SSM·직렬 실행·App2 migrator·LKG manifest·앱 rollback 경계. 실제 workflow·권한·실행 증거는 아직 소유·구현되지 않았다. |
+| 승인된 ADR-0084, [develop P1 자동 CD 가이드](CD_DEPLOYMENT.md) | `develop` 자동 CD의 SHA·OIDC/SSM·직렬 실행·App2 migrator·LKG manifest·앱 rollback 경계. 실제 workflow·권한·실행 증거는 아직 소유·구현되지 않았다. |
 | 이 가이드 | 생성·배포·측정·확장·철거 순서, 검증 체크리스트와 P1 최소 배포 목표 상태 |
 | `docs/archive/p1/P1-spec.md`, `docs/ARCHITECTURE.md` | P1 애플리케이션 실행 계약과 다중 인스턴스 동작 |
 | `docs/p2/monitoring.md`, ADR-0071·ADR-0059 | P2 운영 질문·완료 기준과 애플리케이션 metric·구조화 log 전송 경계. 이 P1 실행안은 해당 구현·검증 상태를 소유하지 않는다. |
@@ -121,11 +121,11 @@ App1 Elastic IP는 외부 DNS가 가리킬 안정적인 진입 주소다. 실제
 
 ## P1 최소 배포 목표 상태
 
-이 절은 App1·App2·PostgreSQL·Redis 네 노드의 최소 배포가 성립하는 목표 상태를 확정한다. 후속 구현 이슈는 이 절만 근거로 착수하며, 여기에 없는 계약을 구현에서 새로 정하지 않는다. 이 저장소가 소유하는 항목은 [albam-mate#494](https://github.com/bamsongi-club/albam-mate/issues/494)가, [albam-mate-infra#1](https://github.com/bamsongi-club/albam-mate-infra/issues/1)은 ECR 저장소 이름과 Docker Compose 플러그인 설치·검증만 소유한다. 실제 ARM64 이미지 게시·노드별 환경 전달·배포·분산·복구·부하 증거의 소유자는 별도 인프라 후속 이슈가 확정하기 전까지 미배정이다. `develop` 자동 CD의 정책 정본은 [ADR-0083](../adr/platform/0083-github-actions-develop-p1-continuous-deployment.md)과 [CD 가이드](CD_DEPLOYMENT.md)이며, 이 문서화 자체는 해당 구현·실측의 완료를 뜻하지 않는다.
+이 절은 App1·App2·PostgreSQL·Redis 네 노드의 최소 배포가 성립하는 목표 상태를 확정한다. 후속 구현 이슈는 이 절만 근거로 착수하며, 여기에 없는 계약을 구현에서 새로 정하지 않는다. 이 저장소가 소유하는 항목은 [albam-mate#494](https://github.com/bamsongi-club/albam-mate/issues/494)가, [albam-mate-infra#1](https://github.com/bamsongi-club/albam-mate-infra/issues/1)은 ECR 저장소 이름과 Docker Compose 플러그인 설치·검증만 소유한다. 실제 ARM64 이미지 게시·노드별 환경 전달·배포·분산·복구·부하 증거의 소유자는 별도 인프라 후속 이슈가 확정하기 전까지 미배정이다. `develop` 자동 CD의 정책 정본은 [ADR-0084](../adr/platform/0084-github-actions-develop-p1-continuous-deployment.md)과 [CD 가이드](CD_DEPLOYMENT.md)이며, 이 문서화 자체는 해당 구현·실측의 완료를 뜻하지 않는다.
 
 ### develop 자동 CD 후속 계약
 
-현재 실행 가능한 상태는 아래 [ECR 저장소 이름과 수동 이미지 릴리스](#5-ecr-저장소-이름과-수동-이미지-릴리스)와 수동 배포 흐름이다. [ADR-0083](../adr/platform/0083-github-actions-develop-p1-continuous-deployment.md)은 이후 `develop` 병합 뒤 같은 SHA의 CI 통과·ARM64 image·OIDC/SSM 배포·전용 Flyway migrator·App2→App1 앱 rollback을 목표 계약으로 승인했다.
+현재 실행 가능한 상태는 아래 [ECR 저장소 이름과 수동 이미지 릴리스](#5-ecr-저장소-이름과-수동-이미지-릴리스)와 수동 배포 흐름이다. [ADR-0084](../adr/platform/0084-github-actions-develop-p1-continuous-deployment.md)은 이후 `develop` 병합 뒤 같은 SHA의 CI 통과·ARM64 image·OIDC/SSM 배포·전용 Flyway migrator·App2→App1 앱 rollback을 목표 계약으로 승인했다.
 
 이 자동 CD는 아직 구현·검증되지 않았다. Terraform apply, P1 초기 생성·데이터 노드 기동, k6 실행, DB 자동 rollback 및 App1 무중단 보장은 여전히 이 범위 밖이다. 자동 CD 구현에는 App2의 `/etc/albam-mate/app2.env`를 재사용하는 SSM migrator와 비밀이 아닌 LKG Parameter bootstrap·IAM 경계가 포함된다. 실제 workflow와 배포 실행 기록이 생기기 전에는 아래 수동 절차를 자동화됐다고 표현하지 않는다.
 
@@ -265,7 +265,7 @@ Spring 컨테이너가 구조화 로그 파일을 쓸 수 있도록 App1·App2 �
 | TLS | web 컨테이너가 인증서를 직접 마운트하고 최초 배포는 임시 인증서를 쓴다. | 공인 인증서의 발급·저장·갱신 주체와 HTTP 80 리스너·80→443 전환 절차를 확정한다. |
 | PostgreSQL TLS | production 접속이 TLS를 쓰지 않는다. | 자체 운영 PostgreSQL의 서버 인증서와 Spring 접속 검증 수준을 확정한다. |
 | Redis 보안 | production 설정은 host와 port만 받는다. | password·TLS 사용 여부와 Spring 환경변수 계약을 확정한다. |
-| Flyway | production Spring 기동마다 Flyway가 자동 실행된다. | [ADR-0083](../adr/platform/0083-github-actions-develop-p1-continuous-deployment.md)의 App2 SSM one-shot migrator, 앱별 Flyway 비활성화와 expand/contract를 구현·검증한다. |
+| Flyway | production Spring 기동마다 Flyway가 자동 실행된다. | [ADR-0084](../adr/platform/0084-github-actions-develop-p1-continuous-deployment.md)의 App2 SSM one-shot migrator, 앱별 Flyway 비활성화와 expand/contract를 구현·검증한다. |
 | 프로필 이미지 | App1·App2가 각자 로컬 named volume을 쓴다. | 공유 객체 스토리지로 옮기고 다중 노드에서 업로드·조회를 검증한다. |
 
 ## Terraform 저장소 구성

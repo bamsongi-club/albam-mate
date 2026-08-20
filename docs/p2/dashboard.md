@@ -76,12 +76,13 @@ P2는 같은 지표·로그를 재사용하는 CloudWatch dashboard 두 개를 �
 
 - provider·model·feature별 AI 요청과 입력·출력 token
 - success·fallback·failure별 사용량
-- 공식 가격표 snapshot을 적용한 기간별 추정 비용
+- 실제 외부 provider 호출 수 × USD `0.10`의 고정 예약 비용과 앱 월 `$5` cap·`$4` warning 사용량
+- 공식 가격표 snapshot을 적용한 token 기반 참고 추정 비용
 - CloudWatch custom metric 수와 log ingestion·보존량
 
-추정 비용에는 통화·가격 적용일·계산식을 표시한다. 이 화면을 실제 AWS·AI provider 청구서나 예산 통제 화면으로 표현하지 않는다.
+고정 예약 비용은 앱 내부 예산 통제값이고 실제 AI provider 청구서가 아니며, token 기반 참고 추정값도 청구 확정액이 아니다. 두 값을 같은 값으로 합치지 않고, 참고 추정에는 통화·가격 적용일·계산식을 표시한다. 이 화면을 실제 AWS·AI provider 청구서로 표현하지 않는다.
 
-배포 검증 전에 공식 provider 가격과 버전 관리 snapshot을 비교하고 변경됐을 때만 `jiho`가 갱신한다. 과거 실행 결과는 당시 snapshot 식별자를 유지한다.
+배포 검증 전에 공식 provider 가격과 버전 관리 snapshot을 비교하고 변경됐을 때만 `jiho`가 갱신한다. 가격 snapshot은 USD `0.10` 고정 예약값의 적정성 재검토와 참고 추정에만 쓰며, 앱 월 `$5` cap을 token 가격으로 다시 계산하지 않는다. 과거 실행 결과는 당시 snapshot 식별자를 유지한다.
 
 P2가 추가하는 애플리케이션 OTLP metric·중앙 로그·신규 alarm의 예상 월 비용은 USD 10 이하로 제한하고 기존 host 관측 비용은 별도로 표시한다. 초과하면 수집 간격·label·로그 범위를 줄이거나 사용자 재승인을 받기 전까지 비용 검증을 통과로 기록하지 않는다.
 

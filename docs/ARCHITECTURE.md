@@ -9,7 +9,7 @@
 - 알림 통합 이벤트·Outbox·relay 근거: [ADR-0029](adr/notification/0029-room-integration-event-transactional-outbox.md), [ADR-0040](adr/notification/0040-postgresql-notification-relay-recovery-retention.md)
 - 알림 표시 투영·조회·읽음 시각 근거: [ADR-0039](adr/notification/0039-notification-presentation-and-bulk-read-snapshot.md)
 - P2 운영 관측 전송 근거: [ADR-0071](adr/platform/0071-p2-application-metrics-otlp-host-cloudwatch-agent.md), [ADR-0059](adr/platform/0059-p2-structured-stdout-cloudwatch-logs.md)
-- P2 AI provider·동의·초안·확인형 Room·지역 경계: [ADR-0074](adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md), [ADR-0075](adr/room/0075-p2-ai-draft-confirmation-and-idempotent-room-command.md), [ADR-0076](adr/room/0076-p2-room-region-closed-set-and-compatibility.md)
+- P2 AI provider·동의·호출 quota·고정 예약 비용·초안·확인형 Room·지역 경계: [ADR-0074](adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md), [ADR-0085](adr/platform/0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md), [ADR-0075](adr/room/0075-p2-ai-draft-confirmation-and-idempotent-room-command.md), [ADR-0076](adr/room/0076-p2-room-region-closed-set-and-compatibility.md)
 - P2 MATCH 후보 선점·멱등성, 채팅 handoff·복구·보존, URL 텍스트 표현, 기준 측정 gate, 게임·플랫폼 없는 인원 범위 매칭: [ADR-0061](adr/matching/0061-postgresql-candidate-reservation-idempotency.md), [ADR-0062](adr/matching/0062-match-chat-handoff-recovery-retention.md), [ADR-0064](adr/matching/0064-match-chat-url-text-storage.md), [ADR-0063](adr/matching/0063-match-baseline-measurement-gate.md), [ADR-0077](adr/matching/0077-match-no-game-player-range.md)
 - 코드 배치·네이밍·트랜잭션 규칙: [CONVENTIONS](CONVENTIONS.md)
 - 제품·HTTP·저장 계약: [P2 명세](P2-spec.md), [P2 기능 문서](p2/README.md), [P1 종료 명세](archive/p1/README.md), [P0 완료 명세](archive/p0/P0-spec.md), [API 명세](API.md), [ERD](ERD.md)
@@ -120,28 +120,29 @@ RANK-02의 외부·내부 인기 점수는 런타임 모듈 호출이 아니라 
 
 알림 코드는 `notification/service/query`, `notification/service/command`, `notification/relay`, `notification/recovery`, `notification/cleanup`의 책임 경계에 배치한다. `/api/users/me/notifications` 하위 조회·읽음은 URL 접두사가 아니라 데이터와 불변식 소유권에 따라 P1 `NotificationController`가 담당한다.
 
-### P2 AI 기능군 모듈 계약 (승인된 계획·미구현)
+### P2 AI 기능군 모듈 계약 (현재 구현·승인된 확장)
 
-> 이 절은 P2 `AI-01`~`AI-03`의 승인된 목표 구조다. `assistant` 모듈·`assistant.contract`·`infra.ai` adapter는 아직 존재하지 않으며, 현재 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)로만 판정한다. 외부 provider와 Room 쓰기 권한은 분리하고, 사용자의 명시적 확인 전에는 Room·ChatRoom 상태 변경을 허용하지 않는다.
+> `assistant` 모듈·`assistant.contract`·`infra.ai` adapter와 AI-01·AI-03의 저장 경계는 현재 제공하며, AI-02의 provider foundation도 별도 진행 상태를 가진다. [ADR-0085](adr/platform/0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md)의 정확 게임명 resolver·후보 DTO 확장은 승인된 목표 계약이다. 구체 제공·검증 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)로만 판정한다. 외부 provider와 Room 쓰기 권한은 분리하고, 사용자의 명시적 확인 전에는 Room·ChatRoom 상태 변경을 허용하지 않는다.
 
 `assistant`는 AI-01의 동의·철회와 제품 흐름, AI-02의 자연어 추천, AI-03의 초안·확인 HTTP 경계와 `ASSISTANT_*` 저장 구조를 소유한다. 외부 provider SDK는 `infra.ai`만 참조하고, `game`·`room`의 Entity·Repository와 `DISCOVERY-01`의 `SEARCH-04` tool은 직접 참조하지 않는다.
 
-AI-01~AI-03 협력 계약은 책임을 소유한 모듈의 `contract`에 둔다. provider 경계인 `AssistantIntentExtractor`와 후보 조회는 AI-02가 각각 `assistant.contract`와 `game.contract`를 통해 소유하고, 확인형 Room 생성은 AI-03이 `room.contract`를 통해 소유한다.
+AI-01~AI-03 협력 계약은 책임을 소유한 모듈의 `contract`에 둔다. provider 경계인 `AssistantIntentExtractor`, provider 기반 후보 조회와 정확 게임명 resolver는 AI-02가 각각 `assistant.contract`와 `game.contract`를 통해 소유하고, 확인형 Room 생성은 AI-03이 `room.contract`를 통해 소유한다.
 
 | 계약 | 소유 | 호출·구현 | 책임과 트랜잭션 경계 |
 |---|---|---|---|
 | `AssistantIntentExtractor` (AI-02) | `assistant.contract` | `assistant`의 추천 Service가 호출하고 `infra.ai`가 구현 | 현재 한 번의 사용자 문장과 서버가 허용한 schema만 provider에 전달해 `AssistantConditionSummary` 후보를 반환한다. 게임 조회·Room 쓰기·tool loop·원문 저장은 하지 않는다. 기본 구현은 deterministic fake provider다. |
-| `AssistantGameCandidateQuery` (AI-02) | `game.contract` | `assistant`가 호출하고 `game`이 구현 | 카테고리·메커니즘·테마 배열은 각각 목록 안 `ANY`로 고정 결합하고, 이 셋과 난이도 상한·플레이 시간 상한·이미 확인된 총 인원·게임 선택은 서로 `AND`로 적용하며 내부 `RANK-01` 순서로 후보를 반환한다. 정렬 뒤 상위 10건만 반환하고 동점은 게임 ID 오름차순으로 끊으며 pagination은 제공하지 않는다. `assistant`는 game repository·catalog를 직접 읽지 않는다. |
+| `AssistantGameCandidateQuery` (AI-02) | `game.contract` | `assistant`가 호출하고 `game`이 구현 | provider 기반 일반 추천의 카테고리·메커니즘·테마 배열은 각각 목록 안 `ANY`로 고정 결합하고, 이 셋과 난이도 상한·플레이 시간 상한·이미 확인된 총 인원·게임 선택은 서로 `AND`로 적용하며 내부 `RANK-01` 순서로 후보를 반환한다. 정렬 뒤 상위 10건만 반환하고 동점은 게임 ID 오름차순으로 끊으며 pagination은 제공하지 않는다. `assistant`는 game repository·catalog를 직접 읽지 않는다. |
+| `AssistantExactGameNameQuery` (AI-02, ADR-0085 목표 확장) | `game.contract` | `assistant`가 호출하고 `game`이 구현 | 단독 입력과 `Game.name`을 NFKC·trim·연속 공백 축약·`Locale.ROOT` 대소문자 정규화 뒤 비교해 유일한 정식명만 `AssistantRecommendationCandidate`로 반환한다. 부분 일치·별칭·영문명·BGG ID·문장부호 제거·기본판/확장판 자동 통합은 하지 않으며 0건·복수건은 미매치다. `assistant`는 game repository·catalog를 직접 읽지 않는다. |
 | `AssistantRoomCreationCommand` (AI-03) | `room.contract` | `assistant`의 Confirm Executor가 호출하고 `room`이 구현 | 현재 인증 사용자 컨텍스트와 초안 입력을 받아 기존 Room 생성 불변식과 `RoomCreated → ChatRoom` 원자성을 적용하고 `roomId`·`chatRoomId` 생성 결과를 반환한다. 사용자 ID를 요청 body에서 받지 않는다. |
 
 `AssistantRoomCreationCommand`는 `room`이 `chat` Entity·Repository를 직접 참조해 `chatRoomId`를 얻는 구조가 아니다. 확인형 command는 `room.contract`가 정의한 동기 `RoomCreated` handoff를 같은 트랜잭션에서 발행하고, `chat`의 listener가 `CHAT_ROOMS`를 저장한 뒤 생성된 ID를 handoff에 채운다. listener가 결과를 채우기 전에 실패하거나 ID가 없으면 command도 실패하고 Room·ChatRoom·초안 결과를 함께 롤백한다. 따라서 컴파일 의존은 `assistant → room.contract`와 `chat → room.contract`로 유지되며 `room → chat` 직접 의존은 생기지 않는다.
 
-`AssistantIntentExtractor`는 버전이 지정된 `propose_game_room_intent` schema만 사용한다. `assistant`는 provider가 반환한 game ID·조건을 신뢰하지 않고 구조화 검증 뒤 `AssistantGameCandidateQuery`로 재조회한다. provider는 게임 후보·BGG 원문·prompt hash·Room command 권한을 받지 않는다.
+`AssistantIntentExtractor`는 버전이 지정된 `propose_game_room_intent` schema만 사용한다. `assistant`는 provider가 반환한 game ID·조건을 신뢰하지 않고 구조화 검증 뒤 `AssistantGameCandidateQuery`로 재조회한다. 유일한 정확 게임명은 `AssistantExactGameNameQuery`로 provider 전에 처리한다. provider는 게임 후보·BGG 원문·prompt hash·Room command 권한을 받지 않는다.
 
 ### AI 기능군 처리·잠금 흐름
 
-1. `AssistantController`가 세션·CSRF·동의·입력 형식을 확인한다. 추천의 외부 호출은 `assistant.service`가 quota·비용 예약과 PII/secret allowlist 검사를 통과한 뒤 시작한다.
-2. 추천은 provider 호출과 후보 조회만 수행하고 Room·ChatRoom·초안을 만들지 않는다. provider 장애·schema 오류·Redis 비용 예약 실패는 명시적 오류로 끝내며 다른 model로 자동 전환하지 않는다.
+1. `AssistantController`가 세션·CSRF·동의·입력 형식을 확인한다. `assistant.service`는 먼저 `AssistantExactGameNameQuery`를 수행해 유일한 매치면 후보 한 건을 반환하며, 이 경로는 provider·quota ledger·비용 예약·usage event를 만들지 않는다.
+2. 정확 게임명 0건·복수건일 때만 추천의 외부 호출이 quota·비용 예약과 PII/secret allowlist 검사를 통과한 뒤 시작한다. provider 기반 추천은 후보 조회만 수행하고 Room·ChatRoom·초안을 만들지 않는다. provider 장애·schema 오류·Redis 비용 예약 실패는 명시적 오류로 끝내며 다른 model로 자동 전환하지 않는다.
 3. AI-03의 모든 쓰기 Executor는 `USERS` 행 → `ASSISTANT_DRAFTS` 행 → `ASSISTANT_IDEMPOTENCY_RECORDS` 순서로만 잠근다. 이 순서는 MATCH 멱등성 Executor와 같은 원칙이며, 활성 초안 유일 제약을 잠금 순서나 삭제의 배타성 근거로 쓰지 않는다. 같은 사용자의 초안 생성·수정·확인이 동시에 들어와도 이 순서 때문에 교착 없이 직렬화된다.
 4. `DraftCreate/PatchExecutor`는 `ASSISTANT_DRAFTS`를 사용자별 활성 하나로 유지하고, 초안 생성도 confirm과 같은 규칙으로 그 사용자의 만료된 `ASSISTANT_IDEMPOTENCY_RECORDS`를 같은 트랜잭션에서 삭제한다. `PatchExecutor`는 `ACTIVE` 초안만 수정한다. `region`은 네 지역 enum과 DB CHECK를 통과시키고 생략 시 호환 기본값 `홍대`를 적용한다.
 5. `DraftConfirmExecutor`는 provider를 호출하지 않는다. 진입 전에 `ASSISTANT_NOT_ENABLED` gate를 fail-closed로 먼저 통과해야 하며, 비활성 상태에서는 아래 잠금·정리·재생을 수행하지 않는다. 위 순서로 `USERS` 행 → `ASSISTANT_DRAFTS` 행 → `ASSISTANT_IDEMPOTENCY_RECORDS`를 먼저 잠근 뒤, 같은 `operationTime`으로 만료를 확인해 `expiresAt <= operationTime`인 그 사용자의 기록을 batch purge 없이 모두 삭제한다. 그다음 `expiresAt > operationTime`인 같은 범위·같은 key의 저장 결과를 초안 상태·만료·동의·version·필수 `place` 확인보다 먼저 재생하고, 재생 대상이 없을 때만 그 확인들을 수행한 뒤 새 key를 별도 행으로 등록한다.
@@ -308,12 +309,12 @@ flowchart LR
 | `room/service/command` | ROOM 변경 유스케이스, Coordinator와 Executor |
 | `room/enums` | ROOM Entity·DTO가 공유하는 방·참가 도메인 타입 |
 | `room/statuscorrection` | 공통 단건 상태 보정과 Scheduler 전용 제한 선별·영속 진행 조정 |
-| `assistant/contract` (P2 계획) | AI-02 `AssistantIntentExtractor` provider 협력 계약 |
-| `game/contract` (P2 확장) | AI-02 `AssistantGameCandidateQuery` 후보 조회 계약 |
+| `assistant/contract` | AI-02 `AssistantIntentExtractor` provider 협력 계약 |
+| `game/contract` (AI-02 확장) | `AssistantGameCandidateQuery`와 ADR-0085 목표의 `AssistantExactGameNameQuery` 후보 조회 계약 |
 | `room/contract` (P2 확장) | AI-03 `AssistantRoomCreationCommand` 확인형 Room command와 ChatRoom 결과 handoff 계약 |
-| `assistant/controller`, `assistant/dto` (P2 계획) | AI-01 동의·AI-02 추천·AI-03 초안·확인 HTTP 경계와 요청·응답 변환 |
-| `assistant/entity`, `assistant/repository` (P2 계획) | AI-01 동의·AI-03 초안·확인 멱등성 저장 계약. provider 원문은 저장하지 않음 |
-| `assistant/service` (P2 계획) | AI-01 요청 orchestration, AI-02 추천 Provider 경계, AI-03 초안 lifecycle·확인 Executor와 트랜잭션 조정 |
+| `assistant/controller`, `assistant/dto` | AI-01 동의·AI-02 추천·AI-03 초안·확인 HTTP 경계와 요청·응답 변환 |
+| `assistant/entity`, `assistant/repository` | AI-01 동의·AI-03 초안·확인 멱등성 저장 계약. provider 원문은 저장하지 않음 |
+| `assistant/service` | AI-01 요청 orchestration, AI-02 추천 Provider 경계, AI-03 초안 lifecycle·확인 Executor와 트랜잭션 조정 |
 | `matching/contract` (P2) | MATCH chat provision·cleanup·access 공개 계약. `chat`이 구현 또는 호출한다. |
 | `matching/service/query` (P2) | MATCH 조회 유스케이스와 `chat`에 공개하는 접근·쓰기 guard 판정 |
 | `matching/service/command` (P2 계획) | MATCH 상태 변경, 후보 선점 Coordinator와 독립 Executor |
@@ -330,7 +331,7 @@ flowchart LR
 | `global/scheduling` (P1) | 업무 규칙을 모르는 클러스터 스케줄 잠금 port |
 | `global` | 업무 의미가 없는 공통 기술 기반 |
 | `infra/redis` (P1) | `chat.contract`의 실시간 발행·구독 port와 Spring Session Redis adapter |
-| `infra/ai` (P2 계획) | AI-02 `assistant.contract.AssistantIntentExtractor`의 OpenAI·fake provider adapter. `assistant` 업무 규칙은 소유하지 않음 |
+| `infra/ai` | AI-02 `assistant.contract.AssistantIntentExtractor`의 OpenAI·fake provider adapter. `assistant` 업무 규칙은 소유하지 않음 |
 | `infra/scheduling` (P1) | PostgreSQL 시각과 `SHEDLOCK` 테이블을 사용하는 스케줄 잠금 adapter |
 
 필요한 구현만 만들며 빈 폴더를 미리 생성하지 않는다. `contract`도 다른 모듈에 공개할 계약이나 `infra`가 구현할 포트가 생길 때만 추가한다. 표는 모든 모듈에 모든 패키지를 허용한다는 뜻이 아니다. 기존 패키지에 파일을 추가할 때는 갱신하지 않지만, 모듈에 새로운 최상위 책임 패키지를 만들 때는 이 절과 구조 검사를 함께 확인한다.
