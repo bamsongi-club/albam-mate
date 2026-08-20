@@ -43,8 +43,10 @@ public interface MatchPartyRepository extends JpaRepository<MatchParty, Long> {
 		limit :candidateBatchSize
 		""", nativeQuery = true)
 	List<Long> findLifecycleCandidateIdsAfter(
-		@Param("afterPartyId") long afterPartyId,
-		@Param("candidateBatchSize") int candidateBatchSize);
+		@Param("afterPartyId")
+		long afterPartyId,
+		@Param("candidateBatchSize")
+		int candidateBatchSize);
 
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	@Query("select party from MatchParty party where party.id = :partyId")

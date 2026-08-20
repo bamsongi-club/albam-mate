@@ -243,7 +243,8 @@ class MatchRequestHttpIntegrationTest {
 		long partyId = insertParty("ACTIVE");
 		insertParticipant(partyId, leavingUserId);
 		insertParticipant(partyId, remainingUserId);
-		jdbcTemplate.update("update match_parties set closes_at = ? where id = ?", Instant.now().minusSeconds(1), partyId);
+		jdbcTemplate.update("update match_parties set closes_at = ? where id = ?", Instant.now().minusSeconds(1),
+			partyId);
 
 		mockMvc.perform(delete("/api/matches/parties/{partyId}/participants/me", partyId)
 			.with(authenticationFor(leavingUserId)).with(csrf()))

@@ -145,7 +145,8 @@ class MatchProposalClaimPostgresTest extends SharedPostgresIntegrationSupport {
 
 		try (Connection userLock = dataSource.getConnection()) {
 			userLock.setAutoCommit(false);
-			try (var statement = userLock.prepareStatement("select id from users where id in (?, ?) order by id for update")) {
+			try (var statement = userLock
+				.prepareStatement("select id from users where id in (?, ?) order by id for update")) {
 				statement.setLong(1, firstUserId);
 				statement.setLong(2, secondUserId);
 				statement.executeQuery();

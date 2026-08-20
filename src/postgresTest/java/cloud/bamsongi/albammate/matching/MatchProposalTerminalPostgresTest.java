@@ -319,12 +319,14 @@ class MatchProposalTerminalPostgresTest extends SharedPostgresIntegrationSupport
 		long requestId = insertRequest(userId);
 		long proposalId = insertOpenProposal();
 		insertProposalMember(proposalId, requestId, userId);
-		jdbcTemplate.update("update match_proposals set respond_by = current_timestamp + interval '1 second' where id = ?",
+		jdbcTemplate.update(
+			"update match_proposals set respond_by = current_timestamp + interval '1 second' where id = ?",
 			proposalId);
 
 		try (var proposalLock = dataSource.getConnection()) {
 			proposalLock.setAutoCommit(false);
-			try (var statement = proposalLock.prepareStatement("select id from match_proposals where id = ? for update")) {
+			try (var statement = proposalLock
+				.prepareStatement("select id from match_proposals where id = ? for update")) {
 				statement.setLong(1, proposalId);
 				statement.executeQuery();
 			}

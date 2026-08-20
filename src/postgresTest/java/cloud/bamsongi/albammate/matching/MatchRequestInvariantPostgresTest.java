@@ -37,7 +37,6 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import cloud.bamsongi.albammate.AlbamMateApplication;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
-import cloud.bamsongi.albammate.matching.dto.CurrentMatchStateResponse;
 import cloud.bamsongi.albammate.matching.dto.MatchRequestCreateRequest;
 import cloud.bamsongi.albammate.matching.service.command.MatchProposalCoordinator;
 import cloud.bamsongi.albammate.matching.service.command.MatchRequestCommandService;
@@ -140,7 +139,8 @@ class MatchRequestInvariantPostgresTest extends SharedPostgresIntegrationSupport
 		matchRequestCommandService.create(userId, "due-proposal-replay", new MatchRequestCreateRequest(1, 1));
 		long requestId = jdbcTemplate.queryForObject(
 			"select id from match_requests where user_id = ?", Long.class, userId);
-		jdbcTemplate.update("update match_requests set status = 'PROPOSED', proposed_at = current_timestamp where id = ?",
+		jdbcTemplate.update(
+			"update match_requests set status = 'PROPOSED', proposed_at = current_timestamp where id = ?",
 			requestId);
 		long proposalId = jdbcTemplate.queryForObject("""
 			insert into match_proposals (party_size, status, respond_by, created_at, updated_at)

@@ -40,7 +40,8 @@ public class MatchPartyLeaveExecutor {
 		if (party.getStatus() == MatchPartyStatus.PREPARING) {
 			throw new BusinessException(ErrorCode.MATCH_PARTY_LEAVE_NOT_AVAILABLE);
 		}
-		Instant operationTime = jdbcTemplate.queryForObject("select clock_timestamp()", java.sql.Timestamp.class).toInstant();
+		Instant operationTime = jdbcTemplate.queryForObject("select clock_timestamp()", java.sql.Timestamp.class)
+			.toInstant();
 		if (party.isClosingDue(operationTime)) {
 			party.close(operationTime);
 			return CurrentMatchStateResponse.empty(operationTime);
