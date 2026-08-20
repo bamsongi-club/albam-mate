@@ -24,9 +24,9 @@
 | 필드 | `korean` | `english` | `mixed` | `other` | `missing` |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | `description` | 215 | 93,057 | 81,842 | 120 | 0 |
-| `detail_description` | 54 | 13,591 | 161,588 | 1 | 0 |
+| `detail_description` | 55 | 13,591 | 161,587 | 1 | 0 |
 
-행 단위로 합치면 `mixed`는 161,595건, `english`·`other`를 포함한 미번역 행은 93,177건, 두 필드가 모두 `korean`인 행은 47건이다.
+행 단위로 합치면 `mixed`는 161,594건, `english`·`other`를 포함한 미번역 행은 93,177건, 두 필드가 모두 `korean`인 행은 47건이다.
 
 parser 결과는 SQL 행 175,234건, 고유 `bgg_id` 175,234건, 중복 ID 행 0건, `INSERT` 40개와 일치했다. SQL SHA-256은 `7866812e8ecd22942eccc3dee4553b49161af6297399c907b6a2953a9abb3c19`이다.
 

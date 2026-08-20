@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+    assertGameCatalogBggIdsExactlyOnce,
     parseGameCatalogSqlChunks,
     parseGameCatalogSqlText,
 } from "./parse-game-catalog-sql.mjs";
@@ -67,5 +68,22 @@ test("SQL parser는 games INSERT가 아닌 입력을 측정하지 않는다", ()
     assert.throws(
         () => parseGameCatalogSqlText("SELECT 1;"),
         /games INSERT statement를 찾지 못했다/u,
+    );
+});
+
+test("SQL parser는 지정한 보정 bgg_id가 정확히 한 번 있을 때만 허용한다", () => {
+    const sql = `INSERT INTO games (bgg_id, description, detail_description) VALUES
+  (10, '한국어 설명', '한국어 상세'),
+  (11, '한국어 설명', '한국어 상세'),
+  (11, '한국어 설명', '한국어 상세');`;
+
+    assert.doesNotThrow(() => assertGameCatalogBggIdsExactlyOnce(sql, [10]));
+    assert.throws(
+        () => assertGameCatalogBggIdsExactlyOnce(sql, [11]),
+        /bgg_id 11.*정확히 한 번.*2건/u,
+    );
+    assert.throws(
+        () => assertGameCatalogBggIdsExactlyOnce(sql, [12]),
+        /bgg_id 12.*정확히 한 번.*0건/u,
     );
 });
