@@ -2,6 +2,7 @@ package cloud.bamsongi.albammate.assistant;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.reset;
@@ -128,18 +129,21 @@ class AssistantDraftPostgresTest extends SharedPostgresIntegrationSupport {
 			.getId();
 		CountDownLatch createReachedUserLock = new CountDownLatch(1);
 		CountDownLatch releaseCreateUserLock = new CountDownLatch(1);
-		CountDownLatch revokeStarted = new CountDownLatch(1);
+		CountDownLatch revokeAcquiredUserLock = new CountDownLatch(1);
 		AtomicReference<Thread> createThread = new AtomicReference<>();
+		AtomicReference<Thread> revokeThread = new AtomicReference<>();
 		reset(userRowLockPort);
 		doAnswer(invocation -> {
+			Collection<Long> userIds = invocation.getArgument(0);
 			if (Thread.currentThread() == createThread.get()) {
 				createReachedUserLock.countDown();
 				assertTrue(releaseCreateUserLock.await(10, TimeUnit.SECONDS), "초안 생성 USERS 잠금을 해제하지 못했습니다.");
 			}
-			Collection<Long> userIds = invocation.getArgument(0);
-			return userRepository.findExistingUsersForUpdateInAscendingOrder(userIds).stream()
-				.map(User::getId)
-				.collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+			java.util.Set<Long> lockedUserIds = lockUsers(userIds);
+			if (Thread.currentThread() == revokeThread.get()) {
+				revokeAcquiredUserLock.countDown();
+			}
+			return lockedUserIds;
 		}).when(userRowLockPort).lockExistingUsersInAscendingOrder(org.mockito.ArgumentMatchers.anyCollection());
 		consentService.changeConsent(userId,
 			new AssistantConsentRequest(AssistantConsentDecision.GRANT, "AI-01-CONSENT-V1"));
@@ -152,19 +156,18 @@ class AssistantDraftPostgresTest extends SharedPostgresIntegrationSupport {
 			assertTrue(createReachedUserLock.await(10, TimeUnit.SECONDS), "초안 생성이 USERS 잠금 지점에 도달하지 못했습니다.");
 
 			var revokeFuture = executor.submit(() -> {
-				revokeStarted.countDown();
+				revokeThread.set(Thread.currentThread());
 				return consentService.changeConsent(userId,
 					new AssistantConsentRequest(AssistantConsentDecision.REVOKE, null));
 			});
-			assertTrue(revokeStarted.await(10, TimeUnit.SECONDS), "동의 철회 경합을 시작하지 못했습니다.");
+			assertTrue(revokeAcquiredUserLock.await(10, TimeUnit.SECONDS), "동의 철회가 USERS 행 잠금을 획득하지 못했습니다.");
 			releaseCreateUserLock.countDown();
 
-			try {
-				createFuture.get(10, TimeUnit.SECONDS);
-			} catch (java.util.concurrent.ExecutionException exception) {
-				BusinessException createError = assertInstanceOf(BusinessException.class, exception.getCause());
-				assertEquals(ErrorCode.ASSISTANT_CONSENT_REQUIRED, createError.getErrorCode());
-			}
+			java.util.concurrent.ExecutionException exception = assertThrows(
+				java.util.concurrent.ExecutionException.class,
+				() -> createFuture.get(10, TimeUnit.SECONDS));
+			BusinessException createError = assertInstanceOf(BusinessException.class, exception.getCause());
+			assertEquals(ErrorCode.ASSISTANT_CONSENT_REQUIRED, createError.getErrorCode());
 			revokeFuture.get(10, TimeUnit.SECONDS);
 			assertEquals(0, jdbcTemplate.queryForObject(
 				"select count(*) from assistant_drafts where user_id = ? and status = 'ACTIVE'", Integer.class,
