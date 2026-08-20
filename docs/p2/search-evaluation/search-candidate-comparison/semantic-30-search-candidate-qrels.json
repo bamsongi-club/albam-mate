@@ -13,13 +13,35 @@
     "gradeMeaning": "2=relevant, 1=borderline, 0=irrelevant"
   },
   "provenance": {
-    "thirdJudgeSource": "search-candidate-comparison/semantic-30-judge-c.json",
+    "schemaVersion": 1,
+    "canonicalPacket": {
+      "path": "search-candidate-comparison/semantic-30-human-judgement-packet.json",
+      "sha256": "cac1a01307e44a174001ec84a0e8eff2b40cab2ccb61a1e522ac73aa7c2f615f"
+    },
+    "judgePackets": [
+      {
+        "path": "search-candidate-comparison/semantic-30-judge-a.json",
+        "sha256": "8277ba33f1c59c0c78565a980bff233d103240fb70452d7181299d96db851a20",
+        "judgeId": "judge-a",
+        "independentHuman": true
+      },
+      {
+        "path": "search-candidate-comparison/semantic-30-judge-b.json",
+        "sha256": "bc61b7f6f7939c55ed3ea582471fc455bb4d677b698259f13a1ff8b86883ef9f",
+        "judgeId": "judge-b",
+        "independentHuman": true
+      },
+      {
+        "path": "search-candidate-comparison/semantic-30-judge-c.json",
+        "sha256": "4968e56c6a91ac85c60e588bda64edb40fcc3768e24a6fd01762bb39d354d544",
+        "judgeId": "judge-c-ai-drafted",
+        "independentHuman": false
+      }
+    ],
     "independentThirdJudge": false,
+    "thirdJudgeSource": "search-candidate-comparison/semantic-30-judge-c.json",
     "adjudicationRule": "A/B 일치값은 유지하고 불일치값은 AI C 판정을 provisional consensus로 사용",
-    "threeWayDisagreementCount": 117,
-    "worklistPath": "semantic-30-judge-c-worklist.json",
-    "worklistSha256": "6ba9a8501587fd935ece775482b37013fe47871679580b92facd32a31b9d8027",
-    "worklistStatus": "ai-drafted-not-independent-human"
+    "threeWayDisagreementCount": 117
   },
   "queries": [
     {

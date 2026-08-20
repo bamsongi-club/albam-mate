@@ -469,7 +469,9 @@ jobs:
           set -euo pipefail
           artifact_dir="$(mktemp -d)"
           packet_path="$artifact_dir/packet.json"
+          qrels_path="$artifact_dir/qrels.json"
           metrics_path="$artifact_dir/metrics.json"
+          pending_metrics_path="$artifact_dir/metrics-pending.json"
           trap 'rm -rf "$artifact_dir"' EXIT
           node scripts/search-evaluation/search-candidate-comparison.mjs \
             --packet \
@@ -477,11 +479,31 @@ jobs:
             --out "$packet_path" >/dev/null
           cmp -- "$packet_path" docs/p2/search-evaluation/search-candidate-comparison/semantic-30-human-judgement-packet.json
           node scripts/search-evaluation/search-candidate-comparison.mjs \
+            --qrels \
+            --provisional-ai-adjudication \
+            --manifest docs/p2/search-evaluation/search-candidate-semantic-30-input.json \
+            --canonical-packet docs/p2/search-evaluation/search-candidate-comparison/semantic-30-human-judgement-packet.json \
+            --judge-a docs/p2/search-evaluation/search-candidate-comparison/semantic-30-judge-a.json \
+            --judge-b docs/p2/search-evaluation/search-candidate-comparison/semantic-30-judge-b.json \
+            --judge-c docs/p2/search-evaluation/search-candidate-comparison/semantic-30-judge-c.json \
+            --judge-a-id judge-a \
+            --judge-b-id judge-b \
+            --judge-c-id judge-c-ai-drafted \
+            --out "$qrels_path" >/dev/null
+          cmp -- "$qrels_path" docs/p2/search-evaluation/search-candidate-comparison/semantic-30-search-candidate-qrels.json
+          node scripts/search-evaluation/search-candidate-comparison.mjs \
             --metrics \
+            --provisional-ai-adjudication \
             --hybrid-rrf \
             --manifest docs/p2/search-evaluation/search-candidate-semantic-30-input.json \
             --out "$metrics_path" >/dev/null
-          cmp -- "$metrics_path" docs/p2/search-evaluation/search-candidate-comparison/semantic-30-metrics-pending.json
+          cmp -- "$metrics_path" docs/p2/search-evaluation/search-candidate-comparison/semantic-30-metrics.json
+          node scripts/search-evaluation/search-candidate-comparison.mjs \
+            --metrics \
+            --hybrid-rrf \
+            --manifest docs/p2/search-evaluation/search-candidate-semantic-30-input.json \
+            --out "$pending_metrics_path" >/dev/null
+          cmp -- "$pending_metrics_path" docs/p2/search-evaluation/search-candidate-comparison/semantic-30-metrics-pending.json
 
       - name: Test SEARCH-04 lexical sparse baseline
         run: node --test scripts/search-evaluation/lexical-sparse-baseline.test.mjs

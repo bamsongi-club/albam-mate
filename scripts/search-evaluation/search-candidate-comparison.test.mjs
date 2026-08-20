@@ -885,6 +885,122 @@ test("CLI는 두 판정 packet을 checksum 고정 qrels로 조립한다", () => 
     }
 });
 
+test("provisional qrels는 manifest와 외부 override 모두 source provenance로 재생성 검증한다", () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), "search-candidate-provisional-qrels-test-"));
+    try {
+        const packet = judgementPacket();
+        const checksum = (bytes) => createHash("sha256").update(bytes).digest("hex");
+        const writeJson = (name, value) => {
+            const filePath = path.join(directory, name);
+            const bytes = Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
+            fs.writeFileSync(filePath, bytes);
+            return { filePath, descriptor: { path: name, sha256: checksum(bytes) } };
+        };
+        const packetArtifact = writeJson("packet.json", packet);
+        const judgeAArtifact = writeJson("judge-a.json", filledJudgementPacket(
+            packet,
+            { "1": 2, "2": 1, "3": 0, "4": 2 },
+            "A",
+        ));
+        const judgeBArtifact = writeJson("judge-b.json", filledJudgementPacket(
+            packet,
+            { "1": 1, "2": 1, "3": 0, "4": 2 },
+            "B",
+        ));
+        const judgeCPacket = filledJudgementPacket(
+            packet,
+            { "1": 0, "2": 1, "3": 0, "4": 2 },
+            "C",
+        );
+        judgeCPacket.status = "filled-ai-drafted-not-independent-human";
+        for (const candidateRow of judgeCPacket.queries[0].candidates) {
+            if (candidateRow.gameId !== 1) {
+                candidateRow.grade = null;
+                candidateRow.rationale = null;
+            }
+        }
+        const judgeCArtifact = writeJson("judge-c.json", judgeCPacket);
+        const queryArtifact = writeJson("queries.json", QUERY_FIXTURE);
+        const lexicalArtifact = writeJson("lexical.json", BASELINE_RESULTS);
+        const denseArtifact = writeJson("dense.json", DENSE_RESULTS);
+        const manifestPath = path.join(directory, "manifest.json");
+        const manifest = {
+            schemaVersion: 1,
+            kind: "search-04-search-candidate-comparison-input",
+            featureId: "SEARCH-04",
+            approvalReference: "https://github.com/bamsongi-club/albam-mate/issues/897",
+            evaluationTopK: 3,
+            judgementPacket: packetArtifact.descriptor,
+            candidates: [
+                { name: "lexical", queryFixture: queryArtifact.descriptor, results: lexicalArtifact.descriptor },
+                { name: "dense", queryFixture: queryArtifact.descriptor, results: denseArtifact.descriptor },
+            ],
+        };
+        const writeManifest = () => fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+        writeManifest();
+
+        const qrelsPath = path.join(directory, "qrels.json");
+        execFileSync(process.execPath, [
+            path.resolve("scripts/search-evaluation/search-candidate-comparison.mjs"),
+            "--qrels",
+            "--provisional-ai-adjudication",
+            "--manifest", manifestPath,
+            "--canonical-packet", packetArtifact.filePath,
+            "--judge-a", judgeAArtifact.filePath,
+            "--judge-b", judgeBArtifact.filePath,
+            "--judge-c", judgeCArtifact.filePath,
+            "--judge-c-id", "judge-c-ai-drafted",
+            "--out", qrelsPath,
+        ], { encoding: "utf8" });
+        const qrelsBytes = fs.readFileSync(qrelsPath);
+        manifest.judgements = { path: "qrels.json", sha256: checksum(qrelsBytes) };
+        writeManifest();
+
+        const manifestReport = compareFromManifest({
+            manifestPath,
+            allowProvisionalAiAdjudication: true,
+        });
+        assert.equal(manifestReport.status, "provisional-metrics-ready");
+
+        const overridePath = path.join(directory, "override.json");
+        fs.copyFileSync(qrelsPath, overridePath);
+        const overrideReport = compareFromManifest({
+            manifestPath,
+            judgementsPath: overridePath,
+            allowProvisionalAiAdjudication: true,
+        });
+        assert.equal(overrideReport.status, "provisional-metrics-ready");
+
+        const untrustedQrels = JSON.parse(qrelsBytes);
+        delete untrustedQrels.provenance;
+        const untrustedPath = path.join(directory, "untrusted.json");
+        fs.writeFileSync(untrustedPath, `${JSON.stringify(untrustedQrels)}\n`);
+        assert.throws(
+            () => compareFromManifest({
+                manifestPath,
+                judgementsPath: untrustedPath,
+                allowProvisionalAiAdjudication: true,
+            }),
+            /provisional AI qrels provenance/u,
+        );
+
+        const tamperedQrels = JSON.parse(qrelsBytes);
+        tamperedQrels.queries[0].consensus.grades["1"] = 2;
+        const tamperedPath = path.join(directory, "tampered.json");
+        fs.writeFileSync(tamperedPath, `${JSON.stringify(tamperedQrels)}\n`);
+        assert.throws(
+            () => compareFromManifest({
+                manifestPath,
+                judgementsPath: tamperedPath,
+                allowProvisionalAiAdjudication: true,
+            }),
+            /source packet으로 재생성한 결과/u,
+        );
+    } finally {
+        fs.rmSync(directory, { recursive: true, force: true });
+    }
+});
+
 test("원자적 JSON 출력은 write·rename 실패에서 기존 결과와 임시 파일을 보존한다", () => {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), "search-candidate-atomic-test-"));
     const outputPath = path.join(directory, "results.json");

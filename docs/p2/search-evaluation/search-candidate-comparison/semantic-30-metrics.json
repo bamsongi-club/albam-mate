@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "kind": "search-04-search-candidate-comparison",
-  "status": "provisional-ai-adjudication",
+  "status": "provisional-metrics-ready",
   "queryCount": 30,
   "evaluation": {
     "topK": 20,
@@ -2519,9 +2519,9 @@
     }
   },
   "selection": {
-    "status": "provisional-selected",
-    "selectedMethod": "dense-bge-m3",
-    "reason": "provisional AI adjudication qrels 기준 30개 질의에서 dense-bge-m3가 Recall@10 0.4557, MRR@10 0.5764, nDCG@10 0.5518로 네 방식 중 모두 가장 높고 hard-filter 위반율도 0%였습니다. 독립 human qrels와 최종 60+ query 품질 게이트 전에는 최종 방식 선정으로 확정하지 않습니다."
+    "status": "pending-human-decision",
+    "selectedMethod": null,
+    "reason": "metrics만으로 최종 방식을 자동 선택하지 않습니다."
   },
   "provenance": {
     "approvalReference": "https://github.com/bamsongi-club/albam-mate/issues/885#issuecomment-5344383511",
@@ -2573,20 +2573,7 @@
     },
     "judgements": {
       "path": "search-candidate-comparison/semantic-30-search-candidate-qrels.json",
-      "sha256": "0fc1ada920f5453ac058222878900258b32696010299a817faa968aee138a1e7",
-      "status": "provisional-ai-adjudication"
-    },
-    "thirdJudge": {
-      "path": "search-candidate-comparison/semantic-30-judge-c-worklist.json",
-      "sha256": "6ba9a8501587fd935ece775482b37013fe47871679580b92facd32a31b9d8027",
-      "status": "ai-drafted-not-independent-human",
-      "independent": false,
-      "threeWayDisagreementCount": 117
+      "sha256": "e5a6545bb98800e47742f464d8039c948267734180e9f92a97203db07b2cbc21"
     }
-  },
-  "blockingReasons": [
-    "semantic-30 C 585건은 AI가 작성했으며 독립 human third judge가 아닙니다.",
-    "A/B/C 3-way 충돌 117건은 C를 provisional adjudication 값으로 사용했습니다.",
-    "최종 방식 승인은 Final Quality Evaluation 60+ query와 독립 human qrels 후로 보류합니다."
-  ]
+  }
 }

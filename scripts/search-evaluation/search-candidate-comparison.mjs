@@ -93,8 +93,13 @@ export function compareFromManifest({
     const judgements = resolvedJudgementsPath
         ? readJson(resolvedJudgementsPath, "human qrels")
         : loaded.judgements;
-    if (judgements?.status === "approved" && !loaded.judgementPacketDescriptor) {
-        fail("approved human qrels에는 canonical judgementPacket descriptor가 필요합니다.");
+    const requiresJudgementProvenance = judgements?.status === "approved"
+        || judgements?.status === "provisional-ai-adjudication";
+    if (requiresJudgementProvenance && !loaded.judgementPacketDescriptor) {
+        fail(`${judgements.status} qrels에는 canonical judgementPacket descriptor가 필요합니다.`);
+    }
+    if (judgements?.status === "provisional-ai-adjudication") {
+        validateProvisionalAiAdjudicationProvenance({ judgements, loaded });
     }
     if (judgements?.status === "approved"
         && resolvedJudgementsPath
@@ -196,6 +201,95 @@ function validateApprovedJudgementOverrideProvenance({ judgements, loaded }) {
     delete actual.provenance;
     if (JSON.stringify(actual) !== JSON.stringify(expected)) {
         fail("approved human qrels override가 source packet으로 재생성한 결과와 다릅니다.");
+    }
+}
+
+function validateProvisionalAiAdjudicationProvenance({ judgements, loaded }) {
+    const provenance = judgements.provenance;
+    const name = "provisional AI qrels provenance";
+    requireExactObjectKeys(
+        provenance,
+        ["schemaVersion", "canonicalPacket", "judgePackets", "independentThirdJudge", "thirdJudgeSource", "adjudicationRule", "threeWayDisagreementCount"],
+        name,
+    );
+    if (provenance.schemaVersion !== JUDGEMENT_PROVENANCE_SCHEMA_VERSION) {
+        fail(`${name} schemaVersion이 올바르지 않습니다.`);
+    }
+    if (provenance.independentThirdJudge !== false
+        || !Array.isArray(provenance.judgePackets)
+        || provenance.judgePackets.length !== 3) {
+        fail(`${name}에는 독립 human A/B와 AI C packet 3개가 필요합니다.`);
+    }
+
+    const canonicalSource = readProvenanceArtifact(
+        provenance.canonicalPacket,
+        loaded.baseDir,
+        `${name}.canonicalPacket`,
+    );
+    const canonicalDescriptor = loaded.judgementPacketDescriptor;
+    if (canonicalSource.descriptor.path !== canonicalDescriptor.path
+        || canonicalSource.descriptor.sha256 !== canonicalDescriptor.sha256) {
+        fail(`${name}의 canonical packet이 manifest와 다릅니다.`);
+    }
+
+    const judgeIds = [];
+    const judgeDescriptors = provenance.judgePackets.map((descriptor, index) => {
+        const descriptorName = `${name}.judgePackets[${index}]`;
+        requireExactObjectKeys(
+            descriptor,
+            ["judgeId", "path", "sha256", "independentHuman"],
+            descriptorName,
+        );
+        if (!isNonEmptyString(descriptor.judgeId) || judgeIds.includes(descriptor.judgeId)) {
+            fail(`${name}의 judge ID가 없거나 중복되었습니다.`);
+        }
+        const expectedIndependentHuman = index < 2;
+        if (descriptor.independentHuman !== expectedIndependentHuman) {
+            fail(`${descriptorName}.independentHuman 표기가 올바르지 않습니다.`);
+        }
+        judgeIds.push(descriptor.judgeId);
+        return {
+            descriptor,
+            value: readProvenanceArtifact(
+                { path: descriptor.path, sha256: descriptor.sha256 },
+                loaded.baseDir,
+                descriptorName,
+            ).value,
+        };
+    });
+    if (provenance.thirdJudgeSource !== judgeDescriptors[2].descriptor.path) {
+        fail(`${name}.thirdJudgeSource가 AI C packet과 다릅니다.`);
+    }
+
+    const expected = buildProvisionalAiAdjudicationQrels({
+        packet: canonicalSource.value,
+        judgePackets: judgeDescriptors.slice(0, 2).map(({ value }) => value),
+        thirdJudgePacket: judgeDescriptors[2].value,
+        thirdJudgeSource: judgeDescriptors[2].descriptor.path,
+        judgeIds,
+        packetSha256: canonicalDescriptor.sha256,
+    });
+    expected.provenance = {
+        schemaVersion: JUDGEMENT_PROVENANCE_SCHEMA_VERSION,
+        canonicalPacket: canonicalSource.descriptor,
+        judgePackets: judgeDescriptors.map(({ descriptor }) => ({
+            path: descriptor.path,
+            sha256: descriptor.sha256,
+            judgeId: descriptor.judgeId,
+            independentHuman: descriptor.independentHuman,
+        })),
+        independentThirdJudge: false,
+        ...expected.provenance,
+    };
+    if (JSON.stringify(judgements.provenance) !== JSON.stringify(expected.provenance)) {
+        fail(`${name}가 source packet provenance와 다릅니다.`);
+    }
+
+    const actual = { ...judgements };
+    delete actual.provenance;
+    delete expected.provenance;
+    if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+        fail(`provisional AI qrels가 source packet으로 재생성한 결과와 다릅니다.`);
     }
 }
 
