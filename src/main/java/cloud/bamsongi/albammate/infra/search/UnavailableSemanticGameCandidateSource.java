@@ -7,7 +7,11 @@ import org.springframework.stereotype.Component;
 import cloud.bamsongi.albammate.game.contract.DenseCandidateSource;
 import cloud.bamsongi.albammate.game.contract.SemanticSearchUnavailableException;
 
-/** 실제 승인 index가 배포되기 전에는 semantic 후보를 fail-closed로 막는다. */
+/**
+ * 실제 의미 검색 index가 아직 준비되지 않은 개발·배포 환경에서 쓰는 임시 구현체다.
+ *
+ * 임의의 후보를 만들지 않고 의미 검색을 지금 사용할 수 없다고 알려, 서비스가 안전하게 키워드 검색으로 대체하게 한다.
+ */
 @Component
 public class UnavailableSemanticGameCandidateSource implements DenseCandidateSource {
 

@@ -4,7 +4,11 @@ import java.util.Objects;
 
 import cloud.bamsongi.albammate.game.service.GameListSearchCriteria;
 
-/** 인증·입력 검증을 마친 자연어 query와 P1 필터를 전달하는 내부 입력값이다. */
+/**
+ * 인증과 입력 검증을 마친 뒤 의미 검색에 전달하는 요청이다.
+ *
+ * 자연어 질의로 후보를 찾더라도 인원, 시간 같은 기존 P1 필터는 이 값과 함께 그대로 적용한다.
+ */
 public record SemanticGameSearchQuery(
 	String rawQuery,
 	GameListSearchCriteria criteria,

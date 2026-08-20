@@ -24,7 +24,12 @@ import cloud.bamsongi.albammate.game.repository.GameListSpecification;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
 import lombok.RequiredArgsConstructor;
 
-/** semantic 후보를 P1 catalog 조건으로 재검증해 내부 결과만 만든다. */
+/**
+ * 의미 검색 모델이 고른 후보를 그대로 응답하지 않고, 기존 게임 목록 검색과 같은 조건으로 다시 거르는 서비스다.
+ *
+ * 후보를 읽을 수 없을 때만 키워드 검색으로 대체하며, 인원·시간·공개 범위 같은 P1 조건은 두 경로에
+ * 모두 적용한다.
+ */
 @Service
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
