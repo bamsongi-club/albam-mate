@@ -47,10 +47,17 @@ const SCENARIO_SCRIPTS = {
   t3: 't3-waitlist-cancel-race.js',
   t4: 't4-last-seat-participation.js',
   t5: 't5-room-detail-by-role.js',
+  mixed: 'room-mixed-write-read.js',
 };
+const MIXED_PROFILE_OPTION_KEYS = [
+  'hotRoomCount', 'spreadRoomCount', 'hotRequestPercent', 'spreadRequestPercent',
+  't1Percent', 't2Percent', 't5Percent', 'arrivalRate', 'arrivalTimeUnit',
+  'durationSeconds', 'preAllocatedVUs', 'maxVUs', 'seed',
+];
 const COMMAND_OPTION_KEYS = {
   prepare: new Set([
     'scenario', 'runId', 'profile', 'rounds', 'mode', 'concurrency', 'subcase', 't3Mode', 't5Role', 't5Scale',
+    ...MIXED_PROFILE_OPTION_KEYS,
   ]),
   run: new Set(['fixture']),
   verify: new Set(['fixture', 'stage']),
@@ -59,6 +66,7 @@ const COMMAND_OPTION_KEYS = {
   'recover-cleanup': new Set(['recovery']),
   'render-bundle': new Set([
     'scenario', 'runId', 'profile', 'rounds', 'mode', 'concurrency', 'subcase', 't3Mode', 't5Role', 't5Scale',
+    ...MIXED_PROFILE_OPTION_KEYS,
   ]),
   validate: new Set(['bundle', 'forExecution']),
   'execution-options': new Set(['bundle']),
@@ -81,7 +89,7 @@ const BUNDLE_RUNTIME_DIRECT_COMMANDS = new Set([
 
 function usage() {
   return `사용법:
-  node load-tests/k6/jiwon/tools/fixture.mjs prepare --scenario t1 --run-id <run-id> [옵션]
+  node load-tests/k6/jiwon/tools/fixture.mjs prepare --scenario t1|t2|t3|t4|t5|mixed --run-id <run-id> [옵션]
   node load-tests/k6/jiwon/tools/fixture.mjs run --fixture <fixture.json>
   node load-tests/k6/jiwon/tools/fixture.mjs verify --fixture <fixture.json> --stage before|after
   node load-tests/k6/jiwon/tools/fixture.mjs compare-t5 --run-id <run-id>
@@ -1015,6 +1023,9 @@ async function run(values) {
   const t5ReadOptions = fixture.options.scenario === 't5'
     ? readExecutionOptions(process.env)
     : null;
+  const mixedProfile = fixture.options.scenario === 'mixed'
+    ? fixture.mixedProfile
+    : null;
   const version = k6Version();
   const scriptPath = scenarioScriptPath(fixture);
   const manifest = {
@@ -1036,6 +1047,9 @@ async function run(values) {
   };
   if (t5ReadOptions) {
     manifest.t5ReadOptions = t5ReadOptions;
+  }
+  if (mixedProfile) {
+    manifest.mixedProfile = mixedProfile;
   }
   let k6Process = null;
   let interruptedSignal = null;
@@ -1169,7 +1183,7 @@ function verify(values) {
     fixtureId: fixture.fixtureId,
     scenario: fixture.options.scenario,
     stage,
-    status: failures.length === 0 ? evaluation.status : 'FAIL',
+    status: evaluation.status === 'INVALID' ? 'INVALID' : failures.length === 0 ? evaluation.status : 'FAIL',
     failures,
   };
   writeJson(path.join(path.dirname(fixturePath), `${stage}-verification.json`), result);

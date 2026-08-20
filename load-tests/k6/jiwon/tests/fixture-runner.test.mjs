@@ -291,6 +291,7 @@ function createIsolatedFixtureTool() {
   copySource(path.join('load-tests', 'k6', 'jiwon', 'tools', 'fixture-model.mjs'));
   copySource(path.join('load-tests', 'k6', 'jiwon', 'tools', 'portable-bundle.mjs'));
   copySource(path.join('load-tests', 'k6', 'jiwon', 'lib', 'read-execution-options.mjs'));
+  copySource(path.join('load-tests', 'k6', 'jiwon', 'lib', 'room-mixed-options.mjs'));
 
   return {
     root,

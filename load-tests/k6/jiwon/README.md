@@ -21,8 +21,40 @@
 | T3 등록↔취소 경합 | `t3-waitlist-cancel-race.js` | race 반복, `wait-first`·`cancel-first` | 허용 종단만 남고 `RECRUITING + WAITING` 0 |
 | T4 마지막 자리 참가 | `t4-last-seat-participation.js` | 마지막 자리 × 동시 2·4·8 | ACTIVE 정확히 한 명, 정원 초과·자동 WAITING 0 |
 | T5 역할별 상세 조회 | `t5-room-detail-by-role.js` | public/host/participant × ACTIVE 1·10 | 역할별 shape·헤더, 조회 전후 DB snapshot 동일 |
+| Mixed write/read | `room-mixed-write-read.js` | 사람이 승인한 hot/spread·T1/T2/T5 비율과 seed·constant arrival 입력 | write/read fixture 격리, tier·operation·outcome aggregate와 arrival artifact 보존 |
 
 `public`은 익명이 아니라 로그인한 비관계 사용자다. T5는 `ACTIVE 1/정원 1`, `ACTIVE 10/정원 10`의 future-start `CLOSED` 만석 ROOM을 사용한다.
+
+### Mixed constant-arrival profile
+
+`mixed`는 기존 T1~T5의 기본 profile을 바꾸지 않는 별도 scenario다. 이 profile에는 운영 기본값이 없으며, 아래 값은 모두 사람의 사전 승인을 받아 `prepare` 또는 `render-bundle` 입력으로 명시해야 한다. 따라서 이 문서의 placeholder만으로는 실행되지 않는다.
+
+| 입력 | 의미와 검증 |
+| --- | --- |
+| `hotRoomCount`, `spreadRoomCount` | 1초 wave 안에서 사용할 hot/spread 논리 ROOM slot 수. spread는 같은 wave의 요청을 격리하도록 `arrivalRate` 이상이어야 하며, hot은 slot당 요청 수가 ROOM 정원 상한 10을 넘지 않아야 한다. write fixture는 T1/T2 사후 불변식을 보존하려고 operation·wave별 독립 physical ROOM으로 전개한다. |
+| `hotRequestPercent`, `spreadRequestPercent` | 두 tier 요청 비율. 각각 0보다 크고 합계는 100이다. |
+| `t1Percent`, `t2Percent`, `t5Percent` | cancel·waitlist register·room detail 구성 비율. 각각 0보다 크고 합계는 100이다. |
+| `arrivalRate`, `arrivalTimeUnit`, `durationSeconds` | `constant-arrival-rate`의 rate·time unit·duration. time unit은 결정적 fixture plan을 위해 현재 `1s`만 허용한다. 전체 target arrival은 `arrivalRate × durationSeconds`이며 fixture 상한 10,000 이하여야 한다. |
+| `preAllocatedVUs`, `maxVUs` | open model의 VU 확보 범위. `maxVUs`는 `preAllocatedVUs` 이상이어야 한다. |
+| `seed` | 0 이상 2,147,483,647 이하 정수. 같은 normalized 입력과 seed면 tier·operation·fixture ROOM 선택과 plan digest가 동일하다. |
+
+예를 들어 승인된 값을 변수에 넣은 뒤 다음처럼 bundle만 생성할 수 있다. 이 단계는 DB·k6·AWS를 호출하지 않는다.
+
+```powershell
+$bundle = node load-tests/k6/jiwon/tools/fixture.mjs render-bundle `
+  --scenario mixed --profile mixed --run-id <approved-run-id> `
+  --hotRoomCount <approved-hot-room-count> --spreadRoomCount <approved-spread-room-count> `
+  --hotRequestPercent <approved-hot-percent> --spreadRequestPercent <approved-spread-percent> `
+  --t1Percent <approved-t1-percent> --t2Percent <approved-t2-percent> --t5Percent <approved-t5-percent> `
+  --arrivalRate <approved-rate> --arrivalTimeUnit 1s --durationSeconds <approved-duration-seconds> `
+  --preAllocatedVUs <approved-preallocated-vus> --maxVUs <approved-max-vus> `
+  --seed <approved-seed> |
+  ConvertFrom-Json
+```
+
+`manifest.json`, `fixture-plan.json`, `execution-options.json`은 같은 normalized options와 `selectionPlanDigest`를 보존한다. `execution-options.json`의 `mixedProfile`에는 rate·time unit·duration·VU 범위와 selection count가 남는다. 실행 결과에서는 raw `k6-summary.json`의 `dropped_iterations`를 유지하고, `final-result.json`의 `mixedAggregate`가 target/actual arrival, dropped iterations, hot·spread × T1·T2·T5 × outcome count와 outcome latency를 빈 조합까지 포함해 정규화한다.
+
+T1·T2 write fixture와 T5 read fixture는 같은 run 안에서도 ROOM·user·participation·waitlist identity를 공유하지 않는다. 필수 profile/manifest/seed/arrival artifact가 없거나 malformed면 `INVALID`이고, 계약이 갖춰진 뒤 aggregate 불일치·write/read 격리·사후 DB 불변식이 깨지면 `FAIL`이다. 이 profile의 실제 Terraform apply/run/destroy는 이 이슈 범위 밖이며 별도 운영 승인이 필요하다.
 
 ## fixture와 격리
 
@@ -211,6 +243,7 @@ ROOM k6 campaign 목록과 current/superseded·기준선 제외 상태는 [Jiwon
 
 ```powershell
 node --test load-tests/k6/jiwon/tests/fixture-model.test.mjs
+node --test load-tests/k6/jiwon/tests/room-mixed-options.test.mjs
 node --test load-tests/k6/jiwon/tests/t3-execution-plan.test.mjs
 node --test load-tests/k6/jiwon/tests/fixture-runner.test.mjs
 node --test load-tests/k6/jiwon/tests/write-response-contract.test.mjs
@@ -236,4 +269,5 @@ k6 inspect load-tests/k6/jiwon/t2-concurrent-waitlist-registration.js
 k6 inspect load-tests/k6/jiwon/t3-waitlist-cancel-race.js
 k6 inspect load-tests/k6/jiwon/t4-last-seat-participation.js
 k6 inspect load-tests/k6/jiwon/t5-room-detail-by-role.js
+k6 inspect load-tests/k6/jiwon/room-mixed-write-read.js
 ```

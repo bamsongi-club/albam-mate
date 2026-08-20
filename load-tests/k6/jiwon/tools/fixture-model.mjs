@@ -1,5 +1,14 @@
 import { createHash } from 'node:crypto';
 
+import {
+  buildMixedAggregate,
+  createMixedSelectionPlan,
+  MIXED_OUTCOMES,
+  MIXED_OPERATIONS,
+  MIXED_TIERS,
+  normalizeMixedProfileOptions,
+} from '../lib/room-mixed-options.mjs';
+
 export const RUN_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{0,79}$/;
 export const CONCURRENCY_LEVELS = new Set([2, 4, 8]);
 export const PREPARE_OWNERSHIP_PATTERN = /^[0-9a-f]{32}$/;
@@ -10,17 +19,23 @@ export const ROOM_OUTCOME_CATEGORIES = Object.freeze([
   'unexpected',
 ]);
 
-const SCENARIOS = new Set(['t1', 't2', 't3', 't4', 't5']);
+const SCENARIOS = new Set(['t1', 't2', 't3', 't4', 't5', 'mixed']);
 const PROFILES = new Set(['stress', 'spike']);
 const T3_MODES = new Set(['race', 'wait-first', 'cancel-first']);
 const T5_ROLES = new Set(['public', 'host', 'participant']);
 const COMMON_OPTION_KEYS = new Set(['scenario', 'runId', 'profile', 'rounds']);
+const MIXED_COMMON_OPTION_KEYS = new Set(['scenario', 'runId', 'profile']);
 const SCENARIO_OPTION_KEYS = {
   t1: ['mode', 'concurrency'],
   t2: ['mode', 'concurrency', 'subcase'],
   t3: ['t3Mode'],
   t4: ['concurrency'],
   t5: ['t5Role', 't5Scale'],
+  mixed: [
+    'hotRoomCount', 'spreadRoomCount', 'hotRequestPercent', 'spreadRequestPercent',
+    't1Percent', 't2Percent', 't5Percent', 'arrivalRate', 'arrivalTimeUnit',
+    'durationSeconds', 'preAllocatedVUs', 'maxVUs', 'seed',
+  ],
 };
 
 export function roomRequestDurationMetricName(category) {
@@ -135,7 +150,8 @@ function oneOf(value, name, allowed) {
 }
 
 function assertAllowedOptionKeys(input, scenario) {
-  const allowed = new Set([...COMMON_OPTION_KEYS, ...SCENARIO_OPTION_KEYS[scenario]]);
+  const commonOptionKeys = scenario === 'mixed' ? MIXED_COMMON_OPTION_KEYS : COMMON_OPTION_KEYS;
+  const allowed = new Set([...commonOptionKeys, ...SCENARIO_OPTION_KEYS[scenario]]);
   const unexpected = Object.keys(input).filter((key) => !allowed.has(key));
   if (unexpected.length > 0) {
     fail(`scenario=${scenario}에서 허용되지 않는 옵션: ${unexpected.join(', ')}`);
@@ -222,6 +238,15 @@ export function normalizeFixtureOptions(input) {
   const runId = requiredText(input.runId, 'runId');
   if (!RUN_ID_PATTERN.test(runId)) {
     fail('runId는 영문 소문자 또는 숫자로 시작하는 80자 이하의 안전한 값이어야 합니다.');
+  }
+
+  if (scenario === 'mixed') {
+    const profile = oneOf(input.profile || 'mixed', 'profile', new Set(['mixed']));
+    const { targetArrivalCount, ...mixedProfile } = normalizeMixedProfileOptions(input);
+    const normalized = { scenario, runId, profile, ...mixedProfile };
+    const canonical = JSON.stringify(normalized);
+    normalized.fixtureId = `room-k6-${scenario}-${digest(canonical)}`;
+    return normalized;
   }
 
   const profile = oneOf(input.profile || 'stress', 'profile', PROFILES);
@@ -445,6 +470,152 @@ function addT5Plan(options, planner) {
   };
 }
 
+function addMixedReadRoom(planner, partitions, tier, roomSlot) {
+  const roomKey = `mixed-read-${tier}-r${roomSlot}`;
+  const hostKey = `mixed-read-${tier}-r${roomSlot}-host`;
+  const activeKey = `mixed-read-${tier}-r${roomSlot}-active`;
+  const actorKey = `mixed-read-${tier}-r${roomSlot}-public`;
+  planner.user(hostKey);
+  planner.user(activeKey);
+  planner.user(actorKey);
+  planner.room(roomKey, {
+    hostKey,
+    capacity: 1,
+    status: 'CLOSED',
+    activeKeys: [activeKey],
+    waiterKeys: [],
+  });
+  partitions.read.roomKeys.push(roomKey);
+  partitions.read.userKeys.push(hostKey, activeKey, actorKey);
+  return { roomKey, actorKey };
+}
+
+function addMixedWriteGroups(options, planner, selectionPlan, partitions, targetByArrival) {
+  const groups = new Map();
+  for (const selection of selectionPlan.selections.filter((candidate) => candidate.operation !== 't5')) {
+    const key = `${selection.operation}:${selection.tier}:${selection.wave}:${selection.roomSlot}`;
+    const group = groups.get(key) || {
+      operation: selection.operation,
+      tier: selection.tier,
+      wave: selection.wave,
+      roomSlot: selection.roomSlot,
+      selections: [],
+    };
+    group.selections.push(selection);
+    groups.set(key, group);
+  }
+
+  for (const group of groups.values()) {
+    const prefix = `mixed-write-${group.operation}-${group.tier}-w${group.wave}-r${group.roomSlot}`;
+    const hostKey = `${prefix}-host`;
+    planner.user(hostKey);
+    partitions.write.userKeys.push(hostKey);
+
+    if (group.operation === 't1') {
+      const cancelKeys = group.selections.map((selection) => `${prefix}-cancel-${selection.arrivalIndex}`);
+      const waiterKeys = Array.from(
+        { length: cancelKeys.length + 1 },
+        (_, index) => `${prefix}-waiter-${index}`,
+      );
+      cancelKeys.forEach((key) => {
+        planner.user(key);
+        partitions.write.userKeys.push(key);
+      });
+      waiterKeys.forEach((key) => {
+        planner.user(key);
+        partitions.write.userKeys.push(key);
+      });
+      const roomKey = planner.room(prefix, {
+        hostKey,
+        capacity: cancelKeys.length,
+        status: 'CLOSED',
+        activeKeys: cancelKeys,
+        waiterKeys,
+        cancelKeys,
+      });
+      partitions.write.roomKeys.push(roomKey);
+      group.selections.forEach((selection, index) => {
+        targetByArrival.set(selection.arrivalIndex, {
+          ...selection,
+          fixture: 'write',
+          roomKey,
+          actorKey: cancelKeys[index],
+        });
+      });
+      continue;
+    }
+
+    const activeKey = `${prefix}-active`;
+    planner.user(activeKey);
+    partitions.write.userKeys.push(activeKey);
+    const actorKeys = group.selections.map((selection) => `${prefix}-actor-${selection.arrivalIndex}`);
+    actorKeys.forEach((key) => {
+      planner.user(key);
+      partitions.write.userKeys.push(key);
+    });
+    const roomKey = planner.room(prefix, {
+      hostKey,
+      capacity: 1,
+      status: 'CLOSED',
+      activeKeys: [activeKey],
+      waiterKeys: [],
+    });
+    partitions.write.roomKeys.push(roomKey);
+    group.selections.forEach((selection, index) => {
+      targetByArrival.set(selection.arrivalIndex, {
+        ...selection,
+        fixture: 'write',
+        roomKey,
+        actorKey: actorKeys[index],
+      });
+    });
+  }
+}
+
+function addMixedPlan(options, planner) {
+  const selectionPlan = createMixedSelectionPlan(options);
+  const partitions = {
+    write: { roomKeys: [], userKeys: [] },
+    read: { roomKeys: [], userKeys: [] },
+  };
+  const targetByArrival = new Map();
+  addMixedWriteGroups(options, planner, selectionPlan, partitions, targetByArrival);
+
+  const readTargets = new Map();
+  for (const tier of MIXED_TIERS) {
+    const roomCount = tier === 'hot' ? options.hotRoomCount : options.spreadRoomCount;
+    for (let roomSlot = 0; roomSlot < roomCount; roomSlot += 1) {
+      readTargets.set(`${tier}:${roomSlot}`, addMixedReadRoom(planner, partitions, tier, roomSlot));
+    }
+  }
+  for (const selection of selectionPlan.selections.filter((candidate) => candidate.operation === 't5')) {
+    const readTarget = readTargets.get(`${selection.tier}:${selection.roomSlot}`);
+    targetByArrival.set(selection.arrivalIndex, {
+      ...selection,
+      fixture: 'read',
+      roomKey: readTarget.roomKey,
+      actorKey: readTarget.actorKey,
+      role: 'public',
+      scale: 1,
+    });
+  }
+
+  const targets = selectionPlan.selections.map((selection) => targetByArrival.get(selection.arrivalIndex));
+  if (targets.some((target) => !target)) {
+    fail('mixed selection에 대응하는 fixture target을 만들지 못했습니다.');
+  }
+  return {
+    targets,
+    sessionUserKeys: [...new Set(targets.map((target) => target.actorKey))],
+    fixturePartitions: partitions,
+    mixedProfile: {
+      options: selectionPlan.options,
+      selectionPlanDigest: selectionPlan.selectionPlanDigest,
+      selectionCounts: selectionPlan.counts,
+    },
+  };
+}
+
 export function createFixturePlan(input) {
   const options = normalizeFixtureOptions(input);
   const planner = createPlanner(options);
@@ -465,6 +636,9 @@ export function createFixturePlan(input) {
       break;
     case 't5':
       execution = addT5Plan(options, planner);
+      break;
+    case 'mixed':
+      execution = addMixedPlan(options, planner);
       break;
     default:
       fail(`지원하지 않는 scenario: ${options.scenario}`);
@@ -649,6 +823,8 @@ export function hydrateFixture(plan, resources, prepareOwnership) {
     rooms,
     targets: plan.targets,
     sessionUserKeys: [...new Set(plan.sessionUserKeys)],
+    ...(plan.fixturePartitions ? { fixturePartitions: plan.fixturePartitions } : {}),
+    ...(plan.mixedProfile ? { mixedProfile: plan.mixedProfile } : {}),
   };
 }
 
@@ -1150,6 +1326,252 @@ function evaluateT5(fixture, snapshot, baselineSnapshot, failures) {
   );
 }
 
+function mixedPartition(fixture, name) {
+  const partition = fixture.fixturePartitions?.[name];
+  if (!partition || !Array.isArray(partition.roomKeys) || !Array.isArray(partition.userKeys)) {
+    return null;
+  }
+  return partition;
+}
+
+function mixedRooms(fixture, operation) {
+  const roomKeys = new Set(
+    fixture.targets
+      .filter((target) => target.operation === operation)
+      .map((target) => target.roomKey),
+  );
+  return [...roomKeys].map((roomKey) => fixture.rooms[roomKey]).filter(Boolean);
+}
+
+function mixedOutcomeCount(aggregate, operation, outcome) {
+  if (!aggregate?.tiers) {
+    return null;
+  }
+  return MIXED_TIERS.reduce((total, tier) => {
+    const count = aggregate.tiers[tier]?.[operation]?.[outcome]?.count;
+    return Number.isSafeInteger(count) ? total + count : total;
+  }, 0);
+}
+
+function snapshotForRoomKeys(snapshot, fixture, roomKeys) {
+  const roomIds = new Set(roomKeys.map((key) => fixture.rooms[key]?.id).filter(Number.isInteger));
+  return {
+    rooms: snapshot.rooms.filter((room) => roomIds.has(room.id)),
+    participations: snapshot.participations.filter((entry) => roomIds.has(entry.roomId)),
+    waitlists: snapshot.waitlists.filter((entry) => roomIds.has(entry.roomId)),
+  };
+}
+
+function evaluateMixedPartitions(fixture, failures) {
+  const failureStart = failures.length;
+  const write = mixedPartition(fixture, 'write');
+  const read = mixedPartition(fixture, 'read');
+  addFailure(failures, write !== null && read !== null, 'mixed write/read fixture partition이 없습니다.');
+  if (!write || !read) {
+    return false;
+  }
+
+  const writeRoomKeys = new Set(write.roomKeys);
+  const writeUserKeys = new Set(write.userKeys);
+  const readRoomKeys = new Set(read.roomKeys);
+  const readUserKeys = new Set(read.userKeys);
+  addFailure(
+    failures,
+    writeRoomKeys.size === write.roomKeys.length
+      && readRoomKeys.size === read.roomKeys.length
+      && writeUserKeys.size === write.userKeys.length
+      && readUserKeys.size === read.userKeys.length,
+    'mixed fixture partition에 중복 resource key가 있습니다.',
+  );
+  addFailure(
+    failures,
+    [...writeRoomKeys].every((key) => !readRoomKeys.has(key))
+      && [...writeUserKeys].every((key) => !readUserKeys.has(key)),
+    'mixed T1/T2 write fixture와 T5 read fixture가 격리되지 않았습니다.',
+  );
+
+  const partitionDefinitions = [
+    { name: 'write', roomKeys: writeRoomKeys, userKeys: writeUserKeys },
+    { name: 'read', roomKeys: readRoomKeys, userKeys: readUserKeys },
+  ];
+  for (const partition of partitionDefinitions) {
+    const rooms = [...partition.roomKeys].map((key) => fixture.rooms[key]);
+    const users = [...partition.userKeys].map((key) => fixture.users[key]);
+    addFailure(
+      failures,
+      rooms.every(Boolean) && users.every(Boolean),
+      `mixed ${partition.name} fixture partition의 resource key를 찾지 못했습니다.`,
+    );
+
+    const roomIds = rooms.map((room) => room?.id);
+    const userIds = users.map((user) => user?.id);
+    addFailure(
+      failures,
+      roomIds.every(Number.isInteger) && new Set(roomIds).size === roomIds.length,
+      `mixed ${partition.name} fixture partition의 DB ROOM ID가 유효·유일하지 않습니다.`,
+    );
+    addFailure(
+      failures,
+      userIds.every(Number.isInteger) && new Set(userIds).size === userIds.length,
+      `mixed ${partition.name} fixture partition의 DB 사용자 ID가 유효·유일하지 않습니다.`,
+    );
+
+    for (const room of rooms) {
+      if (!room) {
+        continue;
+      }
+      const roomUserKeys = [
+        room.hostKey,
+        ...(room.activeKeys || []),
+        ...(room.waiterKeys || []),
+        ...(room.cancelKeys || []),
+        ...(room.candidateKeys || []),
+        ...(room.raceWaitKey ? [room.raceWaitKey] : []),
+      ];
+      addFailure(
+        failures,
+        roomUserKeys.every((key) => partition.userKeys.has(key)),
+        `mixed ${partition.name} fixture room의 사용자가 같은 partition에 속하지 않습니다.`,
+      );
+    }
+  }
+
+  const writeRoomIds = [...writeRoomKeys].map((key) => fixture.rooms[key]?.id);
+  const readRoomIds = [...readRoomKeys].map((key) => fixture.rooms[key]?.id);
+  const writeUserIds = [...writeUserKeys].map((key) => fixture.users[key]?.id);
+  const readUserIds = [...readUserKeys].map((key) => fixture.users[key]?.id);
+  addFailure(
+    failures,
+    writeRoomIds.every((id) => !readRoomIds.includes(id)),
+    'mixed write/read fixture가 같은 DB ROOM ID를 공유합니다.',
+  );
+  addFailure(
+    failures,
+    writeUserIds.every((id) => !readUserIds.includes(id)),
+    'mixed write/read fixture가 같은 DB 사용자 ID를 공유합니다.',
+  );
+  for (const target of fixture.targets) {
+    const expectedPartition = target.operation === 't5' ? 'read' : 'write';
+    const roomKeys = expectedPartition === 'read' ? readRoomKeys : writeRoomKeys;
+    const userKeys = expectedPartition === 'read' ? readUserKeys : writeUserKeys;
+    addFailure(
+      failures,
+      MIXED_OPERATIONS.includes(target.operation)
+        && target.fixture === expectedPartition
+        && roomKeys.has(target.roomKey)
+        && userKeys.has(target.actorKey)
+        && Number.isInteger(fixture.rooms[target.roomKey]?.id)
+        && Number.isInteger(fixture.users[target.actorKey]?.id),
+      `mixed ${target.operation} target의 fixture partition이 다릅니다.`,
+    );
+  }
+  return failures.length === failureStart;
+}
+
+function evaluateMixedT1(fixture, snapshot, failures, aggregate) {
+  let canceledCount = 0;
+  let promotedCount = 0;
+  for (const room of mixedRooms(fixture, 't1')) {
+    const canceled = room.cancelKeys.filter(
+      (key) => participationStatus(snapshot, room.id, fixture.users[key].id) === 'CANCELED',
+    );
+    const promoted = room.waiterKeys.filter(
+      (key) => waitlistStatus(snapshot, room.id, fixture.users[key].id) === 'PROMOTED',
+    );
+    canceledCount += canceled.length;
+    promotedCount += promoted.length;
+    addFailure(failures, promoted.length === canceled.length, `ROOM ${room.id}: mixed T1 취소·승격 수가 다릅니다.`);
+    room.waiterKeys.forEach((key, index) => {
+      const userId = fixture.users[key].id;
+      const promotedExpected = index < canceled.length;
+      addFailure(
+        failures,
+        promotedExpected
+          ? waitlistStatus(snapshot, room.id, userId) === 'PROMOTED'
+            && participationStatus(snapshot, room.id, userId) === 'ACTIVE'
+          : waitlistStatus(snapshot, room.id, userId) === 'WAITING'
+            && participationStatus(snapshot, room.id, userId) === null,
+        `ROOM ${room.id}: mixed T1 FIFO 승격 상태가 기대와 다릅니다.`,
+      );
+    });
+    const current = roomSnapshot(snapshot, room.id);
+    addFailure(failures, current?.status === 'CLOSED', `ROOM ${room.id}: mixed T1 뒤 CLOSED가 아닙니다.`);
+    addFailure(failures, current?.activeParticipantCount === room.capacity, `ROOM ${room.id}: mixed T1 정원이 유지되지 않았습니다.`);
+  }
+  const successCount = mixedOutcomeCount(aggregate, 't1', 'success');
+  if (successCount !== null) {
+    addFailure(failures, successCount === canceledCount, 'mixed T1 성공 수와 CANCELED 행 수가 다릅니다.');
+  }
+  addFailure(failures, promotedCount === canceledCount, 'mixed T1 전체 PROMOTED 수와 CANCELED 수가 다릅니다.');
+}
+
+function evaluateMixedT2(fixture, snapshot, failures, aggregate) {
+  const targets = fixture.targets.filter((target) => target.operation === 't2');
+  const waitingByActor = targets.filter((target) => (
+    waitlistStatus(snapshot, fixture.rooms[target.roomKey].id, fixture.users[target.actorKey].id) === 'WAITING'
+  ));
+  for (const room of mixedRooms(fixture, 't2')) {
+    const current = roomSnapshot(snapshot, room.id);
+    addFailure(failures, current?.status === 'CLOSED', `ROOM ${room.id}: mixed T2 뒤 CLOSED가 아닙니다.`);
+    addFailure(failures, current?.activeParticipantCount === room.capacity, `ROOM ${room.id}: mixed T2 ACTIVE 수가 변했습니다.`);
+  }
+  for (const target of targets) {
+    const room = fixture.rooms[target.roomKey];
+    addFailure(
+      failures,
+      participationStatus(snapshot, room.id, fixture.users[target.actorKey].id) === null,
+      `ROOM ${room.id}: mixed T2 대기 신청자가 ACTIVE가 되었습니다.`,
+    );
+  }
+  const successCount = mixedOutcomeCount(aggregate, 't2', 'success');
+  if (successCount !== null) {
+    addFailure(failures, successCount === waitingByActor.length, 'mixed T2 201 성공 수와 WAITING 행 수가 다릅니다.');
+  }
+}
+
+function evaluateMixedT5(fixture, snapshot, failures, aggregate) {
+  const read = mixedPartition(fixture, 'read');
+  if (!read || !fixture.baselineSnapshot) {
+    addFailure(failures, false, 'mixed T5 read fixture의 baseline snapshot이 없습니다.');
+    return;
+  }
+  const currentReadSnapshot = snapshotForRoomKeys(snapshot, fixture, read.roomKeys);
+  const baselineReadSnapshot = snapshotForRoomKeys(fixture.baselineSnapshot, fixture, read.roomKeys);
+  addFailure(
+    failures,
+    JSON.stringify(currentReadSnapshot) === JSON.stringify(baselineReadSnapshot),
+    'mixed T5 상세 조회 전후 read fixture snapshot이 달라졌습니다.',
+  );
+  const requestCount = MIXED_TIERS.reduce(
+    (total, tier) => total + MIXED_OUTCOMES.reduce(
+      (outcomeTotal, outcome) => outcomeTotal + (aggregate?.tiers?.[tier]?.t5?.[outcome]?.count || 0),
+      0,
+    ),
+    0,
+  );
+  const successCount = mixedOutcomeCount(aggregate, 't5', 'success');
+  if (successCount !== null) {
+    addFailure(failures, successCount === requestCount, 'mixed T5 조회 중 성공으로 분류되지 않은 응답이 있습니다.');
+  }
+}
+
+function evaluateMixed(fixture, snapshot, failures, summary) {
+  const partitionValid = evaluateMixedPartitions(fixture, failures);
+  if (!partitionValid) {
+    return { invalid: true };
+  }
+  const aggregate = summary ? buildMixedAggregate(summary, fixture.options) : null;
+  if (aggregate?.status === 'FAIL') {
+    aggregate.failureReasons.forEach((reason) => {
+      addFailure(failures, false, `mixed aggregate: ${reason}`);
+    });
+  }
+  evaluateMixedT1(fixture, snapshot, failures, aggregate);
+  evaluateMixedT2(fixture, snapshot, failures, aggregate);
+  evaluateMixedT5(fixture, snapshot, failures, aggregate);
+  return { invalid: aggregate?.status === 'INVALID' };
+}
+
 function expectedRequestCount(fixture) {
   return fixture.options.scenario === 't3'
     ? fixture.targets.length * 2
@@ -1220,6 +1642,10 @@ function evaluateMeasuredRequests(fixture, failures, summary) {
     return;
   }
 
+  if (fixture.options.scenario === 'mixed') {
+    return;
+  }
+
   const expected = expectedRequestCount(fixture);
   addFailure(
     failures,
@@ -1230,9 +1656,13 @@ function evaluateMeasuredRequests(fixture, failures, summary) {
 
 export function evaluateFixture(fixture, snapshot, stage, summary = null) {
   const failures = [];
+  let invalidAfterContract = false;
   evaluateCommonInvariants(fixture, snapshot, failures);
 
   if (stage === 'before') {
+    if (fixture.options.scenario === 'mixed') {
+      evaluateMixedPartitions(fixture, failures);
+    }
     for (const room of Object.values(fixture.rooms)) {
       const current = roomSnapshot(snapshot, room.id);
       addFailure(failures, current?.status === room.status, `ROOM ${room.id}: 사전 status가 fixture와 다릅니다.`);
@@ -1268,9 +1698,12 @@ export function evaluateFixture(fixture, snapshot, stage, summary = null) {
     case 't5':
       evaluateT5(fixture, snapshot, fixture.baselineSnapshot, failures);
       break;
+    case 'mixed':
+      invalidAfterContract = evaluateMixed(fixture, snapshot, failures, normalizedSummary).invalid;
+      break;
     default:
       fail(`지원하지 않는 scenario: ${fixture.options.scenario}`);
   }
 
-  return { status: failures.length === 0 ? 'PASS' : 'FAIL', failures };
+  return { status: invalidAfterContract ? 'INVALID' : failures.length === 0 ? 'PASS' : 'FAIL', failures };
 }
