@@ -227,7 +227,7 @@ public class MatchProposalResponseExecutor {
 	}
 
 	private Instant currentDatabaseTime() {
-		return jdbcTemplate.queryForObject("select current_timestamp", Timestamp.class).toInstant();
+		return jdbcTemplate.queryForObject("select clock_timestamp()", Timestamp.class).toInstant();
 	}
 
 	private MatchProposalMember findCurrentMember(List<MatchProposalMember> members, long userId) {

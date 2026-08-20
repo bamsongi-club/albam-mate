@@ -25,30 +25,26 @@ public interface MatchPartyRepository extends JpaRepository<MatchParty, Long> {
 
 	@Query(value = """
 		with operation as (
-			select current_timestamp as operation_time
+			select clock_timestamp() as operation_time
 		)
 		select party.id
 		from match_parties party
 		cross join operation
-		where (party.status = 'PREPARING'
+		where party.id > :afterPartyId
+		  and ((party.status = 'PREPARING'
 			and party.preparing_started_at <= operation.operation_time)
 			or (party.status = 'ACTIVE'
 				and (party.closes_at <= operation.operation_time
 					or (party.closes_at - interval '1 hour' <= operation.operation_time
-						and operation.operation_time < party.closes_at
-						and not exists (
-							select 1
-							from match_chat_messages message
-							join match_chat_rooms room on room.id = message.match_chat_room_id
-							where room.party_id = party.id
-								and message.system_event_key = 'CLOSES_IN_ONE_HOUR'
-						))))
+						and operation.operation_time < party.closes_at)))
 			or (party.status = 'CLOSED'
-				and party.purge_after <= operation.operation_time)
+				and party.purge_after <= operation.operation_time))
 		order by party.id asc
-		limit 100
+		limit :candidateBatchSize
 		""", nativeQuery = true)
-	List<Long> findLifecycleCandidateIds();
+	List<Long> findLifecycleCandidateIdsAfter(
+		@Param("afterPartyId") long afterPartyId,
+		@Param("candidateBatchSize") int candidateBatchSize);
 
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	@Query("select party from MatchParty party where party.id = :partyId")

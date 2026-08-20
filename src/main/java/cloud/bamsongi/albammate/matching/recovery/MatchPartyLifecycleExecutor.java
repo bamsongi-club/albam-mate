@@ -35,8 +35,8 @@ public class MatchPartyLifecycleExecutor {
 		if (party == null) {
 			return;
 		}
-		Timestamp transactionTimestamp = jdbcTemplate.queryForObject("select current_timestamp", Timestamp.class);
-		Instant operationTime = transactionTimestamp.toInstant();
+		Timestamp operationTimestamp = jdbcTemplate.queryForObject("select clock_timestamp()", Timestamp.class);
+		Instant operationTime = operationTimestamp.toInstant();
 		if (party.getStatus() != MatchPartyStatus.ACTIVE) {
 			return;
 		}
@@ -48,7 +48,8 @@ public class MatchPartyLifecycleExecutor {
 			party.close(operationTime);
 			return;
 		}
-		if (party.isCloseNoticeDue(operationTime)) {
+		if (party.isCloseNoticeDue(operationTime)
+			&& !chatSystemMessagePort.hasPersistedEvent(party.getId(), "CLOSES_IN_ONE_HOUR")) {
 			chatSystemMessagePort.record(party.getId(), "CLOSES_IN_ONE_HOUR");
 		}
 	}

@@ -1,16 +1,13 @@
 package cloud.bamsongi.albammate.matching;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.sql.Connection;
-import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
@@ -90,6 +87,39 @@ class MatchProposalClaimPostgresTest extends SharedPostgresIntegrationSupport {
 	}
 
 	@Test
+	void 최소_인원이_1인_anchor는_혼자서_partySize와_Member_수가_1인_Proposal로_claim한다() {
+		long anchorUserId = insertUser("single-anchor");
+		long laterUserId = insertUser("single-later");
+		long anchorRequestId = insertRequest(anchorUserId, 1, 3, 10);
+		long laterRequestId = insertRequest(laterUserId, 1, 3, 20);
+
+		matchProposalCoordinator.claimAvailableCandidates();
+
+		assertEquals("PROPOSED", requestStatus(anchorRequestId));
+		assertEquals("WAITING", requestStatus(laterRequestId));
+		long proposalId = jdbcTemplate.queryForObject("select id from match_proposals", Long.class);
+		assertEquals(1, jdbcTemplate.queryForObject(
+			"select party_size from match_proposals where id = ?", Integer.class, proposalId));
+		assertEquals(1, jdbcTemplate.queryForObject(
+			"select count(*) from match_proposal_members where proposal_id = ?", Integer.class, proposalId));
+	}
+
+	@Test
+	void 최소와_최대_인원이_모두_1인_단독_anchor는_WAITING에_남지_않고_1인_Proposal로_claim한다() {
+		long anchorUserId = insertUser("single-exact-anchor");
+		long anchorRequestId = insertRequest(anchorUserId, 1, 1, 10);
+
+		matchProposalCoordinator.claimAvailableCandidates();
+
+		assertEquals("PROPOSED", requestStatus(anchorRequestId));
+		long proposalId = jdbcTemplate.queryForObject("select id from match_proposals", Long.class);
+		assertEquals(1, jdbcTemplate.queryForObject(
+			"select party_size from match_proposals where id = ?", Integer.class, proposalId));
+		assertEquals(1, jdbcTemplate.queryForObject(
+			"select count(*) from match_proposal_members where proposal_id = ?", Integer.class, proposalId));
+	}
+
+	@Test
 	void 양방향_차단이나_교집합_불일치_후보는_건너뛰고_anchor는_WAITING으로_남긴다() {
 		long anchorUserId = insertUser("blocked-anchor");
 		long blockedUserId = insertUser("blocked-candidate");
@@ -103,6 +133,43 @@ class MatchProposalClaimPostgresTest extends SharedPostgresIntegrationSupport {
 		matchProposalCoordinator.claimAvailableCandidates();
 
 		assertEquals("WAITING", requestStatus(anchorRequestId));
+		assertEquals(0, jdbcTemplate.queryForObject("select count(*) from match_proposals", Integer.class));
+	}
+
+	@Test
+	void claim은_선택_사용자_잠금_뒤_먼저_확정된_양방향_차단을_재검사한다() throws Exception {
+		long firstUserId = insertUser("block-race-first");
+		long secondUserId = insertUser("block-race-second");
+		long firstRequestId = insertRequest(firstUserId, 2, 2, 10);
+		long secondRequestId = insertRequest(secondUserId, 2, 2, 20);
+
+		try (Connection userLock = dataSource.getConnection()) {
+			userLock.setAutoCommit(false);
+			try (var statement = userLock.prepareStatement("select id from users where id in (?, ?) order by id for update")) {
+				statement.setLong(1, firstUserId);
+				statement.setLong(2, secondUserId);
+				statement.executeQuery();
+			}
+			ExecutorService executor = Executors.newFixedThreadPool(2);
+			try {
+				Future<?> block = executor.submit(() -> jdbcTemplate.update("""
+					insert into match_blocks (blocker_user_id, blocked_user_id, created_at)
+					values (?, ?, current_timestamp)
+					""", firstUserId, secondUserId));
+				awaitTransactionLockWait();
+				Future<?> claim = executor.submit(matchProposalCoordinator::claimAvailableCandidates);
+				assertThrows(java.util.concurrent.TimeoutException.class,
+					() -> claim.get(200, TimeUnit.MILLISECONDS));
+				userLock.rollback();
+				block.get(10, TimeUnit.SECONDS);
+				claim.get(10, TimeUnit.SECONDS);
+			} finally {
+				executor.shutdownNow();
+			}
+		}
+
+		assertEquals("WAITING", requestStatus(firstRequestId));
+		assertEquals("WAITING", requestStatus(secondRequestId));
 		assertEquals(0, jdbcTemplate.queryForObject("select count(*) from match_proposals", Integer.class));
 	}
 
@@ -178,47 +245,19 @@ class MatchProposalClaimPostgresTest extends SharedPostgresIntegrationSupport {
 	}
 
 	@Test
-	void 후보_claim은_FIFO_상위_100건만_잠그고_101번째_요청은_다른_트랜잭션이_잠글_수_있다() throws Exception {
-		List<Long> requestIds = new ArrayList<>();
+	void 허용_범위의_101개_요청은_고정_100건_경계없이_하나의_Proposal로_claim한다() {
 		for (int index = 1; index <= 101; index++) {
 			long userId = insertUser("bounded-" + index);
-			requestIds.add(insertRequest(userId, 2, 2, index));
+			insertRequest(userId, 101, 101, index);
 		}
 
-		jdbcTemplate.execute("""
-			create function pause_match_request_proposal_update() returns trigger language plpgsql as $$
-			begin
-				if new.status = 'PROPOSED' then
-					perform pg_advisory_xact_lock(745002);
-				end if;
-				return new;
-			end;
-			$$
-			""");
-		jdbcTemplate.execute("""
-			create trigger pause_match_request_proposal_update_trigger
-			before update on match_requests
-			for each row execute function pause_match_request_proposal_update()
-			""");
+		matchProposalCoordinator.claimAvailableCandidates();
 
-		try (Connection advisoryConnection = dataSource.getConnection()) {
-			advisoryConnection.setAutoCommit(true);
-			advisoryConnection.createStatement().execute("select pg_advisory_lock(745002)");
-			ExecutorService executor = Executors.newSingleThreadExecutor();
-			Future<?> claim = executor.submit(matchProposalCoordinator::claimAvailableCandidates);
-			try {
-				awaitMatcherWaitingAtProposalUpdate();
-				assertDoesNotThrow(() -> lockRequestNowait(requestIds.get(100)));
-			} finally {
-				advisoryConnection.createStatement().execute("select pg_advisory_unlock(745002)");
-				claim.get(5, TimeUnit.SECONDS);
-				executor.shutdownNow();
-			}
-		} finally {
-			jdbcTemplate.execute(
-				"drop trigger if exists pause_match_request_proposal_update_trigger on match_requests");
-			jdbcTemplate.execute("drop function if exists pause_match_request_proposal_update()");
-		}
+		long proposalId = jdbcTemplate.queryForObject("select id from match_proposals", Long.class);
+		assertEquals(101, jdbcTemplate.queryForObject(
+			"select party_size from match_proposals where id = ?", Integer.class, proposalId));
+		assertEquals(101, jdbcTemplate.queryForObject(
+			"select count(*) from match_proposal_members where proposal_id = ?", Integer.class, proposalId));
 	}
 
 	@Test
@@ -277,35 +316,17 @@ class MatchProposalClaimPostgresTest extends SharedPostgresIntegrationSupport {
 		return jdbcTemplate.queryForObject("select status from match_requests where id = ?", String.class, requestId);
 	}
 
-	private void awaitMatcherWaitingAtProposalUpdate() throws InterruptedException {
-		for (int attempt = 0; attempt < 50; attempt++) {
-			Boolean isWaiting = jdbcTemplate.queryForObject("""
-				select exists (
-					select 1 from pg_locks
-					where locktype = 'advisory'
-					  and objid = 745002
-					  and not granted
-				)
-				""", Boolean.class);
-			if (Boolean.TRUE.equals(isWaiting)) {
+	private void awaitTransactionLockWait() throws InterruptedException {
+		for (int attempt = 0; attempt < 200; attempt++) {
+			Boolean waiting = jdbcTemplate.queryForObject(
+				"select exists (select 1 from pg_locks where locktype = 'transactionid' and not granted)",
+				Boolean.class);
+			if (Boolean.TRUE.equals(waiting)) {
 				return;
 			}
-			TimeUnit.MILLISECONDS.sleep(100);
+			TimeUnit.MILLISECONDS.sleep(25);
 		}
-		throw new AssertionError("후보 claim 트랜잭션이 요청 상태 갱신 지점까지 도달하지 않았습니다.");
-	}
-
-	private void lockRequestNowait(long requestId) throws SQLException {
-		try (Connection connection = dataSource.getConnection()) {
-			connection.setAutoCommit(false);
-			try (var statement = connection
-				.prepareStatement("select id from match_requests where id = ? for update nowait")) {
-				statement.setLong(1, requestId);
-				statement.executeQuery();
-			} finally {
-				connection.rollback();
-			}
-		}
+		throw new AssertionError("차단 생성의 사용자 행 잠금을 관찰하지 못했습니다.");
 	}
 
 	@TestConfiguration

@@ -9,6 +9,8 @@ import cloud.bamsongi.albammate.matching.service.command.MatchProposalResponseSe
 @Service
 public class MatchRecoveryCoordinator {
 
+	private static final int LIFECYCLE_CANDIDATE_BATCH_SIZE = 100;
+
 	private final MatchProposalResponseService proposalResponseService;
 	private final MatchPartyRepository partyRepository;
 	private final MatchPartyLifecycleExecutor lifecycleExecutor;
@@ -33,10 +35,26 @@ public class MatchRecoveryCoordinator {
 
 	public void recoverDueParties() {
 		proposalResponseService.expireDueProposals();
-		for (Long partyId : partyRepository.findLifecycleCandidateIds()) {
-			partyRepository.findById(partyId).ifPresent(this::recoverParty);
-		}
+		recoverLifecycleCandidates();
 		retentionCleanupExecutor.cleanUpExpiredRecords();
+	}
+
+	private void recoverLifecycleCandidates() {
+		long afterPartyId = 0;
+		while (true) {
+			java.util.List<Long> candidateIds = partyRepository
+				.findLifecycleCandidateIdsAfter(afterPartyId, LIFECYCLE_CANDIDATE_BATCH_SIZE);
+			if (candidateIds.isEmpty()) {
+				return;
+			}
+			for (Long partyId : candidateIds) {
+				partyRepository.findById(partyId).ifPresent(this::recoverParty);
+			}
+			afterPartyId = candidateIds.getLast();
+			if (candidateIds.size() < LIFECYCLE_CANDIDATE_BATCH_SIZE) {
+				return;
+			}
+		}
 	}
 
 	private void recoverParty(cloud.bamsongi.albammate.matching.entity.MatchParty party) {

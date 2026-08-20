@@ -19,6 +19,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
+import javax.sql.DataSource;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -54,6 +56,8 @@ class MatchProposalTerminalPostgresTest extends SharedPostgresIntegrationSupport
 	private MatchRequestCommandService matchRequestCommandService;
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
+	@Autowired
+	private DataSource dataSource;
 	@MockitoSpyBean
 	private MatchPartyParticipantRepository participantRepository;
 
@@ -310,6 +314,42 @@ class MatchProposalTerminalPostgresTest extends SharedPostgresIntegrationSupport
 	}
 
 	@Test
+	void Proposal_잠금_대기중_응답_기한을_넘긴_ACCEPT는_수락으로_확정하지_않는다() throws Exception {
+		long userId = insertUser("deadline-lock-wait");
+		long requestId = insertRequest(userId);
+		long proposalId = insertOpenProposal();
+		insertProposalMember(proposalId, requestId, userId);
+		jdbcTemplate.update("update match_proposals set respond_by = current_timestamp + interval '1 second' where id = ?",
+			proposalId);
+
+		try (var proposalLock = dataSource.getConnection()) {
+			proposalLock.setAutoCommit(false);
+			try (var statement = proposalLock.prepareStatement("select id from match_proposals where id = ? for update")) {
+				statement.setLong(1, proposalId);
+				statement.executeQuery();
+			}
+			var pool = Executors.newSingleThreadExecutor();
+			try {
+				Future<ErrorCode> response = pool.submit(() -> {
+					BusinessException exception = assertThrows(BusinessException.class,
+						() -> matchProposalResponseService.respond(
+							userId, proposalId, MatchProposalResponseAction.ACCEPT, "deadline-lock-wait"));
+					return exception.getErrorCode();
+				});
+				awaitTransactionLockWait();
+				TimeUnit.MILLISECONDS.sleep(1_200);
+				proposalLock.rollback();
+
+				assertEquals(ErrorCode.MATCH_PROPOSAL_RESPONSE_NOT_AVAILABLE, response.get(10, TimeUnit.SECONDS));
+			} finally {
+				pool.shutdownNow();
+			}
+		}
+		assertEquals("OPEN", proposalStatus(proposalId));
+		assertEquals("PENDING", responseStatus(proposalId, requestId));
+	}
+
+	@Test
 	void 마지막_ACCEPT와_만료_경합은_CONFIRMED_Party_또는_EXPIRED_중_하나로만_수렴한다() throws Exception {
 		long firstUser = insertUser("race-first");
 		long secondUser = insertUser("race-second");
@@ -554,6 +594,20 @@ class MatchProposalTerminalPostgresTest extends SharedPostgresIntegrationSupport
 
 	private String requestStatus(long requestId) {
 		return jdbcTemplate.queryForObject("select status from match_requests where id = ?", String.class, requestId);
+	}
+
+	private void awaitTransactionLockWait() throws InterruptedException {
+		long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+		while (System.nanoTime() < deadline) {
+			Boolean waiting = jdbcTemplate.queryForObject(
+				"select exists (select 1 from pg_locks where locktype = 'transactionid' and not granted)",
+				Boolean.class);
+			if (Boolean.TRUE.equals(waiting)) {
+				return;
+			}
+			TimeUnit.MILLISECONDS.sleep(25);
+		}
+		throw new AssertionError("Proposal 잠금 대기 상태를 관찰하지 못했습니다.");
 	}
 
 	@TestConfiguration

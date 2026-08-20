@@ -19,7 +19,6 @@ import cloud.bamsongi.albammate.matching.entity.MatchRequest;
 import cloud.bamsongi.albammate.matching.repository.MatchIdempotencyRecordRepository;
 import cloud.bamsongi.albammate.matching.repository.MatchPartyParticipantRepository;
 import cloud.bamsongi.albammate.matching.repository.MatchRequestRepository;
-import cloud.bamsongi.albammate.matching.service.query.MatchCurrentStateReadService;
 import cloud.bamsongi.albammate.user.contract.UserRowLockPort;
 
 @Service
@@ -29,7 +28,6 @@ public class MatchRequestCommandExecutor {
 	private final MatchIdempotencyRecordRepository idempotencyRecordRepository;
 	private final MatchPartyParticipantRepository participantRepository;
 	private final UserRowLockPort userRowLockPort;
-	private final MatchCurrentStateReadService currentStateReadService;
 	private final MatchProposalResponseExecutor proposalResponseExecutor;
 	private final JdbcTemplate jdbcTemplate;
 
@@ -38,14 +36,12 @@ public class MatchRequestCommandExecutor {
 		MatchIdempotencyRecordRepository idempotencyRecordRepository,
 		MatchPartyParticipantRepository participantRepository,
 		UserRowLockPort userRowLockPort,
-		MatchCurrentStateReadService currentStateReadService,
 		MatchProposalResponseExecutor proposalResponseExecutor,
 		JdbcTemplate jdbcTemplate) {
 		this.requestRepository = requestRepository;
 		this.idempotencyRecordRepository = idempotencyRecordRepository;
 		this.participantRepository = participantRepository;
 		this.userRowLockPort = userRowLockPort;
-		this.currentStateReadService = currentStateReadService;
 		this.proposalResponseExecutor = proposalResponseExecutor;
 		this.jdbcTemplate = jdbcTemplate;
 	}
@@ -66,7 +62,7 @@ public class MatchRequestCommandExecutor {
 			if (!record.hasSameMeaning(MatchIdempotencyOperation.MATCH_REQUEST_CREATE, fingerprint)) {
 				throw new BusinessException(ErrorCode.IDEMPOTENCY_KEY_CONFLICT);
 			}
-			return new MatchRequestCommandService.CreateResult(currentStateReadService.read(userId), true);
+			return new MatchRequestCommandService.CreateResult(null, true);
 		}
 		if (requestRepository.findCurrentByUserId(userId).isPresent()
 			|| participantRepository.existsCurrentPreparingOrActivePartyByUserId(userId)) {

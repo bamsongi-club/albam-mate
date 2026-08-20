@@ -18,16 +18,18 @@ import cloud.bamsongi.albammate.matching.repository.MatchBlockRepository;
 import cloud.bamsongi.albammate.matching.repository.MatchProposalMemberRepository;
 import cloud.bamsongi.albammate.matching.repository.MatchProposalRepository;
 import cloud.bamsongi.albammate.matching.repository.MatchRequestRepository;
+import cloud.bamsongi.albammate.user.contract.UserRowLockPort;
 
 @Service
 public class MatchProposalExecutor {
 
-	private static final int CANDIDATE_BATCH_SIZE = 100;
+	private static final int CANDIDATE_BATCH_SIZE = Short.MAX_VALUE;
 
 	private final MatchRequestRepository requestRepository;
 	private final MatchProposalRepository proposalRepository;
 	private final MatchProposalMemberRepository proposalMemberRepository;
 	private final MatchBlockRepository blockRepository;
+	private final UserRowLockPort userRowLockPort;
 	private final JdbcTemplate jdbcTemplate;
 
 	public MatchProposalExecutor(
@@ -35,11 +37,13 @@ public class MatchProposalExecutor {
 		MatchProposalRepository proposalRepository,
 		MatchProposalMemberRepository proposalMemberRepository,
 		MatchBlockRepository blockRepository,
+		UserRowLockPort userRowLockPort,
 		JdbcTemplate jdbcTemplate) {
 		this.requestRepository = requestRepository;
 		this.proposalRepository = proposalRepository;
 		this.proposalMemberRepository = proposalMemberRepository;
 		this.blockRepository = blockRepository;
+		this.userRowLockPort = userRowLockPort;
 		this.jdbcTemplate = jdbcTemplate;
 	}
 
@@ -52,7 +56,7 @@ public class MatchProposalExecutor {
 		}
 		MatchRequest oldestAnchor = lockedWaitingRequests.get(0);
 		Candidate candidate = findCandidate(oldestAnchor, lockedWaitingRequests);
-		if (candidate != null) {
+		if (candidate != null && lockUsersAndRecheckBlocks(candidate)) {
 			claim(candidate);
 		}
 	}
@@ -62,6 +66,9 @@ public class MatchProposalExecutor {
 			.getMaxPartySize(); targetPartySize++) {
 			List<MatchRequest> selected = new ArrayList<>();
 			selected.add(anchor);
+			if (canConfirmCandidate(selected, targetPartySize)) {
+				return new Candidate(selected, targetPartySize);
+			}
 			for (MatchRequest candidate : waitingRequests) {
 				if (candidate.getId().equals(anchor.getId())) {
 					continue;
@@ -74,8 +81,8 @@ public class MatchProposalExecutor {
 				}
 				selected.add(candidate);
 				if (selected.size() == targetPartySize) {
-					if (acceptsPartySize(selected, targetPartySize)) {
-						return new Candidate(selected, intersectionMinimum(selected));
+					if (canConfirmCandidate(selected, targetPartySize)) {
+						return new Candidate(selected, targetPartySize);
 					}
 					break;
 				}
@@ -84,8 +91,28 @@ public class MatchProposalExecutor {
 		return null;
 	}
 
+	private boolean canConfirmCandidate(List<MatchRequest> selected, int targetPartySize) {
+		return selected.size() == targetPartySize
+			&& intersectionMinimum(selected) == targetPartySize
+			&& acceptsPartySize(selected, targetPartySize);
+	}
+
+	private boolean lockUsersAndRecheckBlocks(Candidate candidate) {
+		userRowLockPort.lockExistingUsersInAscendingOrder(
+			candidate.requests().stream().map(MatchRequest::getUserId).toList());
+		for (MatchRequest request : candidate.requests()) {
+			if (!isCompatible(candidate.requests(), request)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
 	private boolean isCompatible(List<MatchRequest> selected, MatchRequest candidate) {
 		for (MatchRequest selectedRequest : selected) {
+			if (selectedRequest.getId().equals(candidate.getId())) {
+				continue;
+			}
 			if (blockRepository.existsBlockBetweenUsers(selectedRequest.getUserId(), candidate.getUserId())) {
 				return false;
 			}

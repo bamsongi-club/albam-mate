@@ -37,6 +37,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import cloud.bamsongi.albammate.AlbamMateApplication;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
+import cloud.bamsongi.albammate.matching.dto.CurrentMatchStateResponse;
 import cloud.bamsongi.albammate.matching.dto.MatchRequestCreateRequest;
 import cloud.bamsongi.albammate.matching.service.command.MatchProposalCoordinator;
 import cloud.bamsongi.albammate.matching.service.command.MatchRequestCommandService;
@@ -131,6 +132,34 @@ class MatchRequestInvariantPostgresTest extends SharedPostgresIntegrationSupport
 			userId, "replay-key", new MatchRequestCreateRequest(1, 1));
 		assertEquals(false, replaced.replayed());
 		assertEquals(1, countCurrentRequests(userId));
+	}
+
+	@Test
+	void 같은_키_재생은_due_OPEN_Proposal을_사용자_잠금_밖에서_보정해_최신_상태를_반환한다() {
+		long userId = insertUser();
+		matchRequestCommandService.create(userId, "due-proposal-replay", new MatchRequestCreateRequest(1, 1));
+		long requestId = jdbcTemplate.queryForObject(
+			"select id from match_requests where user_id = ?", Long.class, userId);
+		jdbcTemplate.update("update match_requests set status = 'PROPOSED', proposed_at = current_timestamp where id = ?",
+			requestId);
+		long proposalId = jdbcTemplate.queryForObject("""
+			insert into match_proposals (party_size, status, respond_by, created_at, updated_at)
+			values (1, 'OPEN', current_timestamp - interval '1 second', current_timestamp, current_timestamp)
+			returning id
+			""", Long.class);
+		jdbcTemplate.update("""
+			insert into match_proposal_members
+			(proposal_id, match_request_id, user_id, response_status, created_at, updated_at)
+			values (?, ?, ?, 'PENDING', current_timestamp, current_timestamp)
+			""", proposalId, requestId, userId);
+
+		MatchRequestCommandService.CreateResult replayed = matchRequestCommandService.create(
+			userId, "due-proposal-replay", new MatchRequestCreateRequest(1, 1));
+
+		assertEquals(true, replayed.replayed());
+		assertEquals(MatchCurrentState.PAUSED, replayed.response().state());
+		assertEquals("EXPIRED", jdbcTemplate.queryForObject(
+			"select status from match_proposals where id = ?", String.class, proposalId));
 	}
 
 	@Test

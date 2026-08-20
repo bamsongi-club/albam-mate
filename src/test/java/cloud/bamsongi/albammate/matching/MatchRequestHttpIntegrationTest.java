@@ -215,7 +215,7 @@ class MatchRequestHttpIntegrationTest {
 	}
 
 	@Test
-	void Party_나가기는_없는_Party와_비참가자_PREPARING을_각각_정해진_오류로_구분한다() throws Exception {
+	void Party_나가기는_없는_Party와_비참가자_Party를_모두_FORBIDDEN으로_숨긴다() throws Exception {
 		long userId = insertUser();
 		long otherUserId = insertUser();
 		long activePartyId = insertParty("ACTIVE");
@@ -224,8 +224,8 @@ class MatchRequestHttpIntegrationTest {
 
 		mockMvc.perform(delete("/api/matches/parties/{partyId}/participants/me", 999_999L)
 			.with(authenticationFor(userId)).with(csrf()))
-			.andExpect(status().isNotFound())
-			.andExpect(jsonPath("$.code").value(ErrorCode.MATCH_PARTY_NOT_FOUND.getCode()));
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.code").value(ErrorCode.FORBIDDEN.getCode()));
 		mockMvc.perform(delete("/api/matches/parties/{partyId}/participants/me", activePartyId)
 			.with(authenticationFor(userId)).with(csrf()))
 			.andExpect(status().isForbidden())
@@ -234,6 +234,23 @@ class MatchRequestHttpIntegrationTest {
 			.with(authenticationFor(userId)).with(csrf()))
 			.andExpect(status().isForbidden())
 			.andExpect(jsonPath("$.code").value(ErrorCode.FORBIDDEN.getCode()));
+	}
+
+	@Test
+	void Party_나가기는_기한이_지난_ACTIVE_Party를_남은_참가자_수와_무관하게_CLOSED로_보정한다() throws Exception {
+		long leavingUserId = insertUser();
+		long remainingUserId = insertUser();
+		long partyId = insertParty("ACTIVE");
+		insertParticipant(partyId, leavingUserId);
+		insertParticipant(partyId, remainingUserId);
+		jdbcTemplate.update("update match_parties set closes_at = ? where id = ?", Instant.now().minusSeconds(1), partyId);
+
+		mockMvc.perform(delete("/api/matches/parties/{partyId}/participants/me", partyId)
+			.with(authenticationFor(leavingUserId)).with(csrf()))
+			.andExpect(status().isOk());
+
+		assertEquals("CLOSED", jdbcTemplate.queryForObject(
+			"select status from match_parties where id = ?", String.class, partyId));
 	}
 
 	@Test

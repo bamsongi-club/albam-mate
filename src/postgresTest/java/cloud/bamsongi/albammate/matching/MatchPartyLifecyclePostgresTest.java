@@ -7,6 +7,11 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+
+import javax.sql.DataSource;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -39,6 +44,8 @@ class MatchPartyLifecyclePostgresTest extends SharedPostgresIntegrationSupport {
 	private MatchPartyRepository partyRepository;
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
+	@Autowired
+	private DataSource dataSource;
 
 	@AfterEach
 	void tearDown() {
@@ -93,6 +100,38 @@ class MatchPartyLifecyclePostgresTest extends SharedPostgresIntegrationSupport {
 		assertEquals(1, jdbcTemplate.queryForObject(
 			"select count(*) from match_parties where id = ? and closed_at is not null and purge_after is not null",
 			Integer.class, partyId));
+		assertEquals(0, jdbcTemplate.queryForObject("""
+			select count(*) from match_chat_messages message
+			join match_chat_rooms room on room.id = message.match_chat_room_id
+			where room.party_id = ? and message.system_event_key = 'CLOSES_IN_ONE_HOUR'
+			""", Integer.class, partyId));
+	}
+
+	@Test
+	void Party_잠금_대기중_종료_시각을_넘기면_CLOSED가_종료_안내보다_우선한다() throws Exception {
+		long partyId = insertActiveParty(Instant.now().minusSeconds(86_399));
+		insertMatchChatRoom(partyId);
+
+		try (var partyLock = dataSource.getConnection()) {
+			partyLock.setAutoCommit(false);
+			try (var statement = partyLock.prepareStatement("select id from match_parties where id = ? for update")) {
+				statement.setLong(1, partyId);
+				statement.executeQuery();
+			}
+			var pool = Executors.newSingleThreadExecutor();
+			try {
+				Future<?> recovery = pool.submit(() -> lifecycleExecutor.recover(partyId));
+				awaitTransactionLockWait();
+				TimeUnit.MILLISECONDS.sleep(1_200);
+				partyLock.rollback();
+				recovery.get(10, TimeUnit.SECONDS);
+			} finally {
+				pool.shutdownNow();
+			}
+		}
+
+		assertEquals("CLOSED", jdbcTemplate.queryForObject(
+			"select status from match_parties where id = ?", String.class, partyId));
 		assertEquals(0, jdbcTemplate.queryForObject("""
 			select count(*) from match_chat_messages message
 			join match_chat_rooms room on room.id = message.match_chat_room_id
@@ -199,6 +238,22 @@ class MatchPartyLifecyclePostgresTest extends SharedPostgresIntegrationSupport {
 	}
 
 	@Test
+	void 이미_종료_안내가_있는_낮은_ID_Party_뒤의_due_Party도_한번의_제한된_스캔에서_복구한다() {
+		for (int index = 0; index < 201; index++) {
+			long noticedPartyId = insertActiveParty(Instant.now().minusSeconds(82_800));
+			long chatRoomId = insertMatchChatRoom(noticedPartyId);
+			insertCloseNotice(chatRoomId);
+		}
+		long expiredPartyId = insertActiveParty(Instant.now().minusSeconds(86_401));
+		insertMatchChatRoom(expiredPartyId);
+
+		recoveryCoordinator.recoverDueParties();
+
+		assertEquals("CLOSED", jdbcTemplate.queryForObject(
+			"select status from match_parties where id = ?", String.class, expiredPartyId));
+	}
+
+	@Test
 	void scheduler_coordinator는_보존_기한을_넘긴_CLOSED_Party의_채팅을_먼저_정리하고_삭제한다() {
 		long partyId = insertClosedParty(Instant.now().minusSeconds(604_801));
 		insertMatchChatRoom(partyId);
@@ -216,7 +271,7 @@ class MatchPartyLifecyclePostgresTest extends SharedPostgresIntegrationSupport {
 		insertActiveParty(futureTime);
 		insertClosedParty(futureTime);
 
-		List<Long> candidateIds = partyRepository.findLifecycleCandidateIds();
+		List<Long> candidateIds = partyRepository.findLifecycleCandidateIdsAfter(0, 100);
 
 		assertEquals(List.of(), candidateIds);
 	}
@@ -227,7 +282,7 @@ class MatchPartyLifecyclePostgresTest extends SharedPostgresIntegrationSupport {
 			insertClosedParty(Instant.now().minusSeconds(604_801));
 		}
 
-		List<Long> candidateIds = partyRepository.findLifecycleCandidateIds();
+		List<Long> candidateIds = partyRepository.findLifecycleCandidateIdsAfter(0, 100);
 
 		assertEquals(100, candidateIds.size());
 	}
@@ -396,10 +451,34 @@ class MatchPartyLifecyclePostgresTest extends SharedPostgresIntegrationSupport {
 			partyId, userId, UUID.randomUUID(), Timestamp.from(Instant.now()));
 	}
 
-	private void insertMatchChatRoom(long partyId) {
+	private long insertMatchChatRoom(long partyId) {
 		Instant now = Instant.now();
-		jdbcTemplate.update("insert into match_chat_rooms (party_id, created_at, updated_at) values (?, ?, ?)",
-			partyId, Timestamp.from(now), Timestamp.from(now));
+		return jdbcTemplate.queryForObject(
+			"insert into match_chat_rooms (party_id, created_at, updated_at) values (?, ?, ?) returning id",
+			Long.class, partyId, Timestamp.from(now), Timestamp.from(now));
+	}
+
+	private void insertCloseNotice(long chatRoomId) {
+		Instant now = Instant.now();
+		jdbcTemplate.update("""
+			insert into match_chat_messages
+			(match_chat_room_id, message_type, system_event_key, content, created_at)
+			values (?, 'SYSTEM', 'CLOSES_IN_ONE_HOUR', '채팅이 1시간 이내에 종료됩니다.', ?)
+			""", chatRoomId, Timestamp.from(now));
+	}
+
+	private void awaitTransactionLockWait() throws InterruptedException {
+		long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+		while (System.nanoTime() < deadline) {
+			Boolean waiting = jdbcTemplate.queryForObject(
+				"select exists (select 1 from pg_locks where locktype = 'transactionid' and not granted)",
+				Boolean.class);
+			if (Boolean.TRUE.equals(waiting)) {
+				return;
+			}
+			TimeUnit.MILLISECONDS.sleep(25);
+		}
+		throw new AssertionError("Party 잠금 대기 상태를 관찰하지 못했습니다.");
 	}
 
 	private void createCleanupFailureTrigger() {
