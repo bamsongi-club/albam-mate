@@ -27,6 +27,22 @@ export function hasWaitlistPayload(data, expectedRoomId, expectedPosition = null
     && (expectedPosition === null || data.position === expectedPosition);
 }
 
+export function hasNicknameSummary(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)
+    || typeof value.nickname !== 'string') {
+    return false;
+  }
+
+  const allowedKeys = new Set(['nickname', 'profileImageUrl']);
+  if (Object.keys(value).some((key) => !allowedKeys.has(key))) {
+    return false;
+  }
+
+  return !Object.prototype.hasOwnProperty.call(value, 'profileImageUrl')
+    || value.profileImageUrl === null
+    || typeof value.profileImageUrl === 'string';
+}
+
 export function hasNicknameOnlySet(participants, expectedNicknames) {
   if (!Array.isArray(participants)
     || !Array.isArray(expectedNicknames)
@@ -41,12 +57,7 @@ export function hasNicknameOnlySet(participants, expectedNicknames) {
 
   const actualNicknameSet = new Set();
   for (const participant of participants) {
-    const nicknameOnly = participant
-      && typeof participant === 'object'
-      && !Array.isArray(participant)
-      && typeof participant.nickname === 'string'
-      && Object.keys(participant).length === 1;
-    if (!nicknameOnly || !expectedNicknameSet.has(participant.nickname)) {
+    if (!hasNicknameSummary(participant) || !expectedNicknameSet.has(participant.nickname)) {
       return false;
     }
     actualNicknameSet.add(participant.nickname);

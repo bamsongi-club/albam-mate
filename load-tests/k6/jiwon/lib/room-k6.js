@@ -4,6 +4,7 @@ import { Counter, Trend } from 'k6/metrics';
 import { readExecutionOptions } from './read-execution-options.mjs';
 import {
   hasNicknameOnlySet,
+  hasNicknameSummary,
   hasParticipationPayload,
   hasT3CancelPayload,
   hasWaitlistPayload,
@@ -480,12 +481,6 @@ export function classifyT4Join(response, value, expectedRoomId) {
   return unexpected();
 }
 
-function nicknameOnly(value) {
-  return value && typeof value === 'object'
-    && typeof value.nickname === 'string'
-    && Object.keys(value).length === 1;
-}
-
 function participantNicknames(fixture, room) {
   return [room.hostKey, ...room.activeKeys].map((userKey) => fixture.users[userKey].nickname);
 }
@@ -523,7 +518,7 @@ export function classifyT5Detail(response, value, fixture, target) {
   const valid = data.waitlistable === false
     && data.myRole === expectedRole
     && typeof data.place === 'string'
-    && nicknameOnly(data.host)
+    && hasNicknameSummary(data.host)
     && data.host.nickname === fixture.users[room.hostKey].nickname
     && validParticipants;
   return success(response, value, valid);
