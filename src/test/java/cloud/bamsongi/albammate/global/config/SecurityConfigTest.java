@@ -48,7 +48,6 @@ import cloud.bamsongi.albammate.global.security.currentuser.CurrentUserPrincipal
 import cloud.bamsongi.albammate.global.security.currentuser.SecurityContextCurrentUserAccessor;
 import cloud.bamsongi.albammate.global.security.error.ApiAccessDeniedHandler;
 import cloud.bamsongi.albammate.global.security.error.ApiAuthenticationEntryPoint;
-import cloud.bamsongi.albammate.global.security.error.ApiRequestRejectedHandler;
 import cloud.bamsongi.albammate.global.security.error.SecurityErrorResponseWriter;
 import cloud.bamsongi.albammate.global.security.session.SessionCookieConfigurer;
 import jakarta.servlet.SessionCookieConfig;
@@ -63,7 +62,6 @@ import tools.jackson.databind.ObjectMapper;
 	SecurityConfig.class,
 	ApiAccessDeniedHandler.class,
 	ApiAuthenticationEntryPoint.class,
-	ApiRequestRejectedHandler.class,
 	SecurityErrorResponseWriter.class,
 	GlobalExceptionHandler.class,
 	SecurityConfigTest.SecurityFixtureController.class,

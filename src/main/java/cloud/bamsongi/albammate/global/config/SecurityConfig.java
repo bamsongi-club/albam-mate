@@ -24,6 +24,7 @@ import cloud.bamsongi.albammate.global.security.endpoint.ApiEndpointPolicyRegist
 import cloud.bamsongi.albammate.global.security.error.ApiAccessDeniedHandler;
 import cloud.bamsongi.albammate.global.security.error.ApiAuthenticationEntryPoint;
 import cloud.bamsongi.albammate.global.security.error.ApiRequestRejectedHandler;
+import cloud.bamsongi.albammate.global.security.error.SecurityErrorResponseWriter;
 import cloud.bamsongi.albammate.global.security.session.SessionConfiguration;
 import cloud.bamsongi.albammate.global.security.session.SessionCookieConfigurer;
 
@@ -47,7 +48,8 @@ public class SecurityConfig {
 	private static final String SOCIAL_CALLBACK_BASE_URI = "/api/auth/social/callback";
 
 	@Bean
-	WebSecurityCustomizer webSecurityCustomizer(ApiRequestRejectedHandler requestRejectedHandler) {
+	WebSecurityCustomizer webSecurityCustomizer(SecurityErrorResponseWriter responseWriter) {
+		ApiRequestRejectedHandler requestRejectedHandler = new ApiRequestRejectedHandler(responseWriter);
 		return web -> web.requestRejectedHandler(requestRejectedHandler);
 	}
 

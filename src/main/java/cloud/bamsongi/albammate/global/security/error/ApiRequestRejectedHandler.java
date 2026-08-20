@@ -4,7 +4,6 @@ import java.io.IOException;
 
 import org.springframework.security.web.firewall.RequestRejectedException;
 import org.springframework.security.web.firewall.RequestRejectedHandler;
-import org.springframework.stereotype.Component;
 
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import jakarta.servlet.http.HttpServletRequest;
@@ -14,7 +13,6 @@ import lombok.RequiredArgsConstructor;
 
 /** StrictHttpFirewall이 DispatcherServlet 전에 거절한 요청을 공통 API 오류 봉투로 변환한다. */
 @RequiredArgsConstructor
-@Component
 public final class ApiRequestRejectedHandler implements RequestRejectedHandler {
 
 	@NonNull private final SecurityErrorResponseWriter responseWriter;
