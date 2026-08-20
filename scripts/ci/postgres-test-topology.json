@@ -63,6 +63,7 @@
     "cloud.bamsongi.albammate.chat.ChatMessageRateLimitPropertiesPostgresTest": "Redis container",
     "cloud.bamsongi.albammate.chat.ChatMessageSchemaPostgresTest": "isolated Flyway schema",
     "cloud.bamsongi.albammate.chat.ChatRoomSchemaPostgresTest": "isolated Flyway schema",
+    "cloud.bamsongi.albammate.chat.ChatUserWebSocketCrossInstanceDeliveryPostgresTest": "Redis and multiple application instances",
     "cloud.bamsongi.albammate.chat.ChatWebSocketCrossInstanceDeliveryPostgresTest": "Redis and multiple application instances",
     "cloud.bamsongi.albammate.chat.ChatWebSocketCrossInstanceSessionPostgresTest": "Redis and multiple application instances",
     "cloud.bamsongi.albammate.chat.ChatWebSocketRestartRecoveryPostgresTest": "Redis and restarted application instances",
