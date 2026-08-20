@@ -9,6 +9,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,6 +23,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import cloud.bamsongi.albammate.AlbamMateApplication;
+import cloud.bamsongi.albammate.chat.contract.ChatRealtimePublisher;
+import cloud.bamsongi.albammate.chat.contract.MessageCommitted;
 import cloud.bamsongi.albammate.chat.entity.ChatMessage;
 import cloud.bamsongi.albammate.chat.entity.ChatRoom;
 import cloud.bamsongi.albammate.chat.entity.ChatSystemEventKey;
@@ -65,6 +68,27 @@ class ChatSystemMessageWriterLifecyclePostgresTest extends SharedPostgresIntegra
 	private ChatMessageRepository chatMessageRepository;
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
+	@Autowired
+	private RecordingChatRealtimePublisher recordingChatRealtimePublisher;
+
+	@Test
+	void T3_참가_확정_커밋_후_실시간_전달_신호가_ChatRealtimePublisher까지_도달한다() {
+		activateGateAt(NOW.minusSeconds(3600));
+		long hostUserId = insertUser("realtime-host@example.com");
+		long participantUserId = insertUser("realtime-member@example.com");
+		Room room = createRoom(hostUserId, 2, NOW.plusSeconds(3600));
+		Long chatRoomId = chatRoomIdOf(room.getId());
+		recordingChatRealtimePublisher.clear();
+
+		roomParticipationService.participate(participantUserId, room.getId());
+
+		List<ChatMessage> systemMessages = orderedSystemMessages(chatRoomId);
+		assertEquals(1, systemMessages.size());
+		assertEventRow(systemMessages.get(0), ChatSystemEventKey.PARTICIPANT_ENTERED, participantUserId);
+		assertEquals(
+			List.of(MessageCommitted.messageCreated(room.getId(), systemMessages.get(0).getId())),
+			recordingChatRealtimePublisher.events());
+	}
 
 	@Test
 	void T2_방_생성_직후에는_안내가_없고_참가_재참가_취소_각각_정확히_한_건이며_비참가자_취소와_중복_참가는_안내를_남기지_않는다() {
@@ -186,6 +210,30 @@ class ChatSystemMessageWriterLifecyclePostgresTest extends SharedPostgresIntegra
 		@Primary
 		Clock fixedClock() {
 			return Clock.fixed(NOW, ZoneOffset.UTC);
+		}
+
+		@Bean
+		@Primary
+		RecordingChatRealtimePublisher recordingChatRealtimePublisher() {
+			return new RecordingChatRealtimePublisher();
+		}
+	}
+
+	static class RecordingChatRealtimePublisher implements ChatRealtimePublisher {
+
+		private final List<MessageCommitted> events = new CopyOnWriteArrayList<>();
+
+		@Override
+		public void publish(MessageCommitted event) {
+			events.add(event);
+		}
+
+		List<MessageCommitted> events() {
+			return List.copyOf(events);
+		}
+
+		void clear() {
+			events.clear();
 		}
 	}
 }
