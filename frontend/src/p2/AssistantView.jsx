@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ApiError, api } from '../api';
-import { ErrorBox, TopBar } from '../shared/ui';
+import { ErrorBox, SendIcon, TopBar } from '../shared/ui';
 
 const REGIONS = ['홍대', '강남', '건대', '잠실'];
 const EXPERIENCE_LABELS = {
@@ -11,6 +11,18 @@ const EXPERIENCE_LABELS = {
 const MISSING_FIELD_LABELS = {
   GAME_STYLE: '어떤 분위기나 게임 스타일을 원하는지 알려주세요.'
 };
+const QUICK_PROMPTS = ['초보 환영 모임 찾아줘', '오늘 저녁 4인 가볍게 할 게임 추천해줘', '윙스팬 모임 만들어줘'];
+
+function botReplyText(result) {
+  if (!result) return '';
+  if (result.state === 'NEEDS_INPUT') {
+    return (result.missingFields || []).map((field) => MISSING_FIELD_LABELS[field] || '필요한 조건을 더 알려주세요.').join(' ') || '조금만 더 알려주세요.';
+  }
+  if (result.state === 'NO_CANDIDATES') return '맞는 게임을 찾지 못했어요. 인원, 테마, 난이도 중 하나를 바꿔 다시 물어보세요.';
+  if (result.state === 'UNSUPPORTED') return '도와드릴 수 있는 요청이 아니에요. 게임 추천이나 모임 만들기 조건을 알려주시면 도와드릴게요.';
+  if (result.state === 'RECOMMENDED') return '이 조건으로 찾아봤어요. 이 게임들은 어때요?';
+  return '';
+}
 
 function isGranted(consent) {
   return consent?.status === 'GRANTED';
@@ -91,22 +103,7 @@ function ConsentCard({ consent, pending, onGrant }) {
 }
 
 function RecommendationResult({ result, selectedCandidate, onSelectCandidate }) {
-  if (!result) return null;
-  if (result.state === 'NEEDS_INPUT') {
-    return (
-      <section className="assistant-card" aria-live="polite">
-        <h2>조금만 더 알려주세요</h2>
-        <p>{(result.missingFields || []).map((field) => MISSING_FIELD_LABELS[field] || '필요한 조건을 더 알려주세요.').join(' ')}</p>
-      </section>
-    );
-  }
-  if (result.state === 'NO_CANDIDATES') {
-    return <section className="assistant-card" aria-live="polite"><h2>맞는 게임을 찾지 못했어요</h2><p>인원, 테마, 난이도 중 하나를 바꿔 다시 물어보세요.</p></section>;
-  }
-  if (result.state === 'UNSUPPORTED') {
-    return <section className="assistant-card" aria-live="polite"><h2>도와드릴 수 있는 요청이 아니에요</h2><p>게임 추천이나 모임 만들기 조건을 알려주시면 도와드릴게요.</p></section>;
-  }
-  if (result.state !== 'RECOMMENDED') return null;
+  if (!result || result.state !== 'RECOMMENDED') return null;
   return (
     <section className="assistant-card" aria-labelledby="assistant-recommendations-title">
       <p className="assistant-eyebrow">서버 조건으로 찾은 후보</p>
@@ -311,22 +308,31 @@ function DraftCard({ draft, onSave, onDiscard, onConfirm }) {
 
 function AssistantStart({ onCreateDraft, onConsentRequired }) {
   const [message, setMessage] = useState('');
+  const [history, setHistory] = useState([]);
   const [result, setResult] = useState(null);
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
+  const logRef = useRef(null);
 
-  const submit = async (event) => {
-    event.preventDefault();
-    const currentMessage = message.trim();
-    if (!currentMessage) return;
+  useEffect(() => {
+    const log = logRef.current;
+    if (log) log.scrollTop = log.scrollHeight;
+  }, [history, result, selectedCandidate, error, pending]);
+
+  const send = async (text) => {
+    const currentMessage = text.trim();
+    if (!currentMessage || pending) return;
+    setHistory((entries) => [...entries, { role: 'mine', text: currentMessage }]);
+    setMessage('');
     setPending(true);
     setError('');
     try {
       const next = await api.recommendAssistant(currentMessage, result?.conditions || null);
       setResult(next);
       setSelectedCandidate(null);
-      setMessage('');
+      const reply = botReplyText(next);
+      if (reply) setHistory((entries) => [...entries, { role: 'theirs', text: reply }]);
     } catch (requestError) {
       if (isConsentRequiredError(requestError)) onConsentRequired();
       else setError(assistantErrorMessage(requestError));
@@ -335,21 +341,43 @@ function AssistantStart({ onCreateDraft, onConsentRequired }) {
     }
   };
 
+  const submit = (event) => {
+    event.preventDefault();
+    send(message);
+  };
+
   return (
     <>
-      <section className="assistant-intro">
-        <p className="assistant-eyebrow">알밤봇</p>
-        <h2>같이 할 게임을 찾아볼까요?</h2>
-        <p>인원, 시간, 게임 분위기 중 아는 것부터 편하게 알려주세요.</p>
-      </section>
-      <form className="assistant-compose" onSubmit={submit}>
+      <div className="chat-log assistant-log" ref={logRef}>
+        <div className="chat-message theirs">
+          <span className="chat-line"><span className="chat-content">같이 할 게임을 찾아볼까요? 인원, 시간, 게임 분위기 중 아는 것부터 편하게 알려주세요.</span></span>
+        </div>
+        {history.map((turn, index) => (
+          <div className={'chat-message ' + turn.role} key={index}>
+            <span className="chat-line"><span className="chat-content">{turn.text}</span></span>
+          </div>
+        ))}
+        {pending && (
+          <div className="chat-message theirs" aria-hidden="true">
+            <span className="chat-line"><span className="chat-content">찾아보는 중…</span></span>
+          </div>
+        )}
+        <RecommendationResult result={result} selectedCandidate={selectedCandidate} onSelectCandidate={setSelectedCandidate} />
+        {selectedCandidate && <DraftCreationForm key={selectedCandidate.id} candidate={selectedCandidate} conditions={result?.conditions} onCreate={onCreateDraft} />}
+        {error && <p className="assistant-error" role="alert">{error}</p>}
+      </div>
+      <div className="chiprow assistant-suggestions">
+        {QUICK_PROMPTS.map((prompt) => (
+          <button className="chip" type="button" key={prompt} disabled={pending} onClick={() => send(prompt)}>{prompt}</button>
+        ))}
+      </div>
+      <form className="chat-compose" onSubmit={submit}>
         <label className="sr-only" htmlFor="assistant-message">알밤봇에게 묻기</label>
-        <textarea id="assistant-message" value={message} maxLength="2000" placeholder="예) 초보자와 주말 저녁에 할 협력 게임을 추천해줘" onChange={(event) => setMessage(event.target.value)} />
-        <button className="btn" type="submit" disabled={!message.trim() || pending}>{pending ? '추천을 찾는 중…' : '추천 받기'}</button>
+        <textarea id="assistant-message" value={message} maxLength="2000" placeholder="예) 초보자와 주말 저녁에 할 협력 게임을 추천해줘" disabled={pending} onChange={(event) => setMessage(event.target.value)} />
+        <button className="chat-send" type="submit" disabled={!message.trim() || pending} aria-label={pending ? '전송 중…' : '전송'}>
+          <SendIcon />
+        </button>
       </form>
-      {error && <p className="assistant-error" role="alert">{error}</p>}
-      <RecommendationResult result={result} selectedCandidate={selectedCandidate} onSelectCandidate={setSelectedCandidate} />
-      {selectedCandidate && <DraftCreationForm key={selectedCandidate.id} candidate={selectedCandidate} conditions={result?.conditions} onCreate={onCreateDraft} />}
     </>
   );
 }
@@ -460,10 +488,19 @@ export function AssistantView({ onBack, onNavigate }) {
   const startFresh = () => setDraftState({ loading: false, draft: null, expired: false, error: '' });
 
   let content;
+  let chatMode = false;
   if (draftState.loading) {
     content = <p className="assistant-loading" role="status">확인 카드를 불러오는 중이에요.</p>;
   } else if (draftState.draft) {
-    content = <DraftCard draft={draftState.draft} onSave={saveDraft} onDiscard={discardDraft} onConfirm={confirmDraft} />;
+    chatMode = true;
+    content = (
+      <div className="chat-log assistant-log">
+        <div className="chat-message theirs">
+          <span className="chat-line"><span className="chat-content">이 조건으로 모임을 열까요? 확인 후에만 실제로 만들어져요.</span></span>
+        </div>
+        <DraftCard draft={draftState.draft} onSave={saveDraft} onDiscard={discardDraft} onConfirm={confirmDraft} />
+      </div>
+    );
   } else if (draftState.expired) {
     content = (
       <section className="assistant-card" aria-live="polite">
@@ -477,20 +514,27 @@ export function AssistantView({ onBack, onNavigate }) {
   } else if (consent.loading) {
     content = <p className="assistant-loading" role="status">AI 사용 상태를 확인하는 중이에요.</p>;
   } else if (consent.data && !isGranted(consent.data)) {
-    content = <>
-      <ConsentCard consent={consent.data} pending={granting} onGrant={grant} />
-      {consent.error && <p className="assistant-error" role="alert">{consent.error}</p>}
-    </>;
+    chatMode = true;
+    content = (
+      <div className="chat-log assistant-log">
+        <div className="chat-message theirs">
+          <span className="chat-line"><span className="chat-content">처음이시네요! 시작 전에 AI 사용 동의가 필요해요.</span></span>
+        </div>
+        <ConsentCard consent={consent.data} pending={granting} onGrant={grant} />
+        {consent.error && <p className="assistant-error" role="alert">{consent.error}</p>}
+      </div>
+    );
   } else if (consent.error) {
     content = <ErrorBox title="AI 사용 상태를 불러오지 못했어요" message={consent.error} onRetry={retryBootstrap} />;
   } else {
+    chatMode = true;
     content = <AssistantStart onCreateDraft={createDraft} onConsentRequired={retryBootstrap} />;
   }
 
   return (
     <div className="screen sub assistant-screen">
       <TopBar onBack={onBack} title="알밤봇" />
-      <div className="screen-body pad-bottom">{content}</div>
+      <div className={'screen-body' + (chatMode ? ' chat-mode' : ' pad-bottom')}>{content}</div>
     </div>
   );
 }
