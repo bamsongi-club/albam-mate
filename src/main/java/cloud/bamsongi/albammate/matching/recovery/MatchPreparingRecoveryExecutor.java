@@ -61,7 +61,13 @@ public class MatchPreparingRecoveryExecutor {
 			return;
 		}
 		chatProvisionPort.provision(party.getId());
-		party.activate(operationTime);
+		// current_timestamp는 트랜잭션 시작 시각으로 고정되므로, 개설 뒤 전이 시각은 DB wall clock으로 다시 확인한다.
+		Instant activationTime = jdbcTemplate.queryForObject("select clock_timestamp()", Timestamp.class).toInstant();
+		if (!activationTime.isBefore(preparingDeadline)) {
+			cleanUpFailedPreparingParty(party.getId(), party.getProposalId());
+			return;
+		}
+		party.activate(activationTime);
 		chatSystemMessagePort.record(party.getId(), "CHAT_OPENED");
 	}
 

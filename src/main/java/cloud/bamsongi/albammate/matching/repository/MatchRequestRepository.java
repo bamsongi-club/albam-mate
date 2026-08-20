@@ -25,9 +25,11 @@ public interface MatchRequestRepository extends JpaRepository<MatchRequest, Long
 		select * from match_requests
 		where status = 'WAITING'
 		order by priority_since asc, id asc
+		limit :candidateBatchSize
 		for update skip locked
 		""", nativeQuery = true)
-	java.util.List<MatchRequest> findWaitingForUpdateSkipLocked();
+	java.util.List<MatchRequest> findWaitingForUpdateSkipLocked(@Param("candidateBatchSize")
+	int candidateBatchSize);
 
 	@Query("""
 		select request from MatchRequest request

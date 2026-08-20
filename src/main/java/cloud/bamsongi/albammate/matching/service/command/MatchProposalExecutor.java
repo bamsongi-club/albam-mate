@@ -22,6 +22,8 @@ import cloud.bamsongi.albammate.matching.repository.MatchRequestRepository;
 @Service
 public class MatchProposalExecutor {
 
+	private static final int CANDIDATE_BATCH_SIZE = 100;
+
 	private final MatchRequestRepository requestRepository;
 	private final MatchProposalRepository proposalRepository;
 	private final MatchProposalMemberRepository proposalMemberRepository;
@@ -43,7 +45,8 @@ public class MatchProposalExecutor {
 
 	@Transactional(propagation = Propagation.REQUIRES_NEW)
 	public void claimAvailableCandidates() {
-		List<MatchRequest> lockedWaitingRequests = requestRepository.findWaitingForUpdateSkipLocked();
+		List<MatchRequest> lockedWaitingRequests = requestRepository
+			.findWaitingForUpdateSkipLocked(CANDIDATE_BATCH_SIZE);
 		if (lockedWaitingRequests.isEmpty()) {
 			return;
 		}

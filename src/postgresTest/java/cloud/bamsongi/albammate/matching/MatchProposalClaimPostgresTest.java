@@ -1,13 +1,16 @@
 package cloud.bamsongi.albammate.matching;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.sql.Connection;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
@@ -175,6 +178,50 @@ class MatchProposalClaimPostgresTest extends SharedPostgresIntegrationSupport {
 	}
 
 	@Test
+	void 후보_claim은_FIFO_상위_100건만_잠그고_101번째_요청은_다른_트랜잭션이_잠글_수_있다() throws Exception {
+		List<Long> requestIds = new ArrayList<>();
+		for (int index = 1; index <= 101; index++) {
+			long userId = insertUser("bounded-" + index);
+			requestIds.add(insertRequest(userId, 2, 2, index));
+		}
+
+		jdbcTemplate.execute("""
+			create function pause_match_request_proposal_update() returns trigger language plpgsql as $$
+			begin
+				if new.status = 'PROPOSED' then
+					perform pg_advisory_xact_lock(745002);
+				end if;
+				return new;
+			end;
+			$$
+			""");
+		jdbcTemplate.execute("""
+			create trigger pause_match_request_proposal_update_trigger
+			before update on match_requests
+			for each row execute function pause_match_request_proposal_update()
+			""");
+
+		try (Connection advisoryConnection = dataSource.getConnection()) {
+			advisoryConnection.setAutoCommit(true);
+			advisoryConnection.createStatement().execute("select pg_advisory_lock(745002)");
+			ExecutorService executor = Executors.newSingleThreadExecutor();
+			Future<?> claim = executor.submit(matchProposalCoordinator::claimAvailableCandidates);
+			try {
+				awaitMatcherWaitingAtProposalUpdate();
+				assertDoesNotThrow(() -> lockRequestNowait(requestIds.get(100)));
+			} finally {
+				advisoryConnection.createStatement().execute("select pg_advisory_unlock(745002)");
+				claim.get(5, TimeUnit.SECONDS);
+				executor.shutdownNow();
+			}
+		} finally {
+			jdbcTemplate.execute(
+				"drop trigger if exists pause_match_request_proposal_update_trigger on match_requests");
+			jdbcTemplate.execute("drop function if exists pause_match_request_proposal_update()");
+		}
+	}
+
+	@Test
 	void ProposalMember_저장_실패는_Proposal과_모든_요청_상태를_함께_롤백한다() {
 		long firstUserId = insertUser("rollback-first");
 		long secondUserId = insertUser("rollback-second");
@@ -228,6 +275,37 @@ class MatchProposalClaimPostgresTest extends SharedPostgresIntegrationSupport {
 
 	private String requestStatus(long requestId) {
 		return jdbcTemplate.queryForObject("select status from match_requests where id = ?", String.class, requestId);
+	}
+
+	private void awaitMatcherWaitingAtProposalUpdate() throws InterruptedException {
+		for (int attempt = 0; attempt < 50; attempt++) {
+			Boolean isWaiting = jdbcTemplate.queryForObject("""
+				select exists (
+					select 1 from pg_locks
+					where locktype = 'advisory'
+					  and objid = 745002
+					  and not granted
+				)
+				""", Boolean.class);
+			if (Boolean.TRUE.equals(isWaiting)) {
+				return;
+			}
+			TimeUnit.MILLISECONDS.sleep(100);
+		}
+		throw new AssertionError("후보 claim 트랜잭션이 요청 상태 갱신 지점까지 도달하지 않았습니다.");
+	}
+
+	private void lockRequestNowait(long requestId) throws SQLException {
+		try (Connection connection = dataSource.getConnection()) {
+			connection.setAutoCommit(false);
+			try (var statement = connection
+				.prepareStatement("select id from match_requests where id = ? for update nowait")) {
+				statement.setLong(1, requestId);
+				statement.executeQuery();
+			} finally {
+				connection.rollback();
+			}
+		}
 	}
 
 	@TestConfiguration

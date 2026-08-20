@@ -2,12 +2,14 @@ package cloud.bamsongi.albammate.matching.recovery;
 
 import java.time.Duration;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import cloud.bamsongi.albammate.global.scheduling.ScheduledTaskLock;
 
 @Component
+@ConditionalOnProperty(prefix = "spring.task.scheduling", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class MatchRecoveryScheduler {
 	static final String LOCK_NAME = "match-recovery";
 	private static final Duration LOCK_AT_MOST_FOR = Duration.ofMinutes(2);

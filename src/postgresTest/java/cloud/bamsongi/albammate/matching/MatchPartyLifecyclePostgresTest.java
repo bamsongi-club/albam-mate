@@ -133,6 +133,35 @@ class MatchPartyLifecyclePostgresTest extends SharedPostgresIntegrationSupport {
 	}
 
 	@Test
+	void 채팅_준비_중_준비_기한을_넘긴_Party는_ACTIVE로_전이하지_않고_채팅과_Party를_정리한_뒤_요청_우선순위를_보존한다() {
+		long userId = insertUser();
+		long requestId = insertMatchedRequest(userId);
+		Instant originalPrioritySince = jdbcTemplate.queryForObject(
+			"select priority_since from match_requests where id = ?", Timestamp.class, requestId).toInstant();
+		long proposalId = insertConfirmedProposal();
+		insertProposalMember(proposalId, requestId, userId);
+		long partyId = insertPreparingPartyForProposal(proposalId, Instant.now().minusSeconds(299));
+		insertParticipant(partyId, userId);
+		createChatProvisionDelayTrigger();
+		try {
+			preparingRecoveryExecutor.recover(partyId);
+
+			assertEquals(0,
+				jdbcTemplate.queryForObject("select count(*) from match_parties where id = ?", Integer.class, partyId));
+			assertEquals(0, jdbcTemplate.queryForObject(
+				"select count(*) from match_party_participants where party_id = ?", Integer.class, partyId));
+			assertEquals(0, jdbcTemplate.queryForObject("select count(*) from match_chat_rooms where party_id = ?",
+				Integer.class, partyId));
+			assertEquals("WAITING",
+				jdbcTemplate.queryForObject("select status from match_requests where id = ?", String.class, requestId));
+			assertEquals(originalPrioritySince, jdbcTemplate.queryForObject(
+				"select priority_since from match_requests where id = ?", Timestamp.class, requestId).toInstant());
+		} finally {
+			dropChatProvisionDelayTrigger();
+		}
+	}
+
+	@Test
 	void scheduler_coordinator는_기한을_넘긴_PREPARING_Party를_선별해_복구한다() {
 		long userId = insertUser();
 		long partyId = insertPreparingParty(Instant.now().minusSeconds(301));
@@ -388,5 +417,23 @@ class MatchPartyLifecyclePostgresTest extends SharedPostgresIntegrationSupport {
 	private void dropCleanupFailureTrigger() {
 		jdbcTemplate.execute("drop trigger if exists fail_match_chat_cleanup on match_chat_rooms");
 		jdbcTemplate.execute("drop function if exists fail_match_chat_cleanup()");
+	}
+
+	private void createChatProvisionDelayTrigger() {
+		jdbcTemplate.execute("""
+			create function delay_match_chat_provision() returns trigger language plpgsql as $$
+			begin
+				perform pg_sleep(2);
+				return new;
+			end;
+			$$
+			""");
+		jdbcTemplate.execute(
+			"create trigger delay_match_chat_provision before insert on match_chat_rooms for each row execute function delay_match_chat_provision()");
+	}
+
+	private void dropChatProvisionDelayTrigger() {
+		jdbcTemplate.execute("drop trigger if exists delay_match_chat_provision on match_chat_rooms");
+		jdbcTemplate.execute("drop function if exists delay_match_chat_provision()");
 	}
 }
