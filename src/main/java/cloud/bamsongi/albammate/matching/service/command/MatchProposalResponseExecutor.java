@@ -29,6 +29,7 @@ import cloud.bamsongi.albammate.matching.repository.MatchProposalMemberRepositor
 import cloud.bamsongi.albammate.matching.repository.MatchProposalRepository;
 import cloud.bamsongi.albammate.matching.repository.MatchRequestRepository;
 import cloud.bamsongi.albammate.user.contract.UserRowLockPort;
+import jakarta.persistence.EntityManager;
 
 @Service
 public class MatchProposalResponseExecutor {
@@ -92,6 +93,7 @@ public class MatchProposalResponseExecutor {
 	private final MatchIdempotencyRecordRepository idempotencyRecordRepository;
 	private final UserRowLockPort userRowLockPort;
 	private final JdbcTemplate jdbcTemplate;
+	private final EntityManager entityManager;
 
 	public MatchProposalResponseExecutor(
 		MatchProposalRepository proposalRepository,
@@ -101,7 +103,8 @@ public class MatchProposalResponseExecutor {
 		MatchPartyParticipantRepository participantRepository,
 		MatchIdempotencyRecordRepository idempotencyRecordRepository,
 		UserRowLockPort userRowLockPort,
-		JdbcTemplate jdbcTemplate) {
+		JdbcTemplate jdbcTemplate,
+		EntityManager entityManager) {
 		this.proposalRepository = proposalRepository;
 		this.proposalMemberRepository = proposalMemberRepository;
 		this.requestRepository = requestRepository;
@@ -110,6 +113,7 @@ public class MatchProposalResponseExecutor {
 		this.idempotencyRecordRepository = idempotencyRecordRepository;
 		this.userRowLockPort = userRowLockPort;
 		this.jdbcTemplate = jdbcTemplate;
+		this.entityManager = entityManager;
 	}
 
 	@Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -119,6 +123,9 @@ public class MatchProposalResponseExecutor {
 		MatchIdempotencyRecord activeRecord = idempotencyRecordRepository
 			.findByUserIdAndIdempotencyKey(userId, idempotencyKey)
 			.orElse(null);
+		if (activeRecord != null) {
+			entityManager.detach(activeRecord);
+		}
 		if (activeRecord != null && !activeRecord.isExpiredAt(precheckTime)) {
 			if (activeRecord.hasSameMeaning(MatchIdempotencyOperation.MATCH_PROPOSAL_RESPONSE, fingerprint)) {
 				return;

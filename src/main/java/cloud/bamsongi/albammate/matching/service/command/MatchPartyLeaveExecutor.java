@@ -14,6 +14,8 @@ import cloud.bamsongi.albammate.matching.entity.MatchParty;
 import cloud.bamsongi.albammate.matching.entity.MatchPartyParticipant;
 import cloud.bamsongi.albammate.matching.repository.MatchPartyParticipantRepository;
 import cloud.bamsongi.albammate.matching.repository.MatchPartyRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 
 @Service
 public class MatchPartyLeaveExecutor {
@@ -21,14 +23,17 @@ public class MatchPartyLeaveExecutor {
 	private final MatchPartyRepository partyRepository;
 	private final MatchPartyParticipantRepository participantRepository;
 	private final JdbcTemplate jdbcTemplate;
+	private final EntityManager entityManager;
 
 	public MatchPartyLeaveExecutor(
 		MatchPartyRepository partyRepository,
 		MatchPartyParticipantRepository participantRepository,
-		JdbcTemplate jdbcTemplate) {
+		JdbcTemplate jdbcTemplate,
+		EntityManager entityManager) {
 		this.partyRepository = partyRepository;
 		this.participantRepository = participantRepository;
 		this.jdbcTemplate = jdbcTemplate;
+		this.entityManager = entityManager;
 	}
 
 	@Transactional
@@ -37,6 +42,7 @@ public class MatchPartyLeaveExecutor {
 			.orElseThrow(() -> new BusinessException(ErrorCode.FORBIDDEN));
 		MatchParty party = partyRepository.findByIdForUpdate(partyId)
 			.orElseThrow(() -> new BusinessException(ErrorCode.FORBIDDEN));
+		entityManager.refresh(participant, LockModeType.PESSIMISTIC_WRITE);
 		if (party.getStatus() == MatchPartyStatus.PREPARING) {
 			throw new BusinessException(ErrorCode.MATCH_PARTY_LEAVE_NOT_AVAILABLE);
 		}

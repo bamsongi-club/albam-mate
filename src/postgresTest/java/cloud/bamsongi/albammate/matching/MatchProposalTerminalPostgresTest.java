@@ -269,6 +269,46 @@ class MatchProposalTerminalPostgresTest extends SharedPostgresIntegrationSupport
 	}
 
 	@Test
+	void 만료_멱등성_레코드가_있는_동시_동일_응답은_잠금_뒤_하나의_성공으로_수렴한다() throws Exception {
+		long userId = insertUser("expired-idempotency-race");
+		long requestId = insertRequest(userId);
+		long proposalId = insertOpenProposal();
+		insertProposalMember(proposalId, requestId, userId);
+		insertExpiredResponseIdempotencyRecord(userId, proposalId, "expired-race-key");
+
+		try (var proposalLock = dataSource.getConnection()) {
+			proposalLock.setAutoCommit(false);
+			try (var statement = proposalLock
+				.prepareStatement("select id from match_proposals where id = ? for update")) {
+				statement.setLong(1, proposalId);
+				statement.executeQuery();
+			}
+			var pool = Executors.newFixedThreadPool(2);
+			try {
+				Future<ErrorCode> firstResponse = pool.submit(
+					() -> respondAndCaptureError(userId, proposalId, "expired-race-key"));
+				Future<ErrorCode> secondResponse = pool.submit(
+					() -> respondAndCaptureError(userId, proposalId, "expired-race-key"));
+				awaitTransactionLockWaitCount(2);
+				proposalLock.rollback();
+
+				assertEquals(null, firstResponse.get(10, TimeUnit.SECONDS));
+				assertEquals(null, secondResponse.get(10, TimeUnit.SECONDS));
+			} finally {
+				pool.shutdownNow();
+			}
+		}
+
+		assertEquals("CONFIRMED", proposalStatus(proposalId));
+		assertEquals("ACCEPTED", responseStatus(proposalId, requestId));
+		assertEquals("MATCHED", requestStatus(requestId));
+		assertEquals(1, jdbcTemplate.queryForObject("select count(*) from match_parties", Integer.class));
+		assertEquals(1, jdbcTemplate.queryForObject(
+			"select count(*) from match_idempotency_records where user_id = ? and idempotency_key = ?",
+			Integer.class, userId, "expired-race-key"));
+	}
+
+	@Test
 	void CANCEL은_열린_제안을_종료하고_선택_요청만_CANCELED로_확정한다() {
 		long cancelUserId = insertUser("cancel");
 		long waitingUserId = insertUser("cancel-waiting");
@@ -493,6 +533,16 @@ class MatchProposalTerminalPostgresTest extends SharedPostgresIntegrationSupport
 		};
 	}
 
+	private ErrorCode respondAndCaptureError(long userId, long proposalId, String idempotencyKey) {
+		try {
+			matchProposalResponseService.respond(userId, proposalId, MatchProposalResponseAction.ACCEPT,
+				idempotencyKey);
+			return null;
+		} catch (BusinessException exception) {
+			return exception.getErrorCode();
+		}
+	}
+
 	private Callable<RaceResult> cancelAttempt(CountDownLatch start, long userId) {
 		return () -> {
 			if (!start.await(5, TimeUnit.SECONDS)) {
@@ -610,6 +660,30 @@ class MatchProposalTerminalPostgresTest extends SharedPostgresIntegrationSupport
 			TimeUnit.MILLISECONDS.sleep(25);
 		}
 		throw new AssertionError("Proposal 잠금 대기 상태를 관찰하지 못했습니다.");
+	}
+
+	private void awaitTransactionLockWaitCount(int expectedCount) throws InterruptedException {
+		long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+		while (System.nanoTime() < deadline) {
+			Integer waitingCount = jdbcTemplate.queryForObject(
+				"select count(*) from pg_locks where not granted", Integer.class);
+			if (waitingCount != null && waitingCount >= expectedCount) {
+				return;
+			}
+			TimeUnit.MILLISECONDS.sleep(25);
+		}
+		throw new AssertionError("동시 응답의 Proposal 잠금 대기 상태를 관찰하지 못했습니다.");
+	}
+
+	private void insertExpiredResponseIdempotencyRecord(long userId, long proposalId, String idempotencyKey) {
+		Instant now = Instant.now();
+		jdbcTemplate.update("""
+			insert into match_idempotency_records
+			(user_id, idempotency_key, operation, payload_fingerprint, result_entity_type, result_entity_id,
+			result_state, created_at, expires_at)
+			values (?, ?, 'MATCH_PROPOSAL_RESPONSE', ?, 'MATCH_PROPOSAL', ?, 'RESPONDED', ?, ?)
+			""", userId, idempotencyKey, proposalId + ":ACCEPT", proposalId, Timestamp.from(now.minusSeconds(86_400)),
+			Timestamp.from(now.minusSeconds(1)));
 	}
 
 	@TestConfiguration

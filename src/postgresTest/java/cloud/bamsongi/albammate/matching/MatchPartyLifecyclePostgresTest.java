@@ -3,6 +3,7 @@ package cloud.bamsongi.albammate.matching;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.sql.Connection;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
@@ -25,7 +26,9 @@ import cloud.bamsongi.albammate.matching.recovery.MatchClosedPartyCleanupExecuto
 import cloud.bamsongi.albammate.matching.recovery.MatchPartyLifecycleExecutor;
 import cloud.bamsongi.albammate.matching.recovery.MatchPreparingRecoveryExecutor;
 import cloud.bamsongi.albammate.matching.recovery.MatchRecoveryCoordinator;
+import cloud.bamsongi.albammate.matching.recovery.MatchRetentionCleanupExecutor;
 import cloud.bamsongi.albammate.matching.repository.MatchPartyRepository;
+import cloud.bamsongi.albammate.matching.service.command.MatchPartyLeaveExecutor;
 import cloud.bamsongi.albammate.testsupport.SharedPostgresIntegrationSupport;
 
 @Testcontainers
@@ -40,6 +43,10 @@ class MatchPartyLifecyclePostgresTest extends SharedPostgresIntegrationSupport {
 	private MatchClosedPartyCleanupExecutor closedPartyCleanupExecutor;
 	@Autowired
 	private MatchRecoveryCoordinator recoveryCoordinator;
+	@Autowired
+	private MatchPartyLeaveExecutor partyLeaveExecutor;
+	@Autowired
+	private MatchRetentionCleanupExecutor retentionCleanupExecutor;
 	@Autowired
 	private MatchPartyRepository partyRepository;
 	@Autowired
@@ -137,6 +144,51 @@ class MatchPartyLifecyclePostgresTest extends SharedPostgresIntegrationSupport {
 			join match_chat_rooms room on room.id = message.match_chat_room_id
 			where room.party_id = ? and message.system_event_key = 'CLOSES_IN_ONE_HOUR'
 			""", Integer.class, partyId));
+	}
+
+	@Test
+	void 같은_참가자의_동시_중복_leave는_최초_leftAt만_기록하고_Party를_ACTIVE로_유지한다() throws Exception {
+		long leavingUserId = insertUser();
+		long remainingUserId = insertUser();
+		long partyId = insertActiveParty(Instant.now());
+		insertParticipant(partyId, leavingUserId);
+		insertParticipant(partyId, remainingUserId);
+		createLeaveAuditTrigger();
+		try {
+			try (Connection partyLock = dataSource.getConnection()) {
+				partyLock.setAutoCommit(false);
+				try (var statement = partyLock
+					.prepareStatement("select id from match_parties where id = ? for update")) {
+					statement.setLong(1, partyId);
+					statement.executeQuery();
+				}
+				var pool = Executors.newFixedThreadPool(2);
+				try {
+					Future<?> firstLeave = pool.submit(() -> partyLeaveExecutor.leave(partyId, leavingUserId));
+					Future<?> secondLeave = pool.submit(() -> partyLeaveExecutor.leave(partyId, leavingUserId));
+					awaitTransactionLockWaitCount(2);
+					partyLock.rollback();
+					firstLeave.get(10, TimeUnit.SECONDS);
+					secondLeave.get(10, TimeUnit.SECONDS);
+				} finally {
+					pool.shutdownNow();
+				}
+			}
+			assertEquals(1,
+				jdbcTemplate.queryForObject("select count(*) from match_party_leave_audits", Integer.class));
+			assertEquals(jdbcTemplate.queryForObject("select left_at from match_party_leave_audits", Timestamp.class),
+				jdbcTemplate.queryForObject(
+					"select left_at from match_party_participants where party_id = ? and user_id = ?", Timestamp.class,
+					partyId, leavingUserId));
+		} finally {
+			dropLeaveAuditTrigger();
+		}
+
+		assertEquals("ACTIVE", jdbcTemplate.queryForObject(
+			"select status from match_parties where id = ?", String.class, partyId));
+		assertEquals(1, jdbcTemplate.queryForObject(
+			"select count(*) from match_party_participants where party_id = ? and left_at is null", Integer.class,
+			partyId));
 	}
 
 	@Test
@@ -262,6 +314,42 @@ class MatchPartyLifecyclePostgresTest extends SharedPostgresIntegrationSupport {
 
 		assertEquals(0,
 			jdbcTemplate.queryForObject("select count(*) from match_parties where id = ?", Integer.class, partyId));
+	}
+
+	@Test
+	void retention_cleanup은_사용자_잠금_대기_중_갱신된_멱등성_만료_기한을_삭제하지_않는다() throws Exception {
+		long userId = insertUser();
+		insertIdempotencyRecord(userId, "retention-race", Instant.now().minusSeconds(1));
+
+		try (Connection userLock = dataSource.getConnection()) {
+			userLock.setAutoCommit(false);
+			try (var statement = userLock.prepareStatement("select id from users where id = ? for update")) {
+				statement.setLong(1, userId);
+				statement.executeQuery();
+			}
+			var pool = Executors.newSingleThreadExecutor();
+			try {
+				Future<?> cleanup = pool.submit(retentionCleanupExecutor::cleanUpExpiredRecords);
+				awaitTransactionLockWait();
+				try (var statement = userLock.prepareStatement("""
+					update match_idempotency_records
+					set expires_at = current_timestamp + interval '1 day'
+					where user_id = ? and idempotency_key = ?
+					""")) {
+					statement.setLong(1, userId);
+					statement.setString(2, "retention-race");
+					statement.executeUpdate();
+				}
+				userLock.commit();
+				cleanup.get(10, TimeUnit.SECONDS);
+			} finally {
+				pool.shutdownNow();
+			}
+		}
+
+		assertEquals(1, jdbcTemplate.queryForObject(
+			"select count(*) from match_idempotency_records where user_id = ? and idempotency_key = ?",
+			Integer.class, userId, "retention-race"));
 	}
 
 	@Test
@@ -479,6 +567,43 @@ class MatchPartyLifecyclePostgresTest extends SharedPostgresIntegrationSupport {
 			TimeUnit.MILLISECONDS.sleep(25);
 		}
 		throw new AssertionError("Party 잠금 대기 상태를 관찰하지 못했습니다.");
+	}
+
+	private void awaitTransactionLockWaitCount(int expectedCount) throws InterruptedException {
+		long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+		while (System.nanoTime() < deadline) {
+			Integer waitingCount = jdbcTemplate.queryForObject(
+				"select count(*) from pg_locks where not granted", Integer.class);
+			if (waitingCount != null && waitingCount >= expectedCount) {
+				return;
+			}
+			TimeUnit.MILLISECONDS.sleep(25);
+		}
+		throw new AssertionError("동시 leave의 Party 잠금 대기 상태를 관찰하지 못했습니다.");
+	}
+
+	private void createLeaveAuditTrigger() {
+		jdbcTemplate.execute("create table match_party_leave_audits (left_at timestamptz not null)");
+		jdbcTemplate.execute("""
+			create function record_match_party_leave() returns trigger language plpgsql as $$
+			begin
+				insert into match_party_leave_audits (left_at) values (new.left_at);
+				return new;
+			end;
+			$$
+			""");
+		jdbcTemplate.execute("""
+			create trigger record_match_party_leave_trigger
+			before update of left_at on match_party_participants
+			for each row when (old.left_at is distinct from new.left_at)
+			execute function record_match_party_leave()
+			""");
+	}
+
+	private void dropLeaveAuditTrigger() {
+		jdbcTemplate.execute("drop trigger if exists record_match_party_leave_trigger on match_party_participants");
+		jdbcTemplate.execute("drop function if exists record_match_party_leave()");
+		jdbcTemplate.execute("drop table if exists match_party_leave_audits");
 	}
 
 	private void createCleanupFailureTrigger() {

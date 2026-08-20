@@ -38,11 +38,19 @@ public interface MatchIdempotencyRecordRepository extends JpaRepository<MatchIde
 	long recordId);
 
 	@Query("""
-		select record from MatchIdempotencyRecord record
+		select record.id as id, record.userId as userId
+		from MatchIdempotencyRecord record
 		where record.expiresAt <= :operationTime
 		order by record.expiresAt asc, record.id asc
 		""")
-	java.util.List<MatchIdempotencyRecord> findExpiredCandidates(
+	java.util.List<ExpiredCandidate> findExpiredCandidateSnapshots(
 		@Param("operationTime")
 		java.time.Instant operationTime, Pageable pageable);
+
+	interface ExpiredCandidate {
+
+		Long getId();
+
+		Long getUserId();
+	}
 }

@@ -10,7 +10,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import cloud.bamsongi.albammate.matching.entity.MatchIdempotencyRecord;
 import cloud.bamsongi.albammate.matching.entity.MatchProposal;
 import cloud.bamsongi.albammate.matching.entity.MatchRequest;
 import cloud.bamsongi.albammate.matching.repository.MatchIdempotencyRecordRepository;
@@ -51,17 +50,18 @@ public class MatchRetentionCleanupExecutor {
 	}
 
 	private void cleanUpExpiredIdempotencyRecords(Instant operationTime) {
-		List<MatchIdempotencyRecord> candidates = idempotencyRecordRepository.findExpiredCandidates(
-			operationTime, PageRequest.of(0, BATCH_SIZE));
+		List<MatchIdempotencyRecordRepository.ExpiredCandidate> candidates = idempotencyRecordRepository
+			.findExpiredCandidateSnapshots(
+				operationTime, PageRequest.of(0, BATCH_SIZE));
 		List<Long> userIds = candidates.stream()
-			.map(MatchIdempotencyRecord::getUserId)
+			.map(MatchIdempotencyRecordRepository.ExpiredCandidate::getUserId)
 			.distinct()
 			.sorted()
 			.toList();
 		if (!userIds.isEmpty()) {
 			userRowLockPort.lockExistingUsersInAscendingOrder(userIds);
 		}
-		for (MatchIdempotencyRecord candidate : candidates) {
+		for (MatchIdempotencyRecordRepository.ExpiredCandidate candidate : candidates) {
 			idempotencyRecordRepository.findByIdForUpdate(candidate.getId())
 				.filter(record -> record.isExpiredAt(operationTime))
 				.ifPresent(idempotencyRecordRepository::delete);
