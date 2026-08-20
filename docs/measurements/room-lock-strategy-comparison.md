@@ -15,14 +15,14 @@ Issue #786에서 #785가 고정한 A/B/C 후보를 같은 AWS 환경·release �
 - C p4는 유효 provenance에서 5xx·server failure·contract failure가 각각 4건 발생해 T7의 1차 분류가 `FAIL`이다. nonzero k6 종료 뒤 resource signal이 빠져 runner 최종 상태는 `INVALID`로 남지만, 두 상태를 함께 보존하고 C 성능 순위에는 넣지 않는다.
 - 실행 전 중단한 A p3, C p1·p2 bundle도 제외 사유와 함께 보존한다.
 
-실제 실행 목록·candidate SHA·원자료 digest·정규화 metric은 [campaign plan](results/room-lock-strategy-comparison/campaign-plan.json), [campaign report](results/room-lock-strategy-comparison/campaign-report.json), [의사결정 보고서](results/room-lock-strategy-comparison/decision-report.md), [raw digest](results/room-lock-strategy-comparison/raw-digests.json)에 있다. 기계 생성 campaign report는 winner를 자동으로 만들지 않지만, 의사결정 보고서는 이 timeboxed 증거로 A를 생산 적용 전략으로 선택한다. #787은 그 선택을 ADR로 공식화하며, #786은 후보 코드 병합을 수행하지 않는다.
+실제 실행 목록·candidate SHA·정규화 metric은 [campaign plan](results/room-lock-strategy-comparison/campaign-plan.json), [campaign report](results/room-lock-strategy-comparison/campaign-report.json), [의사결정 보고서](results/room-lock-strategy-comparison/decision-report.md)에 있다. full raw bundle은 PR 검토 범위를 줄이기 위해 최종 branch tree에서 제외했고, 두 JSON의 `archivedPath`는 측정 시점의 원래 archive 위치를 뜻한다. 기계 생성 campaign report는 winner를 자동으로 만들지 않지만, 의사결정 보고서는 이 timeboxed 증거로 A를 생산 적용 전략으로 선택한다. #787은 그 선택을 ADR로 공식화하며, #786은 후보 코드 병합을 수행하지 않는다.
 
 ## 현재 구현
 
 - `load-tests/k6/jiwon/tools/room-lock-comparison.mjs`: 후보 순서가 섞인 campaign plan, c16·constant-arrival-rate·mixed fixture, comparison bundle, provenance와 PASS/FAIL/INVALID 집계
 - `load-tests/k6/jiwon/tests/room-lock-comparison.test.mjs`: matrix·fixture·bundle scenario 계약 회귀
 - [실행 계약](room-lock-strategy-comparison-contract.md): matrix, metric, tail-latency gate, 판정과 운영 게이트
-- [결과 보존 규칙](results/room-lock-strategy-comparison/README.md): 실제 AWS raw artifact 보존 위치
+- [결과 보존 규칙](results/room-lock-strategy-comparison/README.md): timeboxed 결과와 raw archive 제외 범위
 
 기존 T1~T5 script와 portable bundle source는 읽기 전용으로 사용한다. 786 전용 bundle의 `tools/fixture.mjs`는 새 comparison 도구 source를 bundle 안에서 실행하도록 생성되며, infra의 기존 `room-k6` transport가 그 bundle을 검증·전송한다.
 
@@ -98,7 +98,7 @@ node load-tests/k6/jiwon/tools/room-lock-comparison.mjs aggregate-campaign `
   --output docs/measurements/results/room-lock-strategy-comparison/campaign-report.json
 ```
 
-campaign report는 유효·제외 candidate와 정규화 metric을 남기며 winner를 자동으로 만들지 않는다. 사람이 읽는 의사결정 보고서는 report와 raw artifact를 근거로 A를 선택하고, #787이 이를 ADR로 공식화한다. 이번 timeboxed report는 A/B 4회와 C T7 FAIL을 정직하게 기록하며, full 5회 gate를 통과했다고 주장하지 않는다.
+campaign report는 유효·제외 candidate와 정규화 metric을 남기며 winner를 자동으로 만들지 않는다. 사람이 읽는 의사결정 보고서는 report와 측정 시점에 검증한 evidence를 근거로 A를 선택하고, #787이 이를 ADR로 공식화한다. full raw archive는 최종 branch tree에서 제외했지만, 이번 timeboxed report는 A/B 4회와 C T7 FAIL을 정직하게 기록하며 full 5회 gate를 통과했다고 주장하지 않는다.
 
 ## 금지 범위
 

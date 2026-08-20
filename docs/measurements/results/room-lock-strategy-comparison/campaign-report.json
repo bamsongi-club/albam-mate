@@ -4,7 +4,7 @@
   "status": "COMPLETED_WITH_TIMEBOXED_SCOPE",
   "reportDisposition": "included",
   "winner": null,
-  "winnerDecision": "Issue #786 preserves comparison evidence only. It does not select a lock strategy, produce an ADR, or authorize production merge; Issue #787 owns that decision.",
+  "winnerDecision": "The campaign runner does not select a winner automatically. The human decision report selects A for the approved T1 scope; Issue #787 formalizes that choice as an ADR and this report does not authorize candidate PR merge.",
   "commonBaselineSha": "01691663edad2aed85c3d6e3b7ae28f1f2945019",
   "candidateShas": {
     "A": "bdc8cd54eba7e63f0ce64745b45bb47fa92ef0bd",
@@ -30,11 +30,12 @@
   },
   "dataCollection": {
     "status": "COMPLETE",
-    "archivedBundleCount": 13,
-    "archivedFileCount": 371,
-    "archivedByteCount": 22222130,
-    "digestManifest": "raw-digests.json",
-    "verification": "Every committed archive file SHA-256 equals the source bundle file SHA-256 before AWS teardown; credential-derived fixture artifacts are omitted from Git and retained by source SHA-256 evidence only.",
+    "archivedBundleCountAtMeasurement": 13,
+    "archivedFileCountAtMeasurement": 371,
+    "archivedByteCountAtMeasurement": 22222130,
+    "rawArchiveIncludedInCurrentTree": false,
+    "rawArchiveHistoricalCommit": "497c6d39546c617a134e1a73c6930fdd37958335",
+    "verification": "Before AWS teardown, every non-secret archive file SHA-256 and byte size matched the source bundle. The full raw archive and digest are omitted from the final branch tree to reduce PR review scope.",
     "sourceBundleFileCount": 397,
     "sourceBundleByteCount": 34863014,
     "restrictedCredentialDerivedFileCount": 26
@@ -637,7 +638,7 @@
     "Only T1 constant-mixed c8 is measured; this evidence cannot automatically select a T2 or ROOM-wide lock strategy.",
     "C p4 has a real correctness FAIL and a separate missing resource signal artifact; both states are preserved.",
     "No T3/T4/T5 regression or c32 run is included in this timeboxed campaign.",
-    "Credential-derived fixture material in prepare.sql and private/prepare-provenance.json is intentionally omitted from the Git raw archive; its source SHA-256 and size remain in raw-digests.json."
+    "The full raw archive and raw digest are intentionally omitted from the final branch tree to reduce PR review scope; the measurement-time archive is retained in historical commit 497c6d39546c617a134e1a73c6930fdd37958335."
   ],
   "teardown": {
     "status": "SUCCESS",

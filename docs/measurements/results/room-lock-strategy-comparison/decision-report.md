@@ -15,7 +15,7 @@ A(현행 낙관적 락)와 B(낙관적 락 + bounded jitter)는 각각 4회 모�
 
 `campaign-report.json`의 `winner: null`은 runner가 기계적으로 winner를 만들지 않는다는 뜻으로 유지한다. 이 문서는 원자료를 사람이 해석해 남기는 선택 기록이며, #787은 이 선택을 ADR로 공식화한다. 후보 PR의 병합을 이 보고서가 승인하는 것은 아니다.
 
-> 측정 기준 시각: 2026-08-20 UTC. 정본 데이터는 [campaign report](campaign-report.json), [campaign plan](campaign-plan.json), [raw digest](raw-digests.json), [비교 계약](../../room-lock-strategy-comparison-contract.md)이다.
+> 측정 기준 시각: 2026-08-20 UTC. 정본 데이터는 [campaign report](campaign-report.json), [campaign plan](campaign-plan.json), [비교 계약](../../room-lock-strategy-comparison-contract.md)이다. full raw bundle과 raw digest는 PR 검토 범위를 줄이기 위해 최종 branch tree에서 제외했다.
 
 ## 후보별 결과: 같은 요청 수에서 A의 관측 지연 중앙값이 더 낮다
 
@@ -65,9 +65,9 @@ A의 p99 실행별 범위는 81.033–331.018 ms, B는 80.338–350.009 ms다. �
 
 검증한 데이터 단위는 run ID가 중복되지 않는 13개 source bundle이다. 그중 완료 실행은 10개(A 4, B 4, C p3·p4)이며, A/B의 집계는 각 run의 원본 count와 다시 대조했다. A/B는 `성공 + 동시성 409 + 5xx = ROOM 요청`이 각 실행에서 성립하고, 예상 밖 4xx·5xx·contract failure는 모두 0이다.
 
-후보 SHA와 완료 run의 application revision은 candidate SHA와 일치한다. source bundle 397파일 중 Git에 보존한 non-secret 371파일은 SHA-256과 바이트 크기를 원본과 대조했다. fixture bcrypt hash가 포함된 26파일은 Git에 넣지 않고 digest·크기·제외 사유만 남겼다.
+후보 SHA와 완료 run의 application revision은 candidate SHA와 일치한다. 측정 시점에 source bundle 397파일 중 non-secret 371파일은 SHA-256과 바이트 크기를 원본과 대조했다. full raw archive와 digest는 PR 검토 범위를 줄이기 위해 최종 branch tree에서 제외했고, `campaign-report.json`에는 당시 archive 수·크기·검증 결과와 원래 archive 경로를 남겼다. fixture bcrypt hash가 포함된 26파일은 측정 시점 archive에도 넣지 않았다.
 
-C p4는 source/candidate provenance가 맞고 raw `k6-summary.json`과 after diagnosis가 남아 있으므로 실제 5xx의 증거는 유효하다. 다만 nonzero k6 exit 뒤 `resource-signals.json`이 없어 runner artifact 상태는 `INVALID`다. 이 누락은 C의 성능 수치를 비교 불가로 만들지만, 이미 관측된 correctness `FAIL`을 없애지는 않는다.
+C p4는 source/candidate provenance가 맞고 측정 시점의 `k6-summary.json`과 after diagnosis에 실제 5xx가 남아 있으므로 failure 근거는 유효하다. 다만 nonzero k6 exit 뒤 `resource-signals.json`이 없어 runner artifact 상태는 `INVALID`다. 이 누락은 C의 성능 수치를 비교 불가로 만들지만, 이미 관측된 correctness `FAIL`을 없애지는 않는다.
 
 ## 이 결과로 결정할 수 있는 것과 결정할 수 없는 것
 

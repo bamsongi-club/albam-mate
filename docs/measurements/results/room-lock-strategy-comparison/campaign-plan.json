@@ -7,6 +7,11 @@
     "B": "cd0fc2fe0e2fbcce6a78b47a7f699b0d5aa311a1",
     "C": "fd7016efb74c6a8b8cb9b2d777f824e1a67e30cb"
   },
+  "rawArchive": {
+    "includedInCurrentTree": false,
+    "historicalCommit": "497c6d39546c617a134e1a73c6930fdd37958335",
+    "note": "Each archivedPath records the measurement-time archive location. Full raw bundles are omitted from the final branch tree to reduce PR review scope."
+  },
   "scope": {
     "originalCampaign": "A/B/C × T1/T2 × 4 conditions × c2/c4/c8/c16 × 5 paired runs plus T3/T4/T5 regressions (600 executions)",
     "approvedTimeboxedCampaign": "T1 only, constant-arrival-rate constant-mixed, c8, 8 req/s, 60 seconds, A/B four completed valid runs; C fail-fast evidence retained without further performance runs",

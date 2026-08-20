@@ -12,7 +12,7 @@
 - 시간 기반 방 상태 보정의 처리량 기준선: [ROOM-09 일괄 처리 기준선](room-09-bounded-processing-baseline.md)
 - 낙관적 락 측정의 범위와 판정 기준: [ROOM-10 측정 계약](room-10-measurement-contract.md)
 - 낙관적 락 충돌 처리의 실측 기준선: [ROOM-10 동시성 기준선](room-10-optimistic-lock-baseline.md)
-- A/B/C 잠금 후보의 timeboxed T1 비교·원자료·teardown 결과: [ROOM 잠금 전략 비교](room-lock-strategy-comparison.md), [결과 보존](results/room-lock-strategy-comparison/README.md)
+- A/B/C 잠금 후보의 timeboxed T1 비교·의사결정 보고서·teardown 결과: [ROOM 잠금 전략 비교](room-lock-strategy-comparison.md), [결과 보존](results/room-lock-strategy-comparison/README.md)
 - PostgreSQL 후보 선점·다중 matcher 기준선의 fixture·round·결과 채택: [MATCH-01 후보 탐색 baseline 측정 계약](match-01-candidate-search-baseline-contract.md)
 - MATCH 제안 응답 완료 지연의 fixture·round·경계·결과 채택: [MATCH-01 응답 완료 지연 측정 계약](match-01-response-completion-baseline-contract.md)
 
