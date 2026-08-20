@@ -9,7 +9,7 @@ public interface AssistantGameCandidateQuery {
 	/** 클라이언트가 round-trip한 조건을 game 소유 catalog 경계에서 다시 검증한다. */
 	default void validateCriteria(Criteria criteria) {}
 
-	List<GameSummary> findCandidates(Criteria criteria);
+	List<AssistantRecommendationCandidate> findCandidates(Criteria criteria);
 
 	record Criteria(
 		List<String> categories,

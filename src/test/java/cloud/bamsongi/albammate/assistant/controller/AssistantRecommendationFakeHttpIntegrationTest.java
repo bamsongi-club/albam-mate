@@ -24,7 +24,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import cloud.bamsongi.albammate.game.contract.AssistantGameCandidateQuery;
-import cloud.bamsongi.albammate.game.contract.GameSummary;
+import cloud.bamsongi.albammate.game.contract.AssistantRecommendationCandidate;
 import cloud.bamsongi.albammate.global.security.currentuser.CurrentUserPrincipal;
 import cloud.bamsongi.albammate.user.entity.User;
 import cloud.bamsongi.albammate.user.repository.UserRepository;
@@ -115,7 +115,7 @@ class AssistantRecommendationFakeHttpIntegrationTest {
 			User.create("assistant-fake-follow-up@example.com", "{bcrypt}hash", "fake 후속 사용자"));
 		grant(user);
 		given(assistantGameCandidateQuery.findCandidates(any())).willReturn(
-			java.util.List.of(new GameSummary(101L, 9101L, "후속 후보")));
+			java.util.List.of(new AssistantRecommendationCandidate(101L, "후속 후보", null, "공개 설명")));
 
 		mockMvc.perform(recommendationPost(
 			"{\"message\":\"다른 조건\",\"conditions\":{\"categories\":[\"STRATEGY\"]}}")

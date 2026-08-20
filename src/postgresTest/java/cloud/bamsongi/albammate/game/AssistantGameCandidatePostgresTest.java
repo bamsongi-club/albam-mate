@@ -81,6 +81,27 @@ class AssistantGameCandidatePostgresTest {
 	}
 
 	@Test
+	void T4_PostgreSQL_후보DTO도_AND_RANK_01_상위10개와_공개필드를_반환한다() {
+		long highest = insertGame("가장 인기", true);
+		long tied = insertGame("동률 인기", true);
+		for (int index = 0; index < 10; index++) {
+			insertGame("0건 후보 " + index, true);
+		}
+		for (int index = 0; index < 3; index++) {
+			insertRoom(highest, index);
+			insertRoom(tied, index + 10);
+		}
+
+		var result = candidateQuery.findCandidates(
+			new AssistantGameCandidateQuery.Criteria(List.of("STRATEGY")));
+
+		assertEquals(10, result.size());
+		assertEquals(List.of(highest, tied), result.subList(0, 2).stream().map(candidate -> candidate.id()).toList());
+		assertEquals("설명", result.getFirst().description());
+		assertEquals(null, result.getFirst().imageUrl());
+	}
+
+	@Test
 	void T5_PostgreSQL_카테고리_후보만_집계하고_RANK_01_동률_ID순서와_0건_보완_상위10개를_적용한다() {
 		long highest = insertGame("가장 인기", true);
 		long tied = insertGame("동률 인기", true);

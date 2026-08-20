@@ -15,8 +15,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import cloud.bamsongi.albammate.game.contract.AssistantGameCandidateQuery;
+import cloud.bamsongi.albammate.game.contract.AssistantRecommendationCandidate;
 import cloud.bamsongi.albammate.game.contract.GameRankingQuery;
-import cloud.bamsongi.albammate.game.contract.GameSummary;
 import cloud.bamsongi.albammate.game.dto.GameListRequest;
 import cloud.bamsongi.albammate.game.dto.GamePlayTimeFilter;
 import cloud.bamsongi.albammate.game.entity.Game;
@@ -37,10 +37,10 @@ public class AssistantGameCandidateQueryService implements AssistantGameCandidat
 
 	private static final int MAX_CANDIDATES = 10;
 	private static final int CANDIDATE_BATCH_SIZE = 500;
-	private static final Comparator<RankedCandidate> RANKING_ORDER = Comparator
-		.comparingLong(RankedCandidate::roomCount)
+	private static final Comparator<RankedCandidate<?>> RANKING_ORDER = Comparator
+		.comparingLong((RankedCandidate<?> candidate) -> candidate.roomCount())
 		.reversed()
-		.thenComparing(candidate -> candidate.summary().id());
+		.thenComparing(RankedCandidate::id);
 
 	private final GameRepository gameRepository;
 	private final GameRankingQuery gameRankingQuery;
@@ -60,7 +60,15 @@ public class AssistantGameCandidateQueryService implements AssistantGameCandidat
 	}
 
 	@Override
-	public List<GameSummary> findCandidates(Criteria criteria) {
+	public List<AssistantRecommendationCandidate> findCandidates(Criteria criteria) {
+		return findRankedCandidates(criteria, gameRepository::findAssistantRecommendationCandidates,
+			AssistantRecommendationCandidate::id);
+	}
+
+	private <T> List<T> findRankedCandidates(
+		Criteria criteria,
+		java.util.function.BiFunction<Specification<Game>, PageRequest, Slice<T>> candidateReader,
+		java.util.function.Function<T, Long> idExtractor) {
 		GameListRequest request = new GameListRequest();
 		request.setCategory(criteria.categories());
 		request.setMechanism(criteria.mechanisms());
@@ -75,27 +83,28 @@ public class AssistantGameCandidateQueryService implements AssistantGameCandidat
 			specification = specification.and(
 				(root, query, builder) -> builder.equal(root.get("id"), criteria.gameId()));
 		}
-		List<RankedCandidate> topCandidates = new ArrayList<>();
-		Slice<GameSummary> page;
+		List<RankedCandidate<T>> topCandidates = new ArrayList<>();
+		Slice<T> page;
 		int pageNumber = 0;
 		do {
-			page = gameRepository.findCandidateSummaries(
+			page = candidateReader.apply(
 				specification, PageRequest.of(pageNumber++, CANDIDATE_BATCH_SIZE));
 			if (page.isEmpty()) {
 				break;
 			}
 			Map<Long, Long> roomCounts = gameRankingQuery.findOverallRankingForGameIds(
-				page.getContent().stream().map(GameSummary::id).toList()).stream()
+				page.getContent().stream().map(idExtractor).toList()).stream()
 				.collect(Collectors.toMap(GameRankingQuery.GameRoomCount::gameId,
 					GameRankingQuery.GameRoomCount::roomCount));
-			for (GameSummary summary : page) {
-				retainTop(topCandidates, new RankedCandidate(summary, roomCounts.getOrDefault(summary.id(), 0L)));
+			for (T candidate : page) {
+				retainTop(topCandidates, new RankedCandidate<>(candidate,
+					roomCounts.getOrDefault(idExtractor.apply(candidate), 0L), idExtractor.apply(candidate)));
 			}
 		} while (page.hasNext());
-		return topCandidates.stream().sorted(RANKING_ORDER).map(RankedCandidate::summary).toList();
+		return topCandidates.stream().sorted(RANKING_ORDER).map(RankedCandidate::candidate).toList();
 	}
 
-	private void retainTop(List<RankedCandidate> topCandidates, RankedCandidate candidate) {
+	private <T> void retainTop(List<RankedCandidate<T>> topCandidates, RankedCandidate<T> candidate) {
 		topCandidates.add(candidate);
 		topCandidates.sort(RANKING_ORDER);
 		if (topCandidates.size() > MAX_CANDIDATES) {
@@ -110,6 +119,6 @@ public class AssistantGameCandidateQueryService implements AssistantGameCandidat
 		}
 	}
 
-	private record RankedCandidate(GameSummary summary, long roomCount) {
+	private record RankedCandidate<T>(T candidate, long roomCount, long id) {
 	}
 }

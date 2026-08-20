@@ -3,14 +3,14 @@ package cloud.bamsongi.albammate.assistant.dto;
 import java.util.List;
 import java.util.Objects;
 
-import cloud.bamsongi.albammate.game.contract.GameSummary;
+import cloud.bamsongi.albammate.game.contract.AssistantRecommendationCandidate;
 
 /** AI-02가 후보 조회 뒤 반환하는 부수효과 없는 추천 결과다. */
 public record AssistantRecommendationResponse(
 	AssistantRecommendationState state,
 	AssistantConditionSummary conditions,
 	List<AssistantMissingField> missingFields,
-	List<GameSummary> candidates) {
+	List<AssistantRecommendationCandidate> candidates) {
 
 	public AssistantRecommendationResponse {
 		state = Objects.requireNonNull(state, "state");
