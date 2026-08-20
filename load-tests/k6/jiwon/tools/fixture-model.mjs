@@ -23,6 +23,9 @@ const SCENARIOS = new Set(['t1', 't2', 't3', 't4', 't5', 'mixed']);
 const PROFILES = new Set(['stress', 'spike']);
 const T3_MODES = new Set(['race', 'wait-first', 'cancel-first']);
 const T5_ROLES = new Set(['public', 'host', 'participant']);
+const T1_HOT_CONCURRENCY_LEVELS = new Set([2, 4, 8, 10]);
+const T1_SPREAD_CONCURRENCY_LEVELS = new Set([2, 4, 8, 16]);
+const T2_DISTINCT_CONCURRENCY_LEVELS = new Set([2, 4, 8, 16]);
 const COMMON_OPTION_KEYS = new Set(['scenario', 'runId', 'profile', 'rounds']);
 const MIXED_COMMON_OPTION_KEYS = new Set(['scenario', 'runId', 'profile']);
 const SCENARIO_OPTION_KEYS = {
@@ -149,6 +152,16 @@ function oneOf(value, name, allowed) {
   return text;
 }
 
+function concurrencyLevelsFor(scenario, mode) {
+  if (scenario === 't1') {
+    return mode === 'hot' ? T1_HOT_CONCURRENCY_LEVELS : T1_SPREAD_CONCURRENCY_LEVELS;
+  }
+  if (scenario === 't2') {
+    return T2_DISTINCT_CONCURRENCY_LEVELS;
+  }
+  return CONCURRENCY_LEVELS;
+}
+
 function assertAllowedOptionKeys(input, scenario) {
   const commonOptionKeys = scenario === 'mixed' ? MIXED_COMMON_OPTION_KEYS : COMMON_OPTION_KEYS;
   const allowed = new Set([...commonOptionKeys, ...SCENARIO_OPTION_KEYS[scenario]]);
@@ -254,20 +267,25 @@ export function normalizeFixtureOptions(input) {
   const rounds = integer(input.rounds || defaultRounds, 'rounds', 1, 20);
   const normalized = { scenario, runId, profile, rounds };
 
-  if (scenario === 't1' || scenario === 't2' || scenario === 't4') {
-    const concurrency = integer(input.concurrency || 8, 'concurrency', 2, 8);
-    if (!CONCURRENCY_LEVELS.has(concurrency)) {
-      fail('concurrency는 2, 4, 8 중 하나여야 합니다.');
-    }
-    normalized.concurrency = concurrency;
-  }
-
   if (scenario === 't1' || scenario === 't2') {
     normalized.mode = oneOf(input.mode || 'hot', 'mode', new Set(['hot', 'spread']));
   }
 
+  if (scenario === 't1' || scenario === 't2' || scenario === 't4') {
+    const concurrency = integer(input.concurrency || 8, 'concurrency', 2, 16);
+    const allowedLevels = concurrencyLevelsFor(scenario, normalized.mode);
+    if (!allowedLevels.has(concurrency)) {
+      const mode = normalized.mode ? ` ${normalized.mode}` : '';
+      fail(`${scenario.toUpperCase()}${mode} concurrency는 ${Array.from(allowedLevels).join(', ')} 중 하나여야 합니다.`);
+    }
+    normalized.concurrency = concurrency;
+  }
+
   if (scenario === 't2') {
     normalized.subcase = oneOf(input.subcase || 'distinct', 'subcase', new Set(['distinct', 'duplicate']));
+    if (normalized.subcase === 'duplicate' && normalized.mode !== 'hot') {
+      fail('T2 duplicate subcase는 mode=hot이어야 합니다.');
+    }
     if (normalized.subcase === 'duplicate' && normalized.concurrency !== 2) {
       fail('T2 duplicate subcase는 같은 사용자 요청 두 건만 비교하므로 concurrency=2여야 합니다.');
     }
@@ -1206,7 +1224,7 @@ function evaluateT2(fixture, snapshot, failures, summary) {
       addFailure(failures, created === waitingByActor.length, 'T2 201 신규 성공 수와 WAITING 행 수가 다릅니다.');
     }
     if (summary && created !== null) {
-      const expectedPositionCounts = Array.from({ length: 8 }, () => 0);
+      const expectedPositionCounts = Array.from({ length: fixture.options.concurrency }, () => 0);
       for (const room of Object.values(fixture.rooms)) {
         const waitingCount = waitlistsFor(snapshot, room.id)
           .filter((entry) => entry.status === 'WAITING').length;
@@ -1218,7 +1236,7 @@ function evaluateT2(fixture, snapshot, failures, summary) {
           expectedPositionCounts[0] += waitingCount;
         }
       }
-      for (let position = 1; position <= 8; position += 1) {
+      for (let position = 1; position <= fixture.options.concurrency; position += 1) {
         const observed = metricCount(summary, `room_waitlist_position_${position}`);
         const expected = expectedPositionCounts[position - 1];
         addFailure(

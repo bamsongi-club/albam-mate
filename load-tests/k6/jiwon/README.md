@@ -14,10 +14,10 @@
 
 ## 제공 시나리오
 
-| 시나리오 | 스크립트 | 초기 입력 | 핵심 판정 |
+| 시나리오 | 스크립트 | 지원 입력 | 핵심 판정 |
 | --- | --- | --- | --- |
-| T1 취소→자동 승격 | `t1-cancel-promotion.js` | hot/spread × 동시 2·4·8 | 성공 취소 수와 FIFO `PROMOTED` 수 일치, 정원·중복 승격 0 |
-| T2 동시 대기 등록 | `t2-concurrent-waitlist-registration.js` | hot/spread × 동시 2·4·8, 동일 사용자 중복 | WAITING 사용자·순번 중복 0, 201과 새 WAITING 수 일치, 5xx 0 |
+| T1 취소→자동 승격 | `t1-cancel-promotion.js` | hot c2·c4·c8·c10 / spread c2·c4·c8·c16 | 성공 취소 수와 FIFO `PROMOTED` 수 일치, 정원·중복 승격 0 |
+| T2 동시 대기 등록 | `t2-concurrent-waitlist-registration.js` | distinct hot/spread c2·c4·c8·c16 / duplicate hot c2 | WAITING 사용자·순번 중복 0, 201과 새 WAITING 수 일치, 5xx 0 |
 | T3 등록↔취소 경합 | `t3-waitlist-cancel-race.js` | race 반복, `wait-first`·`cancel-first` | 허용 종단만 남고 `RECRUITING + WAITING` 0 |
 | T4 마지막 자리 참가 | `t4-last-seat-participation.js` | 마지막 자리 × 동시 2·4·8 | ACTIVE 정확히 한 명, 정원 초과·자동 WAITING 0 |
 | T5 역할별 상세 조회 | `t5-room-detail-by-role.js` | public/host/participant × ACTIVE 1·10 | 역할별 shape·헤더, 조회 전후 DB snapshot 동일 |
@@ -173,13 +173,16 @@ T5의 `before-diagnosis.json`은 실행 전 snapshot과 판정을 하나의 crea
 
 | 대상 | `prepare` 옵션 |
 | --- | --- |
-| T1 | `--scenario t1 --profile stress --mode hot|spread --concurrency 2|4|8` |
-| T2 서로 다른 사용자 | `--scenario t2 --profile stress --mode hot|spread --subcase distinct --concurrency 2|4|8` |
+| T1 hot | `--scenario t1 --profile stress --mode hot --concurrency 2|4|8|10` |
+| T1 spread | `--scenario t1 --profile stress --mode spread --concurrency 2|4|8|16` |
+| T2 서로 다른 사용자 | `--scenario t2 --profile stress --mode hot|spread --subcase distinct --concurrency 2|4|8|16` |
 | T2 동일 사용자 | `--scenario t2 --profile spike --mode hot --subcase duplicate --concurrency 2` |
 | T3 natural race | `--scenario t3 --profile stress --t3-mode race` |
 | T3 순차 검증 | `--scenario t3 --profile spike --t3-mode wait-first|cancel-first` |
 | T4 | `--scenario t4 --profile stress --concurrency 2|4|8` |
 | T5 | `--scenario t5 --t5-role public|host|participant --t5-scale 1|10` |
+
+T1 hot은 제품 정원 상한 안의 c10까지만 허용한다. T1 spread와 T2 distinct는 독립 fixture 또는 대기 등록 경합을 위해 c16을 허용하지만, c32는 별도 범위와 실행 승인이 있기 전에는 어떤 시나리오에서도 bundle을 생성하거나 실행하지 않는다.
 
 `stress`의 기본값은 독립 ROOM 5개를 같은 동시성으로 연속 wave 실행하는 것이다. 단, T3 `race`는 각 독립 ROOM의 wait/cancel 한 쌍을 같은 barrier에 병렬 배치한다. `spike`의 기본값은 독립 ROOM 1개에 즉시 한 wave를 보낸다. T5는 VU마다 측정 창 전체를 한 번 실행한다. T5 role×scale 여섯 실행은 같은 run ID 아래에 만들고, 각 fixture의 `after` 검증 뒤에 아래 비교 검증을 실행한다.
 

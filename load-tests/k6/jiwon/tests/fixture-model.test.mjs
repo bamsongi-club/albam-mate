@@ -96,6 +96,14 @@ function summaryWith(counts = {}) {
     'room_waitlist_position_6',
     'room_waitlist_position_7',
     'room_waitlist_position_8',
+    'room_waitlist_position_9',
+    'room_waitlist_position_10',
+    'room_waitlist_position_11',
+    'room_waitlist_position_12',
+    'room_waitlist_position_13',
+    'room_waitlist_position_14',
+    'room_waitlist_position_15',
+    'room_waitlist_position_16',
   ];
   const metrics = {};
   metricNames.forEach((name) => {
@@ -260,6 +268,42 @@ test('T1 hot stress fixture는 8명 취소·9명 FIFO 대기자를 round마다 �
   });
 });
 
+test('T1 hot c10 fixture는 제품 정원 상한에서 취소자와 FIFO 대기자를 결정적으로 만든다', () => {
+  const input = {
+    scenario: 't1',
+    runId: 'fixture-t1-hot-c10',
+    profile: 'spike',
+    mode: 'hot',
+    concurrency: 10,
+  };
+  const first = createFixturePlan(input);
+  const second = createFixturePlan(input);
+
+  assert.deepEqual(first, second);
+  assert.equal(first.targets.length, 10);
+  assert.equal(first.rooms.length, 1);
+  assert.equal(first.rooms[0].capacity, 10);
+  assert.equal(first.rooms[0].activeKeys.length, 10);
+  assert.equal(first.rooms[0].waiterKeys.length, 11);
+});
+
+test('T1 spread c16 fixture는 16개 독립 ROOM과 취소 대상을 만든다', () => {
+  const plan = createFixturePlan({
+    scenario: 't1',
+    runId: 'fixture-t1-spread-c16',
+    profile: 'spike',
+    mode: 'spread',
+    concurrency: 16,
+  });
+
+  assert.equal(plan.targets.length, 16);
+  assert.equal(plan.rooms.length, 16);
+  assert.equal(new Set(plan.targets.map((target) => target.roomKey)).size, 16);
+  assert.ok(plan.rooms.every((room) => room.capacity === 1));
+  assert.ok(plan.rooms.every((room) => room.activeKeys.length === 1));
+  assert.ok(plan.rooms.every((room) => room.waiterKeys.length === 2));
+});
+
 test('T2 duplicate는 같은 ROOM·같은 사용자 요청 두 개만 만든다', () => {
   const { plan, fixture } = fixtureFor({
     scenario: 't2',
@@ -278,6 +322,61 @@ test('T2 duplicate는 같은 ROOM·같은 사용자 요청 두 개만 만든다'
   assert.deepEqual(evaluateFixture(fixture, initialSnapshot(fixture), 'before'), {
     status: 'PASS',
     failures: [],
+  });
+});
+
+test('T2 distinct hot·spread c16 fixture는 승인된 경합과 대조군 대상을 만든다', () => {
+  const hot = createFixturePlan({
+    scenario: 't2',
+    runId: 'fixture-t2-hot-c16',
+    profile: 'spike',
+    mode: 'hot',
+    subcase: 'distinct',
+    concurrency: 16,
+  });
+  const spread = createFixturePlan({
+    scenario: 't2',
+    runId: 'fixture-t2-spread-c16',
+    profile: 'spike',
+    mode: 'spread',
+    subcase: 'distinct',
+    concurrency: 16,
+  });
+
+  assert.equal(hot.targets.length, 16);
+  assert.equal(hot.rooms.length, 1);
+  assert.equal(new Set(hot.targets.map((target) => target.actorKey)).size, 16);
+  assert.equal(spread.targets.length, 16);
+  assert.equal(spread.rooms.length, 16);
+  assert.equal(new Set(spread.targets.map((target) => target.roomKey)).size, 16);
+});
+
+test('승인되지 않은 c10·c16 조합과 모든 c32 fixture는 거절한다', () => {
+  const rejected = [
+    { scenario: 't1', mode: 'hot', concurrency: 16 },
+    { scenario: 't1', mode: 'spread', concurrency: 10 },
+    { scenario: 't2', mode: 'hot', subcase: 'distinct', concurrency: 10 },
+    { scenario: 't4', concurrency: 16 },
+    { scenario: 't1', mode: 'hot', concurrency: 32 },
+    { scenario: 't1', mode: 'spread', concurrency: 32 },
+    { scenario: 't2', mode: 'hot', subcase: 'distinct', concurrency: 32 },
+    { scenario: 't2', mode: 'spread', subcase: 'distinct', concurrency: 32 },
+    { scenario: 't2', mode: 'hot', subcase: 'duplicate', concurrency: 32 },
+    { scenario: 't3', concurrency: 32 },
+    { scenario: 't4', concurrency: 32 },
+    { scenario: 't5', concurrency: 32 },
+    { scenario: 'mixed', concurrency: 32 },
+  ];
+
+  rejected.forEach((options, index) => {
+    assert.throws(
+      () => createFixturePlan({
+        ...options,
+        runId: `fixture-rejected-concurrency-${index}`,
+        profile: 'spike',
+      }),
+      /concurrency/,
+    );
   });
 });
 
@@ -424,7 +523,7 @@ test('snapshot SQL은 파생 테이블의 quoted camelCase alias로 정렬한다
   assert.match(snapshotSql, /ORDER BY waitlist_row\."roomId", waitlist_row\."queueOrder", waitlist_row\."userId"/);
 });
 
-test('T2 duplicate는 동시성 2 이외의 입력을 거절한다', () => {
+test('T2 duplicate는 hot c2 이외의 입력을 거절한다', () => {
   assert.throws(
     () => createFixturePlan({
       scenario: 't2',
@@ -434,6 +533,16 @@ test('T2 duplicate는 동시성 2 이외의 입력을 거절한다', () => {
       concurrency: 4,
     }),
     /concurrency=2/,
+  );
+  assert.throws(
+    () => createFixturePlan({
+      scenario: 't2',
+      runId: 'fixture-invalid-duplicate-spread',
+      mode: 'spread',
+      subcase: 'duplicate',
+      concurrency: 2,
+    }),
+    /mode=hot/,
   );
 });
 
@@ -522,6 +631,51 @@ test('T2 distinct 사후 검증은 201 수와 새 WAITING 행 수를 대조한�
 
   delete summary.metrics.room_created;
   assert.equal(evaluateFixture(fixture, snapshot, 'after', summary).status, 'FAIL');
+});
+
+test('T2 hot c16 사후 검증은 position 1~16 응답 수를 모두 대조한다', () => {
+  const { fixture } = fixtureFor({
+    scenario: 't2',
+    runId: 'fixture-t2-hot-c16-after',
+    profile: 'spike',
+    mode: 'hot',
+    subcase: 'distinct',
+    concurrency: 16,
+  });
+  const snapshot = initialSnapshot(fixture);
+  fixture.targets.forEach((target, index) => {
+    const room = fixture.rooms[target.roomKey];
+    snapshot.waitlists.push({
+      roomId: room.id,
+      userId: fixture.users[target.actorKey].id,
+      status: 'WAITING',
+      queueOrder: index + 1,
+      queuedAt: '2030-01-01T00:01:00Z',
+    });
+  });
+
+  const positionCounts = {};
+  for (let position = 1; position <= 16; position += 1) {
+    positionCounts[`room_waitlist_position_${position}`] = 1;
+  }
+  const summary = summaryWith({
+    room_requests: 16,
+    room_success: 16,
+    room_created: 16,
+    ...positionCounts,
+  });
+
+  assert.deepEqual(evaluateFixture(fixture, snapshot, 'after', summary), {
+    status: 'PASS',
+    failures: [],
+  });
+
+  summary.metrics.room_waitlist_position_9.values.count = 2;
+  summary.metrics.room_waitlist_position_10.values.count = 0;
+  const invalidResult = evaluateFixture(fixture, snapshot, 'after', summary);
+  assert.equal(invalidResult.status, 'FAIL');
+  assert.match(invalidResult.failures.join('\n'), /position=9/);
+  assert.match(invalidResult.failures.join('\n'), /position=10/);
 });
 
 test('T3 wait-first 사후 검증은 PROMOTED + ACTIVE 종단만 통과시킨다', () => {
