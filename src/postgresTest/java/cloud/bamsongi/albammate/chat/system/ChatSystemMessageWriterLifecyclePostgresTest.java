@@ -11,6 +11,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -70,6 +71,11 @@ class ChatSystemMessageWriterLifecyclePostgresTest extends SharedPostgresIntegra
 	private JdbcTemplate jdbcTemplate;
 	@Autowired
 	private RecordingChatRealtimePublisher recordingChatRealtimePublisher;
+
+	@AfterEach
+	void resetGate() {
+		deactivateGate();
+	}
 
 	@Test
 	void T3_참가_확정_커밋_후_실시간_전달_신호가_ChatRealtimePublisher까지_도달한다() {
