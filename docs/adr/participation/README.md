@@ -11,3 +11,4 @@
 | [0043](0043-room-waitlist-persistence-conditional-transition-retry.md) | ROOM 대기열을 단일 최신 상태로 저장하고 조건부 전이·등록 재시도를 조정 | 대체됨 | 2026-08-03 | 검증됨 |
 | [0046](0046-room-waitlist-persistence-conditional-transition-retry.md) | ROOM 대기열을 단일 최신 상태로 저장하고 조건부 전이·등록 재시도를 조정 | 승인됨 | 2026-08-04 | 검증됨 |
 | [0083](0083-room-t1-optimistic-lock-selection.md) | ROOM T1 잠금 전략으로 현행 낙관 락 유지 | 승인됨 | 2026-08-20 | 검증됨 |
+| [0086](0086-room-t1-participation-cancel-critical-section-selection.md) | ROOM T1 참가 취소·자동 승격 critical section 전략을 실측으로 선택 | 제안됨 | 미정 | 미검증 |
