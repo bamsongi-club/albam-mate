@@ -62,6 +62,10 @@
     "inputContract": {
       "path": "search-candidate-comparison/semantic-30-dense-input-contract.json",
       "sha256": "6bfa028232c531e80db6f3fdc4d74708c4641d450e724301af684142091c70ca"
+    },
+    "judgementPacket": {
+      "path": "search-candidate-comparison/semantic-30-human-judgement-packet.json",
+      "sha256": "cac1a01307e44a174001ec84a0e8eff2b40cab2ccb61a1e522ac73aa7c2f615f"
     }
   }
 }
