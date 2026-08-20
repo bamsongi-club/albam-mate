@@ -90,7 +90,7 @@ latency는 각 Run의 resource-signals.json outcome coverage를 사용했다. su
 ## 집계 관찰값
 
 - 전체 요청 720건: success 556, business 0, concurrency 164, unexpected 0
-- success 지연 범위: p50 0–0ms, p95 0–0ms, p99 0–0ms, max 0–0ms
+- success 지연 범위: p50 30.9–170.2ms, p95 42.4–775.7ms, p99 48.0–1159.3ms, max 49.5–1255.1ms
 - T3 누적 query calls 15519, query time 15321.1ms, 최대 lock wait 1, Hikari pending 최대 0
 - common retrier exhausted 누적 86, Coordinator exhausted 누적 0
 
