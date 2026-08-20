@@ -114,6 +114,44 @@ class RoomParticipationCancelExecutorTest {
 	}
 
 	@Test
+	void 대기자가_없으면_참가_취소_알림을_기록하기_전에_ROOM_인원_감소를_flush한다() {
+		long roomId = 7L;
+		long hostUserId = 1L;
+		long participantUserId = 10L;
+		RoomRepository mockedRoomRepository = mock(RoomRepository.class);
+		ParticipationRepository mockedParticipationRepository = mock(ParticipationRepository.class);
+		RoomWaitlistRepository mockedWaitlistRepository = mock(RoomWaitlistRepository.class);
+		RoomChangeEventRecorder recorder = mock(RoomChangeEventRecorder.class);
+		Room room = mock(Room.class);
+		Participation participation = mock(Participation.class);
+		RoomParticipationCancelExecutor executor = new RoomParticipationCancelExecutor(
+			mockedRoomRepository,
+			mockedParticipationRepository,
+			mockedWaitlistRepository,
+			recorder,
+			NO_OP_EVENT_PUBLISHER,
+			mock(EntityManager.class));
+		when(mockedRoomRepository.findById(roomId)).thenReturn(java.util.Optional.of(room));
+		when(room.getHostUserId()).thenReturn(hostUserId);
+		when(room.getId()).thenReturn(roomId);
+		when(room.getStartAt()).thenReturn(NOW.plusSeconds(3600));
+		when(room.getStatus()).thenReturn(RoomStatus.RECRUITING);
+		when(room.getRemainingRecruitmentSeats()).thenReturn(1);
+		when(participation.getStatus()).thenReturn(ParticipationStatus.ACTIVE);
+		when(mockedParticipationRepository.findByRoomIdAndUserId(roomId, participantUserId))
+			.thenReturn(java.util.Optional.of(participation));
+		when(mockedWaitlistRepository.findFirstWaitingByRoomId(roomId)).thenReturn(java.util.Optional.empty());
+
+		executor.cancelParticipation(participantUserId, roomId, NOW);
+
+		InOrder order = inOrder(room, mockedRoomRepository, recorder);
+		order.verify(room).removeActiveParticipant();
+		order.verify(mockedRoomRepository).save(room);
+		order.verify(mockedRoomRepository).flush();
+		order.verify(recorder).record(any(ParticipationCanceledEvent.class), any());
+	}
+
+	@Test
 	void 첫_WAITING을_승격하고_취소된_참가_관계를_복구해_방을_마감한다() {
 		long hostUserId = insertUser("promotion-host@example.com", "방장");
 		long leavingUserId = insertUser("promotion-leaving@example.com", "취소자");
@@ -234,7 +272,8 @@ class RoomParticipationCancelExecutorTest {
 			mockedParticipationRepository,
 			mockedWaitlistRepository,
 			mock(RoomChangeEventRecorder.class),
-			NO_OP_EVENT_PUBLISHER);
+			NO_OP_EVENT_PUBLISHER,
+			mock(EntityManager.class));
 		when(mockedRoomRepository.findById(roomId)).thenReturn(java.util.Optional.of(mockedRoom));
 		when(mockedRoom.getHostUserId()).thenReturn(1L);
 		when(mockedRoom.getId()).thenReturn(roomId);
@@ -279,7 +318,8 @@ class RoomParticipationCancelExecutorTest {
 			mockedParticipationRepository,
 			mockedWaitlistRepository,
 			mock(RoomChangeEventRecorder.class),
-			NO_OP_EVENT_PUBLISHER);
+			NO_OP_EVENT_PUBLISHER,
+			mock(EntityManager.class));
 		when(mockedRoomRepository.findById(roomId)).thenReturn(java.util.Optional.of(mockedRoom));
 		when(mockedRoom.getHostUserId()).thenReturn(1L);
 		when(mockedRoom.getId()).thenReturn(roomId);
@@ -420,7 +460,7 @@ class RoomParticipationCancelExecutorTest {
 		Participation participation = mock(Participation.class);
 		RoomParticipationCancelExecutor executor = new RoomParticipationCancelExecutor(
 			mockedRoomRepository, mockedParticipationRepository, mockedWaitlistRepository, recorder,
-			NO_OP_EVENT_PUBLISHER);
+			NO_OP_EVENT_PUBLISHER, mock(EntityManager.class));
 		when(mockedRoomRepository.findById(roomId)).thenReturn(java.util.Optional.of(room));
 		when(room.getHostUserId()).thenReturn(1L);
 		when(room.getId()).thenReturn(roomId);
@@ -454,7 +494,7 @@ class RoomParticipationCancelExecutorTest {
 		RoomWaitlistCandidateProjection waiting = candidate(20L, 1L);
 		RoomParticipationCancelExecutor promotedExecutor = new RoomParticipationCancelExecutor(
 			promotedRoomRepository, promotedParticipationRepository, promotedWaitlistRepository, promotedRecorder,
-			NO_OP_EVENT_PUBLISHER);
+			NO_OP_EVENT_PUBLISHER, mock(EntityManager.class));
 		when(promotedRoomRepository.findById(roomId)).thenReturn(java.util.Optional.of(promotedRoom));
 		when(promotedRoom.getHostUserId()).thenReturn(1L);
 		when(promotedRoom.getId()).thenReturn(roomId);
@@ -494,7 +534,7 @@ class RoomParticipationCancelExecutorTest {
 		RoomWaitlistCandidateProjection waiting = candidate(promotedUserId, 1L);
 		RoomParticipationCancelExecutor executor = new RoomParticipationCancelExecutor(
 			mockedRoomRepository, mockedParticipationRepository, mockedWaitlistRepository, recorder,
-			NO_OP_EVENT_PUBLISHER);
+			NO_OP_EVENT_PUBLISHER, mock(EntityManager.class));
 		when(mockedRoomRepository.findById(roomId)).thenReturn(java.util.Optional.of(room));
 		when(room.getHostUserId()).thenReturn(1L);
 		when(room.getId()).thenReturn(roomId);
@@ -537,7 +577,7 @@ class RoomParticipationCancelExecutorTest {
 		RoomWaitlistCandidateProjection waiting = candidate(20L, 1L);
 		RoomParticipationCancelExecutor executor = new RoomParticipationCancelExecutor(
 			mockedRoomRepository, mockedParticipationRepository, mockedWaitlistRepository, recorder,
-			NO_OP_EVENT_PUBLISHER);
+			NO_OP_EVENT_PUBLISHER, mock(EntityManager.class));
 		when(mockedRoomRepository.findById(roomId)).thenReturn(java.util.Optional.of(room));
 		when(room.getHostUserId()).thenReturn(hostUserId);
 		when(room.getId()).thenReturn(roomId);
@@ -579,7 +619,7 @@ class RoomParticipationCancelExecutorTest {
 		Participation participation = mock(Participation.class);
 		RoomParticipationCancelExecutor executor = new RoomParticipationCancelExecutor(
 			mockedRoomRepository, mockedParticipationRepository, mockedWaitlistRepository, recorder,
-			NO_OP_EVENT_PUBLISHER);
+			NO_OP_EVENT_PUBLISHER, mock(EntityManager.class));
 		when(mockedRoomRepository.findById(roomId)).thenReturn(java.util.Optional.of(room));
 		when(room.getHostUserId()).thenReturn(1L);
 		when(room.getId()).thenReturn(roomId);

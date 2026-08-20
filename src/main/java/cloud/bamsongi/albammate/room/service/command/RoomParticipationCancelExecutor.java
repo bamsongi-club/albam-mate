@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
@@ -40,7 +39,6 @@ class RoomParticipationCancelExecutor {
 	private final ApplicationEventPublisher eventPublisher;
 	private final EntityManager entityManager;
 
-	@Autowired
 	RoomParticipationCancelExecutor(
 		RoomRepository roomRepository,
 		ParticipationRepository participationRepository,
@@ -54,21 +52,6 @@ class RoomParticipationCancelExecutor {
 		this.roomChangeEventRecorder = Objects.requireNonNull(roomChangeEventRecorder, "roomChangeEventRecorder");
 		this.eventPublisher = Objects.requireNonNull(eventPublisher, "eventPublisher");
 		this.entityManager = Objects.requireNonNull(entityManager, "entityManager");
-	}
-
-	RoomParticipationCancelExecutor(
-		RoomRepository roomRepository,
-		ParticipationRepository participationRepository,
-		RoomWaitlistRepository roomWaitlistRepository,
-		RoomChangeEventRecorder roomChangeEventRecorder,
-		ApplicationEventPublisher eventPublisher,
-		RoomWaitlistMetrics... ignoredMetrics) {
-		this.roomRepository = Objects.requireNonNull(roomRepository, "roomRepository");
-		this.participationRepository = Objects.requireNonNull(participationRepository, "participationRepository");
-		this.roomWaitlistRepository = Objects.requireNonNull(roomWaitlistRepository, "roomWaitlistRepository");
-		this.roomChangeEventRecorder = Objects.requireNonNull(roomChangeEventRecorder, "roomChangeEventRecorder");
-		this.eventPublisher = Objects.requireNonNull(eventPublisher, "eventPublisher");
-		this.entityManager = null;
 	}
 
 	/** 요청 시각의 방 상태를 보정한 뒤 활성 참가 관계를 취소하고 점유 인원을 갱신한다. */
@@ -92,7 +75,13 @@ class RoomParticipationCancelExecutor {
 		room.reconcileStateAt(requestTime);
 		Participation participation = requireCancelableParticipation(room, currentUserId, requestTime);
 		Optional<RoomWaitlistCandidateProjection> firstWaiting = findFirstWaiting(room);
-		room = claimRoomVersionForPromotion(room, firstWaiting);
+		if (firstWaiting.isPresent()) {
+			room = claimRoomVersionForPromotion(room);
+		} else {
+			room.removeActiveParticipant();
+			roomRepository.save(room);
+			roomRepository.flush();
+		}
 
 		participation.cancel(requestTime);
 		participationRepository.save(participation);
@@ -100,7 +89,7 @@ class RoomParticipationCancelExecutor {
 			new RoomParticipantChanged(room.getId(), currentUserId, RoomParticipantChanged.Kind.LEFT, requestTime));
 		Optional<Long> promotedUserId = promoteFirstWaiting(
 			room, requestTime, promotionAttemptedObserver, firstWaiting);
-		if (promotedUserId.isEmpty()) {
+		if (promotedUserId.isEmpty() && firstWaiting.isPresent()) {
 			room.removeActiveParticipant();
 		}
 		if (promotedUserId.isPresent()) {
@@ -146,20 +135,12 @@ class RoomParticipationCancelExecutor {
 		return roomWaitlistRepository.findFirstWaitingByRoomId(room.getId());
 	}
 
-	private Room claimRoomVersionForPromotion(
-		Room room, Optional<RoomWaitlistCandidateProjection> firstWaiting) {
-		if (firstWaiting.isEmpty()) {
-			return room;
-		}
+	private Room claimRoomVersionForPromotion(Room room) {
 		if (roomRepository.claimVersion(room.getId(), room.getVersion()) == 0) {
 			throw new ObjectOptimisticLockingFailureException(Room.class, room.getId());
 		}
-		if (entityManager != null) {
-			entityManager.refresh(room);
-			return room;
-		}
-		return roomRepository.findById(room.getId())
-			.orElseThrow(() -> new BusinessException(ErrorCode.ROOM_NOT_FOUND));
+		entityManager.refresh(room);
+		return room;
 	}
 
 	/**
