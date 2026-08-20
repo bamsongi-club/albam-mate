@@ -15,7 +15,7 @@ P1은 App1 Nginx 단일 진입점, App1·App2 Spring 두 대, PostgreSQL·Redis 
 
 운영 프로필의 App1·App2 Spring은 현재 각각 기동할 때 Flyway를 실행한다. 두 인스턴스가 서로 다른 버전으로 잠시 공존하는 배포에서는 스키마 적용 주체가 둘이 될 수 있다. [ADR-0008](0008-flyway-database-migrations.md)은 다중 인스턴스 배포가 필요해지면 Flyway 실행 위치를 별도 작업으로 옮길 수 있게 열어 두었지만, 실행·rollback 정책은 정하지 않았다.
 
-2026-08-20 팀 합의로 P1 `develop` 자동 CD와 이 문서의 실행·복구 경계를 채택했다. 이 ADR은 [ADR-0008](0008-flyway-database-migrations.md)의 전체 결정을 폐기하지 않고, P1 production App1·App2의 Flyway 실행 위치 범위만 후속 결정으로 구체화한다.
+2026-08-20 팀 합의로 P1 `develop` 자동 CD와 이 문서의 실행·복구 경계를 채택했다. 이 ADR은 [ADR-0008](0008-flyway-database-migrations.md)의 전체 결정을 폐기하지 않고, P1 production App1·App2의 Flyway 실행 위치 범위만 후속 결정으로 구체화한다. P1 App1·App2 배포 대상에서는 부하 테스트를 수행하지 않고, HTTP·WebSocket·k6 측정은 별도 EC2 환경에서 진행하므로 그 측정 환경의 배포·원복은 이 ADR의 CD 소유 범위에 포함하지 않는다.
 
 판단 기준은 다음과 같다.
 
@@ -24,7 +24,7 @@ P1은 App1 Nginx 단일 진입점, App1·App2 Spring 두 대, PostgreSQL·Redis 
 - 동시에 들어온 `develop` 변경이 서로 다른 이미지·마이그레이션·롤백 상태를 만들지 않게 할 것
 - migration 실패가 기존 앱 컨테이너 교체나 자동 DB rollback으로 이어지지 않게 할 것
 - 새 앱 실패 시 구 앱이 확장된 스키마와 계속 호환되는 범위에서 자동 복귀할 것
-- 현재 P1의 단일 진입점·백업 미검증·부하 측정 경계를 자동 CD 완료로 오인하지 않을 것
+- 현재 P1의 단일 진입점·백업 미검증·별도 EC2 부하 측정 경계를 자동 CD 완료로 오인하지 않을 것
 
 ## 검토한 대안
 
@@ -71,12 +71,6 @@ P1은 App1 Nginx 단일 진입점, App1·App2 Spring 두 대, PostgreSQL·Redis 
 - 자동 CD를 활성화하기 전에 운영자가 현재 App1·App2의 동일 release SHA·digest, health/upstream과 기능 smoke를 확인해 manifest를 한 번 bootstrap한다. Parameter가 없거나 두 앱의 SHA·digest가 다르면 migrator·앱 교체·SSM 상태 변경을 시작하지 않는다.
 - 배포 성공 후 App1·App2의 health·upstream·기능 smoke와 digest를 모두 확인한 뒤에만 새 manifest를 한 번에 기록한다. rollback은 이 manifest의 동일한 last-known-good SHA·digest를 사용한다.
 
-### 측정 중 배포 freeze
-
-- 직접 HTTP·WebSocket 부하 또는 k6 측정을 시작하기 전에 운영자는 비밀이 아닌 SSM Parameter Store의 `/albam-mate/p1/deployment-freeze` 상태를 설정한다. 상태에는 owner, reason, 고정 release SHA·digest, 시작 시각을 기록한다.
-- CD workflow는 image 게시 전과 모든 SSM 명령 직전에 freeze를 확인한다. freeze가 켜져 있으면 image 게시·EC2 상태 변경을 하지 않고 대기하며, 측정 중에 실행 중인 배포를 중간 취소하지 않는다. freeze 중 병합된 SHA는 해제 뒤 최신 하나만 다시 CI·digest 기준으로 처리한다.
-- 측정 결과와 로그를 보존하고 직접 경로·Compose·보안 그룹 원복과 SSM 기능 smoke를 완료한 뒤 운영자가 freeze를 해제한다. freeze가 없거나 release가 기록과 다르면 해당 측정은 고정 release 증거로 인정하지 않는다.
-
 ### P1 가용성 표현
 
 - App2→App1 순서는 유지한다. App1 Nginx와 Spring의 동시 교체, App2 재생성, WebSocket 연결 종료로 인한 짧은 HTTP 재시도·WebSocket 재연결은 P1에서 허용한다.
@@ -88,15 +82,15 @@ P1은 App1 Nginx 단일 진입점, App1·App2 Spring 두 대, PostgreSQL·Redis 
     - 병합·CI·이미지·P1 배포·rollback이 하나의 SHA와 digest로 추적된다.
     - migration 실패와 새 앱 실패를 분리해, 기존 앱을 먼저 내리지 않고 실패를 처리할 수 있다.
     - DB를 되돌릴 수 있다는 잘못된 가정 없이 expand/contract로 앱 rollback 가능 범위를 명확히 한다.
-    - App2의 기존 네트워크·env 경계에서 migrator를 실행하고, LKG bootstrap과 측정 freeze의 상태를 별도 기록할 수 있다.
+    - App2의 기존 네트워크·env 경계에서 migrator를 실행하고, LKG bootstrap 상태를 별도 기록할 수 있다.
 - 감수할 비용·위험:
     - OIDC trust policy, ECR/SSM 최소 권한, deployment concurrency, one-shot migrator와 앱 Flyway 설정을 구현·운영해야 한다.
     - migration SQL의 lock·실행시간은 기존 서비스 요청에 영향을 줄 수 있으므로 별도 검토가 필요하다.
     - App1 단일 진입점과 현재 Nginx 구성 때문에 짧은 연결 중단이 발생할 수 있다.
 - 후속 작업:
     - `albam-mate`와 `albam-mate-infra`에 배포 workflow·OIDC role·SSM 배포·migrator·앱별 Flyway 비활성화·health/smoke·last-known-good rollback을 구현한다.
-    - 비밀이 아닌 LKG·deployment freeze Parameter Store 경로의 IAM·bootstrap·해제 절차를 구현한다.
-    - P1 실제 배포에서 SHA/digest, migrator 결과, App2/App1 health, smoke, rollback과 freeze 결과를 보존한다.
+    - 비밀이 아닌 LKG Parameter Store 경로의 IAM·bootstrap 절차를 구현한다.
+    - P1 실제 배포에서 SHA/digest, migrator 결과, App2/App1 health, smoke와 rollback 결과를 보존한다.
 
 ## 보류 및 재검토
 
@@ -121,7 +115,7 @@ P1은 App1 Nginx 단일 진입점, App1·App2 Spring 두 대, PostgreSQL·Redis 
 - 미검증:
     - GitHub Actions CD workflow, OIDC trust/권한, ECR publish와 SSM 실행 구현
     - App2 one-shot migrator와 App1·App2 Flyway 비활성화, expand/contract 검증
-    - LKG·deployment freeze Parameter Store bootstrap과 IAM 검증
-    - 실제 P1의 App2→App1 rollout, SHA/digest 확인, health/smoke, 앱 자동 rollback, freeze와 연결 중단 범위
+    - LKG Parameter Store bootstrap과 IAM 검증
+    - 실제 P1의 App2→App1 rollout, SHA/digest 확인, health/smoke, 앱 자동 rollback과 연결 중단 범위
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.
