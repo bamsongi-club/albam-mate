@@ -63,10 +63,23 @@ test("SEARCH-04 offline 평가 스크립트 변경은 Docs 계약 검증으로 �
     classifyCiPaths([
       "scripts/search-evaluation/search-candidate-comparison.mjs",
       "scripts/search-evaluation/search-candidate-comparison.test.mjs",
+      "scripts/search-evaluation/lexical-sparse-baseline.mjs",
+      "scripts/search-evaluation/lexical-sparse-baseline.test.mjs",
+      "scripts/search-evaluation/run-bge-m3.py",
       "scripts/search-evaluation/run-bge-m3.test.py",
     ]),
     noBackend(false),
   );
+});
+
+test("Docs가 직접 검증하지 않는 SEARCH-04 실행기는 backend로 분류한다", () => {
+  for (const changedPath of [
+    "scripts/search-evaluation/dense-bge-m3-execution.mjs",
+    "scripts/search-evaluation/dense-bge-m3-execution.test.mjs",
+    "scripts/search-evaluation/build-gold-judgement-packet.mjs",
+  ]) {
+    assert.deepEqual(classifyCiPaths([changedPath]), fullBackend(), changedPath);
+  }
 });
 
 test("frontend 변경은 frontend만 실행한다", () => {

@@ -10,8 +10,8 @@ import {
 const NON_BACKEND_ONLY_PATTERNS = [
   /\.md$/,
   /^docs\//,
-  // SEARCH-04 offline contract scripts are exercised by the always-on Docs job.
-  /^scripts\/search-evaluation\//,
+  // Docs job이 직접 실행하거나 해당 테스트가 import하는 SEARCH-04 경로만 포함한다.
+  /^scripts\/search-evaluation\/(?:lexical-sparse-baseline(?:\.test)?\.mjs|run-bge-m3(?:\.test)?\.py|search-candidate-comparison(?:\.test)?\.mjs)$/,
   /^\.github\/ISSUE_TEMPLATE\//,
   /^load-tests\//,
   /^scripts\/ci\/classify-ci-paths(?:\.test)?\.mjs$/,

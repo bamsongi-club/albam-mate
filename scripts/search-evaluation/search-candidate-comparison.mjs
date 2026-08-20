@@ -16,6 +16,8 @@ export const DEFAULT_METRIC_K = 10;
 export const DEFAULT_EVALUATION_TOP_K = 20;
 export const DEFAULT_RRF_K = 60;
 export const COMPARISON_BLIND_SEED = "search-04-candidate-comparison-v1";
+const FILLED_HUMAN_JUDGE_PACKET_STATUS = "filled";
+const AI_DRAFTED_JUDGE_PACKET_STATUS = "filled-ai-drafted-not-independent-human";
 
 export function sha256(value) {
     return createHash("sha256").update(value).digest("hex");
@@ -453,6 +455,7 @@ export function buildApprovedHumanQrels({
 
     const normalizedJudgePackets = judgePackets.map((judgePacket, index) => {
         const normalized = validateJudgementPacket(judgePacket, `judge ${index + 1} packet`);
+        requireIndependentHumanJudgePacket(normalized, `judge ${index + 1} packet`);
         if (judgementPacketIdentity(reference) !== judgementPacketIdentity(normalized)) {
             fail(`judge ${index + 1} packet이 canonical packet과 다릅니다.`);
         }
@@ -461,6 +464,9 @@ export function buildApprovedHumanQrels({
     const normalizedThirdJudgePacket = thirdJudgePacket
         ? validateJudgementPacket(thirdJudgePacket, "third judge packet")
         : null;
+    if (normalizedThirdJudgePacket) {
+        requireIndependentHumanJudgePacket(normalizedThirdJudgePacket, "third judge packet");
+    }
     if (normalizedThirdJudgePacket && judgementPacketIdentity(reference) !== judgementPacketIdentity(normalizedThirdJudgePacket)) {
         fail("third judge packet이 canonical packet과 다릅니다.");
     }
@@ -569,12 +575,14 @@ export function buildProvisionalAiAdjudicationQrels({
 
     const normalizedJudgePackets = judgePackets.map((judgePacket, index) => {
         const normalized = validateJudgementPacket(judgePacket, `judge ${index + 1} packet`);
+        requireIndependentHumanJudgePacket(normalized, `judge ${index + 1} packet`);
         if (judgementPacketIdentity(reference) !== judgementPacketIdentity(normalized)) {
             fail(`judge ${index + 1} packet이 canonical packet과 다릅니다.`);
         }
         return normalized;
     });
     const normalizedThirdJudgePacket = validateJudgementPacket(thirdJudgePacket, "third judge packet");
+    requireAiDraftedJudgePacket(normalizedThirdJudgePacket, "third judge packet");
     if (judgementPacketIdentity(reference) !== judgementPacketIdentity(normalizedThirdJudgePacket)) {
         fail("third judge packet이 canonical packet과 다릅니다.");
     }
@@ -654,6 +662,18 @@ export function buildProvisionalAiAdjudicationQrels({
         },
         queries,
     };
+}
+
+function requireIndependentHumanJudgePacket(packet, name) {
+    if (packet.status !== FILLED_HUMAN_JUDGE_PACKET_STATUS) {
+        fail(`${name} status가 독립 human 판정 packet이 아닙니다.`);
+    }
+}
+
+function requireAiDraftedJudgePacket(packet, name) {
+    if (packet.status !== AI_DRAFTED_JUDGE_PACKET_STATUS) {
+        fail(`${name} status가 AI-drafted provisional 판정 packet이 아닙니다.`);
+    }
 }
 
 export function validateHumanJudgements(

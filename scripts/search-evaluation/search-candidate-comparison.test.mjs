@@ -103,6 +103,7 @@ function judgementPacket() {
 
 function filledJudgementPacket(packet, grades, rationalePrefix) {
     const copy = JSON.parse(JSON.stringify(packet));
+    copy.status = "filled";
     for (const query of copy.queries) {
         for (const candidate of query.candidates) {
             candidate.grade = grades[String(candidate.gameId)];
@@ -505,6 +506,7 @@ test("AI C adjudication은 3-way 충돌을 provisional consensus로 보존한다
     const secondGrades = { "1": 1, "2": 1, "3": 0, "4": 2 };
     const thirdGrades = { "1": 0, "2": 1, "3": 0, "4": 2 };
     const thirdPacket = filledJudgementPacket(packet, thirdGrades, "C");
+    thirdPacket.status = "filled-ai-drafted-not-independent-human";
     for (const candidate of thirdPacket.queries[0].candidates) {
         if (candidate.gameId !== 1) {
             candidate.grade = null;
@@ -560,6 +562,59 @@ test("AI C adjudication은 3-way 충돌을 provisional consensus로 보존한다
     });
     assert.equal(provisionalReport.status, "provisional-metrics-ready");
     assert.equal(provisionalReport.metrics.lexical.overall.queryCount, 1);
+});
+
+test("approved qrels는 AI-drafted 제3 판정 packet을 거부한다", () => {
+    const packet = judgementPacket();
+    const firstGrades = { "1": 2, "2": 1, "3": 0, "4": 2 };
+    const secondGrades = { "1": 1, "2": 1, "3": 0, "4": 2 };
+    const thirdPacket = filledJudgementPacket(packet, { "1": 1, "2": 1, "3": 0, "4": 2 }, "C");
+    thirdPacket.status = "filled-ai-drafted-not-independent-human";
+    for (const candidate of thirdPacket.queries[0].candidates) {
+        if (candidate.gameId !== 1) {
+            candidate.grade = null;
+            candidate.rationale = null;
+        }
+    }
+
+    assert.throws(
+        () => buildApprovedHumanQrels({
+            packet,
+            judgePackets: [
+                filledJudgementPacket(packet, firstGrades, "A"),
+                filledJudgementPacket(packet, secondGrades, "B"),
+            ],
+            thirdJudgePacket: thirdPacket,
+            judgeIds: ["judge-a", "judge-b", "judge-c"],
+            packetSha256: "a".repeat(64),
+        }),
+        /독립 human 판정 packet이 아닙니다/u,
+    );
+});
+
+test("provisional qrels는 AI-drafted 제3 판정 packet만 허용한다", () => {
+    const packet = judgementPacket();
+    const thirdPacket = filledJudgementPacket(packet, { "1": 1, "2": 1, "3": 0, "4": 2 }, "C");
+    for (const candidate of thirdPacket.queries[0].candidates) {
+        if (candidate.gameId !== 1) {
+            candidate.grade = null;
+            candidate.rationale = null;
+        }
+    }
+
+    assert.throws(
+        () => buildProvisionalAiAdjudicationQrels({
+            packet,
+            judgePackets: [
+                filledJudgementPacket(packet, { "1": 2, "2": 1, "3": 0, "4": 2 }, "A"),
+                filledJudgementPacket(packet, { "1": 1, "2": 1, "3": 0, "4": 2 }, "B"),
+            ],
+            thirdJudgePacket: thirdPacket,
+            thirdJudgeSource: "test/semantic-30-judge-c.json",
+            packetSha256: "a".repeat(64),
+        }),
+        /AI-drafted provisional 판정 packet이 아닙니다/u,
+    );
 });
 
 test("판정 불일치에 제3 판정이 없으면 qrels 승인을 거부한다", () => {
