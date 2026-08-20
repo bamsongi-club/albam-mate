@@ -53,7 +53,7 @@ class AssistantRecommendationFakeHttpIntegrationTest {
 	private AssistantGameCandidateQuery assistantGameCandidateQuery;
 
 	@Test
-	void T5_fake_provider는_조건이_없으면_NEEDS_INPUT만_반환하고_후보를_조회하지_않는다() throws Exception {
+	void T2_fake_provider는_조건이_없으면_NEEDS_INPUT만_반환하고_후보를_조회하지_않는다() throws Exception {
 		User user = userRepository.saveAndFlush(
 			User.create("assistant-fake-needs-input@example.com", "{bcrypt}hash", "fake 추가질문 사용자"));
 		grant(user);
@@ -72,7 +72,7 @@ class AssistantRecommendationFakeHttpIntegrationTest {
 	}
 
 	@Test
-	void T5_fake_provider는_지원하지_않는_요청을_UNSUPPORTED로_종결한다() throws Exception {
+	void T2_fake_provider는_지원하지_않는_요청을_UNSUPPORTED로_종결하고_초안과_Room을_만들지_않는다() throws Exception {
 		User user = userRepository.saveAndFlush(
 			User.create("assistant-fake-unsupported@example.com", "{bcrypt}hash", "fake 미지원 사용자"));
 		grant(user);
@@ -85,10 +85,32 @@ class AssistantRecommendationFakeHttpIntegrationTest {
 			.andExpect(jsonPath("$.data.candidates").isEmpty());
 
 		verifyNoInteractions(assistantGameCandidateQuery);
+		assertNoDraftSideEffects(user.getId());
 	}
 
 	@Test
-	void T5_fake_provider의_후속_요청은_클라이언트가_반환한_조건을_보존해_후보를_조회한다() throws Exception {
+	void T2_유효한_catalog_조건의_빈_후보는_NO_CANDIDATES로_종결하고_초안과_Room을_만들지_않는다() throws Exception {
+		User user = userRepository.saveAndFlush(
+			User.create("assistant-fake-no-candidates@example.com", "{bcrypt}hash", "fake 후보 없음 사용자"));
+		grant(user);
+		given(assistantGameCandidateQuery.findCandidates(any())).willReturn(java.util.List.of());
+
+		mockMvc.perform(recommendationPost(
+			"{\"message\":\"다른 조건\",\"conditions\":{\"categories\":[\"STRATEGY\"]}}")
+			.with(authenticationFor(user.getId()))
+			.with(csrf()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.state").value("NO_CANDIDATES"))
+			.andExpect(jsonPath("$.data.conditions.categories[0]").value("STRATEGY"))
+			.andExpect(jsonPath("$.data.candidates").isEmpty());
+
+		verify(assistantGameCandidateQuery).findCandidates(
+			new AssistantGameCandidateQuery.Criteria(java.util.List.of("STRATEGY")));
+		assertNoDraftSideEffects(user.getId());
+	}
+
+	@Test
+	void T2_fake_provider의_후속_요청은_클라이언트가_반환한_조건을_보존해_후보를_조회한다() throws Exception {
 		User user = userRepository.saveAndFlush(
 			User.create("assistant-fake-follow-up@example.com", "{bcrypt}hash", "fake 후속 사용자"));
 		grant(user);
