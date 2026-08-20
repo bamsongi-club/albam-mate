@@ -77,6 +77,7 @@
     "cloud.bamsongi.albammate.chat.system.ChatSystemMessageSchemaPostgresTest": "isolated Flyway schema",
     "cloud.bamsongi.albammate.game.GameCatalogImportPostgresTest": "temporary schema lifecycle",
     "cloud.bamsongi.albammate.game.GameMetadataSearchPerformancePostgresTest": "wall-clock measurement",
+    "cloud.bamsongi.albammate.global.security.session.ChatUserWebSocketSessionStoreAvailabilityPostgresTest": "Redis and application runtime",
     "cloud.bamsongi.albammate.global.security.session.LocalMultiProxyRuntimePostgresTest": "local multi-instance proxy runtime",
     "cloud.bamsongi.albammate.global.security.session.RedisSessionProductionProfilePostgresTest": "production profile, Redis, and application runtime",
     "cloud.bamsongi.albammate.global.security.session.RedisSessionRuntimePostgresTest": "Redis and application runtime",
