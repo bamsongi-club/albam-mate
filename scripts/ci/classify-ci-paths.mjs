@@ -7,10 +7,12 @@ import {
   classifyPostgresRequirementIn,
 } from "./classify-postgres-requirement.mjs";
 
-const DOCUMENTATION_ONLY_PATTERNS = [
+const NON_BACKEND_ONLY_PATTERNS = [
   /\.md$/,
   /^docs\//,
   /^\.github\/ISSUE_TEMPLATE\//,
+  /^load-tests\//,
+  /^scripts\/ci\/classify-ci-paths(?:\.test)?\.mjs$/,
   /^scripts\/docs\/check-(?:doc-links|monitoring-contract)(?:\.test)?\.mjs$/,
   /^scripts\/(?:ci\/classify-postgres-requirement|verify-changed-h2-coverage)\.test\.mjs$/,
   /^scripts\/validate-(?:packet|backend-test-manifest|coverage-ratchet)(?:\.test)?\.mjs$/,
@@ -28,8 +30,8 @@ export function readNulDelimitedPaths(pathsFile) {
   return contents.split("\0").filter(Boolean);
 }
 
-function isDocumentationOnly(filePath) {
-  return DOCUMENTATION_ONLY_PATTERNS.some((pattern) => pattern.test(filePath));
+function isNonBackendOnly(filePath) {
+  return NON_BACKEND_ONLY_PATTERNS.some((pattern) => pattern.test(filePath));
 }
 
 function fallbackClassification(code, message) {
@@ -65,7 +67,7 @@ export function classifyCiPaths(
   }
 
   const backend = normalizedPaths.some(
-    (filePath) => !filePath.startsWith("frontend/") && !isDocumentationOnly(filePath),
+    (filePath) => !filePath.startsWith("frontend/") && !isNonBackendOnly(filePath),
   );
   const frontend = normalizedPaths.some((filePath) => filePath.startsWith("frontend/"));
   const postgresDecision = backend
