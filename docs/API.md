@@ -343,7 +343,7 @@ AI-03 초안 요청에서 `region`을 생략하면 호환 기간 동안 `홍대`
 
 ### AI 기능군 목표 enum
 
-> **도입 단계: P2** · **기능: AI-01·AI-02·AI-03** · **API 계약 상태: 계약 확정** · **제공 상태: AI-01a T1~T5 검증 범위 제공·AI-03 구현 예정**
+> **도입 단계: P2** · **기능: AI-01·AI-02·AI-03** · **API 계약 상태: 계약 확정** · **제공 상태: AI-01a T1~T5와 AI-03a T1~T6 구현·검증 완료**
 
 | 이름 | 값 | 의미 |
 |---|---|---|
@@ -1963,7 +1963,7 @@ Vary: Cookie
 
 > **도입 단계: P2** · **기능: AI-01·AI-02·AI-03** · **API 계약 상태: 계약 확정** · **제공 상태: AI-01a T1~T5 검증 범위 제공·AI-03 구현 예정**
 >
-> 이 절의 AI-01 동의와 AI-02 자연어 추천은 AI-01a T1~T5 검증 범위에서 현재 제공한다. AI-03 초안·확인 경로는 승인된 목표 계약이지만 아직 제공하지 않는다. 외부 provider·보존·호출 한도는 [ADR-0074](adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md), 초안·확인·멱등성은 [ADR-0075](adr/room/0075-p2-ai-draft-confirmation-and-idempotent-room-command.md), 지역은 [ADR-0076](adr/room/0076-p2-room-region-closed-set-and-compatibility.md)을 따른다.
+> 이 절의 AI-01 동의·AI-02 자연어 추천과 AI-03 초안·확인 경로는 현재 제공한다. 외부 provider·보존·호출 한도는 [ADR-0074](adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md), 초안·확인·멱등성은 [ADR-0075](adr/room/0075-p2-ai-draft-confirmation-and-idempotent-room-command.md), 지역은 [ADR-0076](adr/room/0076-p2-room-region-closed-set-and-compatibility.md)을 따른다.
 
 모든 AI 기능군 API는 로그인한 현재 사용자만 호출한다. `GET`은 CSRF가 필요 없고 상태 변경 `PUT`·`POST`·`PATCH`·`DELETE`는 세션과 CSRF가 필요하다. 유효한 외부 처리 동의가 없으면 provider 호출·추천·초안 생성·확인을 시작하지 않는다. AI-01은 동의·제품 흐름, AI-02는 자연어 추천, AI-03은 확인형 초안·Room 생성 경로를 소유하며, 기존 `POST /api/rooms` 즉시 생성 경로는 유지한다.
 
@@ -3100,7 +3100,7 @@ MATCH 채팅 경로(`/api/matches/parties/{partyId}/chat/**`)는 성공 파티 �
 
 ### 10.8 AI 기능군 오류
 
-> **도입 단계: P2** · **기능: AI-01·AI-02·AI-03** · **API 계약 상태: 계약 확정** · **제공 상태: AI-01a T1~T5 검증 범위 제공·AI-03 구현 예정**
+> **도입 단계: P2** · **기능: AI-01·AI-02·AI-03** · **API 계약 상태: 계약 확정** · **제공 상태: AI-01a T1~T5와 AI-03a T1~T6 구현·검증 완료**
 
 | code | HTTP | 기본 message | 발생 조건 |
 |---|---:|---|---|

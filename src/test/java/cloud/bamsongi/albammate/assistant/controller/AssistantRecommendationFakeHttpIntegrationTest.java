@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.test.context.ActiveProfiles;
@@ -45,6 +46,8 @@ class AssistantRecommendationFakeHttpIntegrationTest {
 	private MockMvc mockMvc;
 	@Autowired
 	private UserRepository userRepository;
+	@Autowired
+	private JdbcTemplate jdbcTemplate;
 
 	@MockitoBean
 	private AssistantGameCandidateQuery assistantGameCandidateQuery;
@@ -65,6 +68,7 @@ class AssistantRecommendationFakeHttpIntegrationTest {
 			.andExpect(jsonPath("$.data.candidates").isEmpty());
 
 		verifyNoInteractions(assistantGameCandidateQuery);
+		assertNoDraftSideEffects(user.getId());
 	}
 
 	@Test
@@ -103,6 +107,22 @@ class AssistantRecommendationFakeHttpIntegrationTest {
 
 		verify(assistantGameCandidateQuery).findCandidates(
 			new AssistantGameCandidateQuery.Criteria(java.util.List.of("STRATEGY")));
+		assertNoDraftSideEffects(user.getId());
+	}
+
+	private void assertNoDraftSideEffects(long userId) {
+		org.junit.jupiter.api.Assertions.assertEquals(0,
+			jdbcTemplate.queryForObject("select count(*) from assistant_drafts where user_id = ?", Integer.class,
+				userId));
+		org.junit.jupiter.api.Assertions.assertEquals(0,
+			jdbcTemplate.queryForObject("select count(*) from rooms where host_user_id = ?", Integer.class, userId));
+		org.junit.jupiter.api.Assertions.assertEquals(0,
+			jdbcTemplate.queryForObject(
+				"select count(*) from chat_rooms where room_id in (select id from rooms where host_user_id = ?)",
+				Integer.class, userId));
+		org.junit.jupiter.api.Assertions.assertEquals(0,
+			jdbcTemplate.queryForObject("select count(*) from participations where user_id = ?", Integer.class,
+				userId));
 	}
 
 	private MockHttpServletRequestBuilder recommendationPost(String body) {
