@@ -52,7 +52,7 @@ class GameNameCorrectionPostgresTest extends SharedPostgresIntegrationSupport {
 		Path correctedSql = correct(
 			List.of(
 				game(101, "오토매틱 캔디데이트", "Automatic Candidate"),
-				game(102, "검수된 한글명", "Reviewed Candidate")),
+				game(102, "현재 SQL 이름", "Reviewed Candidate")),
 			"101,Automatic Candidate,오토매틱 캔디데이트,추정번역(자동음차),N\n"
 				+ "102,Reviewed Candidate,검수된 한글명,국내 정발명,Y\n",
 			"<item id=\"101\"><name type=\"primary\" value=\"Automatic Candidate\"/></item>"
@@ -119,11 +119,14 @@ class GameNameCorrectionPostgresTest extends SharedPostgresIntegrationSupport {
 		assertEquals(1, count("game_category_relations"));
 		assertEquals(originalId, jdbc.queryForObject("select id from games where bgg_id=202", Long.class));
 		assertEquals("Primary One", nameOf(201));
-		assertEquals("검수 둘", nameOf(202));
+		assertEquals("검수된 둘", nameOf(202));
 		assertEquals("Primary Three", nameOf(203));
 		assertTrue(corrected.contains("insert into game_category_relations"));
 		assertTrue(provenance.contains("\"inputSqlSha256\": \"" + sha(temp.resolve("input.sql")) + "\""));
 		assertTrue(provenance.contains("\"outputSqlSha256\": \"" + sha(correctedSql) + "\""));
+		assertTrue(provenance.contains("\"xmlManifestSha256\": \"" + sha(temp.resolve("xml-manifest.json")) + "\""));
+		assertTrue(provenance.contains("\"xmlFiles\": ["));
+		assertTrue(provenance.contains("\"file\": \"batch.xml\""));
 		assertTrue(provenance.contains("\"inputRows\": 3"));
 		assertTrue(provenance.contains("\"outputRows\": 3"));
 	}
@@ -132,18 +135,42 @@ class GameNameCorrectionPostgresTest extends SharedPostgresIntegrationSupport {
 		Path input = temp.resolve("input.sql");
 		Path candidateCsv = temp.resolve("candidates.csv");
 		Path xmlDirectory = Files.createDirectories(temp.resolve("xml"));
+		Path xmlManifest = temp.resolve("xml-manifest.json");
 		Path output = temp.resolve("out");
 		Files.writeString(input, sql(games));
 		Files.writeString(candidateCsv, "bggId,nameEn,nameKo,source,reviewed\n" + candidates);
-		Files.writeString(xmlDirectory.resolve("batch.xml"), "<items>" + items + "</items>");
+		Path xml = xmlDirectory.resolve("batch.xml");
+		Files.writeString(xml, "<items>" + items + "</items>");
+		Files.writeString(xmlManifest, "{\"schemaVersion\":1,\"files\":[{\"file\":\"batch.xml\",\"requestIds\":["
+			+ games.stream().map(GameRow::bggId).map(String::valueOf).reduce((left, right) -> left + "," + right).orElseThrow()
+			+ "],\"responseIds\":["
+			+ games.stream().map(GameRow::bggId).map(String::valueOf).reduce((left, right) -> left + "," + right).orElseThrow()
+			+ "],\"httpStatus\":200,\"bytes\":" + Files.size(xml) + ",\"sha256\":\"" + sha(xml)
+			+ "\",\"acquiredAt\":\"2026-08-10T00:00:00.000Z\"}]}\n");
+		Path implementation = Path.of(System.getProperty("user.dir"), "scripts/game-catalog/game-name-correction.mjs");
+		Path runner = temp.resolve("game-name-correction-test-runner.mjs");
+		Files.writeString(runner, """
+			import { correctGameNames } from "%s";
+			const [inputSql, candidateCsv, xmlDirectory, xmlManifest, expectedXmlManifestSha256, out] = process.argv.slice(2);
+			await correctGameNames({
+			    inputSql,
+			    candidatePaths: [candidateCsv],
+			    xmlDirectory,
+			    xmlManifest,
+			    expectedXmlManifestSha256,
+			    out,
+			});
+			""".formatted(implementation.toUri()));
 
 		Process process = new ProcessBuilder(
 			"node",
-			Path.of(System.getProperty("user.dir"), "scripts/game-catalog/game-name-correction.mjs").toString(),
-			"--input-sql", input.toString(),
-			"--candidate-csv", candidateCsv.toString(),
-			"--xml-directory", xmlDirectory.toString(),
-			"--out", output.toString())
+			runner.toString(),
+			input.toString(),
+			candidateCsv.toString(),
+			xmlDirectory.toString(),
+			xmlManifest.toString(),
+			sha(xmlManifest),
+			output.toString())
 			.redirectErrorStream(true)
 			.start();
 		String processOutput = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);

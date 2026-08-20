@@ -10,8 +10,8 @@
 | --- | --- |
 | SQL SHA-256 | `7866812e8ecd22942eccc3dee4553b49161af6297399c907b6a2953a9abb3c19` |
 | `INSERT INTO games` 문 수 | 40 |
-| SQL 행 수 | 175,234 |
-| 고유 `bgg_id` 수 | 175,234 |
+| SQL 행 수 | 175,229 |
+| 고유 `bgg_id` 수 | 175,229 |
 | 최대 `bgg_id` | 990,005 |
 | 전달 README의 기대 행 수 | 170,005 |
 
@@ -28,7 +28,7 @@
 
 행 단위로 합치면 `mixed`는 161,595건, `english`·`other`를 포함한 미번역 행은 93,177건, 두 필드가 모두 `korean`인 행은 47건이다.
 
-parser 결과는 SQL 행 175,234건, 고유 `bgg_id` 175,234건, 중복 ID 행 0건, `INSERT` 40개와 일치했다. SQL SHA-256은 `7866812e8ecd22942eccc3dee4553b49161af6297399c907b6a2953a9abb3c19`이다.
+parser 결과는 SQL 행 175,229건, 고유 `bgg_id` 175,229건, 중복 ID 행 0건, `INSERT` 40개와 일치했다. SQL SHA-256은 `7866812e8ecd22942eccc3dee4553b49161af6297399c907b6a2953a9abb3c19`이다.
 
 ## provenance 판단
 
