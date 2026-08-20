@@ -81,6 +81,7 @@ export function compareFromManifest({
     includeHybrid = false,
     rrfK = DEFAULT_RRF_K,
     evaluationTopK = undefined,
+    allowProvisionalAiAdjudication = false,
 }) {
     const loaded = loadComparisonManifest(manifestPath);
     const judgements = judgementsPath
@@ -98,6 +99,7 @@ export function compareFromManifest({
         includeHybrid,
         rrfK,
         evaluationTopK: evaluationTopK ?? loaded.evaluationTopK,
+        allowProvisionalAiAdjudication,
     });
     return {
         ...report,
@@ -111,6 +113,7 @@ export function compareFromManifest({
             })),
             inputContract: loaded.inputContractDescriptor ?? null,
             judgementPacket: loaded.judgementPacketDescriptor ?? null,
+            judgements: loaded.manifest.judgements ?? null,
         },
     };
 }
@@ -237,6 +240,7 @@ export function buildComparisonReport({
     rrfK = DEFAULT_RRF_K,
     evaluationTopK = DEFAULT_EVALUATION_TOP_K,
     judgementPacketSha256 = undefined,
+    allowProvisionalAiAdjudication = false,
 }) {
     const validated = validateCandidateFixtures({ candidates });
     validateTopK(evaluationTopK, "evaluationTopK");
@@ -254,7 +258,9 @@ export function buildComparisonReport({
         evaluation: evaluation.public,
         judgementPacketSha256,
     });
-    if (judgementState.status !== "approved") {
+    const isProvisionalAiAdjudication = judgementState.status === "provisional-ai-adjudication";
+    if (judgementState.status !== "approved"
+        && !(allowProvisionalAiAdjudication && isProvisionalAiAdjudication)) {
         return {
             schemaVersion: COMPARISON_SCHEMA_VERSION,
             kind: COMPARISON_KIND,
@@ -304,10 +310,12 @@ export function buildComparisonReport({
     return {
         schemaVersion: COMPARISON_SCHEMA_VERSION,
         kind: COMPARISON_KIND,
-        status: "metrics-ready",
+        status: isProvisionalAiAdjudication ? "provisional-metrics-ready" : "metrics-ready",
         queryCount: validated.queries.length,
         evaluation: evaluation.public,
-        hybrid: hybrid ? { rule: "rrf", rrfK, status: "included" } : null,
+        hybrid: hybrid
+            ? { rule: "rrf", rrfK, status: isProvisionalAiAdjudication ? "provisional-included" : "included" }
+            : null,
         metrics,
         selection: {
             status: "pending-human-decision",
@@ -534,15 +542,134 @@ export function buildApprovedHumanQrels({
     };
 }
 
+export function buildProvisionalAiAdjudicationQrels({
+    packet,
+    judgePackets,
+    thirdJudgePacket,
+    thirdJudgeSource = null,
+    judgeIds = ["judge-a", "judge-b", "judge-c-ai-drafted"],
+    packetSha256 = null,
+}) {
+    const reference = validateJudgementPacket(packet, "canonical packet");
+    if (!Array.isArray(judgePackets) || judgePackets.length !== 2) {
+        fail("독립 판정 packet은 2개가 필요합니다.");
+    }
+    if (!thirdJudgePacket) fail("AI adjudication에는 제3 판정 packet이 필요합니다.");
+    if (!isNonEmptyString(thirdJudgeSource)) fail("AI adjudication에는 제3 판정 source가 필요합니다.");
+    if (!Array.isArray(judgeIds) || judgeIds.length !== 3) {
+        fail("AI adjudication judge ID는 3개여야 합니다.");
+    }
+    if (judgeIds.some((judgeId) => !isNonEmptyString(judgeId))
+        || new Set(judgeIds).size !== judgeIds.length) {
+        fail("judge ID가 없거나 중복되었습니다.");
+    }
+    if (!/^[a-f0-9]{64}$/u.test(packetSha256 ?? "")) {
+        fail("packetSha256가 올바르지 않습니다.");
+    }
+
+    const normalizedJudgePackets = judgePackets.map((judgePacket, index) => {
+        const normalized = validateJudgementPacket(judgePacket, `judge ${index + 1} packet`);
+        if (judgementPacketIdentity(reference) !== judgementPacketIdentity(normalized)) {
+            fail(`judge ${index + 1} packet이 canonical packet과 다릅니다.`);
+        }
+        return normalized;
+    });
+    const normalizedThirdJudgePacket = validateJudgementPacket(thirdJudgePacket, "third judge packet");
+    if (judgementPacketIdentity(reference) !== judgementPacketIdentity(normalizedThirdJudgePacket)) {
+        fail("third judge packet이 canonical packet과 다릅니다.");
+    }
+
+    let threeWayDisagreementCount = 0;
+    const queries = reference.queries.map((query, queryIndex) => {
+        const judgeResults = normalizedJudgePackets.map((judgePacket, judgeIndex) => extractJudgeResult(
+            judgePacket.queries[queryIndex],
+            query,
+            `judge ${judgeIndex + 1} ${query.id}`,
+        ));
+        const thirdResult = extractJudgeResult(
+            normalizedThirdJudgePacket.queries[queryIndex],
+            query,
+            `third judge ${query.id}`,
+            { allowPartial: true },
+        );
+        const candidateIds = query.candidates.map((candidate) => String(candidate.gameId));
+        const disagreementIds = candidateIds.filter((gameId) => (
+            judgeResults[0].grades[gameId] !== judgeResults[1].grades[gameId]
+        ));
+        requireExactGradeKeys(thirdResult.grades, disagreementIds, `third judge ${query.id}.grades`);
+        requireExactGradeKeys(thirdResult.rationales, disagreementIds, `third judge ${query.id}.rationales`);
+
+        const consensusGrades = {};
+        for (const gameId of candidateIds) {
+            const first = judgeResults[0].grades[gameId];
+            const second = judgeResults[1].grades[gameId];
+            if (first === second) {
+                consensusGrades[gameId] = first;
+                continue;
+            }
+            const third = thirdResult.grades[gameId];
+            if (third !== first && third !== second) threeWayDisagreementCount += 1;
+            consensusGrades[gameId] = third;
+        }
+
+        const hasDisagreement = disagreementIds.length > 0;
+        const usedJudgeIndexes = hasDisagreement ? [0, 1, 2] : [0, 1];
+        return {
+            id: query.id,
+            query: query.query,
+            cohorts: query.cohorts,
+            analysisClass: query.analysisClass,
+            anchor: query.anchor,
+            hardFilters: query.hardFilters,
+            judges: usedJudgeIndexes.map((judgeIndex) => ({
+                judgeId: judgeIds[judgeIndex],
+                status: "provisional",
+                grades: judgeResults[judgeIndex]?.grades ?? thirdResult.grades,
+                rationales: judgeResults[judgeIndex]?.rationales ?? thirdResult.rationales,
+            })),
+            consensus: {
+                status: "provisional",
+                method: hasDisagreement ? "third-judge-adjudication" : "independent-agreement",
+                grades: consensusGrades,
+            },
+        };
+    });
+
+    return {
+        schemaVersion: COMPARISON_SCHEMA_VERSION,
+        kind: HUMAN_QRELS_KIND,
+        status: "provisional-ai-adjudication",
+        packetSha256,
+        evaluation: reference.evaluation,
+        judgementContract: {
+            requiredIndependentJudges: 2,
+            thirdJudgeRequiredOnDisagreement: true,
+            gradeMeaning: "2=relevant, 1=borderline, 0=irrelevant",
+        },
+        provenance: {
+            thirdJudgeSource,
+            independentThirdJudge: false,
+            adjudicationRule: "A/B 일치값은 유지하고 불일치값은 AI C 판정을 provisional consensus로 사용",
+            threeWayDisagreementCount,
+        },
+        queries,
+    };
+}
+
 export function validateHumanJudgements(
     judgements,
     { queryIds, requiredGameIdsByQuery, evaluation, judgementPacketSha256 = undefined },
 ) {
-    if (!judgements || judgements.status !== "approved") {
+    const isApproved = judgements?.status === "approved";
+    const isProvisionalAiAdjudication = judgements?.status === "provisional-ai-adjudication";
+    if (!isApproved && !isProvisionalAiAdjudication) {
         return {
             status: "pending-human-judgement",
             blockingReasons: ["독립 human qrels가 approved 상태가 아닙니다."],
         };
+    }
+    if (isProvisionalAiAdjudication && judgements.provenance?.independentThirdJudge !== false) {
+        fail("provisional-ai-adjudication qrels는 independentThirdJudge=false provenance가 필요합니다.");
     }
     if (judgements.schemaVersion !== COMPARISON_SCHEMA_VERSION || judgements.kind !== HUMAN_QRELS_KIND) {
         fail("human qrels kind/schemaVersion이 올바르지 않습니다.");
@@ -580,7 +707,8 @@ export function validateHumanJudgements(
                 fail(`${queryId}의 판정자가 독립적이지 않습니다.`);
             }
             judgeIds.add(judge.judgeId);
-            if (judge.status !== "approved") fail(`${queryId}의 판정 상태가 approved가 아닙니다.`);
+            const expectedStatus = isProvisionalAiAdjudication ? "provisional" : "approved";
+            if (judge.status !== expectedStatus) fail(`${queryId}의 판정 상태가 ${expectedStatus}가 아닙니다.`);
             const grades = normalizeGrades(judge.grades, `${queryId}.${judge.judgeId}.grades`);
             const rationales = normalizeRationales(judge.rationales, `${queryId}.${judge.judgeId}.rationales`);
             requireSameKeys(grades, rationales, `${queryId}.${judge.judgeId}`);
@@ -594,7 +722,10 @@ export function validateHumanJudgements(
             return grades;
         });
         const consensus = normalizeGrades(judgement.consensus?.grades, `${queryId}.consensus.grades`);
-        if (judgement.consensus?.status !== "approved") fail(`${queryId} consensus가 approved가 아닙니다.`);
+        const expectedConsensusStatus = isProvisionalAiAdjudication ? "provisional" : "approved";
+        if (judgement.consensus?.status !== expectedConsensusStatus) {
+            fail(`${queryId} consensus가 ${expectedConsensusStatus}가 아닙니다.`);
+        }
         const requiredIds = requiredGameIdsByQuery[queryId] ?? [];
         requireExactGradeKeys(consensus, requiredIds, `${queryId}.consensus.grades`);
         const disagreementIds = requiredIds
@@ -605,8 +736,11 @@ export function validateHumanJudgements(
                 fail(`${queryId} 일치 판정은 2인 independent-agreement여야 합니다.`);
             }
         } else {
-            if (judgeGrades.length !== 3 || judgement.consensus.method !== "third-judge-majority") {
-                fail(`${queryId} 불일치 판정은 제3 판정과 third-judge-majority여야 합니다.`);
+            const expectedMethod = isProvisionalAiAdjudication
+                ? "third-judge-adjudication"
+                : "third-judge-majority";
+            if (judgeGrades.length !== 3 || judgement.consensus.method !== expectedMethod) {
+                fail(`${queryId} 불일치 판정은 제3 판정과 ${expectedMethod}여야 합니다.`);
             }
             requireExactGradeKeys(judgeGrades[2], disagreementIds, `${queryId}.${judgement.judges[2].judgeId}.grades`);
             requireExactGradeKeys(
@@ -620,6 +754,12 @@ export function validateHumanJudgements(
             if (primaryDisagreement && (!judgeGrades[2] || !Object.hasOwn(judgeGrades[2], gameId))) {
                 fail(`${queryId} ${gameId}의 제3 판정이 없습니다.`);
             }
+            if (isProvisionalAiAdjudication && primaryDisagreement) {
+                if (judgeGrades[2][gameId] !== consensus[gameId]) {
+                    fail(`${queryId}의 provisional consensus가 AI C 판정과 다릅니다: ${gameId}`);
+                }
+                continue;
+            }
             const votes = judgeGrades.filter((grades) => grades[gameId] === consensus[gameId]).length;
             if (votes <= judgeGrades.length / 2) {
                 fail(`${queryId}의 consensus가 독립 판정 다수결과 다릅니다: ${gameId}`);
@@ -627,7 +767,13 @@ export function validateHumanJudgements(
         }
         gradesByQuery[queryId] = consensus;
     }
-    return { status: "approved", gradesByQuery };
+    return {
+        status: isProvisionalAiAdjudication ? "provisional-ai-adjudication" : "approved",
+        gradesByQuery,
+        blockingReasons: isProvisionalAiAdjudication
+            ? ["AI C adjudication은 독립 human qrels가 아니므로 provisional 참고 지표로만 사용합니다."]
+            : [],
+    };
 }
 
 function calculateCandidateMetrics({ grades, result, k }) {
@@ -1021,7 +1167,7 @@ function fail(message) {
 }
 
 function parseArgs(args) {
-    const options = { mode: null, hybridRrf: false };
+    const options = { mode: null, hybridRrf: false, provisionalAiAdjudication: false };
     const valueOptions = new Set([
         "manifest", "out", "judgements", "topK", "canonicalPacket", "judgeA", "judgeB", "judgeC",
         "judgeAId", "judgeBId", "judgeCId",
@@ -1038,6 +1184,11 @@ function parseArgs(args) {
             options.hybridRrf = true;
             continue;
         }
+        if (argument === "--provisional-ai-adjudication") {
+            if (options.provisionalAiAdjudication) fail("--provisional-ai-adjudication이 중복되었습니다.");
+            options.provisionalAiAdjudication = true;
+            continue;
+        }
         if (!argument.startsWith("--")) fail(`알 수 없는 인자입니다: ${argument}`);
         const option = argument.slice(2).replace(/-([a-z])/gu, (_, letter) => letter.toUpperCase());
         if (!valueOptions.has(option) || options[option] !== undefined) fail(`알 수 없거나 중복된 옵션입니다: ${argument}`);
@@ -1048,6 +1199,9 @@ function parseArgs(args) {
     }
     if (!options.mode) fail("실행 모드가 필요합니다.");
     if (options.mode !== "qrels" && !options.manifest) fail("실행 모드와 --manifest가 필요합니다.");
+    if (options.provisionalAiAdjudication && options.mode !== "qrels" && options.mode !== "metrics") {
+        fail("--provisional-ai-adjudication은 --qrels 또는 --metrics에서만 사용할 수 있습니다.");
+    }
     if (options.mode === "packet" && !options.out) fail("--packet에는 --out이 필요합니다.");
     if (options.mode === "qrels" && (!options.manifest || !options.canonicalPacket || !options.judgeA || !options.judgeB || !options.out)) {
         fail("--qrels에는 --manifest·--canonical-packet·--judge-a·--judge-b·--out이 필요합니다.");
@@ -1137,13 +1291,19 @@ function main() {
             if (sha256(canonicalPacketBytes) !== loaded.judgementPacketDescriptor.sha256) {
                 fail("--canonical-packet이 manifest의 judgementPacket.sha256와 다릅니다.");
             }
-            const qrels = buildApprovedHumanQrels({
+            const qrelsBuilder = options.provisionalAiAdjudication
+                ? buildProvisionalAiAdjudicationQrels
+                : buildApprovedHumanQrels;
+            const qrels = qrelsBuilder({
                 packet: parseJson(canonicalPacketBytes, "canonical packet"),
                 judgePackets: [
                     readJson(judgeAPath, "judge A packet"),
                     readJson(judgeBPath, "judge B packet"),
                 ],
                 thirdJudgePacket: thirdJudgePath ? readJson(thirdJudgePath, "third judge packet") : null,
+                thirdJudgeSource: thirdJudgePath
+                    ? path.relative(loaded.baseDir, thirdJudgePath)
+                    : null,
                 judgeIds: thirdJudgePath
                     ? [options.judgeAId ?? "judge-a", options.judgeBId ?? "judge-b", options.judgeCId ?? "judge-c"]
                     : [options.judgeAId ?? "judge-a", options.judgeBId ?? "judge-b"],
@@ -1202,6 +1362,7 @@ function main() {
             judgementsPath: options.judgements,
             includeHybrid: options.hybridRrf,
             evaluationTopK: options.topK ? Number(options.topK) : undefined,
+            allowProvisionalAiAdjudication: options.provisionalAiAdjudication,
         });
         if (options.out) {
             const output = writeNewJson(options.out, report, inputPaths);

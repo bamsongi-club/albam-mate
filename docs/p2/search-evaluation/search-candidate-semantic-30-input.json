@@ -34,7 +34,7 @@
   },
   "judgements": {
     "path": "search-candidate-comparison/semantic-30-search-candidate-qrels.json",
-    "sha256": "929e5f0a21af2a337f63ab73f2918dd32c3f385b7db03b6391fc97af4fca1d36"
+    "sha256": "0fc1ada920f5453ac058222878900258b32696010299a817faa968aee138a1e7"
   },
   "candidates": [
     {

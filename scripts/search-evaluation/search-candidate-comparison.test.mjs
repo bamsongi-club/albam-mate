@@ -10,6 +10,7 @@ import {
     buildComparisonReport,
     buildComparisonJudgementPacket,
     buildApprovedHumanQrels,
+    buildProvisionalAiAdjudicationQrels,
     buildEvaluationMetadata,
     buildRrfRanking,
     compareFromManifest,
@@ -496,6 +497,69 @@ test("판정 불일치는 제3 판정의 다수결과 근거를 함께 보존한
         }),
         /grade\/rationale candidate 대상/u,
     );
+});
+
+test("AI C adjudication은 3-way 충돌을 provisional consensus로 보존한다", () => {
+    const packet = judgementPacket();
+    const firstGrades = { "1": 2, "2": 1, "3": 0, "4": 2 };
+    const secondGrades = { "1": 1, "2": 1, "3": 0, "4": 2 };
+    const thirdGrades = { "1": 0, "2": 1, "3": 0, "4": 2 };
+    const thirdPacket = filledJudgementPacket(packet, thirdGrades, "C");
+    for (const candidate of thirdPacket.queries[0].candidates) {
+        if (candidate.gameId !== 1) {
+            candidate.grade = null;
+            candidate.rationale = null;
+        }
+    }
+
+    const qrels = buildProvisionalAiAdjudicationQrels({
+        packet,
+        judgePackets: [
+            filledJudgementPacket(packet, firstGrades, "A"),
+            filledJudgementPacket(packet, secondGrades, "B"),
+        ],
+        thirdJudgePacket: thirdPacket,
+        thirdJudgeSource: "test/semantic-30-judge-c.json",
+        packetSha256: "a".repeat(64),
+    });
+
+    assert.equal(qrels.status, "provisional-ai-adjudication");
+    assert.equal(qrels.provenance.thirdJudgeSource, "test/semantic-30-judge-c.json");
+    assert.equal(qrels.provenance.independentThirdJudge, false);
+    assert.equal(qrels.provenance.threeWayDisagreementCount, 1);
+    assert.equal(qrels.queries[0].consensus.method, "third-judge-adjudication");
+    assert.equal(qrels.queries[0].consensus.grades["1"], 0);
+
+    const unmarkedQrels = JSON.parse(JSON.stringify(qrels));
+    delete unmarkedQrels.provenance.independentThirdJudge;
+    assert.throws(
+        () => buildComparisonReport({
+            queries: QUERY_FIXTURE,
+            candidates: TEST_CANDIDATES,
+            judgements: unmarkedQrels,
+            evaluationTopK: 3,
+            allowProvisionalAiAdjudication: true,
+        }),
+        /independentThirdJudge=false provenance/u,
+    );
+
+    const pendingReport = buildComparisonReport({
+        queries: QUERY_FIXTURE,
+        candidates: TEST_CANDIDATES,
+        judgements: qrels,
+        evaluationTopK: 3,
+    });
+    assert.equal(pendingReport.status, "pending-human-judgement");
+
+    const provisionalReport = buildComparisonReport({
+        queries: QUERY_FIXTURE,
+        candidates: TEST_CANDIDATES,
+        judgements: qrels,
+        evaluationTopK: 3,
+        allowProvisionalAiAdjudication: true,
+    });
+    assert.equal(provisionalReport.status, "provisional-metrics-ready");
+    assert.equal(provisionalReport.metrics.lexical.overall.queryCount, 1);
 });
 
 test("판정 불일치에 제3 판정이 없으면 qrels 승인을 거부한다", () => {

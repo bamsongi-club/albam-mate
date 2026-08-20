@@ -77,8 +77,8 @@ Final Quality Evaluation 완료 전에는 SEARCH-04 최종 검색 방식, produc
 - `search-candidate-semantic-30-input.json`: #885 `semantic-30-v1` 후보 비교 manifest
 - `search-candidate-comparison/semantic-30-queries.json`: 의미기반 30 query와 `semantic-core`·`contrast-hard-semantic`·`hybrid-hard-filter` 분류
 - `search-candidate-comparison/semantic-30-human-judgement-packet.json`: 후보명·score·source rank를 숨긴 독립 판정용 packet
-- `search-candidate-comparison/semantic-30-judge-a.json`, `semantic-30-judge-b.json`, `semantic-30-judge-c.json`: A/B 독립 판정과 C 판정 packet. 현재 C는 사용자 calibration을 확장한 provisional 추론본이며 독립 판정 반환 후 교체·병합함
-- `search-candidate-comparison/semantic-30-judge-c-worklist.json`: A/B 불일치 585건만 담은 독립 제3 판정자 입력 목록. 최종 qrels에 직접 전달하지 않음
+- `search-candidate-comparison/semantic-30-judge-a.json`, `semantic-30-judge-b.json`, `semantic-30-judge-c.json`: A/B 독립 판정과 C 판정 packet. 현재 C는 AI worklist를 병합한 provisional adjudication이며 독립 human 판정 반환 후 교체함
+- `search-candidate-comparison/semantic-30-judge-c-worklist.json`: A/B 불일치 585건만 담은 C 입력 목록. 현재 파일은 `ai-drafted-not-independent-human` 상태라 provisional adjudication에만 사용함
 - [`semantic-30-third-judge-guide.md`](search-candidate-comparison/semantic-30-third-judge-guide.md): 독립 제3 판정자에게 전달할 점수 기준·입력 규칙·완료 확인 문구
 - `search-04-search-candidate-qrels`: 두 독립 판정과 불일치 query의 제3 판정을 합의한 qrels 형식. `packetSha256`는 canonical packet descriptor와 일치해야 함
 - `search-candidate-comparison/semantic-30-search-candidate-qrels.json`: canonical packet 기준 provisional qrels. 독립 제3 판정 전에는 approved qrels가 아님
@@ -173,7 +173,7 @@ node scripts/search-evaluation/search-candidate-comparison.mjs \
 
 불일치 query가 있으면 제3 판정 packet을 추가합니다. 제3 판정자는 불일치 candidate만 `grade`·`rationale`를 채우고 나머지는 빈 값으로 둡니다. 조립 결과는 canonical packet SHA-256, 각 판정자의 grade·rationale, query별 합의 방식(`independent-agreement` 또는 `third-judge-majority`)을 보존합니다.
 
-현재 semantic-30은 A/B 불일치 585건을 [`semantic-30-judge-c-worklist.json`](search-candidate-comparison/semantic-30-judge-c-worklist.json)으로 분리해 독립 제3 판정자에게 전달한다. 전달 문구와 세부 판정 기준은 [`semantic-30-third-judge-guide.md`](search-candidate-comparison/semantic-30-third-judge-guide.md)를 따른다. 반환된 worklist는 검증 후 `semantic-30-judge-c.json`에 병합하며, worklist 자체는 canonical packet과 다른 보조 입력 형식이다.
+현재 semantic-30은 A/B 불일치 585건을 [`semantic-30-judge-c-worklist.json`](search-candidate-comparison/semantic-30-judge-c-worklist.json)으로 관리한다. 현재 worklist는 `ai-drafted-not-independent-human` 상태이며, A/B가 모두 다른 117건을 포함하므로 C 값을 provisional adjudication 값으로 사용한다. 이 경로는 독립 human qrels가 아니며, [`semantic-30-third-judge-guide.md`](search-candidate-comparison/semantic-30-third-judge-guide.md)는 이후 독립 판정자로 교체할 때의 전달 기준이다.
 
 ```bash
 node scripts/search-evaluation/search-candidate-comparison.mjs \
@@ -191,6 +191,30 @@ node scripts/search-evaluation/search-candidate-comparison.mjs \
 
 독립 판정자 2명의 0·1·2 grade와 불일치 시 제3 판정 consensus가 `approved` 된 뒤에만 `--metrics`가 Recall@10·MRR@10·nDCG@10·hard-filter violation을 계산한다. qrels의 `evaluation.topK`·`candidatePoolSha256`가 packet과 다르면 metrics를 거부한다. 지표가 준비되어도 최종 방식은 자동 선택하지 않고 선택·탈락 근거를 별도로 기록한다.
 
+현재처럼 독립 human C 대신 AI C worklist를 임시 사용해야 할 때는 반드시 명시적인 provisional flag를 붙인다. A/B 일치값은 유지하고, A/B 불일치값은 C를 provisional consensus로 사용하며, 3-way 충돌도 허용한다. 결과 상태는 `provisional-ai-adjudication`이고 approved qrels가 아니다.
+
+```bash
+node scripts/search-evaluation/search-candidate-comparison.mjs \
+  --qrels \
+  --provisional-ai-adjudication \
+  --manifest /path/to/search-candidate-semantic-30-input.json \
+  --canonical-packet /path/to/semantic-30-human-judgement-packet.json \
+  --judge-a /path/to/semantic-30-judge-a.json \
+  --judge-b /path/to/semantic-30-judge-b.json \
+  --judge-c /path/to/semantic-30-judge-c.json \
+  --judge-a-id judge-a \
+  --judge-b-id judge-b \
+  --judge-c-id judge-c-ai-drafted \
+  --out /tmp/provisional-ai-adjudication-qrels.json
+
+node scripts/search-evaluation/search-candidate-comparison.mjs \
+  --metrics \
+  --provisional-ai-adjudication \
+  --hybrid-rrf \
+  --manifest /path/to/search-candidate-semantic-30-input.json \
+  --out /tmp/provisional-ai-adjudication-metrics.json
+```
+
 Hybrid/RRF는 필요할 때만 이미 검증된 ranked output에 `--hybrid-rrf`를 붙여 한 번 추가한다. 결합 규칙은 고정 `RRF k=60`, 동일 query의 기존 후보 union, `score DESC·gameId ASC` tie-break이며 새 후보를 생성하거나 결과에 맞춰 파라미터를 튜닝하지 않는다.
 
 ```bash
@@ -202,9 +226,9 @@ node scripts/search-evaluation/search-candidate-comparison.mjs \
   --out /tmp/search-04-candidate-comparison.json
 ```
 
-`semantic-30-v1` 실행 manifest는 [`search-candidate-semantic-30-input.json`](search-candidate-semantic-30-input.json)이다. 승인된 fixture SHA-256은 `84522f97b196d12db33b082fc26529218555b9408a973e6b6da3577587387142`이고 evaluation Top-K는 20이다. 결과는 `search-candidate-comparison/semantic-30-lexical-results.json`, `semantic-30-sparse-results.json`, `semantic-30-dense-results.json`에 보존한다. blind packet은 30 query·1,369 candidate row이며 후보명·score·source rank를 숨기고, packet의 candidate pool checksum을 기록한다. `semantic-30-search-candidate-qrels.json`은 사용자의 calibration을 확장한 provisional 상태이고, `semantic-30-metrics.json`은 그 기준의 참고 지표와 provisional Dense 우위를 기록한다. 독립 제3 인간 판정이 반영되기 전까지 metrics CLI의 상태는 `pending-human-judgement`로 유지된다.
+`semantic-30-v1` 실행 manifest는 [`search-candidate-semantic-30-input.json`](search-candidate-semantic-30-input.json)이다. 승인된 fixture SHA-256은 `84522f97b196d12db33b082fc26529218555b9408a973e6b6da3577587387142`이고 evaluation Top-K는 20이다. 결과는 `search-candidate-comparison/semantic-30-lexical-results.json`, `semantic-30-sparse-results.json`, `semantic-30-dense-results.json`에 보존한다. blind packet은 30 query·1,369 candidate row이며 후보명·score·source rank를 숨기고, packet의 candidate pool checksum을 기록한다. `semantic-30-search-candidate-qrels.json`과 `semantic-30-metrics.json`은 현재 AI C worklist 기준 `provisional-ai-adjudication` 참고 결과를 기록한다. 이 기준에서 Dense는 Recall@10 `0.4557`, MRR@10 `0.5764`, nDCG@10 `0.5518`, hard-filter 위반율 `0%`로 provisional 참고 선택이지만, 독립 제3 인간 판정 전에는 최종 방식으로 승인하지 않는다. 독립 human qrels만 사용하려면 provisional flag 없이 표준 qrels·metrics 경로를 다시 실행한다.
 
-이번 C packet의 585개 불일치 점수는 사용자의 Q-001 판정 8개를 기준으로 확인한 판단 규칙(핵심 경험=2점, 일부 관련=1점, 무관=0점)을 적용해 채웠다. 따라서 qrels 조립·metrics 계산은 재현되지만 C 전체가 별도 독립 제3 판정자로 입력된 것은 아니며, 이 결과만으로 Final Quality Evaluation 완료나 production 전환을 승인하지 않는다. 30개 질의 결과의 주요 지표는 Dense `Recall@10 0.3583 / MRR@10 0.5492 / nDCG@10 0.5885`, Hybrid/RRF `0.2095 / 0.2412 / 0.3477`이다. 최종 60+ query 품질 게이트는 별도로 충족해야 한다.
+이번 C packet의 585개 불일치 점수는 AI worklist로 직접 작성했으며, 그중 A/B/C가 모두 다른 3-way 충돌은 117개다. 따라서 qrels 조립·metrics 계산은 `provisional-ai-adjudication`으로 재현되지만 C 전체가 별도 독립 제3 인간 판정자로 입력된 것은 아니며, 이 결과만으로 Final Quality Evaluation 완료나 production 전환을 승인하지 않는다. 30개 질의 결과의 주요 지표는 Dense `Recall@10 0.4557 / MRR@10 0.5764 / nDCG@10 0.5518`, Hybrid/RRF `0.2199 / 0.2551 / 0.2726`이다. 최종 60+ query 품질 게이트는 별도로 충족해야 한다.
 
 ### 구조 검증
 

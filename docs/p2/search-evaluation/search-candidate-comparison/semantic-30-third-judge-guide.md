@@ -2,6 +2,8 @@
 
 아래 안내와 [`semantic-30-judge-c-worklist.json`](semantic-30-judge-c-worklist.json)을 독립 제3 판정자에게 전달합니다.
 
+> 현재 저장된 worklist는 `ai-drafted-not-independent-human` 상태로 이미 채워진 provisional 초안입니다. 아래 안내는 이 초안을 실제 독립 인간 판정으로 교체할 때 적용하며, 현재 초안으로 계산한 결과는 approved qrels가 아닙니다.
+
 ## 그대로 전달할 문구
 
 안녕하세요. 검색 품질 평가에서 A/B 두 판정자의 점수가 달랐던 후보만 제3 판정을 부탁드립니다.
