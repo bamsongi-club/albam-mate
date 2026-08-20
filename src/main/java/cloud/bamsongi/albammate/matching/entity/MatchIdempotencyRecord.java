@@ -43,4 +43,50 @@ public class MatchIdempotencyRecord {
 	private Instant createdAt;
 	@Column(name = "expires_at", nullable = false)
 	private Instant expiresAt;
+
+	public static MatchIdempotencyRecord create(
+		long userId,
+		String idempotencyKey,
+		MatchIdempotencyOperation operation,
+		String payloadFingerprint,
+		String resultEntityType,
+		long resultEntityId,
+		String resultState,
+		Instant operationTime) {
+		MatchIdempotencyRecord record = new MatchIdempotencyRecord();
+		record.userId = userId;
+		record.idempotencyKey = idempotencyKey;
+		record.operation = operation;
+		record.payloadFingerprint = payloadFingerprint;
+		record.resultEntityType = resultEntityType;
+		record.resultEntityId = resultEntityId;
+		record.resultState = resultState;
+		record.createdAt = operationTime;
+		record.expiresAt = operationTime.plusSeconds(86_400);
+		return record;
+	}
+
+	public boolean isExpiredAt(Instant operationTime) {
+		return !expiresAt.isAfter(operationTime);
+	}
+
+	public boolean hasSameMeaning(MatchIdempotencyOperation requestedOperation, String requestedFingerprint) {
+		return operation == requestedOperation && payloadFingerprint.equals(requestedFingerprint);
+	}
+
+	public void replace(
+		MatchIdempotencyOperation requestedOperation,
+		String requestedFingerprint,
+		String requestedResultEntityType,
+		long requestedResultEntityId,
+		String requestedResultState,
+		Instant operationTime) {
+		operation = requestedOperation;
+		payloadFingerprint = requestedFingerprint;
+		resultEntityType = requestedResultEntityType;
+		resultEntityId = requestedResultEntityId;
+		resultState = requestedResultState;
+		createdAt = operationTime;
+		expiresAt = operationTime.plusSeconds(86_400);
+	}
 }

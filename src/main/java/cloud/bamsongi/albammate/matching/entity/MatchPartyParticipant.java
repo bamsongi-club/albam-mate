@@ -34,4 +34,10 @@ public class MatchPartyParticipant {
 		participant.createdAt = createdAt;
 		return participant;
 	}
+
+	public void leave(Instant operationTime) {
+		if (leftAt == null) {
+			leftAt = operationTime;
+		}
+	}
 }

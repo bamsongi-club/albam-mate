@@ -8,6 +8,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.web.firewall.RequestRejectedException;
 import org.springframework.validation.BindException;
 import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
@@ -71,6 +72,11 @@ public class GlobalExceptionHandler {
 		ServletRequestBindingException.class
 	})
 	public ResponseEntity<ApiResponse<Void>> handleRequestException(Exception exception) {
+		return error(ErrorCode.VALIDATION_ERROR, exception);
+	}
+
+	@ExceptionHandler(RequestRejectedException.class)
+	public ResponseEntity<ApiResponse<Void>> handleRequestRejected(RequestRejectedException exception) {
 		return error(ErrorCode.VALIDATION_ERROR, exception);
 	}
 

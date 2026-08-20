@@ -40,4 +40,41 @@ public class MatchParty extends BaseEntity {
 	private Instant closedAt;
 	@Column(name = "purge_after")
 	private Instant purgeAfter;
+
+	public static MatchParty create(long proposalId, Instant preparingStartedAt) {
+		MatchParty party = new MatchParty();
+		party.proposalId = proposalId;
+		party.status = MatchPartyStatus.PREPARING;
+		party.preparingStartedAt = preparingStartedAt;
+		return party;
+	}
+
+	public void activate(Instant operationTime) {
+		status = MatchPartyStatus.ACTIVE;
+		chatOpenedAt = operationTime;
+		closesAt = operationTime.plusSeconds(86_400);
+	}
+
+	public boolean isCloseNoticeDue(Instant operationTime) {
+		return status == MatchPartyStatus.ACTIVE
+			&& !operationTime.isBefore(closesAt.minusSeconds(3_600))
+			&& operationTime.isBefore(closesAt);
+	}
+
+	public boolean isClosingDue(Instant operationTime) {
+		return status == MatchPartyStatus.ACTIVE && !operationTime.isBefore(closesAt);
+	}
+
+	public boolean isPurgeDue(Instant operationTime) {
+		return status == MatchPartyStatus.CLOSED && !operationTime.isBefore(purgeAfter);
+	}
+
+	public void close(Instant operationTime) {
+		if (status != MatchPartyStatus.ACTIVE) {
+			return;
+		}
+		status = MatchPartyStatus.CLOSED;
+		closedAt = operationTime;
+		purgeAfter = operationTime.plusSeconds(604_800);
+	}
 }

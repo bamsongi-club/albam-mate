@@ -4,4 +4,7 @@ package cloud.bamsongi.albammate.matching.contract;
 public interface MatchChatSystemMessagePort {
 
 	void record(long partyId, String eventKey);
+
+	/** 사용자 전달·열람과 무관하게 system event가 DB에 저장됐는지만 확인한다. */
+	boolean hasPersistedEvent(long partyId, String eventKey);
 }

@@ -48,6 +48,7 @@ import cloud.bamsongi.albammate.global.security.currentuser.CurrentUserPrincipal
 import cloud.bamsongi.albammate.global.security.currentuser.SecurityContextCurrentUserAccessor;
 import cloud.bamsongi.albammate.global.security.error.ApiAccessDeniedHandler;
 import cloud.bamsongi.albammate.global.security.error.ApiAuthenticationEntryPoint;
+import cloud.bamsongi.albammate.global.security.error.ApiRequestRejectedHandler;
 import cloud.bamsongi.albammate.global.security.error.SecurityErrorResponseWriter;
 import cloud.bamsongi.albammate.global.security.session.SessionCookieConfigurer;
 import jakarta.servlet.SessionCookieConfig;
@@ -62,6 +63,7 @@ import tools.jackson.databind.ObjectMapper;
 	SecurityConfig.class,
 	ApiAccessDeniedHandler.class,
 	ApiAuthenticationEntryPoint.class,
+	ApiRequestRejectedHandler.class,
 	SecurityErrorResponseWriter.class,
 	GlobalExceptionHandler.class,
 	SecurityConfigTest.SecurityFixtureController.class,
@@ -136,6 +138,17 @@ class SecurityConfigTest {
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
 		}
+	}
+
+	@Test
+	void StrictHttpFirewall이_거절한_세미콜론_경로도_검증오류_공통_봉투로_반환한다() throws Exception {
+		mockMvc.perform(get("/api/games;invalid"))
+			.andExpect(status().isBadRequest())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+			.andExpect(jsonPath("$.status").value(ErrorCode.VALIDATION_ERROR.getStatus()))
+			.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()))
+			.andExpect(jsonPath("$.message").value(ErrorCode.VALIDATION_ERROR.getMessage()))
+			.andExpect(jsonPath("$.data").value(org.hamcrest.Matchers.nullValue()));
 	}
 
 	@Test
