@@ -10,6 +10,7 @@ public class AssistantConsentProperties {
 
 	private boolean enabled;
 	private String provider = "fake";
+	private boolean providerConfigured;
 	private boolean noRetentionVerified;
 	private boolean noTrainingVerified;
 	private boolean store;
@@ -20,6 +21,7 @@ public class AssistantConsentProperties {
 	public boolean isGrantable() {
 		return enabled
 			&& isSupportedProvider()
+			&& ("fake".equals(provider) || providerConfigured)
 			&& noRetentionVerified
 			&& noTrainingVerified
 			&& !store
@@ -34,6 +36,10 @@ public class AssistantConsentProperties {
 
 	public void setProvider(String provider) {
 		this.provider = provider;
+	}
+
+	public void setProviderConfigured(boolean providerConfigured) {
+		this.providerConfigured = providerConfigured;
 	}
 
 	public void setEnabled(boolean enabled) {

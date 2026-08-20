@@ -10,6 +10,7 @@ class AiProviderProperties {
 
 	private boolean enabled;
 	private String provider = "fake";
+	private boolean providerConfigured;
 	private boolean noRetentionVerified;
 	private boolean noTrainingVerified;
 	private boolean store;
@@ -39,6 +40,14 @@ class AiProviderProperties {
 
 	void setProvider(String provider) {
 		this.provider = provider;
+	}
+
+	boolean isProviderConfigured() {
+		return providerConfigured;
+	}
+
+	void setProviderConfigured(boolean providerConfigured) {
+		this.providerConfigured = providerConfigured;
 	}
 
 	boolean isNoRetentionVerified() {

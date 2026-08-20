@@ -24,23 +24,7 @@ class AiProviderRuntimeConfiguration {
 	AiProviderClient aiProviderClient(
 		AiProviderProperties properties,
 		Environment environment) {
-		ChatModel openAiModel = null;
-		if ("local-openai".equals(properties.getProvider())) {
-			String apiKey = environment.getProperty("spring.ai.openai.api-key", "");
-			if (apiKey.isBlank()) {
-				throw new IllegalStateException("local-openai provider requires an API key");
-			}
-			openAiModel = OpenAiChatModel.builder()
-				.options(OpenAiChatOptions.builder()
-					.apiKey(apiKey)
-					.model(properties.getModel())
-					.timeout(properties.getTimeout())
-					.maxRetries(0)
-					.maxCompletionTokens(properties.getMaxOutputTokens())
-					.store(false)
-					.build())
-				.build();
-		}
+		ChatModel openAiModel = openAiModel(properties, environment);
 		return selectProvider(properties, environment, openAiModel);
 	}
 
@@ -68,7 +52,7 @@ class AiProviderRuntimeConfiguration {
 			provider,
 			quotaLedger,
 			usageEventSink,
-			settings(properties, true),
+			settings(properties),
 			Clock.systemUTC());
 	}
 
@@ -80,12 +64,40 @@ class AiProviderRuntimeConfiguration {
 			return new DeterministicFakeAssistantProvider();
 		}
 		if ("local-openai".equals(properties.getProvider())) {
-			if (!environment.acceptsProfiles(Profiles.of("local")) || openAiModel == null) {
-				throw new IllegalStateException("local-openai provider requires the local profile");
+			if (!allowsOpenAi(environment) || !settings(properties).readyForCall() || openAiModel == null) {
+				return new UnavailableAiProvider();
 			}
 			return new OpenAiAssistantProvider(openAiModel, settings(properties, true));
 		}
-		throw new IllegalStateException("unsupported assistant provider");
+		return new UnavailableAiProvider();
+	}
+
+	private static ChatModel openAiModel(AiProviderProperties properties, Environment environment) {
+		String apiKey = environment.getProperty("spring.ai.openai.api-key", "");
+		if (!"local-openai".equals(properties.getProvider())
+			|| !allowsOpenAi(environment)
+			|| apiKey.isBlank()
+			|| !settings(properties).readyForCall()) {
+			return null;
+		}
+		return OpenAiChatModel.builder()
+			.options(OpenAiChatOptions.builder()
+				.apiKey(apiKey)
+				.model(properties.getModel())
+				.timeout(properties.getTimeout())
+				.maxRetries(0)
+				.maxCompletionTokens(properties.getMaxOutputTokens())
+				.store(false)
+				.build())
+			.build();
+	}
+
+	private static boolean allowsOpenAi(Environment environment) {
+		return environment.acceptsProfiles(Profiles.of("local", "production"));
+	}
+
+	private static AiProviderSettings settings(AiProviderProperties properties) {
+		return settings(properties, "fake".equals(properties.getProvider()) || properties.isProviderConfigured());
 	}
 
 	private static AiProviderSettings settings(AiProviderProperties properties, boolean providerConfigured) {
