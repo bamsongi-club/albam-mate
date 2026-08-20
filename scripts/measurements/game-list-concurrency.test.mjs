@@ -40,7 +40,7 @@ test("k6 summary에서 p50/p95/p99·처리량·오류율을 추출한다", () =>
     metrics: {
       http_req_duration: { values: { med: 12, "p(95)": 30, "p(99)": 45, max: 60 } },
       http_reqs: { values: { count: 120, rate: 4 } },
-      http_req_failed: { values: { rate: 0.01, fails: 2 } },
+      http_req_failed: { values: { rate: 0.01, passes: 2 } },
       checks: { values: { rate: 0.99, count: 120 } },
     },
   });

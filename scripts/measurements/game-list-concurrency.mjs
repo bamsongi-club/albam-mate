@@ -360,9 +360,9 @@ export function parseK6Summary(summary) {
       requestCount: requests.count,
       throughputRps: requests.rate,
       failedRate: failed.rate,
-      failedCount: failed.fails ?? null,
+      failedCount: failed.passes ?? null,
       checksRate: checks.rate,
-      checkCount: checks.count ?? null,
+      checkCount: checks.count ?? (checks.passes ?? 0) + (checks.fails ?? 0),
     },
   };
 }
