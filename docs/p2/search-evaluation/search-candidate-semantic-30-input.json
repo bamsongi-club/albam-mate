@@ -28,6 +28,10 @@
     "path": "dense-bge-m3/search-text-top1000.json",
     "sha256": "ec364be3a34268d1bb6d27e3c41e2cdd31852565eec79fa31faaacda17af4ece"
   },
+  "judgementPacket": {
+    "path": "search-candidate-comparison/semantic-30-human-judgement-packet.json",
+    "sha256": "cac1a01307e44a174001ec84a0e8eff2b40cab2ccb61a1e522ac73aa7c2f615f"
+  },
   "candidates": [
     {
       "name": "lexical",

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
@@ -8,12 +9,15 @@ import test from "node:test";
 import {
     buildComparisonReport,
     buildComparisonJudgementPacket,
+    buildApprovedHumanQrels,
     buildEvaluationMetadata,
     buildRrfRanking,
+    compareFromManifest,
     loadComparisonManifest,
     normalizeCandidateResults,
     packetFromManifest,
     validateCandidateFixtures,
+    writeJsonAtomically,
 } from "./search-candidate-comparison.mjs";
 
 const QUERY_FIXTURE = [
@@ -60,6 +64,10 @@ const TEST_CANDIDATES = [
 ];
 const TEST_EVALUATION = buildEvaluationMetadata({ candidates: TEST_CANDIDATES });
 
+function rationalesFor(grades, prefix = "판정") {
+    return Object.fromEntries(Object.keys(grades).map((gameId) => [gameId, `${prefix}: ${gameId}`]));
+}
+
 function approvedJudgements(
     grades = { "1": 2, "2": 1, "3": 0, "4": 2 },
     evaluation = TEST_EVALUATION,
@@ -68,18 +76,39 @@ function approvedJudgements(
         schemaVersion: 1,
         kind: "search-04-search-candidate-qrels",
         status: "approved",
+        packetSha256: "a".repeat(64),
         evaluation,
         queries: [
             {
                 id: "Q-010",
                 judges: [
-                    { judgeId: "judge-a", status: "approved", grades },
-                    { judgeId: "judge-b", status: "approved", grades },
+                    { judgeId: "judge-a", status: "approved", grades, rationales: rationalesFor(grades, "A") },
+                    { judgeId: "judge-b", status: "approved", grades, rationales: rationalesFor(grades, "B") },
                 ],
-                consensus: { status: "approved", grades },
+                consensus: { status: "approved", method: "independent-agreement", grades },
             },
         ],
     };
+}
+
+function judgementPacket() {
+    return buildComparisonJudgementPacket({
+        queries: QUERY_FIXTURE,
+        candidates: TEST_CANDIDATES,
+        searchText: { games: [1, 2, 3, 4].map((gameId) => ({ gameId, searchText: `게임 ${gameId}` })) },
+        topK: 3,
+    });
+}
+
+function filledJudgementPacket(packet, grades, rationalePrefix) {
+    const copy = JSON.parse(JSON.stringify(packet));
+    for (const query of copy.queries) {
+        for (const candidate of query.candidates) {
+            candidate.grade = grades[String(candidate.gameId)];
+            candidate.rationale = `${rationalePrefix}: ${candidate.gameId}`;
+        }
+    }
+    return copy;
 }
 
 test("baseline·Dense 결과 형식을 공통 ranked ID 형식으로 정규화한다", () => {
@@ -135,6 +164,42 @@ test("승인된 consensus qrels로 후보별 graded metrics를 재현한다", ()
     assert.equal(report.metrics.lexical.overall.recallAt10, 1 / 2);
     assert.equal(report.metrics.dense.overall.recallAt10, 1 / 2);
     assert.equal(report.selection.selectedMethod, null);
+});
+
+test("approved qrels는 packet checksum이 없거나 canonical checksum과 다르면 거절한다", () => {
+    const missingChecksum = approvedJudgements();
+    delete missingChecksum.packetSha256;
+    assert.throws(
+        () => buildComparisonReport({
+            queries: QUERY_FIXTURE,
+            candidates: TEST_CANDIDATES,
+            judgements: missingChecksum,
+        }),
+        /packetSha256가 없습니다/u,
+    );
+
+    assert.throws(
+        () => buildComparisonReport({
+            queries: QUERY_FIXTURE,
+            candidates: TEST_CANDIDATES,
+            judgements: approvedJudgements(),
+            judgementPacketSha256: "b".repeat(64),
+        }),
+        /canonical packet과 다릅니다/u,
+    );
+});
+
+test("approved qrels는 판정 근거가 없으면 거절한다", () => {
+    const missingRationale = approvedJudgements();
+    missingRationale.queries[0].judges[0].rationales["1"] = "";
+    assert.throws(
+        () => buildComparisonReport({
+            queries: QUERY_FIXTURE,
+            candidates: TEST_CANDIDATES,
+            judgements: missingRationale,
+        }),
+        /판정 근거가 없습니다/u,
+    );
 });
 
 test("semantic analysisClass는 metrics와 blind packet에 보존된다", () => {
@@ -360,6 +425,389 @@ test("manifest로 만든 blind packet은 provenance에서 후보 이름을 노�
         assert.equal(JSON.stringify(packet).includes("lexical"), false);
         assert.equal(JSON.stringify(packet).includes("dense"), false);
         assert.deepEqual(packet.provenance.searchText, { sha256: checksum(searchTextBytes) });
+    } finally {
+        fs.rmSync(directory, { recursive: true, force: true });
+    }
+});
+
+test("독립 판정 packet 두 개의 일치 결과를 approved qrels로 보존한다", () => {
+    const packet = judgementPacket();
+    const grades = { "1": 2, "2": 1, "3": 0, "4": 2 };
+    const qrels = buildApprovedHumanQrels({
+        packet,
+        judgePackets: [
+            filledJudgementPacket(packet, grades, "A"),
+            filledJudgementPacket(packet, grades, "B"),
+        ],
+        packetSha256: "a".repeat(64),
+    });
+
+    assert.equal(qrels.kind, "search-04-search-candidate-qrels");
+    assert.equal(qrels.status, "approved");
+    assert.equal(qrels.queries[0].judges.length, 2);
+    assert.equal(qrels.queries[0].consensus.method, "independent-agreement");
+    assert.deepEqual(qrels.queries[0].consensus.grades, grades);
+});
+
+test("판정 불일치는 제3 판정의 다수결과 근거를 함께 보존한다", () => {
+    const packet = judgementPacket();
+    const firstGrades = { "1": 2, "2": 1, "3": 0, "4": 2 };
+    const secondGrades = { "1": 1, "2": 1, "3": 0, "4": 2 };
+    const thirdGrades = { "1": 1, "2": 1, "3": 0, "4": 2 };
+    const thirdPacket = filledJudgementPacket(packet, thirdGrades, "C");
+    for (const candidate of thirdPacket.queries[0].candidates) {
+        if (candidate.gameId !== 1) {
+            candidate.grade = null;
+            candidate.rationale = null;
+        }
+    }
+    const qrels = buildApprovedHumanQrels({
+        packet,
+        judgePackets: [
+            filledJudgementPacket(packet, firstGrades, "A"),
+            filledJudgementPacket(packet, secondGrades, "B"),
+        ],
+        thirdJudgePacket: thirdPacket,
+        judgeIds: ["judge-a", "judge-b", "judge-c"],
+        packetSha256: "a".repeat(64),
+    });
+
+    assert.equal(qrels.queries[0].judges.length, 3);
+    assert.equal(qrels.queries[0].consensus.method, "third-judge-majority");
+    assert.equal(qrels.queries[0].consensus.grades["1"], 1);
+    assert.deepEqual(Object.keys(qrels.queries[0].judges[2].grades), ["1"]);
+    assert.equal(qrels.queries[0].judges[2].rationales["1"], "C: 1");
+    const report = buildComparisonReport({
+        queries: QUERY_FIXTURE,
+        candidates: TEST_CANDIDATES,
+        judgements: qrels,
+        evaluationTopK: 3,
+    });
+    assert.equal(report.status, "metrics-ready");
+
+    const mismatchedRationaleKeys = JSON.parse(JSON.stringify(qrels));
+    mismatchedRationaleKeys.queries[0].judges[2].rationales = { "2": "C: 2" };
+    assert.throws(
+        () => buildComparisonReport({
+            queries: QUERY_FIXTURE,
+            candidates: TEST_CANDIDATES,
+            judgements: mismatchedRationaleKeys,
+            evaluationTopK: 3,
+        }),
+        /grade\/rationale candidate 대상/u,
+    );
+});
+
+test("판정 불일치에 제3 판정이 없으면 qrels 승인을 거부한다", () => {
+    const packet = judgementPacket();
+    assert.throws(
+        () => buildApprovedHumanQrels({
+            packet,
+            judgePackets: [
+                filledJudgementPacket(packet, { "1": 2, "2": 1, "3": 0, "4": 2 }, "A"),
+                filledJudgementPacket(packet, { "1": 1, "2": 1, "3": 0, "4": 2 }, "B"),
+            ],
+            packetSha256: "a".repeat(64),
+        }),
+        /제3 판정/u,
+    );
+});
+
+test("판정 불일치가 없으면 제3 판정 packet의 candidate 입력을 거부한다", () => {
+    const packet = judgementPacket();
+    const grades = { "1": 2, "2": 1, "3": 0, "4": 2 };
+
+    assert.throws(
+        () => buildApprovedHumanQrels({
+            packet,
+            judgePackets: [
+                filledJudgementPacket(packet, grades, "A"),
+                filledJudgementPacket(packet, grades, "B"),
+            ],
+            thirdJudgePacket: filledJudgementPacket(packet, grades, "C"),
+            judgeIds: ["judge-a", "judge-b", "judge-c"],
+            packetSha256: "a".repeat(64),
+        }),
+        /evaluation candidate pool 밖의 game ID/u,
+    );
+});
+
+test("approved qrels는 판정 결과와 consensus method가 일치해야 한다", () => {
+    const qrels = approvedJudgements();
+    qrels.queries[0].judges.push({
+        judgeId: "judge-c",
+        status: "approved",
+        grades: {},
+        rationales: {},
+    });
+
+    assert.throws(
+        () => buildComparisonReport({
+            queries: QUERY_FIXTURE,
+            candidates: TEST_CANDIDATES,
+            judgements: qrels,
+        }),
+        /일치 판정은 2인/u,
+    );
+});
+
+test("판정 packet의 query·evidence가 바뀌면 qrels 승인을 거부한다", () => {
+    const packet = judgementPacket();
+    const changed = filledJudgementPacket(packet, { "1": 2, "2": 1, "3": 0, "4": 2 }, "A");
+    changed.queries[0].candidates[0].evidenceText = "변경된 evidence";
+
+    assert.throws(
+        () => buildApprovedHumanQrels({
+            packet,
+            judgePackets: [
+                changed,
+                filledJudgementPacket(packet, { "1": 2, "2": 1, "3": 0, "4": 2 }, "B"),
+            ],
+            packetSha256: "a".repeat(64),
+        }),
+        /canonical packet과 다릅니다/u,
+    );
+});
+
+test("판정 packet에 ranking 단서를 추가하면 qrels 승인을 거부한다", () => {
+    const packet = judgementPacket();
+    const changed = filledJudgementPacket(packet, { "1": 2, "2": 1, "3": 0, "4": 2 }, "A");
+    changed.queries[0].candidates[0].score = 0.99;
+
+    assert.throws(
+        () => buildApprovedHumanQrels({
+            packet,
+            judgePackets: [
+                changed,
+                filledJudgementPacket(packet, { "1": 2, "2": 1, "3": 0, "4": 2 }, "B"),
+            ],
+            packetSha256: "a".repeat(64),
+        }),
+        /허용되지 않은 필드/u,
+    );
+});
+
+test("판정 packet의 중첩 metadata에 ranking 단서를 추가하면 승인을 거부한다", () => {
+    const packet = judgementPacket();
+    const changed = filledJudgementPacket(packet, { "1": 2, "2": 1, "3": 0, "4": 2 }, "A");
+    changed.evaluation.score = 0.99;
+
+    assert.throws(
+        () => buildApprovedHumanQrels({
+            packet,
+            judgePackets: [
+                changed,
+                filledJudgementPacket(packet, { "1": 2, "2": 1, "3": 0, "4": 2 }, "B"),
+            ],
+            packetSha256: "a".repeat(64),
+        }),
+        /evaluation 필드가 canonical schema와 다릅니다/u,
+    );
+});
+
+test("판정 query에 ranking 단서를 추가하면 qrels 승인을 거부한다", () => {
+    const packet = judgementPacket();
+    const changed = filledJudgementPacket(packet, { "1": 2, "2": 1, "3": 0, "4": 2 }, "A");
+    changed.queries[0].sourceRank = { "1": 1 };
+
+    assert.throws(
+        () => buildApprovedHumanQrels({
+            packet,
+            judgePackets: [
+                changed,
+                filledJudgementPacket(packet, { "1": 2, "2": 1, "3": 0, "4": 2 }, "B"),
+            ],
+            packetSha256: "a".repeat(64),
+        }),
+        /허용되지 않은 필드/u,
+    );
+});
+
+test("주 판정자 qrels는 candidate 누락을 허용하지 않는다", () => {
+    assert.throws(
+        () => buildComparisonReport({
+            queries: QUERY_FIXTURE,
+            candidates: TEST_CANDIDATES,
+            judgements: {
+                ...approvedJudgements(),
+                queries: [{
+                    id: "Q-010",
+                    judges: [
+                        {
+                            judgeId: "judge-a",
+                            status: "approved",
+                            grades: { "2": 1, "3": 0, "4": 2 },
+                            rationales: rationalesFor({ "2": 1, "3": 0, "4": 2 }, "A"),
+                        },
+                        {
+                            judgeId: "judge-b",
+                            status: "approved",
+                            grades: { "1": 2, "2": 1, "3": 0, "4": 2 },
+                            rationales: rationalesFor({ "1": 2, "2": 1, "3": 0, "4": 2 }, "B"),
+                        },
+                        {
+                            judgeId: "judge-c",
+                            status: "approved",
+                            grades: { "1": 2, "2": 1, "3": 0, "4": 2 },
+                            rationales: rationalesFor({ "1": 2, "2": 1, "3": 0, "4": 2 }, "C"),
+                        },
+                    ],
+                    consensus: { status: "approved", grades: { "1": 2, "2": 1, "3": 0, "4": 2 } },
+                }],
+            },
+        }),
+        /candidate 결과 game ID가 없습니다/u,
+    );
+});
+
+test("CLI는 두 판정 packet을 checksum 고정 qrels로 조립한다", () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), "search-candidate-qrels-test-"));
+    try {
+        const packet = judgementPacket();
+        const grades = { "1": 2, "2": 1, "3": 0, "4": 2 };
+        const checksum = (bytes) => createHash("sha256").update(bytes).digest("hex");
+        const writeJson = (name, value) => {
+            const filePath = path.join(directory, name);
+            const bytes = Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
+            fs.writeFileSync(filePath, bytes);
+            return { filePath, descriptor: { path: name, sha256: checksum(bytes) } };
+        };
+        const packetArtifact = writeJson("packet.json", packet);
+        const judgeAArtifact = writeJson("judge-a.json", filledJudgementPacket(packet, grades, "A"));
+        const judgeBArtifact = writeJson("judge-b.json", filledJudgementPacket(packet, grades, "B"));
+        const queryArtifact = writeJson("queries.json", QUERY_FIXTURE);
+        const lexicalArtifact = writeJson("lexical.json", BASELINE_RESULTS);
+        const denseArtifact = writeJson("dense.json", DENSE_RESULTS);
+        const manifestPath = path.join(directory, "manifest.json");
+        const outputPath = path.join(directory, "qrels.json");
+        fs.writeFileSync(manifestPath, `${JSON.stringify({
+            schemaVersion: 1,
+            kind: "search-04-search-candidate-comparison-input",
+            featureId: "SEARCH-04",
+            approvalReference: "https://github.com/bamsongi-club/albam-mate/issues/897",
+            evaluationTopK: 3,
+            judgementPacket: packetArtifact.descriptor,
+            candidates: [
+                { name: "lexical", queryFixture: queryArtifact.descriptor, results: lexicalArtifact.descriptor },
+                { name: "dense", queryFixture: queryArtifact.descriptor, results: denseArtifact.descriptor },
+            ],
+        }, null, 2)}\n`);
+
+        const stdout = execFileSync(process.execPath, [
+            path.resolve("scripts/search-evaluation/search-candidate-comparison.mjs"),
+            "--qrels",
+            "--manifest", manifestPath,
+            "--canonical-packet", packetArtifact.filePath,
+            "--judge-a", judgeAArtifact.filePath,
+            "--judge-b", judgeBArtifact.filePath,
+            "--out", outputPath,
+        ], { encoding: "utf8" });
+
+        assert.match(stdout, /"status": "approved"/u);
+        const qrels = JSON.parse(fs.readFileSync(outputPath, "utf8"));
+        assert.equal(qrels.status, "approved");
+        assert.match(qrels.packetSha256, /^[a-f0-9]{64}$/u);
+
+        assert.throws(
+            () => execFileSync(process.execPath, [
+                path.resolve("scripts/search-evaluation/search-candidate-comparison.mjs"),
+                "--qrels",
+                "--manifest", manifestPath,
+                "--canonical-packet", judgeAArtifact.filePath,
+                "--judge-a", judgeAArtifact.filePath,
+                "--judge-b", judgeBArtifact.filePath,
+                "--out", path.join(directory, "mismatch.json"),
+            ], { encoding: "utf8" }),
+            (error) => error.status === 1 && error.stderr.includes("path와 같아야"),
+        );
+    } finally {
+        fs.rmSync(directory, { recursive: true, force: true });
+    }
+});
+
+test("원자적 JSON 출력은 write·rename 실패에서 기존 결과와 임시 파일을 보존한다", () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), "search-candidate-atomic-test-"));
+    const outputPath = path.join(directory, "results.json");
+    fs.writeFileSync(outputPath, "previous\n");
+    try {
+        assert.throws(
+            () => writeJsonAtomically(outputPath, "next\n", {
+                randomId: () => "write-failure",
+                writeFile: () => { throw new Error("write failed"); },
+            }),
+            /write failed/u,
+        );
+        assert.equal(fs.readFileSync(outputPath, "utf8"), "previous\n");
+        assert.equal(fs.existsSync(path.join(directory, ".results.json.write-failure.tmp")), false);
+
+        assert.throws(
+            () => writeJsonAtomically(outputPath, "next\n", {
+                randomId: () => "rename-failure",
+                publish: () => { throw new Error("publish failed"); },
+            }),
+            /publish failed/u,
+        );
+        assert.equal(fs.readFileSync(outputPath, "utf8"), "previous\n");
+        assert.equal(fs.existsSync(path.join(directory, ".results.json.rename-failure.tmp")), false);
+
+        const collisionPath = path.join(directory, ".results.json.collision.tmp");
+        fs.writeFileSync(collisionPath, "another writer\n");
+        assert.throws(
+            () => writeJsonAtomically(outputPath, "next\n", { randomId: () => "collision" }),
+            (error) => error.code === "EEXIST",
+        );
+        assert.equal(fs.readFileSync(outputPath, "utf8"), "previous\n");
+        assert.equal(fs.readFileSync(collisionPath, "utf8"), "another writer\n");
+
+        assert.throws(
+            () => writeJsonAtomically(outputPath, "next\n", { randomId: () => "no-replace" }),
+            (error) => error.code === "EEXIST",
+        );
+        assert.equal(fs.readFileSync(outputPath, "utf8"), "previous\n");
+        assert.equal(fs.existsSync(path.join(directory, ".results.json.no-replace.tmp")), false);
+    } finally {
+        fs.rmSync(directory, { recursive: true, force: true });
+    }
+});
+
+test("approved qrels는 comparison manifest의 canonical packet descriptor 없이는 사용할 수 없다", () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), "search-candidate-manifest-qrels-test-"));
+    try {
+        const queriesBytes = Buffer.from(`${JSON.stringify(QUERY_FIXTURE)}\n`);
+        const lexicalBytes = Buffer.from(`${JSON.stringify(BASELINE_RESULTS)}\n`);
+        const denseBytes = Buffer.from(`${JSON.stringify(DENSE_RESULTS)}\n`);
+        const qrelsBytes = Buffer.from(`${JSON.stringify(approvedJudgements(
+            { "1": 2, "2": 1, "3": 0, "4": 2 },
+            buildEvaluationMetadata({ candidates: TEST_CANDIDATES, topK: 3 }),
+        ))}\n`);
+        const checksum = (bytes) => createHash("sha256").update(bytes).digest("hex");
+        const write = (name, bytes) => {
+            const filePath = path.join(directory, name);
+            fs.writeFileSync(filePath, bytes);
+            return { path: name, sha256: checksum(bytes) };
+        };
+        const queryDescriptor = write("queries.json", queriesBytes);
+        const lexicalDescriptor = write("lexical.json", lexicalBytes);
+        const denseDescriptor = write("dense.json", denseBytes);
+        const qrelsDescriptor = write("qrels.json", qrelsBytes);
+        const manifestPath = path.join(directory, "manifest.json");
+        fs.writeFileSync(manifestPath, `${JSON.stringify({
+            schemaVersion: 1,
+            kind: "search-04-search-candidate-comparison-input",
+            featureId: "SEARCH-04",
+            approvalReference: "https://github.com/bamsongi-club/albam-mate/issues/897",
+            evaluationTopK: 3,
+            judgements: qrelsDescriptor,
+            candidates: [
+                { name: "lexical", queryFixture: queryDescriptor, results: lexicalDescriptor },
+                { name: "dense", queryFixture: queryDescriptor, results: denseDescriptor },
+            ],
+        }, null, 2)}\n`);
+
+        assert.throws(
+            () => compareFromManifest({ manifestPath }),
+            /canonical judgementPacket descriptor가 필요합니다/u,
+        );
     } finally {
         fs.rmSync(directory, { recursive: true, force: true });
     }

@@ -71,10 +71,13 @@ Final Quality Evaluation 완료 전에는 SEARCH-04 최종 검색 방식, produc
 ## 파일 계약
 
 - `manifest.json`: profile, catalog release, quality corpus release, checksum, cohort, approval gate
+- `search-candidate-semantic-30-input.json.judgementPacket`: canonical blind packet 경로·SHA-256 descriptor
 - `quality-corpus.json`: pinned ranking snapshot/hash, mapping·dedupe·정렬·target N 규칙과 fixture 참조 membership projection
 - `queries.json`: query, cohort, hard filter, expected/excluded game ID, relevance reason, source/version
 - `search-candidate-semantic-30-input.json`: #885 `semantic-30-v1` 후보 비교 manifest
 - `search-candidate-comparison/semantic-30-queries.json`: 의미기반 30 query와 `semantic-core`·`contrast-hard-semantic`·`hybrid-hard-filter` 분류
+- `search-candidate-comparison/semantic-30-human-judgement-packet.json`: 후보명·score·source rank를 숨긴 독립 판정용 packet
+- `search-04-search-candidate-qrels`: 두 독립 판정과 불일치 query의 제3 판정을 합의한 qrels 형식. `packetSha256`는 canonical packet descriptor와 일치해야 함
 - `queriesSha256`·`qualityCorpusSha256`: 원자료 변경 감지용 SHA-256
 - `manifest.index`: corpus version/checksum과 `BUILDING → READY` 또는 `FAILED`, 실패 시 이전 `READY` 유지 규칙
 
@@ -145,6 +148,38 @@ node scripts/search-evaluation/search-candidate-comparison.mjs \
   --packet \
   --manifest /path/to/search-candidate-semantic-30-input.json \
   --out /tmp/search-04-candidate-judgement-packet.json
+```
+
+생성된 packet을 두 판정자에게 각각 복사해 `grade`(0·1·2)와 `rationale`를 독립적으로 입력합니다. 두 packet은 query·candidate·evidence를 수정하지 않아야 하며, 조립기는 packet 구조와 candidate pool을 다시 대조합니다. 판정이 다른 query가 있으면 `--judge-c`를 추가하지 않는 한 qrels 생성을 거부합니다.
+
+```bash
+node scripts/search-evaluation/search-candidate-comparison.mjs \
+  --qrels \
+  --manifest /path/to/search-candidate-semantic-30-input.json \
+  --canonical-packet /path/to/semantic-30-human-judgement-packet.json \
+  --judge-a /path/to/semantic-30-judge-a.json \
+  --judge-b /path/to/semantic-30-judge-b.json \
+  --judge-a-id judge-a \
+  --judge-b-id judge-b \
+  --out /tmp/approved-search-candidate-qrels.json
+```
+
+`--manifest`의 `judgementPacket.path`가 가리키는 동일 파일을 `--canonical-packet`으로 지정해야 하며, 조립기는 manifest descriptor의 SHA-256도 다시 검증합니다. packet을 다시 생성하면 manifest의 descriptor SHA-256도 함께 갱신·검증해야 합니다.
+
+불일치 query가 있으면 제3 판정 packet을 추가합니다. 제3 판정자는 불일치 candidate만 `grade`·`rationale`를 채우고 나머지는 빈 값으로 둡니다. 조립 결과는 canonical packet SHA-256, 각 판정자의 grade·rationale, query별 합의 방식(`independent-agreement` 또는 `third-judge-majority`)을 보존합니다.
+
+```bash
+node scripts/search-evaluation/search-candidate-comparison.mjs \
+  --qrels \
+  --manifest /path/to/search-candidate-semantic-30-input.json \
+  --canonical-packet /path/to/semantic-30-human-judgement-packet.json \
+  --judge-a /path/to/semantic-30-judge-a.json \
+  --judge-b /path/to/semantic-30-judge-b.json \
+  --judge-c /path/to/semantic-30-judge-c.json \
+  --judge-a-id judge-a \
+  --judge-b-id judge-b \
+  --judge-c-id judge-c \
+  --out /tmp/approved-search-candidate-qrels.json
 ```
 
 독립 판정자 2명의 0·1·2 grade와 불일치 시 제3 판정 consensus가 `approved` 된 뒤에만 `--metrics`가 Recall@10·MRR@10·nDCG@10·hard-filter violation을 계산한다. qrels의 `evaluation.topK`·`candidatePoolSha256`가 packet과 다르면 metrics를 거부한다. 지표가 준비되어도 최종 방식은 자동 선택하지 않고 선택·탈락 근거를 별도로 기록한다.
