@@ -17,6 +17,10 @@ public interface AssistantDraftRepository extends JpaRepository<AssistantDraft, 
 	List<AssistantDraft> findActiveByUserIdForUpdate(@Param("userId")
 	long userId);
 
+	@Query("select draft from AssistantDraft draft where draft.userId = :userId and draft.status = 'ACTIVE'")
+	Optional<AssistantDraft> findActiveByUserId(@Param("userId")
+	long userId);
+
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	@Query("select draft from AssistantDraft draft where draft.id = :id")
 	Optional<AssistantDraft> findByIdForUpdate(@Param("id")

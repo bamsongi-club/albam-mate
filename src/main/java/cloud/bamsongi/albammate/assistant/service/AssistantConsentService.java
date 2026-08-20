@@ -17,6 +17,7 @@ import cloud.bamsongi.albammate.assistant.entity.AssistantConsentStatus;
 import cloud.bamsongi.albammate.assistant.repository.AssistantConsentRepository;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
+import cloud.bamsongi.albammate.user.contract.UserRowLockPort;
 import lombok.RequiredArgsConstructor;
 
 /** AI-01 동의 저장과 provider 호출 전 fail-closed 경계를 조정한다. */
@@ -28,6 +29,7 @@ public class AssistantConsentService implements AssistantConsentGate {
 	private final AssistantConsentProperties properties;
 	private final ApplicationEventPublisher eventPublisher;
 	private final Clock clock;
+	private final UserRowLockPort userRowLockPort;
 
 	@Transactional(readOnly = true)
 	public AssistantConsentResponse getConsent(long userId) {
@@ -41,6 +43,7 @@ public class AssistantConsentService implements AssistantConsentGate {
 
 	@Transactional
 	public AssistantConsentResponse changeConsent(long userId, AssistantConsentRequest request) {
+		lockUser(userId);
 		validateRequest(request);
 		if (request.decision() == AssistantConsentDecision.GRANT) {
 			return grant(userId, request.consentVersion());
@@ -126,6 +129,12 @@ public class AssistantConsentService implements AssistantConsentGate {
 			&& request.consentVersion() != null
 			&& !request.consentVersion().isBlank()) {
 			throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+		}
+	}
+
+	private void lockUser(long userId) {
+		if (!userRowLockPort.lockExistingUsersInAscendingOrder(java.util.Set.of(userId)).contains(userId)) {
+			throw new BusinessException(ErrorCode.ASSISTANT_DRAFT_NOT_FOUND);
 		}
 	}
 

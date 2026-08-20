@@ -38,10 +38,11 @@ public class AssistantDraftController {
 		return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(HttpStatus.CREATED, response));
 	}
 
-	@GetMapping(path = "/{draftId}", produces = MediaType.APPLICATION_JSON_VALUE)
-	public ResponseEntity<ApiResponse<AssistantDraftResponse>> get(@PathVariable @Positive long draftId) {
-		return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK,
-			draftService.get(currentUserAccessor.requireCurrentUserId(), draftId)));
+	@GetMapping(path = "/active", produces = MediaType.APPLICATION_JSON_VALUE)
+	public ResponseEntity<ApiResponse<AssistantDraftResponse>> getActive() {
+		return draftService.getActive(currentUserAccessor.requireCurrentUserId())
+			.map(response -> ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response)))
+			.orElseGet(() -> ResponseEntity.noContent().build());
 	}
 
 	@PatchMapping(path = "/{draftId}", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)

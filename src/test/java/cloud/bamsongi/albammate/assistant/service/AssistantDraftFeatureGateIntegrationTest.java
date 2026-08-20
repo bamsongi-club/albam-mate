@@ -52,4 +52,16 @@ class AssistantDraftFeatureGateIntegrationTest {
 		assertEquals(0,
 			jdbcTemplate.queryForObject("select count(*) from rooms where host_user_id = ?", Integer.class, userId));
 	}
+
+	@Test
+	void T1_AI_비활성과_동의_부재도_active_조회는_차단하지_않는다() {
+		long userId = userRepository
+			.saveAndFlush(User.create("disabled-active-query@example.com", "{bcrypt}hash", "조회 사용자"))
+			.getId();
+		long draftId = draftRepository.saveAndFlush(AssistantDraft.create(userId, "PERSON_FOCUSED", "조회 초안", null,
+			null, "ALL_LEVELS", false, "홍대", 3, Instant.parse("2030-01-01T12:00:00Z"), null, Instant.now())).getId();
+
+		assertEquals(draftId, draftService.getActive(userId).orElseThrow().draftId());
+	}
+
 }

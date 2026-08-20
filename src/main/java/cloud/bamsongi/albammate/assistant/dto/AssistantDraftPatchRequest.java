@@ -2,9 +2,11 @@ package cloud.bamsongi.albammate.assistant.dto;
 
 import java.time.Instant;
 
+import jakarta.validation.constraints.NotNull;
+
 /** ACTIVE 초안의 명시적 확인 전 입력 보완 요청이다. */
 public record AssistantDraftPatchRequest(
-	long draftVersion,
+	@NotNull Long draftVersion,
 	String roomType,
 	String title,
 	String description,

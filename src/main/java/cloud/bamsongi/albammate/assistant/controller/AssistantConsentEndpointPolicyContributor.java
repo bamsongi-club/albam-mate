@@ -21,7 +21,7 @@ public class AssistantConsentEndpointPolicyContributor implements ApiEndpointPol
 			new ApiEndpointPolicy(HttpMethod.PUT, "/api/assistant/consent", AUTHENTICATED, true),
 			new ApiEndpointPolicy(HttpMethod.POST, "/api/assistant/recommendations", AUTHENTICATED, true),
 			new ApiEndpointPolicy(HttpMethod.POST, "/api/assistant/drafts", AUTHENTICATED, true),
-			new ApiEndpointPolicy(HttpMethod.GET, "/api/assistant/drafts/{draftId}", AUTHENTICATED, false),
+			new ApiEndpointPolicy(HttpMethod.GET, "/api/assistant/drafts/active", AUTHENTICATED, false),
 			new ApiEndpointPolicy(HttpMethod.PATCH, "/api/assistant/drafts/{draftId}", AUTHENTICATED, true),
 			new ApiEndpointPolicy(HttpMethod.DELETE, "/api/assistant/drafts/{draftId}", AUTHENTICATED, true),
 			new ApiEndpointPolicy(HttpMethod.POST, "/api/assistant/drafts/{draftId}/confirm", AUTHENTICATED, true));

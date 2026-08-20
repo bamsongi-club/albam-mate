@@ -19,6 +19,8 @@ import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
+import cloud.bamsongi.albammate.assistant.entity.AssistantDraft;
+import cloud.bamsongi.albammate.assistant.repository.AssistantDraftRepository;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.global.security.currentuser.CurrentUserPrincipal;
 import cloud.bamsongi.albammate.user.entity.User;
@@ -41,6 +43,8 @@ class AssistantDraftHttpIntegrationTest {
 	private UserRepository userRepository;
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
+	@Autowired
+	private AssistantDraftRepository draftRepository;
 
 	@AfterEach
 	void tearDown() {
@@ -60,27 +64,33 @@ class AssistantDraftHttpIntegrationTest {
 	}
 
 	@Test
-	void T1_초안은_인증_CSRF_소유권과_terminal_상태를_보호한다() throws Exception {
-		mockMvc.perform(get("/api/assistant/drafts/999"))
+	void T1_active_조회는_인증만_요구하고_CSRF와_동의없이_현재_사용자_초안만_반환한다() throws Exception {
+		mockMvc.perform(get("/api/assistant/drafts/active"))
 			.andExpect(status().isUnauthorized())
 			.andExpect(jsonPath("$.code").value(ErrorCode.UNAUTHENTICATED.getCode()));
 
-		mockMvc.perform(get("/api/assistant/drafts/999").with(authenticationFor(1L)))
-			.andExpect(status().isNotFound())
-			.andExpect(jsonPath("$.code").value("ASSISTANT_DRAFT_NOT_FOUND"));
+		User owner = userRepository.saveAndFlush(
+			User.create("assistant-draft-t1-owner@example.com", "{bcrypt}hash", "소유 사용자"));
+		long ownerDraftId = draftRepository.saveAndFlush(activeDraft(owner.getId(), "소유 초안")).getId();
+		User other = userRepository.saveAndFlush(
+			User.create("assistant-draft-t1-other@example.com", "{bcrypt}hash", "다른 사용자"));
+		draftRepository.saveAndFlush(activeDraft(other.getId(), "다른 초안"));
 
-		User owner = grantedUser("t1-owner");
-		long draftId = createDraft(owner, validDraftJson());
-		User other = grantedUser("t1-other");
-		mockMvc.perform(get("/api/assistant/drafts/" + draftId).with(authenticationFor(other.getId())))
-			.andExpect(status().isNotFound())
-			.andExpect(jsonPath("$.code").value("ASSISTANT_DRAFT_NOT_FOUND"));
-		mockMvc
-			.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
-				.delete("/api/assistant/drafts/" + draftId)
-				.with(authenticationFor(owner.getId())))
-			.andExpect(status().isForbidden())
-			.andExpect(jsonPath("$.code").value(ErrorCode.CSRF_TOKEN_INVALID.getCode()));
+		mockMvc.perform(get("/api/assistant/drafts/active").with(authenticationFor(owner.getId())))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.draftId").value(ownerDraftId))
+			.andExpect(jsonPath("$.data.input.title").value("소유 초안"));
+	}
+
+	@Test
+	void T1_제거된_draftId_조회는_METHOD_NOT_ALLOWED이고_초안_응답을_반환하지_않는다() throws Exception {
+		User user = grantedUser("t1-removed-get");
+		long draftId = createDraft(user, validDraftJson());
+
+		mockMvc.perform(get("/api/assistant/drafts/" + draftId).with(authenticationFor(user.getId())))
+			.andExpect(status().isMethodNotAllowed())
+			.andExpect(jsonPath("$.code").value(ErrorCode.METHOD_NOT_ALLOWED.getCode()))
+			.andExpect(jsonPath("$.data.draftId").doesNotExist());
 	}
 
 	@Test
@@ -103,8 +113,8 @@ class AssistantDraftHttpIntegrationTest {
 				.delete("/api/assistant/drafts/" + draftId)
 				.with(authenticationFor(user.getId())).with(csrf()))
 			.andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("ASSISTANT_DRAFT_CONFLICT"));
-		mockMvc.perform(get("/api/assistant/drafts/" + draftId).with(authenticationFor(user.getId())))
-			.andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("CONFIRMED"));
+		mockMvc.perform(get("/api/assistant/drafts/active").with(authenticationFor(user.getId())))
+			.andExpect(status().isNoContent());
 	}
 
 	@Test
@@ -144,11 +154,12 @@ class AssistantDraftHttpIntegrationTest {
 		long firstDraftId = createDraft(user, validDraftJson());
 		long secondDraftId = createDraft(user, validDraftJson().replace("AI 초안 방", "다음 AI 초안 방"));
 
-		mockMvc.perform(get("/api/assistant/drafts/" + firstDraftId).with(authenticationFor(user.getId())))
+		assertEquals("DISCARDED",
+			jdbcTemplate.queryForObject("select status from assistant_drafts where id = ?", String.class,
+				firstDraftId));
+		mockMvc.perform(get("/api/assistant/drafts/active").with(authenticationFor(user.getId())))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.status").value("DISCARDED"));
-		mockMvc.perform(get("/api/assistant/drafts/" + secondDraftId).with(authenticationFor(user.getId())))
-			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.draftId").value(secondDraftId))
 			.andExpect(jsonPath("$.data.status").value("ACTIVE"));
 	}
 
@@ -169,17 +180,20 @@ class AssistantDraftHttpIntegrationTest {
 	}
 
 	@Test
-	void T3_lazy_만료는_410이고_Room과_초안_상태를_바꾸지_않는다() throws Exception {
+	void T3_active_조회는_유효_초안_200_없음과_종결_초안_204_만료_초안_410이고_상태를_바꾸지_않는다() throws Exception {
 		User user = grantedUser("t3-expired");
+		mockMvc.perform(get("/api/assistant/drafts/active").with(authenticationFor(user.getId())))
+			.andExpect(status().isNoContent());
 		long draftId = createDraft(user, validDraftJsonWithPlace());
+		mockMvc.perform(get("/api/assistant/drafts/active").with(authenticationFor(user.getId())))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.draftId").value(draftId))
+			.andExpect(jsonPath("$.data.status").value("ACTIVE"));
 		jdbcTemplate.update("update assistant_drafts set expires_at = ? where id = ?",
 			java.time.Instant.parse("2020-01-01T00:00:00Z"), draftId);
 
 		mockMvc
-			.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
-				.patch("/api/assistant/drafts/" + draftId)
-				.contentType("application/json").content("{\"draftVersion\":0,\"place\":\"다른 카페\"}")
-				.with(authenticationFor(user.getId())).with(csrf()))
+			.perform(get("/api/assistant/drafts/active").with(authenticationFor(user.getId())))
 			.andExpect(status().isGone()).andExpect(jsonPath("$.code").value("ASSISTANT_DRAFT_EXPIRED"));
 		assertEquals("ACTIVE",
 			jdbcTemplate.queryForObject("select status from assistant_drafts where id = ?", String.class, draftId));
@@ -216,6 +230,78 @@ class AssistantDraftHttpIntegrationTest {
 			.andExpect(jsonPath("$.data.input.title").value("수정한 AI 초안 방"))
 			.andExpect(jsonPath("$.data.input.description").value("수정 설명"))
 			.andExpect(jsonPath("$.data.input.recruitmentCapacity").value(4));
+	}
+
+	@Test
+	void T4_PATCH_판정순서와_필수버전_및_텍스트_제어문자_경계를_지킨다() throws Exception {
+		User terminalUser = grantedUser("t4-terminal-stale");
+		long terminalDraftId = createDraft(terminalUser, validDraftJsonWithPlace());
+		mockMvc.perform(post("/api/assistant/drafts/" + terminalDraftId + "/confirm")
+			.header("Idempotency-Key", "t4-terminal-stale-key").contentType("application/json")
+			.content("{\"draftVersion\":0}").with(authenticationFor(terminalUser.getId())).with(csrf()))
+			.andExpect(status().isCreated());
+		mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+			.patch("/api/assistant/drafts/" + terminalDraftId).contentType("application/json")
+			.content("{\"draftVersion\":-1,\"place\":\"다른 장소\"}")
+			.with(authenticationFor(terminalUser.getId())).with(csrf()))
+			.andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("ASSISTANT_DRAFT_CONFLICT"));
+
+		User expiredUser = grantedUser("t4-expired-stale");
+		long expiredDraftId = createDraft(expiredUser, validDraftJsonWithPlace());
+		jdbcTemplate.update("update assistant_drafts set expires_at = ? where id = ?",
+			java.time.Instant.parse("2020-01-01T00:00:00Z"), expiredDraftId);
+		mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+			.patch("/api/assistant/drafts/" + expiredDraftId).contentType("application/json")
+			.content("{\"draftVersion\":-1,\"place\":\"다른 장소\"}")
+			.with(authenticationFor(expiredUser.getId())).with(csrf()))
+			.andExpect(status().isGone()).andExpect(jsonPath("$.code").value("ASSISTANT_DRAFT_EXPIRED"));
+
+		User missingVersionUser = grantedUser("t4-missing-version");
+		long missingVersionDraftId = createDraft(missingVersionUser, validDraftJson());
+		mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+			.patch("/api/assistant/drafts/" + missingVersionDraftId).contentType("application/json")
+			.content("{\"place\":\"카페\"}").with(authenticationFor(missingVersionUser.getId())).with(csrf()))
+			.andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+
+		assertControlCharactersAreRejectedAtCreatePatchAndConfirm("title", "제어\\u0001문자");
+		assertControlCharactersAreRejectedAtCreatePatchAndConfirm("description", "제어\\u0001문자");
+		assertControlCharactersAreRejectedAtCreatePatchAndConfirm("place", "제어\\u0001문자");
+	}
+
+	@Test
+	void T4_PATCH_누락_draftVersion도_소유권_terminal_만료_뒤에_판정한다() throws Exception {
+		User missingUser = grantedUser("t4-missing-version-not-found");
+		mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+			.patch("/api/assistant/drafts/999999").contentType("application/json").content("{\"place\":\"카페\"}")
+			.with(authenticationFor(missingUser.getId())).with(csrf()))
+			.andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("ASSISTANT_DRAFT_NOT_FOUND"));
+
+		User terminalUser = grantedUser("t4-missing-version-terminal");
+		long terminalDraftId = createDraft(terminalUser, validDraftJsonWithPlace());
+		mockMvc.perform(post("/api/assistant/drafts/" + terminalDraftId + "/confirm")
+			.header("Idempotency-Key", "t4-missing-version-terminal-key").contentType("application/json")
+			.content("{\"draftVersion\":0}").with(authenticationFor(terminalUser.getId())).with(csrf()))
+			.andExpect(status().isCreated());
+		mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+			.patch("/api/assistant/drafts/" + terminalDraftId).contentType("application/json")
+			.content("{\"place\":\"다른 장소\"}").with(authenticationFor(terminalUser.getId())).with(csrf()))
+			.andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("ASSISTANT_DRAFT_CONFLICT"));
+
+		User expiredUser = grantedUser("t4-missing-version-expired");
+		long expiredDraftId = createDraft(expiredUser, validDraftJsonWithPlace());
+		jdbcTemplate.update("update assistant_drafts set expires_at = ? where id = ?",
+			java.time.Instant.parse("2020-01-01T00:00:00Z"), expiredDraftId);
+		mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+			.patch("/api/assistant/drafts/" + expiredDraftId).contentType("application/json")
+			.content("{\"place\":\"다른 장소\"}").with(authenticationFor(expiredUser.getId())).with(csrf()))
+			.andExpect(status().isGone()).andExpect(jsonPath("$.code").value("ASSISTANT_DRAFT_EXPIRED"));
+
+		User activeUser = grantedUser("t4-missing-version-active");
+		long activeDraftId = createDraft(activeUser, validDraftJsonWithPlace());
+		mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+			.patch("/api/assistant/drafts/" + activeDraftId).contentType("application/json")
+			.content("{\"place\":\"다른 장소\"}").with(authenticationFor(activeUser.getId())).with(csrf()))
+			.andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
 	}
 
 	@Test
@@ -329,8 +415,8 @@ class AssistantDraftHttpIntegrationTest {
 				.contentType("application/json").content("{\"decision\":\"REVOKE\"}")
 				.with(authenticationFor(user.getId())).with(csrf()))
 			.andExpect(status().isOk());
-		mockMvc.perform(get("/api/assistant/drafts/" + draftId).with(authenticationFor(user.getId())))
-			.andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("DISCARDED"));
+		mockMvc.perform(get("/api/assistant/drafts/active").with(authenticationFor(user.getId())))
+			.andExpect(status().isNoContent());
 		mockMvc.perform(post("/api/assistant/drafts/" + draftId + "/confirm")
 			.header("Idempotency-Key", "revoked-draft-key").contentType("application/json")
 			.content("{\"draftVersion\":0}")
@@ -362,6 +448,44 @@ class AssistantDraftHttpIntegrationTest {
 
 	private static String validDraftJsonWithPlace() {
 		return validDraftJson().replace("\"recruitmentCapacity\":3}", "\"place\":\"카페\",\"recruitmentCapacity\":3}");
+	}
+
+	private static AssistantDraft activeDraft(long userId, String title) {
+		return AssistantDraft.create(userId, "PERSON_FOCUSED", title, null, null, "ALL_LEVELS", false,
+			"홍대", 3, java.time.Instant.parse("2030-01-01T12:00:00Z"), null, java.time.Instant.now());
+	}
+
+	private void assertControlCharactersAreRejectedAtCreatePatchAndConfirm(String field, String value)
+		throws Exception {
+		User createUser = grantedUser("t4-create-control-" + field);
+		String createJson = validDraftJsonWithPlace().replace("\"" + field + "\":\""
+			+ (field.equals("title") ? "AI 초안 방" : field.equals("description") ? "" : "카페") + "\"",
+			"\"" + field + "\":\"" + value + "\"");
+		if (field.equals("description")) {
+			createJson = validDraftJsonWithPlace().replace("\"place\":\"카페\"", "\"description\":\"" + value
+				+ "\",\"place\":\"카페\"");
+		}
+		mockMvc.perform(post("/api/assistant/drafts").contentType("application/json").content(createJson)
+			.with(authenticationFor(createUser.getId())).with(csrf()))
+			.andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+
+		User patchUser = grantedUser("t4-patch-control-" + field);
+		long patchDraftId = createDraft(patchUser, validDraftJsonWithPlace());
+		mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+			.patch("/api/assistant/drafts/" + patchDraftId).contentType("application/json")
+			.content("{\"draftVersion\":0,\"" + field + "\":\"" + value + "\"}")
+			.with(authenticationFor(patchUser.getId())).with(csrf()))
+			.andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+
+		User confirmUser = grantedUser("t4-confirm-control-" + field);
+		long confirmDraftId = createDraft(confirmUser, validDraftJsonWithPlace());
+		jdbcTemplate.update("update assistant_drafts set " + field + " = ? where id = ?", "제어\u0001문자", confirmDraftId);
+		mockMvc.perform(post("/api/assistant/drafts/" + confirmDraftId + "/confirm")
+			.header("Idempotency-Key", "t4-confirm-control-" + field).contentType("application/json")
+			.content("{\"draftVersion\":0}").with(authenticationFor(confirmUser.getId())).with(csrf()))
+			.andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+		assertEquals(0, jdbcTemplate.queryForObject("select count(*) from rooms where host_user_id = ?", Integer.class,
+			confirmUser.getId()));
 	}
 
 	private User grantedUser(String suffix) throws Exception {

@@ -42,7 +42,9 @@ public class AssistantRoomCommandService implements AssistantRoomCommand {
 		if (!command.startsAt().isAfter(clock.instant())
 			|| command.recruitmentCapacity() < 1 || command.recruitmentCapacity() > 10
 			|| command.title().isBlank() || command.title().length() > 100
-			|| command.place().isBlank() || command.place().length() > 100) {
+			|| command.place().isBlank() || command.place().length() > 100
+			|| containsControlCharacter(command.title()) || containsControlCharacter(command.description())
+			|| containsControlCharacter(command.place())) {
 			throw new BusinessException(ErrorCode.VALIDATION_ERROR);
 		}
 		if (roomType == RoomType.GAME_FOCUSED && command.gameId() == null) {
@@ -82,5 +84,9 @@ public class AssistantRoomCommandService implements AssistantRoomCommand {
 		} catch (IllegalArgumentException exception) {
 			throw new BusinessException(ErrorCode.VALIDATION_ERROR);
 		}
+	}
+
+	private boolean containsControlCharacter(String value) {
+		return value != null && value.codePoints().anyMatch(Character::isISOControl);
 	}
 }

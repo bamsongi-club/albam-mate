@@ -2,6 +2,7 @@ package cloud.bamsongi.albammate.assistant.service;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Optional;
 
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
@@ -43,9 +44,9 @@ public class AssistantDraftService {
 	@Transactional
 	public AssistantDraftResponse create(long userId, AssistantDraftCreateRequest request) {
 		requireEnabled();
+		lockUser(userId);
 		consentGate.requireGranted(userId);
 		Instant now = clock.instant();
-		lockUser(userId);
 		draftRepository.findActiveByUserIdForUpdate(userId).forEach(AssistantDraft::discard);
 		draftRepository.flush();
 		idempotencyRecordRepository.deleteByUserIdAndExpiresAtLessThanEqual(userId, now);
@@ -63,12 +64,14 @@ public class AssistantDraftService {
 	}
 
 	@Transactional(readOnly = true)
-	public AssistantDraftResponse get(long userId, long draftId) {
-		AssistantDraft draft = owned(draftId, userId);
-		if (draft.isExpiredAt(clock.instant())) {
-			throw new BusinessException(ErrorCode.ASSISTANT_DRAFT_EXPIRED);
-		}
-		return AssistantDraftResponse.from(draft);
+	public Optional<AssistantDraftResponse> getActive(long userId) {
+		return draftRepository.findActiveByUserId(userId)
+			.map(draft -> {
+				if (draft.isExpiredAt(clock.instant())) {
+					throw new BusinessException(ErrorCode.ASSISTANT_DRAFT_EXPIRED);
+				}
+				return AssistantDraftResponse.from(draft);
+			});
 	}
 
 	@Transactional
@@ -125,11 +128,15 @@ public class AssistantDraftService {
 		Instant now = clock.instant();
 		lockUser(userId);
 		AssistantDraft draft = ownedForUpdate(draftId, userId);
-		if (draft.getStatus() != AssistantDraftStatus.ACTIVE || draft.getDraftVersion() != request.draftVersion()) {
+		if (draft.getStatus() != AssistantDraftStatus.ACTIVE) {
 			throw new BusinessException(ErrorCode.ASSISTANT_DRAFT_CONFLICT);
 		}
 		if (draft.isExpiredAt(now)) {
 			throw new BusinessException(ErrorCode.ASSISTANT_DRAFT_EXPIRED);
+		}
+		if (request.draftVersion() == null || draft.getDraftVersion() != request.draftVersion()) {
+			throw new BusinessException(request.draftVersion() == null ? ErrorCode.VALIDATION_ERROR
+				: ErrorCode.ASSISTANT_DRAFT_CONFLICT);
 		}
 		if (!request.hasInputChange()) {
 			throw new BusinessException(ErrorCode.VALIDATION_ERROR);
@@ -193,15 +200,6 @@ public class AssistantDraftService {
 		}
 	}
 
-	private AssistantDraft owned(long draftId, long userId) {
-		AssistantDraft draft = draftRepository.findById(draftId)
-			.orElseThrow(() -> new BusinessException(ErrorCode.ASSISTANT_DRAFT_NOT_FOUND));
-		if (draft.getUserId() != userId) {
-			throw new BusinessException(ErrorCode.ASSISTANT_DRAFT_NOT_FOUND);
-		}
-		return draft;
-	}
-
 	private AssistantDraft ownedForUpdate(long draftId, long userId) {
 		AssistantDraft draft = draftRepository.findByIdForUpdate(draftId)
 			.orElseThrow(() -> new BusinessException(ErrorCode.ASSISTANT_DRAFT_NOT_FOUND));
@@ -232,14 +230,14 @@ public class AssistantDraftService {
 
 	private String requireTitle(String title) {
 		String value = title == null ? null : title.strip();
-		if (value == null || value.isEmpty() || value.length() > 100) {
+		if (value == null || value.isEmpty() || value.length() > 100 || containsControlCharacter(value)) {
 			throw new BusinessException(ErrorCode.VALIDATION_ERROR);
 		}
 		return value;
 	}
 
 	private String requireDescription(String description) {
-		if (description.length() > 255) {
+		if (description.length() > 255 || containsControlCharacter(description)) {
 			throw new BusinessException(ErrorCode.VALIDATION_ERROR);
 		}
 		return description;
@@ -287,10 +285,14 @@ public class AssistantDraftService {
 			return null;
 		}
 		String value = place.strip();
-		if (value.isEmpty() || value.length() > 100) {
+		if (value.isEmpty() || value.length() > 100 || containsControlCharacter(value)) {
 			throw new BusinessException(ErrorCode.VALIDATION_ERROR);
 		}
 		return value;
+	}
+
+	private boolean containsControlCharacter(String value) {
+		return value.codePoints().anyMatch(Character::isISOControl);
 	}
 
 	private Long requireGame(Long gameId) {
