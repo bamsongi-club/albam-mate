@@ -84,10 +84,11 @@ function waitForSharedCsrfToken(signal) {
   });
 }
 
-async function request(path, { method = 'GET', body, headers, signal } = {}) {
+async function request(path, { method = 'GET', body, headers, signal, allowNoContent = false } = {}) {
   const requestAuthenticationGeneration = authenticationGeneration;
   let response;
   let payload;
+  let noContent = false;
   try {
     response = await fetch(endpoint(path), {
       method,
@@ -100,7 +101,8 @@ async function request(path, { method = 'GET', body, headers, signal } = {}) {
       },
       ...(body === undefined ? {} : { body: JSON.stringify(body) })
     });
-    payload = await parsePayload(response);
+    noContent = allowNoContent && response.status === 204;
+    if (!noContent) payload = await parsePayload(response);
   } catch (error) {
     if (requestAuthenticationGeneration !== authenticationGeneration) {
       throw staleAuthenticationError();
@@ -117,6 +119,8 @@ async function request(path, { method = 'GET', body, headers, signal } = {}) {
   if (requestAuthenticationGeneration !== authenticationGeneration) {
     throw staleAuthenticationError();
   }
+
+  if (noContent) return null;
 
   if (!response.ok) {
     throw failedResponseError(response, payload);
@@ -373,6 +377,39 @@ export const api = {
   markAllNotificationsRead: () => mutate(
     '/api/users/me/notifications',
     { method: 'PATCH', body: { read: true } }
+  ),
+  getAssistantConsent: (signal) => request('/api/assistant/consent', { signal }),
+  changeAssistantConsent: (consent) => mutate(
+    '/api/assistant/consent',
+    { method: 'PUT', body: consent }
+  ),
+  recommendAssistant: (message, conditions) => mutate(
+    '/api/assistant/recommendations',
+    { method: 'POST', body: { message, conditions: conditions ?? null } }
+  ),
+  createAssistantDraft: (draft) => mutate(
+    '/api/assistant/drafts',
+    { method: 'POST', body: draft }
+  ),
+  getActiveAssistantDraft: (signal) => request(
+    '/api/assistant/drafts/active',
+    { signal, allowNoContent: true }
+  ),
+  updateAssistantDraft: (draftId, draft) => mutate(
+    '/api/assistant/drafts/' + draftId,
+    { method: 'PATCH', body: draft }
+  ),
+  discardAssistantDraft: (draftId) => mutate(
+    '/api/assistant/drafts/' + draftId,
+    { method: 'DELETE' }
+  ),
+  confirmAssistantDraft: (draftId, draftVersion, idempotencyKey) => mutate(
+    '/api/assistant/drafts/' + draftId + '/confirm',
+    {
+      method: 'POST',
+      body: { draftVersion },
+      headers: { 'Idempotency-Key': idempotencyKey }
+    }
   ),
   signup: async (credentials) => mutate('/api/auth/signup', { method: 'POST', body: credentials }),
   login: async (credentials) => {
