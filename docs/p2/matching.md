@@ -53,7 +53,7 @@ P2 전체 범위와 공통 규칙은 [P2 명세](../P2-spec.md), 제품 방향�
 
 `계약 준비 완료`는 위 정본과 필수 ADR이 승인됐다는 뜻이며, 생산 코드·자동 검증·배포·실측 완료를 뜻하지 않는다. 기존 저장 구조 전환이 남은 기능은 `계약 전환 중`으로 표시하며, 이 상태에서는 소유 migration이 완료될 때까지 런타임 구현을 시작하지 않는다. 그 상태는 [P2 기능 상태 정본](README.md#기능별-현재-상태)에서만 갱신한다.
 
-이번 결정에 따른 저장 스키마의 `game_id` 제거·참조 정리·ERD 동기화는 [#838](https://github.com/bamsongi-club/albam-mate/issues/838)이 새 forward migration과 함께 소유한다. 그 변경 전까지 ERD의 기존 MATCH 저장 표현은 이전 스키마 상태를 설명한다.
+이번 결정에 따른 저장 스키마의 `game_id` 제거·참조 정리·ERD 동기화는 [#838](https://github.com/bamsongi-club/albam-mate/issues/838)과 [PR #841](https://github.com/bamsongi-club/albam-mate/pull/841)이 V28·V29를 수정하지 않는 forward migration, Entity mapping과 PostgreSQL 검증으로 완료했다. 현재 [ERD](../ERD.md)는 게임·플랫폼과 독립적인 MATCH 저장 구조를 설명하며, 런타임 구현·측정·통합 검증은 각각 [#745](https://github.com/bamsongi-club/albam-mate/issues/745)·[#775](https://github.com/bamsongi-club/albam-mate/issues/775)·[#776](https://github.com/bamsongi-club/albam-mate/issues/776)·[#746](https://github.com/bamsongi-club/albam-mate/issues/746)의 후속 범위로 유지한다.
 
 ### 기능 규칙
 
