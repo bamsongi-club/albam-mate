@@ -67,6 +67,8 @@
 
 2026-07-28 22:24 KST에 PostgreSQL 18.4 로컬 환경의 빈 `games` 테이블에 승인 산출물을 실행했다.
 
+> **현재 API와의 구분:** 아래 `totalElements=2000`은 당시 P0의 `PageResponse` 계약에서 확보한 적재 증적이다. 현재 `GET /api/games`는 [GAME-01](../API.md#game-01-게임-목록검색)의 `GameListSliceResponse`를 사용하므로 `totalElements`와 `totalPages`를 반환하지 않는다.
+
 | 검증 | 결과 |
 | --- | ---: |
 | 적재 전 `games` | 0건 |
