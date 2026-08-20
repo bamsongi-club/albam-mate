@@ -40,6 +40,7 @@ room-lock-strategy-comparison/
 
 - `campaign-plan.json`: 사용자 승인 4회 범위, 후보 SHA, 포함·제외 실행 목록
 - `campaign-report.json`: A/B의 제한된 T1 metric, C의 T7 1차 `FAIL`과 runner artifact `INVALID` 부가 상태, teardown 결과
+- `decision-report.md`: A/B/C 수치의 분모·metric 정의·해석·결정 가능/불가능 범위를 설명하는 사람이 읽는 의사결정 보고서
 - `raw/`: 완결·중단 bundle 13개의 non-secret 원자료 371개 파일을 원본 구조로 보존한 경로
 - `raw-digests.json`: source 397개 파일의 SHA-256, Git 보관 371개 파일의 원본 대조 결과, 제외한 26개 credential-derived fixture artifact의 SHA-256·크기·사유
 

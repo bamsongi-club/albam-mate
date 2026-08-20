@@ -15,7 +15,7 @@ Issue #786에서 #785가 고정한 A/B/C 후보를 같은 AWS 환경·release �
 - C p4는 유효 provenance에서 5xx·server failure·contract failure가 각각 4건 발생해 T7의 1차 분류가 `FAIL`이다. nonzero k6 종료 뒤 resource signal이 빠져 runner 최종 상태는 `INVALID`로 남지만, 두 상태를 함께 보존하고 C 성능 순위에는 넣지 않는다.
 - 실행 전 중단한 A p3, C p1·p2 bundle도 제외 사유와 함께 보존한다.
 
-실제 실행 목록·candidate SHA·원자료 digest·정규화 metric은 [campaign plan](results/room-lock-strategy-comparison/campaign-plan.json), [campaign report](results/room-lock-strategy-comparison/campaign-report.json), [raw digest](results/room-lock-strategy-comparison/raw-digests.json)에 있다. 이 기록은 #786의 증거이며 최종 winner·ADR·생산 병합을 만들지 않는다.
+실제 실행 목록·candidate SHA·원자료 digest·정규화 metric은 [campaign plan](results/room-lock-strategy-comparison/campaign-plan.json), [campaign report](results/room-lock-strategy-comparison/campaign-report.json), [의사결정 보고서](results/room-lock-strategy-comparison/decision-report.md), [raw digest](results/room-lock-strategy-comparison/raw-digests.json)에 있다. 이 기록은 #786의 증거이며 최종 winner·ADR·생산 병합을 만들지 않는다.
 
 ## 현재 구현
 
