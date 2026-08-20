@@ -2111,7 +2111,17 @@ test('portable bundle은 원격 raw metadata와 두 진단을 PASS·FAIL·INVALI
     diagnoseBundle({ bundle, stage: 'before' }, context);
     writeFileSync(path.join(bundle, 'after-snapshot.json'), `${JSON.stringify(snapshot)}\n`, 'utf8');
     writeFileSync(path.join(bundle, 'k6-summary.json'), `${JSON.stringify(t5Summary(1))}\n`, 'utf8');
+    const summaryPath = path.join(bundle, 'k6-summary.json');
+    const summaryBeforeDiagnosis = readFileSync(summaryPath);
+    const summaryDigestBeforeDiagnosis = createHash('sha256')
+      .update(summaryBeforeDiagnosis)
+      .digest('hex');
     diagnoseBundle({ bundle, stage: 'after' }, context);
+    assert.deepEqual(readFileSync(summaryPath), summaryBeforeDiagnosis);
+    assert.equal(
+      createHash('sha256').update(readFileSync(summaryPath)).digest('hex'),
+      summaryDigestBeforeDiagnosis,
+    );
 
     const executionPath = path.join(bundle, 'infra-execution.json');
     const finalResultPath = path.join(bundle, 'final-result.json');
