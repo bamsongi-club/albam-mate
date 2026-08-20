@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
@@ -241,23 +242,64 @@ class MatchProposalTerminalPostgresTest extends SharedPostgresIntegrationSupport
 		insertProposalMember(proposalId, secondRequest, secondUser);
 		doThrow(new IllegalStateException("probe start failure")).when(completionProbe).start(any(Instant.class));
 
-		assertDoesNotThrow(() -> matchProposalResponseService.respond(
+		CurrentMatchStateResponse currentState = assertDoesNotThrow(() -> matchProposalResponseCoordinator.respond(
 			firstUser, proposalId, MatchProposalResponseAction.ACCEPT, "probe-start-key"));
 
+		assertEquals(MatchCurrentState.PROPOSED, currentState.state());
 		assertEquals("ACCEPTED", responseStatus(proposalId, firstRequest));
-		reset(completionProbe);
+		doNothing().when(completionProbe).start(any(Instant.class));
 		doThrow(new IllegalStateException("forced participant save failure"))
 			.when(participantRepository).save(any(MatchPartyParticipant.class));
 		doThrow(new IllegalStateException("probe failure recording failed")).when(completionProbe)
 			.fail(MatchProposalResponseCompletionProbe.FailureStage.COMMAND_TRANSACTION);
 
 		IllegalStateException exception = assertThrows(IllegalStateException.class,
-			() -> matchProposalResponseService.respond(
+			() -> matchProposalResponseCoordinator.respond(
 				secondUser, proposalId, MatchProposalResponseAction.ACCEPT, "probe-failure-key"));
 
 		assertEquals("forced participant save failure", exception.getMessage());
 		assertEquals("OPEN", proposalStatus(proposalId));
 		assertEquals("PENDING", responseStatus(proposalId, secondRequest));
+
+		reset(participantRepository);
+		doNothing().when(completionProbe)
+			.fail(MatchProposalResponseCompletionProbe.FailureStage.COMMAND_TRANSACTION);
+
+		assertDoesNotThrow(() -> matchProposalResponseCoordinator.respond(
+			secondUser, proposalId, MatchProposalResponseAction.ACCEPT, "probe-failure-key"));
+
+		verify(completionProbe, times(3)).start(any(Instant.class));
+		verify(completionProbe, times(2)).complete();
+		verify(completionProbe, times(1))
+			.fail(MatchProposalResponseCompletionProbe.FailureStage.COMMAND_TRANSACTION);
+		assertEquals("CONFIRMED", proposalStatus(proposalId));
+	}
+
+	@Test
+	void 관측_완료_기록_오류는_commit된_응답을_바꾸지_않고_다음_요청에_남지_않는다() {
+		long firstUser = insertUser("completion-probe-complete-first");
+		long secondUser = insertUser("completion-probe-complete-second");
+		long firstRequest = insertRequest(firstUser);
+		long secondRequest = insertRequest(secondUser);
+		long proposalId = insertOpenProposal();
+		insertProposalMember(proposalId, firstRequest, firstUser);
+		insertProposalMember(proposalId, secondRequest, secondUser);
+		doThrow(new IllegalStateException("probe completion failure")).when(completionProbe).complete();
+
+		CurrentMatchStateResponse currentState = assertDoesNotThrow(() -> matchProposalResponseCoordinator.respond(
+			firstUser, proposalId, MatchProposalResponseAction.ACCEPT, "probe-complete-first-key"));
+
+		assertEquals(MatchCurrentState.PROPOSED, currentState.state());
+		assertEquals("ACCEPTED", responseStatus(proposalId, firstRequest));
+		doNothing().when(completionProbe).complete();
+
+		assertDoesNotThrow(() -> matchProposalResponseCoordinator.respond(
+			secondUser, proposalId, MatchProposalResponseAction.ACCEPT, "probe-complete-second-key"));
+
+		verify(completionProbe, times(2)).start(any(Instant.class));
+		verify(completionProbe, times(2)).complete();
+		verify(completionProbe, never()).fail(any(MatchProposalResponseCompletionProbe.FailureStage.class));
+		assertEquals("CONFIRMED", proposalStatus(proposalId));
 	}
 
 	@Test
