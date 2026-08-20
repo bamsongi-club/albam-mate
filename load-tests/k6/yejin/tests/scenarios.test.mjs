@@ -128,7 +128,7 @@ exit "\${FAKE_K6_EXIT:-0}"
   chmodSync(executable, 0o755);
 }
 
-for (const scenario of ['02-game-keyword.js', '08-game-realistic.js']) {
+for (const scenario of ['02-game-keyword.js', '08-game-realistic.js', '09-game-list-concurrency.js']) {
   test(`${scenario} is a valid k6 bundle`, () => {
     const result = spawnSync('k6', ['inspect', path.join(gameDirectory, scenario)], {
       encoding: 'utf8',
