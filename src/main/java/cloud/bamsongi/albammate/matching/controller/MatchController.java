@@ -18,7 +18,7 @@ import cloud.bamsongi.albammate.matching.dto.CurrentMatchStateResponse;
 import cloud.bamsongi.albammate.matching.dto.MatchProposalResponseRequest;
 import cloud.bamsongi.albammate.matching.dto.MatchRequestCreateRequest;
 import cloud.bamsongi.albammate.matching.service.command.MatchPartyLeaveService;
-import cloud.bamsongi.albammate.matching.service.command.MatchProposalResponseService;
+import cloud.bamsongi.albammate.matching.service.command.MatchProposalResponseCoordinator;
 import cloud.bamsongi.albammate.matching.service.command.MatchRequestCommandService;
 import cloud.bamsongi.albammate.matching.service.query.MatchCurrentStateQueryCoordinator;
 import jakarta.validation.Valid;
@@ -31,19 +31,19 @@ public class MatchController {
 
 	private final MatchCurrentStateQueryCoordinator currentStateQueryCoordinator;
 	private final MatchRequestCommandService matchRequestCommandService;
-	private final MatchProposalResponseService matchProposalResponseService;
+	private final MatchProposalResponseCoordinator matchProposalResponseCoordinator;
 	private final MatchPartyLeaveService matchPartyLeaveService;
 	private final CurrentUserAccessor currentUserAccessor;
 
 	public MatchController(
 		MatchCurrentStateQueryCoordinator currentStateQueryCoordinator,
 		MatchRequestCommandService matchRequestCommandService,
-		MatchProposalResponseService matchProposalResponseService,
+		MatchProposalResponseCoordinator matchProposalResponseCoordinator,
 		MatchPartyLeaveService matchPartyLeaveService,
 		CurrentUserAccessor currentUserAccessor) {
 		this.currentStateQueryCoordinator = currentStateQueryCoordinator;
 		this.matchRequestCommandService = matchRequestCommandService;
-		this.matchProposalResponseService = matchProposalResponseService;
+		this.matchProposalResponseCoordinator = matchProposalResponseCoordinator;
 		this.matchPartyLeaveService = matchPartyLeaveService;
 		this.currentUserAccessor = currentUserAccessor;
 	}
@@ -86,7 +86,7 @@ public class MatchController {
 		@Valid @RequestBody
 		MatchProposalResponseRequest request) {
 		long userId = currentUserAccessor.requireCurrentUserId();
-		matchProposalResponseService.respond(userId, proposalId, request.action(), idempotencyKey);
-		return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, currentStateQueryCoordinator.read(userId)));
+		return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK,
+			matchProposalResponseCoordinator.respond(userId, proposalId, request.action(), idempotencyKey)));
 	}
 }

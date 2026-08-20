@@ -6,7 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import java.sql.Timestamp;
 import java.time.Clock;
@@ -23,6 +26,7 @@ import javax.sql.DataSource;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -39,6 +43,7 @@ import cloud.bamsongi.albammate.matching.dto.CurrentMatchStateResponse;
 import cloud.bamsongi.albammate.matching.dto.MatchRequestCreateRequest;
 import cloud.bamsongi.albammate.matching.entity.MatchPartyParticipant;
 import cloud.bamsongi.albammate.matching.repository.MatchPartyParticipantRepository;
+import cloud.bamsongi.albammate.matching.service.command.MatchProposalResponseCompletionProbe;
 import cloud.bamsongi.albammate.matching.service.command.MatchProposalResponseService;
 import cloud.bamsongi.albammate.matching.service.command.MatchRequestCommandService;
 import cloud.bamsongi.albammate.testsupport.SharedPostgresIntegrationSupport;
@@ -60,12 +65,94 @@ class MatchProposalTerminalPostgresTest extends SharedPostgresIntegrationSupport
 	private DataSource dataSource;
 	@MockitoSpyBean
 	private MatchPartyParticipantRepository participantRepository;
+	@MockitoSpyBean
+	private MatchProposalResponseCompletionProbe completionProbe;
 
 	@AfterEach
 	void tearDown() {
 		reset(participantRepository);
+		reset(completionProbe);
 		jdbcTemplate.execute(
 			"truncate table match_idempotency_records, match_proposal_members, match_proposals, match_party_participants, match_parties, match_requests, users restart identity cascade");
+	}
+
+	@Test
+	void 최초_유효_응답만_PostgreSQL_command_operationTime으로_관측을_시작하고_멱등성_재생은_시작하지_않는다() {
+		long userId = insertUser("completion-start");
+		long requestId = insertRequest(userId);
+		long proposalId = insertOpenProposal();
+		insertProposalMember(proposalId, requestId, userId);
+		ArgumentCaptor<Instant> operationTime = ArgumentCaptor.forClass(Instant.class);
+
+		matchProposalResponseService.respond(userId, proposalId, MatchProposalResponseAction.ACCEPT, "completion-key");
+		matchProposalResponseService.respond(userId, proposalId, MatchProposalResponseAction.ACCEPT, "completion-key");
+
+		verify(completionProbe, times(1)).start(operationTime.capture());
+		assertEquals(operationTime.getValue(), jdbcTemplate.queryForObject(
+			"select responded_at from match_proposal_members where proposal_id = ? and match_request_id = ?",
+			Timestamp.class, proposalId, requestId).toInstant());
+		verify(completionProbe, never()).complete();
+	}
+
+	@Test
+	void Command_rollback은_성공_완료_없이_bounded_실패_단계만_기록하고_다음_시도에_남지_않는다() {
+		long firstUser = insertUser("completion-rollback-first");
+		long secondUser = insertUser("completion-rollback-second");
+		long firstRequest = insertRequest(firstUser);
+		long secondRequest = insertRequest(secondUser);
+		long proposalId = insertOpenProposal();
+		insertProposalMember(proposalId, firstRequest, firstUser);
+		insertProposalMember(proposalId, secondRequest, secondUser);
+		matchProposalResponseService.respond(firstUser, proposalId, MatchProposalResponseAction.ACCEPT, "first-key");
+		reset(completionProbe);
+		doThrow(new IllegalStateException("forced participant save failure"))
+			.when(participantRepository).save(any(MatchPartyParticipant.class));
+
+		assertThrows(IllegalStateException.class, () -> matchProposalResponseService.respond(
+			secondUser, proposalId, MatchProposalResponseAction.ACCEPT, "second-key"));
+
+		verify(completionProbe).start(any(Instant.class));
+		verify(completionProbe).fail(MatchProposalResponseCompletionProbe.FailureStage.COMMAND_TRANSACTION);
+		verify(completionProbe, never()).complete();
+		assertEquals("OPEN", proposalStatus(proposalId));
+		assertEquals("PENDING", responseStatus(proposalId, secondRequest));
+
+		reset(participantRepository, completionProbe);
+		matchProposalResponseService.respond(secondUser, proposalId, MatchProposalResponseAction.ACCEPT, "second-key");
+
+		verify(completionProbe).start(any(Instant.class));
+		verify(completionProbe, never()).fail(any(MatchProposalResponseCompletionProbe.FailureStage.class));
+		assertEquals("CONFIRMED", proposalStatus(proposalId));
+	}
+
+	@Test
+	void 관측_시작과_실패_기록_오류는_원래_Command_결과와_rollback_예외를_바꾸지_않는다() {
+		long firstUser = insertUser("completion-probe-start-first");
+		long secondUser = insertUser("completion-probe-start-second");
+		long firstRequest = insertRequest(firstUser);
+		long secondRequest = insertRequest(secondUser);
+		long proposalId = insertOpenProposal();
+		insertProposalMember(proposalId, firstRequest, firstUser);
+		insertProposalMember(proposalId, secondRequest, secondUser);
+		doThrow(new IllegalStateException("probe start failure")).when(completionProbe).start(any(Instant.class));
+
+		assertDoesNotThrow(() -> matchProposalResponseService.respond(
+			firstUser, proposalId, MatchProposalResponseAction.ACCEPT, "probe-start-key"));
+
+		assertEquals("ACCEPTED", responseStatus(proposalId, firstRequest));
+		reset(completionProbe);
+		doThrow(new IllegalStateException("forced participant save failure"))
+			.when(participantRepository).save(any(MatchPartyParticipant.class));
+		doThrow(new IllegalStateException("probe failure recording failed")).when(completionProbe)
+			.fail(MatchProposalResponseCompletionProbe.FailureStage.COMMAND_TRANSACTION);
+
+		IllegalStateException exception = assertThrows(IllegalStateException.class,
+			() -> matchProposalResponseService.respond(
+				secondUser, proposalId, MatchProposalResponseAction.ACCEPT, "probe-failure-key"));
+
+		assertEquals("forced participant save failure", exception.getMessage());
+		assertEquals("OPEN", proposalStatus(proposalId));
+		assertEquals("PENDING", responseStatus(proposalId, secondRequest));
 	}
 
 	@Test
