@@ -8,7 +8,7 @@
     "candidatePoolSha256": "22cba9cb32fb2e00b5b9c76054fd3a7ecdc767a432b30b3c060674201a47f0ec"
   },
   "blockingReasons": [
-    "독립 human qrels가 approved 상태가 아닙니다."
+    "AI C adjudication은 독립 human qrels가 아니므로 provisional 참고 지표로만 사용합니다."
   ],
   "hybrid": {
     "rule": "rrf",
@@ -66,6 +66,10 @@
     "judgementPacket": {
       "path": "search-candidate-comparison/semantic-30-human-judgement-packet.json",
       "sha256": "cac1a01307e44a174001ec84a0e8eff2b40cab2ccb61a1e522ac73aa7c2f615f"
+    },
+    "judgements": {
+      "path": "search-candidate-comparison/semantic-30-search-candidate-qrels.json",
+      "sha256": "0fc1ada920f5453ac058222878900258b32696010299a817faa968aee138a1e7"
     }
   }
 }
