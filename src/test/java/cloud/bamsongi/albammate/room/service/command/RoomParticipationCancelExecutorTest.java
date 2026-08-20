@@ -128,14 +128,17 @@ class RoomParticipationCancelExecutorTest {
 		roomRepository.saveAndFlush(room);
 		roomWaitlistRepository
 			.saveAndFlush(RoomWaitlist.create(room.getId(), waitingUserId, 10L, NOW.minusSeconds(30)));
+		long roomVersionBeforeCancellation = roomRepository.findById(room.getId()).orElseThrow().getVersion();
 
 		RoomParticipationResponse response = roomParticipationCancelService.cancelParticipation(leavingUserId,
 			room.getId());
 
 		clearPersistenceContext();
 		assertEquals(ParticipationStatus.CANCELED, response.participationStatus());
-		assertEquals(RoomStatus.CLOSED, roomRepository.findById(room.getId()).orElseThrow().getStatus());
-		assertEquals(1, roomRepository.findById(room.getId()).orElseThrow().getActiveParticipantCount());
+		Room promotedRoom = roomRepository.findById(room.getId()).orElseThrow();
+		assertEquals(RoomStatus.CLOSED, promotedRoom.getStatus());
+		assertEquals(1, promotedRoom.getActiveParticipantCount());
+		assertEquals(roomVersionBeforeCancellation + 1, promotedRoom.getVersion());
 		assertEquals(RoomWaitlistStatus.PROMOTED, roomWaitlistRepository
 			.findById(new RoomWaitlistId(room.getId(), waitingUserId))
 			.orElseThrow()
@@ -235,6 +238,7 @@ class RoomParticipationCancelExecutorTest {
 		when(mockedRoomRepository.findById(roomId)).thenReturn(java.util.Optional.of(mockedRoom));
 		when(mockedRoom.getHostUserId()).thenReturn(1L);
 		when(mockedRoom.getId()).thenReturn(roomId);
+		when(mockedRoom.getVersion()).thenReturn(1L);
 		when(mockedRoom.getStartAt()).thenReturn(NOW.plusSeconds(3600));
 		when(mockedRoom.getStatus()).thenReturn(RoomStatus.RECRUITING);
 		when(mockedRoom.getTotalParticipantCount()).thenReturn(2);
@@ -248,6 +252,7 @@ class RoomParticipationCancelExecutorTest {
 			.thenReturn(java.util.Optional.of(staleCandidate), java.util.Optional.of(currentCandidate));
 		when(mockedWaitlistRepository.promoteWaiting(roomId, staleWaitingUserId, 10L, NOW)).thenReturn(0);
 		when(mockedWaitlistRepository.promoteWaiting(roomId, currentWaitingUserId, 20L, NOW)).thenReturn(1);
+		when(mockedRoomRepository.claimVersion(roomId, 1L)).thenReturn(1);
 
 		executor.cancelParticipation(leavingUserId, roomId, NOW);
 
@@ -256,6 +261,47 @@ class RoomParticipationCancelExecutorTest {
 		transitionOrder.verify(mockedWaitlistRepository).promoteWaiting(roomId, currentWaitingUserId, 20L, NOW);
 		verify(mockedParticipationRepository, times(2)).save(any(Participation.class));
 		verify(mockedParticipationRepository).findByRoomIdAndUserId(roomId, currentWaitingUserId);
+	}
+
+	@Test
+	void 성공_승격은_기존_ROOM_version_claim으로_경계를_유지하고_명시적_ROOM_flush를_호출하지_않는다() {
+		long roomId = 7L;
+		long leavingUserId = 10L;
+		long waitingUserId = 20L;
+		RoomRepository mockedRoomRepository = mock(RoomRepository.class);
+		ParticipationRepository mockedParticipationRepository = mock(ParticipationRepository.class);
+		RoomWaitlistRepository mockedWaitlistRepository = mock(RoomWaitlistRepository.class);
+		Room mockedRoom = mock(Room.class);
+		Participation leavingParticipation = mock(Participation.class);
+		RoomWaitlistCandidateProjection waitingCandidate = candidate(waitingUserId, 10L);
+		RoomParticipationCancelExecutor executor = new RoomParticipationCancelExecutor(
+			mockedRoomRepository,
+			mockedParticipationRepository,
+			mockedWaitlistRepository,
+			mock(RoomChangeEventRecorder.class),
+			NO_OP_EVENT_PUBLISHER);
+		when(mockedRoomRepository.findById(roomId)).thenReturn(java.util.Optional.of(mockedRoom));
+		when(mockedRoom.getHostUserId()).thenReturn(1L);
+		when(mockedRoom.getId()).thenReturn(roomId);
+		when(mockedRoom.getVersion()).thenReturn(3L);
+		when(mockedRoom.getStartAt()).thenReturn(NOW.plusSeconds(3600));
+		when(mockedRoom.getStatus()).thenReturn(RoomStatus.RECRUITING);
+		when(mockedRoom.getTotalParticipantCount()).thenReturn(2);
+		when(mockedRoom.getRemainingRecruitmentSeats()).thenReturn(0);
+		when(leavingParticipation.getStatus()).thenReturn(ParticipationStatus.ACTIVE);
+		when(mockedParticipationRepository.findByRoomIdAndUserId(roomId, leavingUserId))
+			.thenReturn(java.util.Optional.of(leavingParticipation));
+		when(mockedParticipationRepository.findByRoomIdAndUserId(roomId, waitingUserId))
+			.thenReturn(java.util.Optional.empty());
+		when(mockedWaitlistRepository.findFirstWaitingByRoomId(roomId))
+			.thenReturn(java.util.Optional.of(waitingCandidate));
+		when(mockedWaitlistRepository.promoteWaiting(roomId, waitingUserId, 10L, NOW)).thenReturn(1);
+		when(mockedRoomRepository.claimVersion(roomId, 3L)).thenReturn(1);
+
+		executor.cancelParticipation(leavingUserId, roomId, NOW);
+
+		verify(mockedRoomRepository).claimVersion(roomId, 3L);
+		verify(mockedRoomRepository, org.mockito.Mockito.never()).flush();
 	}
 
 	@Test
@@ -412,6 +458,7 @@ class RoomParticipationCancelExecutorTest {
 		when(promotedRoomRepository.findById(roomId)).thenReturn(java.util.Optional.of(promotedRoom));
 		when(promotedRoom.getHostUserId()).thenReturn(1L);
 		when(promotedRoom.getId()).thenReturn(roomId);
+		when(promotedRoom.getVersion()).thenReturn(1L);
 		when(promotedRoom.getStartAt()).thenReturn(NOW.plusSeconds(3600));
 		when(promotedRoom.getStatus()).thenReturn(RoomStatus.RECRUITING);
 		when(leavingParticipation.getStatus()).thenReturn(ParticipationStatus.ACTIVE);
@@ -420,6 +467,7 @@ class RoomParticipationCancelExecutorTest {
 		when(promotedParticipationRepository.findByRoomIdAndUserId(roomId, 20L)).thenReturn(java.util.Optional.empty());
 		when(promotedWaitlistRepository.findFirstWaitingByRoomId(roomId)).thenReturn(java.util.Optional.of(waiting));
 		when(promotedWaitlistRepository.promoteWaiting(roomId, 20L, 1L, NOW)).thenReturn(1);
+		when(promotedRoomRepository.claimVersion(roomId, 1L)).thenReturn(1);
 
 		promotedExecutor.cancelParticipation(participantUserId, roomId, NOW);
 
@@ -450,6 +498,7 @@ class RoomParticipationCancelExecutorTest {
 		when(mockedRoomRepository.findById(roomId)).thenReturn(java.util.Optional.of(room));
 		when(room.getHostUserId()).thenReturn(1L);
 		when(room.getId()).thenReturn(roomId);
+		when(room.getVersion()).thenReturn(1L);
 		when(room.getStartAt()).thenReturn(NOW.plusSeconds(3600));
 		when(room.getStatus()).thenReturn(RoomStatus.RECRUITING);
 		when(leavingParticipation.getStatus()).thenReturn(ParticipationStatus.ACTIVE);
@@ -459,6 +508,7 @@ class RoomParticipationCancelExecutorTest {
 			.thenReturn(java.util.Optional.empty());
 		when(mockedWaitlistRepository.findFirstWaitingByRoomId(roomId)).thenReturn(java.util.Optional.of(waiting));
 		when(mockedWaitlistRepository.promoteWaiting(roomId, promotedUserId, 1L, NOW)).thenReturn(1);
+		when(mockedRoomRepository.claimVersion(roomId, 1L)).thenReturn(1);
 
 		executor.cancelParticipation(leavingUserId, roomId, NOW);
 
@@ -491,6 +541,7 @@ class RoomParticipationCancelExecutorTest {
 		when(mockedRoomRepository.findById(roomId)).thenReturn(java.util.Optional.of(room));
 		when(room.getHostUserId()).thenReturn(hostUserId);
 		when(room.getId()).thenReturn(roomId);
+		when(room.getVersion()).thenReturn(1L);
 		when(room.getStartAt()).thenReturn(NOW.plusSeconds(3600));
 		when(room.getStatus()).thenReturn(RoomStatus.RECRUITING);
 		when(room.getRemainingRecruitmentSeats()).thenReturn(1);
@@ -500,6 +551,7 @@ class RoomParticipationCancelExecutorTest {
 		when(mockedWaitlistRepository.findFirstWaitingByRoomId(roomId))
 			.thenReturn(java.util.Optional.of(waiting), java.util.Optional.empty());
 		when(mockedWaitlistRepository.promoteWaiting(roomId, 20L, 1L, NOW)).thenReturn(0);
+		when(mockedRoomRepository.claimVersion(roomId, 1L)).thenReturn(1);
 
 		executor.cancelParticipation(participantUserId, roomId, NOW);
 
