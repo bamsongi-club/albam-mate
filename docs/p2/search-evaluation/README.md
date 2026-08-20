@@ -77,7 +77,9 @@ Final Quality Evaluation 완료 전에는 SEARCH-04 최종 검색 방식, produc
 - `search-candidate-semantic-30-input.json`: #885 `semantic-30-v1` 후보 비교 manifest
 - `search-candidate-comparison/semantic-30-queries.json`: 의미기반 30 query와 `semantic-core`·`contrast-hard-semantic`·`hybrid-hard-filter` 분류
 - `search-candidate-comparison/semantic-30-human-judgement-packet.json`: 후보명·score·source rank를 숨긴 독립 판정용 packet
-- `search-candidate-comparison/semantic-30-judge-a.json`, `semantic-30-judge-b.json`, `semantic-30-judge-c.json`: A/B 독립 판정과 불일치 항목의 C 판정 packet
+- `search-candidate-comparison/semantic-30-judge-a.json`, `semantic-30-judge-b.json`, `semantic-30-judge-c.json`: A/B 독립 판정과 C 판정 packet. 현재 C는 사용자 calibration을 확장한 provisional 추론본이며 독립 판정 반환 후 교체·병합함
+- `search-candidate-comparison/semantic-30-judge-c-worklist.json`: A/B 불일치 585건만 담은 독립 제3 판정자 입력 목록. 최종 qrels에 직접 전달하지 않음
+- [`semantic-30-third-judge-guide.md`](search-candidate-comparison/semantic-30-third-judge-guide.md): 독립 제3 판정자에게 전달할 점수 기준·입력 규칙·완료 확인 문구
 - `search-04-search-candidate-qrels`: 두 독립 판정과 불일치 query의 제3 판정을 합의한 qrels 형식. `packetSha256`는 canonical packet descriptor와 일치해야 함
 - `search-candidate-comparison/semantic-30-search-candidate-qrels.json`: canonical packet 기준 provisional qrels. 독립 제3 판정 전에는 approved qrels가 아님
 - `search-candidate-comparison/semantic-30-metrics.json`: provisional qrels 기준 semantic-30 방식 비교·RRF 참고 결과
@@ -170,6 +172,8 @@ node scripts/search-evaluation/search-candidate-comparison.mjs \
 `--manifest`의 `judgementPacket.path`가 가리키는 동일 파일을 `--canonical-packet`으로 지정해야 하며, 조립기는 manifest descriptor의 SHA-256도 다시 검증합니다. packet을 다시 생성하면 manifest의 descriptor SHA-256도 함께 갱신·검증해야 합니다.
 
 불일치 query가 있으면 제3 판정 packet을 추가합니다. 제3 판정자는 불일치 candidate만 `grade`·`rationale`를 채우고 나머지는 빈 값으로 둡니다. 조립 결과는 canonical packet SHA-256, 각 판정자의 grade·rationale, query별 합의 방식(`independent-agreement` 또는 `third-judge-majority`)을 보존합니다.
+
+현재 semantic-30은 A/B 불일치 585건을 [`semantic-30-judge-c-worklist.json`](search-candidate-comparison/semantic-30-judge-c-worklist.json)으로 분리해 독립 제3 판정자에게 전달한다. 전달 문구와 세부 판정 기준은 [`semantic-30-third-judge-guide.md`](search-candidate-comparison/semantic-30-third-judge-guide.md)를 따른다. 반환된 worklist는 검증 후 `semantic-30-judge-c.json`에 병합하며, worklist 자체는 canonical packet과 다른 보조 입력 형식이다.
 
 ```bash
 node scripts/search-evaluation/search-candidate-comparison.mjs \
