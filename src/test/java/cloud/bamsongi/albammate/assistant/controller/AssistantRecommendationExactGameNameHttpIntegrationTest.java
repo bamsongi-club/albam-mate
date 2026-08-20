@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -37,6 +38,9 @@ import cloud.bamsongi.albammate.user.repository.UserRepository;
 @AutoConfigureMockMvc
 class AssistantRecommendationExactGameNameHttpIntegrationTest {
 
+	private static final String TEST_EMAIL = "exact-game@example.com";
+	private static final long TEST_BGG_ID = 9_600_001L;
+
 	@Autowired
 	private MockMvc mockMvc;
 	@Autowired
@@ -46,9 +50,23 @@ class AssistantRecommendationExactGameNameHttpIntegrationTest {
 	@MockitoBean
 	private AssistantIntentExtractor assistantIntentExtractor;
 
+	@AfterEach
+	void tearDown() {
+		Long userId = jdbcTemplate.query(
+			"select id from users where email = ?", resultSet -> resultSet.next() ? resultSet.getLong(1) : null,
+			TEST_EMAIL);
+		if (userId != null) {
+			jdbcTemplate.update("delete from assistant_drafts where user_id = ?", userId);
+			jdbcTemplate.update("delete from assistant_consents where user_id = ?", userId);
+			jdbcTemplate.update("delete from participations where user_id = ?", userId);
+			jdbcTemplate.update("delete from users where id = ?", userId);
+		}
+		jdbcTemplate.update("delete from games where bgg_id = ?", TEST_BGG_ID);
+	}
+
 	@Test
 	void T1_인증_CSRF_동의_뒤_유일_정식명은_provider와_초안없이_후보DTO를_반환한다() throws Exception {
-		User user = userRepository.saveAndFlush(User.create("exact-game@example.com", "{bcrypt}hash", "정확 게임 사용자"));
+		User user = userRepository.saveAndFlush(User.create(TEST_EMAIL, "{bcrypt}hash", "정확 게임 사용자"));
 		long gameId = insertGame("카 탄", null, "공개 설명", "상세 설명");
 		grant(user);
 
@@ -84,8 +102,8 @@ class AssistantRecommendationExactGameNameHttpIntegrationTest {
 				insert into games (bgg_id, name, english_name, image_url, supported_player_count, tag, estimated_play_time, description, detail_description, created_at, updated_at)
 				values (?, ?, 'Catan', ?, '3~4명', '전략', '60분', ?, ?, current_timestamp, current_timestamp)
 				""",
-			9_600_001L, name, imageUrl, description, detailDescription);
-		return jdbcTemplate.queryForObject("select id from games where bgg_id = ?", Long.class, 9_600_001L);
+			TEST_BGG_ID, name, imageUrl, description, detailDescription);
+		return jdbcTemplate.queryForObject("select id from games where bgg_id = ?", Long.class, TEST_BGG_ID);
 	}
 
 	private void grant(User user) throws Exception {
