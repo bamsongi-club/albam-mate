@@ -129,7 +129,7 @@ export function compareFromManifest({
             })),
             inputContract: loaded.inputContractDescriptor ?? null,
             judgementPacket: loaded.judgementPacketDescriptor ?? null,
-            judgements: loaded.manifest.judgements ?? null,
+            ...(loaded.manifest.judgements ? { judgements: loaded.manifest.judgements } : {}),
         },
     };
 }

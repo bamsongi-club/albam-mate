@@ -470,7 +470,6 @@ jobs:
           artifact_dir="$(mktemp -d)"
           packet_path="$artifact_dir/packet.json"
           metrics_path="$artifact_dir/metrics.json"
-          pending_metrics_path="$artifact_dir/metrics-pending.json"
           trap 'rm -rf "$artifact_dir"' EXIT
           node scripts/search-evaluation/search-candidate-comparison.mjs \
             --packet \
@@ -479,17 +478,10 @@ jobs:
           cmp -- "$packet_path" docs/p2/search-evaluation/search-candidate-comparison/semantic-30-human-judgement-packet.json
           node scripts/search-evaluation/search-candidate-comparison.mjs \
             --metrics \
-            --provisional-ai-adjudication \
             --hybrid-rrf \
             --manifest docs/p2/search-evaluation/search-candidate-semantic-30-input.json \
             --out "$metrics_path" >/dev/null
-          cmp -- "$metrics_path" docs/p2/search-evaluation/search-candidate-comparison/semantic-30-metrics.json
-          node scripts/search-evaluation/search-candidate-comparison.mjs \
-            --metrics \
-            --hybrid-rrf \
-            --manifest docs/p2/search-evaluation/search-candidate-semantic-30-input.json \
-            --out "$pending_metrics_path" >/dev/null
-          cmp -- "$pending_metrics_path" docs/p2/search-evaluation/search-candidate-comparison/semantic-30-metrics-pending.json
+          cmp -- "$metrics_path" docs/p2/search-evaluation/search-candidate-comparison/semantic-30-metrics-pending.json
 
       - name: Test SEARCH-04 lexical sparse baseline
         run: node --test scripts/search-evaluation/lexical-sparse-baseline.test.mjs

@@ -432,25 +432,6 @@ test("manifest로 만든 blind packet은 provenance에서 후보 이름을 노�
     }
 });
 
-test("독립 제3 판정 packet은 AI 판정값 없이 불일치 후보만 담는다", () => {
-    const filePath = path.resolve(
-        "docs/p2/search-evaluation/search-candidate-comparison/semantic-30-judge-c-independent-packet.json",
-    );
-    const packet = JSON.parse(fs.readFileSync(filePath, "utf8"));
-    const candidateCount = packet.queries.reduce((sum, query) => sum + query.candidates.length, 0);
-
-    assert.equal(packet.status, "pending-independent-third-human-judgement");
-    assert.equal(packet.queries.length, 30);
-    assert.equal(candidateCount, 585);
-    assert.equal(Object.hasOwn(packet.provenance, "judgedBy"), false);
-    assert.equal(
-        packet.queries.every((query) => query.candidates.every((candidate) => (
-            candidate.grade === null && candidate.rationale === null
-        ))),
-        true,
-    );
-});
-
 test("독립 판정 packet 두 개의 일치 결과를 approved qrels로 보존한다", () => {
     const packet = judgementPacket();
     const grades = { "1": 2, "2": 1, "3": 0, "4": 2 };
