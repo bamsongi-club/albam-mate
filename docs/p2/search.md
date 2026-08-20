@@ -154,7 +154,7 @@ SEARCH-04 평가 corpus의 deterministic membership, pinned snapshot/version, 1,
 ### SEARCH-04 완료 기준
 
 - `SEARCH-04-AC1`: 자연어 의도 query와 지원하는 P1 hard filter를 입력하면 공개 catalog에 속한 게임만 반환하고, hard filter를 모두 만족한 결과를 `relevance DESC, name ASC, id ASC` 순으로 페이지네이션한다. 판정은 고정 fixture의 HTTP 응답·필터 재계산·정렬 검증으로 한다.
-- `SEARCH-04-AC2`: 기존 `GET /api/games?keyword=...`가 P1의 부분일치·공개 범위·RANK-02 `popularity_score DESC, name ASC, id ASC`·페이지 메타데이터를 그대로 반환하고, 의미 검색 도입만으로 기존 응답이 의미 검색 결과로 바뀌지 않는다. 판정은 기존 P1 회귀 테스트와 before/after 계약 비교로 한다.
+- `SEARCH-04-AC2`: 기존 [GAME-01](../API.md#game-01-게임-목록검색) `GET /api/games?keyword=...`가 P1의 부분일치·공개 범위·RANK-02 `popularity_score DESC, name ASC, id ASC`와 `content`, `page`, `size`, `hasNext`만 담는 Slice 응답을 그대로 반환하고, 의미 검색 도입만으로 기존 응답이 의미 검색 결과로 바뀌지 않는다. `totalElements`와 `totalPages`는 반환하지 않는다. 판정은 기존 P1 회귀 테스트와 before/after 계약 비교로 한다.
 - `SEARCH-04-AC3`: 빈 query·길이·필터·페이지 검증 오류와 비로그인 `playedFilter` 요청이 확정한 `400`·`401` 오류로 거절되고, 잘못된 요청이 index 조회나 사용자 데이터 조회를 실행하지 않는다. 판정은 HTTP 계약 테스트와 보안 로그 검증으로 한다.
 - `SEARCH-04-AC4`: 의미 검색 결과의 hard-filter 위반률이 0이고, 동일 query·동일 index version의 반복 요청이 동일한 결과 순서와 페이지 경계를 반환한다. 판정은 최소 60개 평가 query와 동시 반복 요청 결과 비교로 한다.
 - `SEARCH-04-AC5`: 의미 검색 평가 fixture가 구현 전에 대표 평가 질의 3개를 포함한 query, 필수 조건, 기대 게임 ID 10~30개, 제외 게임 ID, 기대 이유, 출처·버전을 고정하고, 최소 60개 query를 `exact/name variant` 15개 이상, `intent/description` 25개 이상, `intent+hard filter` 20개 이상으로 분포시킨다. 각 cohort와 전체 집합에서 2명의 독립 판정자·Recall@10·MRR@10·nDCG@10 산식을 재현하며, fixture manifest에 cohort별 각 지표의 `min_delta_vs_baseline`과 `hard_filter_violation_rate=0`을 기록한다. `exact/name variant`는 baseline 비회귀, 의미 cohort는 담당자·리뷰어가 승인한 baseline 대비 최소 개선값을 각각 통과해야 하며, 값이 없거나 승인되지 않은 cohort는 품질 합격으로 판정하지 않는다.

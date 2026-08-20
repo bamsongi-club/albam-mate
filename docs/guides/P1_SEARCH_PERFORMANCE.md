@@ -1,16 +1,18 @@
 # P1 검색 성능 측정
 
+> **범위 구분:** 이 문서는 `SearchPerformancePostgresTest`가 유지하는 P1 2,000건 fixture와 `pg_trgm`·방 검색 후보 인덱스의 측정 경계를 기록한다. 현재 170,005건 `GET /api/games`의 Slice 계약·HTTP 기준선은 [게임 목록 #740 기준선](../measurements/game-list-740-baseline.md)을 따른다.
+
 ## 고정 환경과 fixture
 
 - PostgreSQL `18.4` Testcontainers, UTC, `ANALYZE` 뒤 `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)`을 사용한다.
-- warm-up 1회 뒤 content·count 각각 `EXPLAIN` 5회 실행하고 개별값과 중앙값을 기록한다. 이어서 계획 수집용 `EXPLAIN`을 content·count마다 1회 더 실행해 planning/execution time 등 root 수집값을 남긴다. API 전체 시간은 HTTP 왕복·응답 조립을 포함하고, DB 시간은 content·count SQL의 `Execution Time`을 별도로 기록한다. 시간에는 성공 상한을 두지 않는다.
-- 게임은 현재 검색 범위에 맞춰 2,000건으로 고정한다. 플레이어 범위는 `1~1` 1건·`2~2` 1건·`1~10` 200건·`2~4` 1,798건, 최대 시간은 10분 100건·30분 300건·45/60/75/90분 각 400건, 복잡도는 2.00 1,600건·5.00 400건이다.
+- P1 fixture의 직접 SQL은 warm-up 1회 뒤 content·count 각각 `EXPLAIN` 5회 실행하고 개별값과 중앙값을 기록한다. 이어서 계획 수집용 `EXPLAIN`을 content·count마다 1회 더 실행해 planning/execution time 등 root 수집값을 남긴다. 이 count는 후보 인덱스 비교용이며, 현재 `GET /api/games`는 exact count 없이 size+1 Slice를 반환한다. HTTP 시간은 왕복·응답 조립을 포함하고, DB 시간은 해당 직접 SQL의 `Execution Time`을 별도로 기록한다. 시간에는 성공 상한을 두지 않는다.
+- 이 P1 fixture의 게임은 2,000건으로 고정한다. 플레이어 범위는 `1~1` 1건·`2~2` 1건·`1~10` 200건·`2~4` 1,798건, 최대 시간은 10분 100건·30분 300건·45/60/75/90분 각 400건, 복잡도는 2.00 1,600건·5.00 400건이다.
 - 공개 메커니즘은 189개, 관계는 13,263건이다. 게임별 관계 수는 0개 2건·6개 723건·7개 1,275건이며, 관계가 있는 게임은 1,998건으로 현재 품질 보고서 수치를 재현한다. 한 사용자의 해 본 게임은 500건(2,000건의 25%)이다.
 - 방 1,000건은 승인된 운영 규모가 없는 합성 fixture다. 유형은 `GAME_FOCUSED`·`PERSON_FOCUSED` 각 500건, 상태는 `RECRUITING` 200건·`CLOSED` 200건·`CANCELED` 300건·`FINISHED` 300건이다. 남은 자리 4 이상은 750건, 숙련도는 `BEGINNER_WELCOME` 333건·`ALL_LEVELS` 334건·`EXPERIENCED_PREFERRED` 333건, 룰마스터 진행은 500건이다.
 
 ## 비교 방법과 2026-08-05 측정 snapshot
 
-`SearchPerformancePostgresTest`는 후보 인덱스를 제거한 기준선과 같은 fixture·SQL의 적용 후를 비교한다. content ID·count·정렬·페이지 메타데이터가 같고, 적용 후 자연 계획에 아래 인덱스가 나타날 때만 채택한다.
+`SearchPerformancePostgresTest`는 후보 인덱스를 제거한 기준선과 같은 fixture·SQL의 적용 후를 비교한다. P1 직접 SQL의 content ID·count와 목록 정렬, 게임 Slice의 `page`·`size`·`hasNext`가 같고 적용 후 자연 계획에 아래 인덱스가 나타날 때만 채택한다. 게임의 direct count는 현재 HTTP 요청 비용이나 응답 필드가 아니다.
 
 | 대표 content·count | 기준선/적용 후 수집 | 결론 |
 | --- | --- | --- |
@@ -38,7 +40,7 @@
 
 서비스 호출 5회 값은 baseline 게임 `[217.128,165.143,279.045,234.601,184.656]` 중앙값 `217.128ms`, 방 `[84.155,84.143,72.051,228.352,100.391]` 중앙값 `84.155ms`; 두 후보 적용 후 게임 `[198.405,1233.417,542.291,353.359,230.495]` 중앙값 `353.359ms`, 방 `[367.057,114.254,61.700,107.242,62.886]` 중앙값 `107.242ms`다. 이는 HTTP API 전체 시간이 아니다.
 
-실제 HTTP 왕복·Spring 응답 조립 시간은 RANDOM_PORT Java `HttpClient`로 익명 `GET /api/games?playTime=UP_TO_10&size=25`, `GET /api/rooms?startsAtFrom=2099-01-01T00:10:00Z&size=25`를 warm-up 1회 뒤 5회 측정했다. 두 후보 인덱스가 없는 baseline은 게임 `[87.631,150.896,156.646,67.303,72.273]` 중앙값 `87.631ms`, 방 `[59.942,58.255,61.504,66.542,66.774]` 중앙값 `61.504ms`다. 최종 채택 방 부분 인덱스만 있는 상태는 게임 `[152.840,157.708,764.675,175.009,181.055]` 중앙값 `175.009ms`, 방 `[116.041,200.842,192.343,309.898,119.748]` 중앙값 `192.343ms`다. 순차 실행·JIT·캐시와 호스트 상태의 영향을 분리하지 않았으므로 이 값으로 인과나 제품 목표를 주장하지 않는다.
+실제 HTTP 왕복·Spring 응답 조립 시간은 RANDOM_PORT Java `HttpClient`로 익명 `GET /api/games?playTime=UP_TO_10&size=25`, `GET /api/rooms?startsAtFrom=2099-01-01T00:10:00Z&size=25`를 warm-up 1회 뒤 5회 측정했다. 두 후보 인덱스가 없는 baseline은 게임 `[87.631,150.896,156.646,67.303,72.273]` 중앙값 `87.631ms`, 방 `[59.942,58.255,61.504,66.542,66.774]` 중앙값 `61.504ms`다. 최종 채택 방 부분 인덱스만 있는 상태는 게임 `[152.840,157.708,764.675,175.009,181.055]` 중앙값 `175.009ms`, 방 `[116.041,200.842,192.343,309.898,119.748]` 중앙값 `192.343ms`다. 이 게임 값은 2026-08-05의 2,000건 Page 응답 snapshot이며 현재 Slice 기준선으로 사용하지 않는다. 순차 실행·JIT·캐시와 호스트 상태의 영향을 분리하지 않았으므로 이 값으로 인과나 제품 목표를 주장하지 않는다.
 
 로컬에서 재현하려면 다음을 실행한다.
 
@@ -51,7 +53,7 @@ docker version
 
 - PostgreSQL 전용 V26은 `pg_trgm` extension과 `ix_games_name_lower_trgm` GIN 인덱스(`lower(name) gin_trgm_ops`)를 추가한다. 기존 `lower(name) LIKE '%keyword%'` 의미와 HTTP 계약, 최소 검색어 길이는 유지한다.
 - 3글자 이상 부분일치는 이 GIN 경로를 사용할 수 있다. 1·2글자는 trgm 선택도가 낮을 수 있으므로 강제로 인덱스를 사용하지 않고 PostgreSQL planner의 기존 경로를 허용한다.
-- 게임명 데이터가 170,000건 이상으로 늘거나 이름 언어·중복도·검색어 길이 분포가 바뀌면, 같은 PostgreSQL 버전·`ANALYZE` 조건에서 1·2글자와 3글자 이상 대표 검색어의 content·count `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)`을 재측정한다. 결과·전체 건수와 계획·실행 시간을 함께 비교해 hybrid 경계를 다시 판단한다.
+- 게임명 데이터가 170,000건 이상으로 늘거나 이름 언어·중복도·검색어 길이 분포가 바뀌면, 같은 PostgreSQL 버전·`ANALYZE` 조건에서 1·2글자와 3글자 이상 대표 검색어의 P1 직접 SQL content·count `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)`을 재측정한다. 결과·전체 건수와 계획·실행 시간을 함께 비교해 hybrid 경계를 다시 판단한다. 이 count를 현재 게임 목록 API의 비용으로 해석하지 않는다.
 
 마이그레이션·검색 계약 회귀는 17만 건 성능 측정과 분리해 다음 명령으로 확인한다.
 

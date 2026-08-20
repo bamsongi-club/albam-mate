@@ -176,7 +176,7 @@ P0와 P1은 서버 세션 인증을 사용한다. Bearer access token과 refresh
 | `page` | integer | N | `0` | 0 이상. 음수면 `VALIDATION_ERROR` |
 | `size` | integer | N | `10` | 1 이상 100 이하. 범위 밖이면 `VALIDATION_ERROR` |
 
-`PageResponse<T>`:
+`PageResponse<T>`는 `GET /api/games`를 제외한 페이지 번호 기반 목록 API의 응답이다.
 
 ~~~json
 {
@@ -201,6 +201,7 @@ P0와 P1은 서버 세션 인증을 사용한다. Bearer access token과 refresh
 | `totalPages` | integer | Y | N | 전체 페이지 수 |
 | `hasNext` | boolean | Y | N | 다음 페이지 존재 여부 |
 
+- `GET /api/games`도 같은 `page`·`size` 요청 파라미터를 사용하지만, 전체 건수 없이 다음 항목 존재 여부만 반환하는 `GameListSliceResponse<T>`를 사용한다. 응답에는 `content`, `page`, `size`, `hasNext`만 포함하며 `totalElements`와 `totalPages`는 없다. 상세 계약은 [GAME-01](#game-01-게임-목록검색)을 따른다.
 - 클라이언트 지정 `sort`와 응답 필드 `first`, `last`는 지원하지 않는다.
 - 목록 API는 아래 고정 정렬을 적용한다. 모든 정렬은 마지막에 내부 `id`를 고유 tie-breaker로 사용해 같은 DB 상태에서 페이지 이동 중 순서가 임의로 바뀌지 않게 한다.
 
@@ -403,9 +404,12 @@ AI-03 초안 요청에서 `region`을 생략하면 호환 기간 동안 `홍대`
 
 | 값 | 의미 |
 |---|---|
-| `SHORT` | 20분 이하 |
-| `MEDIUM` | 20분 초과 60분 이하 |
-| `LONG` | 60분 초과 |
+| `UP_TO_10` | 10분 이내 |
+| `OVER_10_TO_20` | 10분 초과 20분 이하 |
+| `OVER_20_TO_30` | 20분 초과 30분 이하 |
+| `OVER_30_TO_60` | 30분 초과 60분 이하 |
+| `OVER_60_UNDER_90` | 60분 초과 90분 미만 |
+| `AT_LEAST_90` | 90분 이상 |
 
 ### PlayedFilter
 
