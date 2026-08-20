@@ -51,6 +51,7 @@ function reportRound(round) {
 function fixtureSummary(fixture) {
   return {
     fixtureInputSha256: fixture.fixtureInputSha256,
+    materializedManifestSha256: fixture.materializedManifestSha256,
     inputCsv: fixture.inputCsv,
     manifest: fixture.manifest.map((entry) => Object.fromEntries(
       FIXTURE_MANIFEST_FIELDS.map((field) => [field, entry[field]]),
@@ -79,7 +80,9 @@ export function buildCandidateBaselineReport({ fixture, warmUp, measured }) {
 function hasCompleteObservations(round) {
   return Array.isArray(round.matcherProcesses)
     && round.matcherProcesses.length === REQUIRED_PROCESS_COUNT
-    && round.matcherProcesses.every((process) => process.exitCode === 0 && process.completed === true)
+    && new Set(round.matcherProcesses.map((process) => process.pid)).size === REQUIRED_PROCESS_COUNT
+    && round.matcherProcesses.every((process) => Number.isInteger(process.pid) && process.pid > 0
+      && process.exitCode === 0 && process.completed === true)
     && Array.isArray(round.logicalClaims)
     && round.logicalClaims.length === LOGICAL_CLAIM_COUNT
     && round.logicalClaims.every((claim) => Number.isFinite(claim.durationNanos)
@@ -111,7 +114,7 @@ function hasCompleteObservations(round) {
 
 function hasCompleteFixture(fixture) {
   if (typeof fixture?.fixtureInputSha256 !== "string" || typeof fixture?.inputCsv !== "string"
-    || fixture.fixtureInputSha256 !== fixtureInputSha256(fixture.inputCsv) || !Array.isArray(fixture.manifest)) return false;
+    || fixture.fixtureInputSha256 !== fixtureInputSha256(fixture.inputCsv) || typeof fixture.materializedManifestSha256 !== "string" || !Array.isArray(fixture.manifest)) return false;
   const lines = fixture.inputCsv.trimEnd().split("\n");
   if (lines.length !== 1_001 || lines[0] !== "fixtureOrdinal,userFixtureOrdinal,queuedAt,prioritySince,minPartySize,maxPartySize") return false;
   const userIds = new Set(); const requestIds = new Set(); const tiePairs = [];
@@ -128,7 +131,8 @@ function hasCompleteFixture(fixture) {
       || !userIds.add(entry.userId) || !requestIds.add(entry.requestId)) return false;
     if (index < 200 && index % 2 === 1) tiePairs.push([fixture.manifest[index - 1], entry]);
   }
-  return fixture.manifest.length === 1_000 && tiePairs.length === 100
+  const manifestBytes = `${FIXTURE_MANIFEST_FIELDS.join(",")}\n${fixture.manifest.map((entry) => FIXTURE_MANIFEST_FIELDS.map((field) => entry[field]).join(",")).join("\n")}\n`;
+  return fixture.manifest.length === 1_000 && fixture.materializedManifestSha256 === fixtureInputSha256(manifestBytes) && tiePairs.length === 100
     && tiePairs.every(([left, right]) => left.prioritySince === right.prioritySince && left.requestId < right.requestId);
 }
 

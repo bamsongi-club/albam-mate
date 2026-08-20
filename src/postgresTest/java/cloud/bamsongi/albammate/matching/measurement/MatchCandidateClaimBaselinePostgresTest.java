@@ -49,6 +49,19 @@ class MatchCandidateClaimBaselinePostgresTest {
 	}
 
 	@Test
+	void fixture_read_back은_queuedAt과_prioritySince가_다른_입력을_각각_보존한다() {
+		MatchCandidateClaimBaselineSupport.CandidateFixture fixture = MatchCandidateClaimBaselineSupport
+			.createDistinctQueuedAtFixture();
+		MatchCandidateClaimBaselineSupport.MaterializedFixture materialized = MatchCandidateClaimBaselineSupport
+			.materialize(jdbcTemplate, fixture);
+		MatchCandidateClaimBaselineSupport.FixtureReportInput report = MatchCandidateClaimBaselineSupport
+			.reportFixture(jdbcTemplate, fixture, materialized);
+		assertTrue(report.inputCsv().contains("2026-01-01T00:00:00Z,2026-01-01T00:00:01Z"));
+		assertEquals("2026-01-01T00:00:00Z", report.manifest().getFirst().queuedAt());
+		assertEquals("2026-01-01T00:00:01Z", report.manifest().getFirst().prioritySince());
+	}
+
+	@Test
 	void fixture_generator는_동일한_입력_CSV와_manifest를_결정적으로_만들고_변조를_거절한다() {
 		MatchCandidateClaimBaselineSupport.CandidateFixture first = MatchCandidateClaimBaselineSupport
 			.createContractFixture();
@@ -82,13 +95,24 @@ class MatchCandidateClaimBaselinePostgresTest {
 		assertTrue(
 			materialized.requests().stream().allMatch(request -> request.userId() > 0 && request.requestId() > 0));
 		MatchCandidateClaimBaselineSupport.FixtureReportInput reportFixture = MatchCandidateClaimBaselineSupport
-			.reportFixture(first, materialized);
+			.reportFixture(jdbcTemplate, first, materialized);
 		assertEquals(first.inputCsv(), reportFixture.inputCsv());
 		assertEquals(first.fixtureInputSha256(), reportFixture.fixtureInputSha256());
 		assertEquals(1_000, reportFixture.manifest().size());
 		assertEquals(2, reportFixture.manifest().getFirst().minPartySize());
 		assertEquals(4, reportFixture.manifest().getFirst().maxPartySize());
 		assertTrue(reportFixture.manifest().stream().allMatch(entry -> entry.userId() > 0 && entry.requestId() > 0));
+		List<MatchCandidateClaimBaselineSupport.MaterializedRequest> substituted = new java.util.ArrayList<>(
+			materialized.requests());
+		MatchCandidateClaimBaselineSupport.MaterializedRequest firstRequest = substituted.getFirst();
+		MatchCandidateClaimBaselineSupport.MaterializedRequest secondRequest = substituted.get(1);
+		substituted.set(0, new MatchCandidateClaimBaselineSupport.MaterializedRequest(
+			firstRequest.fixtureOrdinal(), firstRequest.label(), secondRequest.userId(), secondRequest.requestId()));
+		substituted.set(1, new MatchCandidateClaimBaselineSupport.MaterializedRequest(
+			secondRequest.fixtureOrdinal(), secondRequest.label(), firstRequest.userId(), firstRequest.requestId()));
+		assertThrows(IllegalArgumentException.class, () -> MatchCandidateClaimBaselineSupport
+			.reportFixture(jdbcTemplate, first, new MatchCandidateClaimBaselineSupport.MaterializedFixture(
+				first.fixtureInputSha256(), List.copyOf(substituted))));
 		assertThrows(IllegalArgumentException.class,
 			() -> MatchCandidateClaimBaselineSupport.verifyWorkerInput(first, materialized, "tampered"));
 		assertThrows(IllegalArgumentException.class,
@@ -246,6 +270,8 @@ class MatchCandidateClaimBaselinePostgresTest {
 				.createContractFixture();
 			MatchCandidateClaimBaselineSupport.MaterializedFixture materialized = MatchCandidateClaimBaselineSupport
 				.materialize(jdbcTemplate, fixture);
+			// 결과 report는 claim 전 WAITING DB mapping으로 고정한다. 마지막 measured round의 snapshot을 사용한다.
+			fixtureReport = MatchCandidateClaimBaselineSupport.reportFixture(jdbcTemplate, fixture, materialized);
 			MatchCandidateClaimBaselineSupport.SmallRoundReport collected = MatchCandidateClaimBaselineSupport
 				.collectSmallRound(
 					POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword(), jdbcTemplate,
@@ -253,7 +279,6 @@ class MatchCandidateClaimBaselinePostgresTest {
 			assertEquals(1_000, collected.logicalClaims().size());
 			assertTrue(collected.logicalClaims().stream()
 				.allMatch(claim -> claim.retryCount() == 0 && claim.retryRawDurationsNanos().isEmpty()));
-			fixtureReport = MatchCandidateClaimBaselineSupport.reportFixture(fixture, materialized);
 			MatchCandidateClaimBaselineSupport.ReportRoundInput reportRound = MatchCandidateClaimBaselineSupport
 				.withRound(collected, round);
 			if (round == 0) {

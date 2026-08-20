@@ -61,9 +61,10 @@ function completeFixture() {
       minPartySize: 2, maxPartySize: 4, userId: ordinal, requestId: ordinal, expectedTieOrder: ordinal });
   }
   const inputCsv = `${rows.join("\n")}\n`;
-  return {
-    fixtureInputSha256: fixtureInputSha256(inputCsv), inputCsv, manifest,
-  };
+  const materializedManifestSha256 = fixtureInputSha256(
+    `fixtureOrdinal,userFixtureOrdinal,queuedAt,prioritySince,minPartySize,maxPartySize,userId,requestId,expectedTieOrder\n${manifest.map((entry) => [entry.fixtureOrdinal, entry.userFixtureOrdinal, entry.queuedAt, entry.prioritySince, entry.minPartySize, entry.maxPartySize, entry.userId, entry.requestId, entry.expectedTieOrder].join(",")).join("\n")}\n`,
+  );
+  return { fixtureInputSha256: fixtureInputSha256(inputCsv), inputCsv, materializedManifestSha256, manifest };
 }
 
 test("warm-up을 제외하고 measured round 원자료와 nearest-rank 통계를 보존한다", () => {
@@ -112,6 +113,14 @@ test("관측과 process 누락은 INVALID, 완료 뒤 정합성 위반은 FAILED
   delete missingSamplingFailure.measuredRounds[1].lockSamples.samplingFailure;
   assert.equal(evaluateCandidateBaseline(missingSamplingFailure).outcome, "INVALID");
 
+  const duplicatePid = structuredClone(valid);
+  duplicatePid.measuredRounds[0].matcherProcesses[1].pid = duplicatePid.measuredRounds[0].matcherProcesses[0].pid;
+  assert.equal(evaluateCandidateBaseline(duplicatePid).outcome, "INVALID");
+
+  const invalidPid = structuredClone(valid);
+  invalidPid.measuredRounds[0].matcherProcesses[0].pid = 0;
+  assert.equal(evaluateCandidateBaseline(invalidPid).outcome, "INVALID");
+
   const samplingFailure = structuredClone(valid);
   samplingFailure.measuredRounds[1].lockSamples.samplingFailure = "SQLException";
   assert.equal(evaluateCandidateBaseline(samplingFailure).outcome, "INVALID");
@@ -127,6 +136,10 @@ test("관측과 process 누락은 INVALID, 완료 뒤 정합성 위반은 FAILED
   const duplicateId = structuredClone(valid);
   duplicateId.fixture.manifest[1].requestId = duplicateId.fixture.manifest[0].requestId;
   assert.equal(evaluateCandidateBaseline(duplicateId).outcome, "INVALID");
+
+  const substitutedId = structuredClone(valid);
+  substitutedId.fixture.manifest[0].userId = 9_999;
+  assert.equal(evaluateCandidateBaseline(substitutedId).outcome, "INVALID");
 
   const reversedTie = structuredClone(valid);
   reversedTie.fixture.manifest[1].requestId = 0;

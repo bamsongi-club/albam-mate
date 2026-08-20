@@ -85,12 +85,17 @@ public final class MatchCandidateClaimBaselineSupport {
 			new FixtureRequest(2, "T2", 1, 1, FIXTURE_TIME)), List.of(new TiePair(1, 2)));
 	}
 
+	static CandidateFixture createDistinctQueuedAtFixture() {
+		return fixture(List.of(new FixtureRequest(1, "Q1", 2, 4, FIXTURE_TIME, FIXTURE_TIME.plusSeconds(1))),
+			List.of());
+	}
+
 	private static CandidateFixture fixture(List<FixtureRequest> requests, List<TiePair> tiePairs) {
 		StringBuilder csv = new StringBuilder();
 		csv.append("fixtureOrdinal,userFixtureOrdinal,queuedAt,prioritySince,minPartySize,maxPartySize\n");
 		for (FixtureRequest request : requests) {
 			csv.append(request.fixtureOrdinal()).append(',').append(request.fixtureOrdinal()).append(',')
-				.append(request.prioritySince()).append(',').append(request.prioritySince()).append(',')
+				.append(request.queuedAt()).append(',').append(request.prioritySince()).append(',')
 				.append(request.minPartySize()).append(',').append(request.maxPartySize()).append('\n');
 		}
 		String inputCsv = csv.toString();
@@ -128,7 +133,7 @@ public final class MatchCandidateClaimBaselineSupport {
 			statement.setString(1, "match-baseline-" + request.fixtureOrdinal() + "@example.com");
 			statement.setString(2, request.label());
 			statement.setTimestamp(3, Timestamp.from(request.prioritySince()));
-			statement.setTimestamp(4, Timestamp.from(request.prioritySince()));
+			statement.setTimestamp(4, Timestamp.from(request.queuedAt()));
 			return returnedId(statement);
 		}
 	}
@@ -142,7 +147,7 @@ public final class MatchCandidateClaimBaselineSupport {
 			statement.setLong(1, userId);
 			statement.setInt(2, request.minPartySize());
 			statement.setInt(3, request.maxPartySize());
-			statement.setTimestamp(4, Timestamp.from(request.prioritySince()));
+			statement.setTimestamp(4, Timestamp.from(request.queuedAt()));
 			statement.setTimestamp(5, Timestamp.from(request.prioritySince()));
 			statement.setTimestamp(6, Timestamp.from(request.prioritySince()));
 			statement.setTimestamp(7, Timestamp.from(request.prioritySince()));
@@ -188,18 +193,52 @@ public final class MatchCandidateClaimBaselineSupport {
 	}
 
 	/** CSV 입력과 materialized synthetic ID를 함께 보존하는 Node baseline report fixture 입력이다. */
-	static FixtureReportInput reportFixture(CandidateFixture fixture, MaterializedFixture materialized) {
+	static FixtureReportInput reportFixture(JdbcTemplate jdbcTemplate, CandidateFixture fixture,
+		MaterializedFixture materialized) {
 		verifyWorkerInput(fixture, materialized, fixture.fixtureInputSha256());
+		verifyMaterializedDatabase(jdbcTemplate, fixture, materialized);
 		List<MaterializedManifestEntry> manifest = new ArrayList<>();
 		for (int index = 0; index < fixture.requests().size(); index++) {
 			FixtureRequest request = fixture.requests().get(index);
 			MaterializedRequest materializedRequest = materialized.requests().get(index);
 			manifest.add(new MaterializedManifestEntry(
-				request.fixtureOrdinal(), request.fixtureOrdinal(), request.prioritySince().toString(),
+				request.fixtureOrdinal(), request.fixtureOrdinal(), request.queuedAt().toString(),
 				request.prioritySince().toString(), request.minPartySize(), request.maxPartySize(),
 				materializedRequest.userId(), materializedRequest.requestId(), request.fixtureOrdinal()));
 		}
-		return new FixtureReportInput(fixture.fixtureInputSha256(), fixture.inputCsv(), List.copyOf(manifest));
+		String manifestBytes = manifest.stream().map(entry -> entry.fixtureOrdinal() + "," + entry.userFixtureOrdinal()
+			+ "," + entry.queuedAt() + "," + entry.prioritySince() + "," + entry.minPartySize() + ","
+			+ entry.maxPartySize() + "," + entry.userId() + "," + entry.requestId() + "," + entry.expectedTieOrder())
+			.collect(java.util.stream.Collectors.joining("\n",
+				"fixtureOrdinal,userFixtureOrdinal,queuedAt,prioritySince,minPartySize,maxPartySize,userId,requestId,expectedTieOrder\n",
+				"\n"));
+		return new FixtureReportInput(fixture.fixtureInputSha256(), fixture.inputCsv(), sha256(manifestBytes),
+			List.copyOf(manifest));
+	}
+
+	private static void verifyMaterializedDatabase(
+		JdbcTemplate jdbcTemplate, CandidateFixture fixture, MaterializedFixture materialized) {
+		if (jdbcTemplate.queryForObject("select count(*) from match_requests", Integer.class) != fixture.requests()
+			.size()) {
+			throw new IllegalArgumentException("materialized request 행 수가 fixture와 다릅니다.");
+		}
+		for (int index = 0; index < fixture.requests().size(); index++) {
+			FixtureRequest fixtureRequest = fixture.requests().get(index);
+			MaterializedRequest materializedRequest = materialized.requests().get(index);
+			Integer rows = jdbcTemplate.queryForObject("""
+				select count(*) from match_requests request join users user_row on user_row.id = request.user_id
+				where request.id = ? and request.user_id = ? and user_row.nickname = ? and request.status = 'WAITING'
+					and request.min_party_size = ? and request.max_party_size = ?
+					and request.queued_at = ? and request.priority_since = ?
+				""", Integer.class, materializedRequest.requestId(), materializedRequest.userId(),
+				fixtureRequest.label(),
+				fixtureRequest.minPartySize(), fixtureRequest.maxPartySize(), Timestamp.from(fixtureRequest.queuedAt()),
+				Timestamp.from(fixtureRequest.prioritySince()));
+			if (rows == null || rows != 1) {
+				throw new IllegalArgumentException(
+					"materialized fixture DB mapping이 ordinal " + fixtureRequest.fixtureOrdinal() + "과 다릅니다.");
+			}
+		}
 	}
 
 	static ProcessOrchestration runMatcherProcesses(
@@ -696,7 +735,11 @@ public final class MatchCandidateClaimBaselineSupport {
 		List<TiePair> tiePairs) {
 	}
 
-	record FixtureRequest(int fixtureOrdinal, String label, int minPartySize, int maxPartySize, Instant prioritySince) {
+	record FixtureRequest(int fixtureOrdinal, String label, int minPartySize, int maxPartySize, Instant queuedAt,
+		Instant prioritySince) {
+		FixtureRequest(int fixtureOrdinal, String label, int minPartySize, int maxPartySize, Instant prioritySince) {
+			this(fixtureOrdinal, label, minPartySize, maxPartySize, prioritySince, prioritySince);
+		}
 	}
 
 	record TiePair(int firstOrdinal, int secondOrdinal) {
@@ -712,7 +755,8 @@ public final class MatchCandidateClaimBaselineSupport {
 	record MaterializedRequest(int fixtureOrdinal, String label, long userId, long requestId) {
 	}
 
-	record FixtureReportInput(String fixtureInputSha256, String inputCsv, List<MaterializedManifestEntry> manifest) {
+	record FixtureReportInput(String fixtureInputSha256, String inputCsv, String materializedManifestSha256,
+		List<MaterializedManifestEntry> manifest) {
 	}
 
 	record MaterializedManifestEntry(
