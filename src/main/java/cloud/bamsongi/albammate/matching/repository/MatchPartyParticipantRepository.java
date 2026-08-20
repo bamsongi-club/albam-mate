@@ -15,6 +15,10 @@ import cloud.bamsongi.albammate.matching.entity.MatchPartyParticipantId;
 
 public interface MatchPartyParticipantRepository extends JpaRepository<MatchPartyParticipant, MatchPartyParticipantId> {
 
+	long countByIdPartyIdAndLeftAtIsNull(long partyId);
+
+	List<MatchPartyParticipant> findAllByIdPartyIdAndLeftAtIsNullOrderByCreatedAtAsc(long partyId);
+
 	@Query("""
 		select participant.participantRef
 		from MatchPartyParticipant participant
@@ -85,4 +89,15 @@ public interface MatchPartyParticipantRepository extends JpaRepository<MatchPart
 		Long partyId,
 		@Param("userId")
 		Long userId);
+
+	@Query("""
+		select count(participant) > 0
+		from MatchPartyParticipant participant, MatchParty party
+		where participant.id.partyId = party.id
+		  and participant.id.userId = :userId
+		  and participant.leftAt is null
+		  and party.status in ('PREPARING', 'ACTIVE')
+		""")
+	boolean existsCurrentPreparingOrActivePartyByUserId(@Param("userId")
+	long userId);
 }

@@ -139,6 +139,17 @@ class SecurityConfigTest {
 	}
 
 	@Test
+	void StrictHttpFirewall이_거절한_세미콜론_경로도_검증오류_공통_봉투로_반환한다() throws Exception {
+		mockMvc.perform(get("/api/games;invalid"))
+			.andExpect(status().isBadRequest())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+			.andExpect(jsonPath("$.status").value(ErrorCode.VALIDATION_ERROR.getStatus()))
+			.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()))
+			.andExpect(jsonPath("$.message").value(ErrorCode.VALIDATION_ERROR.getMessage()))
+			.andExpect(jsonPath("$.data").value(org.hamcrest.Matchers.nullValue()));
+	}
+
+	@Test
 	void 기본_LogoutFilter는_비활성화되어_로그아웃_리다이렉트나_세션_무효화를_수행하지_않는다() throws Exception {
 		MvcResult csrfResult = mockMvc.perform(get("/api/auth/csrf")).andExpect(status().isOk()).andReturn();
 		Cookie csrfCookie = csrfResult.getResponse().getCookie("XSRF-TOKEN");

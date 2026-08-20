@@ -24,6 +24,7 @@ public class MatchRequest extends BaseEntity {
 
 	private static final int MIN_PARTY_SIZE = 1;
 	private static final int MAX_PARTY_SIZE = Short.MAX_VALUE;
+	private static final long TERMINAL_RETENTION_SECONDS = 604_800;
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -49,11 +50,10 @@ public class MatchRequest extends BaseEntity {
 	private Instant purgeAfter;
 
 	public static MatchRequest create(
-		long userId, int minPartySize, int maxPartySize, MatchRequestStatus status) {
+		long userId, int minPartySize, int maxPartySize, MatchRequestStatus status, Instant now) {
 		validatePartySize(minPartySize, maxPartySize);
 
 		MatchRequest request = new MatchRequest();
-		Instant now = Instant.now();
 		request.userId = userId;
 		request.minPartySize = (short)minPartySize;
 		request.maxPartySize = (short)maxPartySize;
@@ -61,6 +61,43 @@ public class MatchRequest extends BaseEntity {
 		request.queuedAt = now;
 		request.prioritySince = now;
 		return request;
+	}
+
+	public void cancel(Instant now) {
+		status = MatchRequestStatus.CANCELED;
+		purgeAfter = terminalPurgeAfter(now);
+	}
+
+	public void markProposed(Instant now) {
+		status = MatchRequestStatus.PROPOSED;
+		proposedAt = now;
+	}
+
+	public void markMatched(Instant now) {
+		status = MatchRequestStatus.MATCHED;
+		matchedAt = now;
+		purgeAfter = terminalPurgeAfter(now);
+	}
+
+	public void startNewWaitingAttempt(Instant now) {
+		status = MatchRequestStatus.WAITING;
+		queuedAt = now;
+		prioritySince = now;
+		proposedAt = null;
+	}
+
+	public void resumeWaiting() {
+		status = MatchRequestStatus.WAITING;
+		proposedAt = null;
+	}
+
+	public void pause() {
+		status = MatchRequestStatus.PAUSED;
+		proposedAt = null;
+	}
+
+	public static Instant terminalPurgeAfter(Instant operationTime) {
+		return operationTime.plusSeconds(TERMINAL_RETENTION_SECONDS);
 	}
 
 	private static void validatePartySize(int minPartySize, int maxPartySize) {

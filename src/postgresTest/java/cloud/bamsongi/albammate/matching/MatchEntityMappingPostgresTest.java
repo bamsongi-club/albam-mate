@@ -80,9 +80,11 @@ class MatchEntityMappingPostgresTest extends SharedPostgresIntegrationSupport {
 		long userId = insertUser("mapping");
 		Class<? extends Enum> requestStatusType = (Class<? extends Enum>)Class.forName(
 			"cloud.bamsongi.albammate.matching.MatchRequestStatus");
+		Instant operationTime = jdbcTemplate.queryForObject("select current_timestamp", java.sql.Timestamp.class)
+			.toInstant();
 		Object request = requestType
-			.getMethod("create", long.class, int.class, int.class, requestStatusType)
-			.invoke(null, userId, 2, 4, Enum.valueOf(requestStatusType, "WAITING"));
+			.getMethod("create", long.class, int.class, int.class, requestStatusType, Instant.class)
+			.invoke(null, userId, 2, 4, Enum.valueOf(requestStatusType, "WAITING"), operationTime);
 		entityManager.persist(request);
 		entityManager.flush();
 		entityManager.clear();

@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
@@ -22,6 +23,8 @@ import org.springframework.security.web.util.matcher.RequestMatcher;
 import cloud.bamsongi.albammate.global.security.endpoint.ApiEndpointPolicyRegistry;
 import cloud.bamsongi.albammate.global.security.error.ApiAccessDeniedHandler;
 import cloud.bamsongi.albammate.global.security.error.ApiAuthenticationEntryPoint;
+import cloud.bamsongi.albammate.global.security.error.ApiRequestRejectedHandler;
+import cloud.bamsongi.albammate.global.security.error.SecurityErrorResponseWriter;
 import cloud.bamsongi.albammate.global.security.session.SessionConfiguration;
 import cloud.bamsongi.albammate.global.security.session.SessionCookieConfigurer;
 
@@ -43,6 +46,12 @@ public class SecurityConfig {
 	 */
 	private static final String SOCIAL_AUTHORIZATION_BASE_URI = "/api/auth/social/authorization";
 	private static final String SOCIAL_CALLBACK_BASE_URI = "/api/auth/social/callback";
+
+	@Bean
+	WebSecurityCustomizer webSecurityCustomizer(SecurityErrorResponseWriter responseWriter) {
+		ApiRequestRejectedHandler requestRejectedHandler = new ApiRequestRejectedHandler(responseWriter);
+		return web -> web.requestRejectedHandler(requestRejectedHandler);
+	}
 
 	/**
 	 * 공용 필터 체인을 만든다.

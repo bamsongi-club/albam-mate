@@ -43,4 +43,24 @@ public class MatchProposalMember extends BaseEntity {
 		member.respondedAt = respondedAt;
 		return member;
 	}
+
+	public void accept(Instant now) {
+		responseStatus = MatchProposalResponseStatus.ACCEPTED;
+		respondedAt = now;
+	}
+
+	public void requeue(Instant now) {
+		responseStatus = MatchProposalResponseStatus.REQUEUED;
+		respondedAt = now;
+	}
+
+	public void cancel(Instant now) {
+		responseStatus = MatchProposalResponseStatus.CANCELED;
+		respondedAt = now;
+	}
+
+	public void expire() {
+		responseStatus = MatchProposalResponseStatus.EXPIRED;
+		respondedAt = null;
+	}
 }

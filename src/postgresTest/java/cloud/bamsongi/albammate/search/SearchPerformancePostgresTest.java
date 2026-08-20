@@ -68,7 +68,10 @@ import cloud.bamsongi.albammate.room.repository.RoomRepository;
 import cloud.bamsongi.albammate.room.service.query.RoomListQueryService;
 
 @Testcontainers
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = "app.notification.relay.enabled=false")
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
+	"app.notification.relay.enabled=false",
+	"spring.task.scheduling.enabled=false"
+})
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class SearchPerformancePostgresTest {
 

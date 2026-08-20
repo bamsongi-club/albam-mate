@@ -44,10 +44,23 @@ public class MatchChatSystemMessageAdapter implements MatchChatSystemMessagePort
 						room.getId(), systemEventKey, contentFor(systemEventKey), clock.instant())));
 	}
 
+	@Override
+	@Transactional(propagation = Propagation.MANDATORY, readOnly = true)
+	public boolean hasPersistedEvent(long partyId, String eventKey) {
+		MatchChatSystemEventKey systemEventKey = MatchChatSystemEventKey.valueOf(eventKey);
+		MatchChatRoom room = matchChatRoomRepository.findByPartyId(partyId).orElse(null);
+		if (room == null) {
+			return false;
+		}
+		return matchChatMessageRepository
+			.findByMatchChatRoomIdAndSystemEventKey(room.getId(), systemEventKey)
+			.isPresent();
+	}
+
 	private String contentFor(MatchChatSystemEventKey systemEventKey) {
 		return switch (systemEventKey) {
 			case CHAT_OPENED -> "채팅이 열렸습니다.";
-			case CLOSES_IN_ONE_HOUR -> "채팅이 1시간 뒤 종료됩니다.";
+			case CLOSES_IN_ONE_HOUR -> "채팅이 1시간 이내에 종료됩니다.";
 		};
 	}
 }

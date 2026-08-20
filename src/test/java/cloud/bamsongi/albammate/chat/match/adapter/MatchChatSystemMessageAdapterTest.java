@@ -83,6 +83,38 @@ class MatchChatSystemMessageAdapterTest {
 	}
 
 	@Test
+	void 종료_한시간_이내_안내는_승인된_사용자_문구로_저장된다() {
+		long partyId = insertActivePartyWithChatRoom();
+		TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+
+		transactionTemplate.executeWithoutResult(
+			status -> matchChatSystemMessageAdapter.record(partyId, "CLOSES_IN_ONE_HOUR"));
+
+		String content = jdbcTemplate.queryForObject("""
+			select message.content from match_chat_messages message
+			join match_chat_rooms room on room.id = message.match_chat_room_id
+			where room.party_id = ? and message.system_event_key = 'CLOSES_IN_ONE_HOUR'
+			""", String.class, partyId);
+		assertEquals("채팅이 1시간 이내에 종료됩니다.", content);
+	}
+
+	@Test
+	void 저장된_시스템_이벤트의_DB_영속_여부를_조회한다() {
+		long partyId = insertActivePartyWithChatRoom();
+		TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+
+		boolean beforeRecord = transactionTemplate.execute(
+			status -> matchChatSystemMessageAdapter.hasPersistedEvent(partyId, "CLOSES_IN_ONE_HOUR"));
+		transactionTemplate.executeWithoutResult(
+			status -> matchChatSystemMessageAdapter.record(partyId, "CLOSES_IN_ONE_HOUR"));
+		boolean afterRecord = transactionTemplate.execute(
+			status -> matchChatSystemMessageAdapter.hasPersistedEvent(partyId, "CLOSES_IN_ONE_HOUR"));
+
+		assertEquals(false, beforeRecord);
+		assertEquals(true, afterRecord);
+	}
+
+	@Test
 	void 호출자_트랜잭션이_롤백되면_시스템_메시지도_남지_않는다() {
 		long partyId = insertActivePartyWithChatRoom();
 		TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
