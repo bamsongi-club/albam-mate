@@ -1,0 +1,152 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import {
+  buildCandidateBaselineReport,
+  evaluateCandidateBaseline,
+  fixtureInputSha256,
+  nearestRank,
+} from "./match01-candidate-baseline-report.mjs";
+
+function completeRound(index) {
+  return {
+    round: index,
+    matcherProcesses: [
+      { pid: 101, exitCode: 0, completed: true },
+      { pid: 202, exitCode: 0, completed: true },
+    ],
+    logicalClaims: Array.from({ length: 1_000 }, (_, claim) => ({
+      durationNanos: (claim + 1) * 1_000,
+      retryCount: 0,
+      retryRawDurationsNanos: [],
+    })),
+    throughputPerSecond: 100,
+    pgStatStatements: {
+      calls: 1_000,
+      totalExecutionTimeMs: 100,
+      rows: 1_000,
+      sharedBlockHits: 2_000,
+      sharedBlockReads: 10,
+    },
+    lockSamples: { intervalMs: 10, snapshotCount: 3, lockWaitSnapshotCount: 0, samplingFailure: null },
+    queryPlan: "fixture candidate claim plan",
+    correctnessInput: {
+      proposalCount: 500,
+      memberCount: 1_000,
+      claimedRequestCount: 1_000,
+      waitingRequestCount: 0,
+      duplicateClaimCount: 0,
+      partialClaimCount: 0,
+      tieOrderMatches: true,
+    },
+    integrity: {
+      proposalCount: 500,
+      memberCount: 1_000,
+      claimedRequestCount: 1_000,
+      duplicateClaimCount: 0,
+      partialClaimCount: 0,
+      tieOrderMatches: true,
+    },
+  };
+}
+
+function completeFixture() {
+  const rows = ["fixtureOrdinal,userFixtureOrdinal,queuedAt,prioritySince,minPartySize,maxPartySize"];
+  const manifest = [];
+  for (let ordinal = 1; ordinal <= 1_000; ordinal += 1) {
+    const prioritySecond = ordinal <= 200 ? Math.ceil(ordinal / 2) : ordinal;
+    const timestamp = `2026-01-01T00:00:${String(prioritySecond).padStart(2, "0")}Z`;
+    rows.push(`${ordinal},${ordinal},${timestamp},${timestamp},2,4`);
+    manifest.push({ fixtureOrdinal: ordinal, userFixtureOrdinal: ordinal, queuedAt: timestamp, prioritySince: timestamp,
+      minPartySize: 2, maxPartySize: 4, userId: ordinal, requestId: ordinal, expectedTieOrder: ordinal });
+  }
+  const inputCsv = `${rows.join("\n")}\n`;
+  return {
+    fixtureInputSha256: fixtureInputSha256(inputCsv), inputCsv, manifest,
+  };
+}
+
+test("warm-up을 제외하고 measured round 원자료와 nearest-rank 통계를 보존한다", () => {
+  const report = buildCandidateBaselineReport({
+    fixture: completeFixture(),
+    warmUp: completeRound(0),
+    measured: [completeRound(1), completeRound(2), completeRound(3)],
+  });
+
+  assert.equal(report.warmUp.countsTowardBaseline, false);
+  assert.equal(report.measuredRounds.length, 3);
+  assert.equal(report.measuredRounds[0].logicalClaims.length, 1_000);
+  assert.equal(report.measuredRounds[0].statistics.p95Nanos, 950_000);
+  assert.equal(report.series.p95MedianNanos, 950_000);
+  assert.equal(report.series.p95MaximumNanos, 950_000);
+  assert.equal(report.measuredRounds[0].lockSamples.intervalMs, 10);
+  assert.equal(report.fixture.inputCsv.includes("minPartySize,maxPartySize"), true);
+  assert.equal(report.fixture.manifest[0].userId, 1);
+  assert.equal(report.fixture.manifest[0].requestId, 1);
+  assert.deepEqual(Object.keys(report.fixture.manifest[0]).sort(), [
+    "expectedTieOrder", "fixtureOrdinal", "maxPartySize", "minPartySize", "prioritySince", "queuedAt",
+    "requestId", "userFixtureOrdinal", "userId",
+  ]);
+  assert.deepEqual(report.measuredRounds[0].logicalClaims[0].retryRawDurationsNanos, []);
+  assert.deepEqual(nearestRank([1, 2, 3, 4], 0.95), 4);
+  assert.equal(JSON.stringify(report).includes("real-user"), false);
+});
+
+test("관측과 process 누락은 INVALID, 완료 뒤 정합성 위반은 FAILED로 판정한다", () => {
+  const valid = buildCandidateBaselineReport({
+    fixture: completeFixture(),
+    warmUp: completeRound(0),
+    measured: [completeRound(1), completeRound(2), completeRound(3)],
+  });
+  assert.equal(evaluateCandidateBaseline(valid).outcome, "BASELINE_ACCEPTED");
+
+  const missingObservation = structuredClone(valid);
+  delete missingObservation.measuredRounds[1].pgStatStatements;
+  assert.equal(evaluateCandidateBaseline(missingObservation).outcome, "INVALID");
+
+  const missingPlan = structuredClone(valid);
+  delete missingPlan.measuredRounds[1].queryPlan;
+  assert.equal(evaluateCandidateBaseline(missingPlan).outcome, "INVALID");
+
+  const missingSamplingFailure = structuredClone(valid);
+  delete missingSamplingFailure.measuredRounds[1].lockSamples.samplingFailure;
+  assert.equal(evaluateCandidateBaseline(missingSamplingFailure).outcome, "INVALID");
+
+  const samplingFailure = structuredClone(valid);
+  samplingFailure.measuredRounds[1].lockSamples.samplingFailure = "SQLException";
+  assert.equal(evaluateCandidateBaseline(samplingFailure).outcome, "INVALID");
+
+  const missingMaterializedRequestId = structuredClone(valid);
+  delete missingMaterializedRequestId.fixture.manifest[0].requestId;
+  assert.equal(evaluateCandidateBaseline(missingMaterializedRequestId).outcome, "INVALID");
+
+  const tamperedCsv = structuredClone(valid);
+  tamperedCsv.fixture.inputCsv = tamperedCsv.fixture.inputCsv.replace("1,1,", "2,1,");
+  assert.equal(evaluateCandidateBaseline(tamperedCsv).outcome, "INVALID");
+
+  const duplicateId = structuredClone(valid);
+  duplicateId.fixture.manifest[1].requestId = duplicateId.fixture.manifest[0].requestId;
+  assert.equal(evaluateCandidateBaseline(duplicateId).outcome, "INVALID");
+
+  const reversedTie = structuredClone(valid);
+  reversedTie.fixture.manifest[1].requestId = 0;
+  assert.equal(evaluateCandidateBaseline(reversedTie).outcome, "INVALID");
+
+  const wrongExpectedTieOrder = structuredClone(valid);
+  wrongExpectedTieOrder.fixture.manifest[0].expectedTieOrder = 0;
+  assert.equal(evaluateCandidateBaseline(wrongExpectedTieOrder).outcome, "INVALID");
+
+  const correctnessDuplicate = structuredClone(valid);
+  correctnessDuplicate.measuredRounds[0].correctnessInput.duplicateClaimCount = 1;
+  delete correctnessDuplicate.measuredRounds[0].integrity;
+  assert.equal(evaluateCandidateBaseline(correctnessDuplicate).outcome, "FAILED");
+
+  const correctnessTie = structuredClone(valid);
+  correctnessTie.measuredRounds[0].correctnessInput.tieOrderMatches = false;
+  delete correctnessTie.measuredRounds[0].integrity;
+  assert.equal(evaluateCandidateBaseline(correctnessTie).outcome, "FAILED");
+
+  const inconsistent = structuredClone(valid);
+  inconsistent.measuredRounds[2].integrity.duplicateClaimCount = 1;
+  assert.equal(evaluateCandidateBaseline(inconsistent).outcome, "INVALID");
+});

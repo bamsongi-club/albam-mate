@@ -92,6 +92,7 @@
     "cloud.bamsongi.albammate.infra.redis.RedisAuthenticationRequestLimiterPostgresTest": "Redis-only runtime contract",
     "cloud.bamsongi.albammate.local.LocalRoomSeedPostgresTest": "local Flyway callbacks and Redis",
     "cloud.bamsongi.albammate.matching.MatchSchemaPostgresTest": "isolated Flyway schema",
+    "cloud.bamsongi.albammate.matching.measurement.MatchCandidateClaimBaselinePostgresTest": "independent matcher processes and candidate-claim baseline PostgreSQL observation",
     "cloud.bamsongi.albammate.monitoring.LatencySaturationProductionPostgresTest": "production OTLP receiver",
     "cloud.bamsongi.albammate.monitoring.MonitoringProductionPostgresTest": "production monitoring and Redis process control",
     "cloud.bamsongi.albammate.notification.NotificationSchemaPostgresTest": "isolated Flyway schema",
