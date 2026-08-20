@@ -1275,9 +1275,76 @@ function groupChatMessages(messages) {
 }
 
 /** 참가 중이며 채팅에 들어갈 수 있는 모임만 골라 채팅방 목록으로 보여준다. */
+// CHAT-08: 목록 화면에 머무는 동안 다른 참가자의 메시지가 커밋되면 이 최소 신호를 받아 재조회를 촉진한다.
+// 신호 payload({ roomId, messageId })는 표시 데이터의 정본이 아니므로 값 자체를 화면에 반영하지 않는다.
+function isChatRoomUpdatedEvent(payload) {
+  return Boolean(payload) && payload.roomId !== undefined && payload.messageId !== undefined;
+}
+
+function useChatListRealtimeRefresh() {
+  const [realtimeVersion, setRealtimeVersion] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    let socket;
+    let reconnectTimer;
+    let stableConnectionTimer;
+    let reconnectAttempts = 0;
+    let hasConnectedBefore = false;
+
+    const connect = () => {
+      if (!active) return;
+      let currentSocket;
+      try {
+        currentSocket = api.openChatListWebSocket();
+        socket = currentSocket;
+      } catch {
+        return;
+      }
+      currentSocket.onopen = () => {
+        if (!active) return;
+        // 최초 연결은 재조회를 촉진하지 않는다. useRequest가 마운트 시 이미 최신 값을 가져온다.
+        if (hasConnectedBefore) setRealtimeVersion((version) => version + 1);
+        hasConnectedBefore = true;
+        stableConnectionTimer = setTimeout(() => { reconnectAttempts = 0; }, 10000);
+      };
+      currentSocket.onmessage = (event) => {
+        if (!active) return;
+        let payload;
+        try {
+          payload = JSON.parse(event.data);
+        } catch {
+          return;
+        }
+        if (!isChatRoomUpdatedEvent(payload)) return;
+        setRealtimeVersion((version) => version + 1);
+      };
+      currentSocket.onclose = () => {
+        if (!active) return;
+        clearTimeout(stableConnectionTimer);
+        if (reconnectAttempts >= CHAT_RECONNECT_LIMIT) return;
+        const delay = CHAT_RECONNECT_DELAYS[reconnectAttempts] || CHAT_RECONNECT_DELAYS.at(-1);
+        reconnectAttempts += 1;
+        reconnectTimer = setTimeout(connect, delay);
+      };
+    };
+
+    connect();
+    return () => {
+      active = false;
+      clearTimeout(reconnectTimer);
+      clearTimeout(stableConnectionTimer);
+      socket?.close();
+    };
+  }, []);
+
+  return realtimeVersion;
+}
+
 export function ChatListView({ dataVersion, onBack }) {
-  const joined = useRequest((signal) => api.getMyRooms({ role: 'joined', page: 0, size: 100 }, signal), [dataVersion]);
-  const hosted = useRequest((signal) => api.getMyRooms({ role: 'hosted', page: 0, size: 100 }, signal), [dataVersion]);
+  const realtimeVersion = useChatListRealtimeRefresh();
+  const joined = useRequest((signal) => api.getMyRooms({ role: 'joined', page: 0, size: 100 }, signal), [dataVersion, realtimeVersion]);
+  const hosted = useRequest((signal) => api.getMyRooms({ role: 'hosted', page: 0, size: 100 }, signal), [dataVersion, realtimeVersion]);
   const loading = joined.loading || hosted.loading;
   const error = joined.error || hosted.error;
   const rooms = [...(joined.data?.content || []), ...(hosted.data?.content || [])].map(normalizeRoom);

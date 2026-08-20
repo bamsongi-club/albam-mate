@@ -1415,3 +1415,95 @@ describe('#876 CHAT-07 상단 채팅 아이콘 미읽음 배지', () => {
     expect(container.querySelector('.unread-dot')).toBeNull();
   });
 });
+
+describe('#916 CHAT-08 채팅 목록 실시간 갱신', () => {
+  it('T1 다른 참가자의 메시지 신호를 받으면 목록을 다시 조회해 최신 값을 반영한다', async () => {
+    vi.stubGlobal('WebSocket', FakeWebSocket);
+    FakeWebSocket.instances = [];
+    const getMyRooms = vi.spyOn(api, 'getMyRooms').mockImplementation(({ role }) => Promise.resolve(
+      roomPage(role === 'hosted' ? [myRoom({ lastMessagePreview: '이전 메시지', unreadCount: 0 })] : [])
+    ));
+
+    render(<ChatListView dataVersion={0} onBack={vi.fn()} />);
+    await waitFor(() => expect(screen.getByText('이전 메시지')).toBeTruthy());
+    await waitFor(() => expect(FakeWebSocket.instances).toHaveLength(1));
+    expect(FakeWebSocket.instances[0].url).toContain('/api/users/me/chat/ws');
+
+    getMyRooms.mockImplementation(({ role }) => Promise.resolve(
+      roomPage(role === 'hosted' ? [myRoom({ lastMessagePreview: '방금 온 메시지', unreadCount: 1 })] : [])
+    ));
+    const [socket] = FakeWebSocket.instances;
+    socket.open();
+    // 신호는 roomId·messageId만 담고 메시지 본문·발신자 정보는 싣지 않는다.
+    socket.message({ roomId: 7, messageId: 99 });
+
+    await waitFor(() => expect(screen.getByText('방금 온 메시지')).toBeTruthy());
+    expect(screen.getByLabelText('1개 안읽음').textContent).toBe('1');
+  });
+
+  it('T2 payload에 발신자 구분이 없어 본인 발신을 포함한 모든 신호가 재조회를 촉진한다', async () => {
+    vi.stubGlobal('WebSocket', FakeWebSocket);
+    FakeWebSocket.instances = [];
+    const getMyRooms = vi.spyOn(api, 'getMyRooms').mockImplementation(({ role }) => Promise.resolve(
+      roomPage(role === 'hosted' ? [myRoom({ lastMessagePreview: '첫 메시지' })] : [])
+    ));
+
+    render(<ChatListView dataVersion={0} onBack={vi.fn()} />);
+    await waitFor(() => expect(screen.getByText('첫 메시지')).toBeTruthy());
+    const callsBeforeSignal = getMyRooms.mock.calls.length;
+
+    const [socket] = FakeWebSocket.instances;
+    socket.open();
+    socket.message({ roomId: 7, messageId: 101 });
+
+    await waitFor(() => expect(getMyRooms.mock.calls.length).toBeGreaterThan(callsBeforeSignal));
+  });
+
+  it('T3 연결이 끊겼다 재연결되면 재연결 시점에 한 번 목록을 재조회한다', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('WebSocket', FakeWebSocket);
+    FakeWebSocket.instances = [];
+    const getMyRooms = vi.spyOn(api, 'getMyRooms').mockImplementation(({ role }) => Promise.resolve(
+      roomPage(role === 'hosted' ? [myRoom({ lastMessagePreview: '재연결 전' })] : [])
+    ));
+
+    render(<ChatListView dataVersion={0} onBack={vi.fn()} />);
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(FakeWebSocket.instances).toHaveLength(1);
+    FakeWebSocket.instances[0].open();
+    const callsBeforeDrop = getMyRooms.mock.calls.length;
+
+    await act(async () => {
+      FakeWebSocket.instances[0].drop();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(500);
+      await Promise.resolve();
+    });
+
+    expect(FakeWebSocket.instances).toHaveLength(2);
+    await act(async () => {
+      FakeWebSocket.instances[1].open();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(getMyRooms.mock.calls.length).toBeGreaterThan(callsBeforeDrop);
+    vi.useRealTimers();
+  });
+
+  it('T4 채팅방 "안" 화면은 이 신규 채널에 연결하지 않고 기존 방별 WebSocket만 사용한다', async () => {
+    vi.stubGlobal('WebSocket', FakeWebSocket);
+    FakeWebSocket.instances = [];
+    vi.spyOn(api, 'getChatMessages').mockResolvedValue({ messages: [], nextBeforeMessageId: null, hasNext: false });
+
+    render(<ChatRoomView roomId="7" dataVersion={0} />);
+    await waitFor(() => expect(FakeWebSocket.instances).toHaveLength(1));
+
+    expect(FakeWebSocket.instances[0].url).toContain('/api/rooms/7/chat/ws');
+    expect(FakeWebSocket.instances.some((socket) => socket.url.includes('/api/users/me/chat/ws'))).toBe(false);
+  });
+});
