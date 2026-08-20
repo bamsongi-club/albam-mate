@@ -243,6 +243,23 @@ class AssistantDraftHttpIntegrationTest {
 	}
 
 	@Test
+	void T5_confirm의_누락된_draftVersion은_400이고_Room과_ChatRoom을_만들지_않는다() throws Exception {
+		User user = grantedUser("t5-missing-version");
+		long draftId = createDraft(user, validDraftJsonWithPlace());
+
+		mockMvc.perform(post("/api/assistant/drafts/" + draftId + "/confirm")
+			.header("Idempotency-Key", "missing-draft-version-key").contentType("application/json").content("{}")
+			.with(authenticationFor(user.getId())).with(csrf()))
+			.andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+		assertEquals(0, jdbcTemplate.queryForObject("select count(*) from rooms where host_user_id = ?", Integer.class,
+			user.getId()));
+		assertEquals(0,
+			jdbcTemplate.queryForObject(
+				"select count(*) from chat_rooms where room_id in (select id from rooms where host_user_id = ?)",
+				Integer.class, user.getId()));
+	}
+
+	@Test
 	void T5_오래된_version과_범위_밖_키는_Room을_새로_만들지_않는다() throws Exception {
 		User user = grantedUser("t5-stale");
 		long draftId = createDraft(user, validDraftJsonWithPlace());
@@ -267,6 +284,24 @@ class AssistantDraftHttpIntegrationTest {
 			jdbcTemplate.queryForObject(
 				"select count(*) from chat_rooms where room_id in (select id from rooms where host_user_id = ?)",
 				Integer.class, user.getId()));
+	}
+
+	@Test
+	void T5_만료된_초안은_오래된_version이어도_410이다() throws Exception {
+		User user = grantedUser("t5-expired-stale");
+		long draftId = createDraft(user, validDraftJsonWithPlace());
+		mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+			.patch("/api/assistant/drafts/" + draftId)
+			.contentType("application/json").content("{\"draftVersion\":0,\"place\":\"수정 카페\"}")
+			.with(authenticationFor(user.getId())).with(csrf()))
+			.andExpect(status().isOk());
+		jdbcTemplate.update("update assistant_drafts set expires_at = ? where id = ?",
+			java.time.Instant.parse("2020-01-01T00:00:00Z"), draftId);
+
+		mockMvc.perform(post("/api/assistant/drafts/" + draftId + "/confirm")
+			.header("Idempotency-Key", "expired-stale-version-key").contentType("application/json")
+			.content("{\"draftVersion\":0}").with(authenticationFor(user.getId())).with(csrf()))
+			.andExpect(status().isGone()).andExpect(jsonPath("$.code").value("ASSISTANT_DRAFT_EXPIRED"));
 	}
 
 	@Test

@@ -74,13 +74,13 @@ public class AssistantDraftService {
 	@Transactional
 	public ConfirmOutcome confirm(long userId, long draftId, long draftVersion, String idempotencyKey) {
 		requireEnabled();
-		if (idempotencyKey == null || !idempotencyKey.matches("[\\x21-\\x7e]{1,100}")) {
-			throw new BusinessException(ErrorCode.VALIDATION_ERROR);
-		}
 		Instant now = clock.instant();
 		lockUser(userId);
 		AssistantDraft draft = ownedForUpdate(draftId, userId);
 		idempotencyRecordRepository.deleteByUserIdAndExpiresAtLessThanEqual(userId, now);
+		if (idempotencyKey == null || !idempotencyKey.matches("[\\x21-\\x7e]{1,100}")) {
+			throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+		}
 		String keyHash = sha256(idempotencyKey);
 		java.util.Optional<AssistantIdempotencyRecord> existing = idempotencyRecordRepository
 			.findConfirmByUserAndDraftForUpdate(userId, draftId);
@@ -93,18 +93,21 @@ public class AssistantDraftService {
 			return new ConfirmOutcome(new AssistantDraftResponse.Result(record.getRoomId(), record.getChatRoomId()),
 				true);
 		}
-		if (idempotencyRecordRepository.findByUserAndKeyHashForUpdate(userId, keyHash).isPresent()) {
-			throw new BusinessException(ErrorCode.ASSISTANT_DRAFT_CONFLICT);
-		}
-		if (draft.getStatus() != AssistantDraftStatus.ACTIVE || draft.getDraftVersion() != draftVersion) {
+		if (draft.getStatus() != AssistantDraftStatus.ACTIVE) {
 			throw new BusinessException(ErrorCode.ASSISTANT_DRAFT_CONFLICT);
 		}
 		if (draft.isExpiredAt(now)) {
 			throw new BusinessException(ErrorCode.ASSISTANT_DRAFT_EXPIRED);
 		}
 		consentGate.requireGranted(userId);
+		if (draft.getDraftVersion() != draftVersion) {
+			throw new BusinessException(ErrorCode.ASSISTANT_DRAFT_CONFLICT);
+		}
 		if (draft.getPlace() == null) {
 			throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+		}
+		if (idempotencyRecordRepository.findByUserAndKeyHashForUpdate(userId, keyHash).isPresent()) {
+			throw new BusinessException(ErrorCode.ASSISTANT_DRAFT_CONFLICT);
 		}
 		AssistantIdempotencyRecord record = idempotencyRecordRepository.saveAndFlush(
 			AssistantIdempotencyRecord.pending(userId, draftId, keyHash, draftVersion, draft.getExpiresAt()));

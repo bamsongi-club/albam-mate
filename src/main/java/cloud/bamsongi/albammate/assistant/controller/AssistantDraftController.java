@@ -19,6 +19,8 @@ import cloud.bamsongi.albammate.assistant.dto.AssistantDraftResponse;
 import cloud.bamsongi.albammate.assistant.service.AssistantDraftService;
 import cloud.bamsongi.albammate.global.response.ApiResponse;
 import cloud.bamsongi.albammate.global.security.currentuser.CurrentUserAccessor;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 
@@ -61,14 +63,13 @@ public class AssistantDraftController {
 		@PathVariable @Positive long draftId,
 		@RequestHeader("Idempotency-Key")
 		String idempotencyKey,
-		@RequestBody
-		ConfirmRequest request) {
+		@RequestBody @Valid ConfirmRequest request) {
 		AssistantDraftService.ConfirmOutcome outcome = draftService.confirm(
 			currentUserAccessor.requireCurrentUserId(), draftId, request.draftVersion(), idempotencyKey);
 		HttpStatus status = outcome.replayed() ? HttpStatus.OK : HttpStatus.CREATED;
 		return ResponseEntity.status(status).body(ApiResponse.success(status, outcome.result()));
 	}
 
-	public record ConfirmRequest(long draftVersion) {
+	public record ConfirmRequest(@NotNull Long draftVersion) {
 	}
 }
