@@ -24,5 +24,6 @@ public class MatchChatCleanupAdapter implements MatchChatCleanupPort {
 	@Transactional(propagation = Propagation.MANDATORY)
 	public void cleanup(long partyId) {
 		matchChatRoomRepository.findByPartyId(partyId).ifPresent(matchChatRoomRepository::delete);
+		matchChatRoomRepository.flush();
 	}
 }

@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.UUID;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -158,6 +160,46 @@ class MatchChatAdapterTransactionPostgresTest extends SharedPostgresIntegrationS
 		assertThrows(IllegalTransactionStateException.class, () -> matchChatCleanupPort.cleanup(partyId));
 	}
 
+	@Test
+	void cleanup_반환_뒤_참가자와_파티를_삭제하면_모든_MATCH_데이터가_함께_커밋되거나_롤백된다() {
+		long userId = insertUser("match-cleanup-transaction@example.com");
+		long partyId = insertPreparingParty();
+		long matchChatRoomId = insertMatchChatRoom(partyId);
+		insertMatchParticipant(partyId, userId);
+		insertMatchUserMessage(matchChatRoomId, userId);
+		insertMatchSystemMessage(matchChatRoomId);
+		TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+
+		transactionTemplate.executeWithoutResult(status -> {
+			matchChatCleanupPort.cleanup(partyId);
+			deletePartyParticipantsAndParty(partyId);
+		});
+
+		assertEquals(0, countMatchChatRooms(partyId));
+		assertEquals(0, countMatchChatMessages(matchChatRoomId));
+		assertEquals(0, countMatchPartyParticipants(partyId));
+		assertEquals(0, countMatchParties(partyId));
+
+		long rollbackPartyId = insertPreparingParty();
+		long rollbackMatchChatRoomId = insertMatchChatRoom(rollbackPartyId);
+		insertMatchParticipant(rollbackPartyId, userId);
+		insertMatchUserMessage(rollbackMatchChatRoomId, userId);
+		insertMatchSystemMessage(rollbackMatchChatRoomId);
+
+		assertThrows(
+			IllegalStateException.class,
+			() -> transactionTemplate.executeWithoutResult(status -> {
+				matchChatCleanupPort.cleanup(rollbackPartyId);
+				deletePartyParticipantsAndParty(rollbackPartyId);
+				throw new IllegalStateException("rollback check");
+			}));
+
+		assertEquals(1, countMatchChatRooms(rollbackPartyId));
+		assertEquals(2, countMatchChatMessages(rollbackMatchChatRoomId));
+		assertEquals(1, countMatchPartyParticipants(rollbackPartyId));
+		assertEquals(1, countMatchParties(rollbackPartyId));
+	}
+
 	private long insertPreparingParty() {
 		return jdbcTemplate.queryForObject(
 			"insert into match_parties (status, preparing_started_at, created_at, updated_at) "
@@ -185,6 +227,23 @@ class MatchChatAdapterTransactionPostgresTest extends SharedPostgresIntegrationS
 				+ "values (?, current_timestamp, current_timestamp) returning id",
 			Long.class,
 			partyId);
+	}
+
+	private long insertUser(String email) {
+		return jdbcTemplate.queryForObject(
+			"insert into users (email, password_hash, nickname, created_at, updated_at) "
+				+ "values (?, 'hash', 'match-cleanup-transaction', current_timestamp, current_timestamp) returning id",
+			Long.class,
+			email);
+	}
+
+	private void insertMatchParticipant(long partyId, long userId) {
+		jdbcTemplate.update(
+			"insert into match_party_participants (party_id, user_id, participant_ref, created_at) "
+				+ "values (?, ?, ?, current_timestamp)",
+			partyId,
+			userId,
+			UUID.randomUUID());
 	}
 
 	private void insertMatchUserMessage(long matchChatRoomId, long userId) {
@@ -238,6 +297,20 @@ class MatchChatAdapterTransactionPostgresTest extends SharedPostgresIntegrationS
 	private int countMatchChatMessages(long matchChatRoomId) {
 		return jdbcTemplate.queryForObject(
 			"select count(*) from match_chat_messages where match_chat_room_id = ?", Integer.class, matchChatRoomId);
+	}
+
+	private void deletePartyParticipantsAndParty(long partyId) {
+		jdbcTemplate.update("delete from match_party_participants where party_id = ?", partyId);
+		jdbcTemplate.update("delete from match_parties where id = ?", partyId);
+	}
+
+	private int countMatchPartyParticipants(long partyId) {
+		return jdbcTemplate.queryForObject(
+			"select count(*) from match_party_participants where party_id = ?", Integer.class, partyId);
+	}
+
+	private int countMatchParties(long partyId) {
+		return jdbcTemplate.queryForObject("select count(*) from match_parties where id = ?", Integer.class, partyId);
 	}
 
 	private int countP1ChatMessages(long chatRoomId) {
