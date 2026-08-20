@@ -204,11 +204,70 @@ test('mixed aggregate는 빈 tier·operation·outcome 조합을 보존하고 arr
   assert.equal(buildMixedAggregate(summary, profile()).status, 'INVALID');
 });
 
+test('k6 v1.3 empty Trend의 all-zero 통계는 최종 zero cell로 정규화한다', () => {
+  const summary = aggregateSummary();
+  summary.metrics['room_mixed_request_duration{tier:hot,operation:t1,outcome:business}'] = metric(0, {
+    p50: 0,
+    p95: 0,
+    p99: 0,
+    max: 0,
+  });
+
+  const aggregate = buildMixedAggregate(summary, profile());
+
+  assert.equal(aggregate.status, 'PASS');
+  assert.deepEqual(aggregate.tiers.hot.t1.business, {
+    count: 0,
+    p50: null,
+    p95: null,
+    p99: null,
+    max: null,
+  });
+});
+
+test('empty Trend의 일부 0/null 혼합과 nonzero 통계는 malformed INVALID다', () => {
+  const partial = aggregateSummary();
+  partial.metrics['room_mixed_request_duration{tier:hot,operation:t1,outcome:business}'] = metric(0, {
+    p50: 0,
+  });
+  assert.equal(buildMixedAggregate(partial, profile()).status, 'INVALID');
+
+  const nonzero = aggregateSummary();
+  nonzero.metrics['room_mixed_request_duration{tier:hot,operation:t1,outcome:business}'] = metric(0, {
+    p50: 1,
+    p95: 1,
+    p99: 1,
+    max: 1,
+  });
+  assert.equal(buildMixedAggregate(nonzero, profile()).status, 'INVALID');
+});
+
 test('aggregate의 outcome latency count 불일치는 FAIL로 분리한다', () => {
   const summary = aggregateSummary();
   summary.metrics['room_mixed_request_duration{tier:hot,operation:t1,outcome:success}'] = metric(1);
 
   assert.equal(buildMixedAggregate(summary, profile()).status, 'FAIL');
+});
+
+test('양수 request count의 duration artifact 누락과 malformed는 INVALID다', () => {
+  const missingDuration = aggregateSummary();
+  delete missingDuration.metrics['room_mixed_request_duration{tier:hot,operation:t1,outcome:success}'];
+  assert.equal(buildMixedAggregate(missingDuration, profile()).status, 'INVALID');
+
+  const malformedDuration = aggregateSummary();
+  malformedDuration.metrics['room_mixed_request_duration{tier:hot,operation:t1,outcome:success}'] = {
+    values: { count: 2, p50: null, p95: null, p99: null, max: null },
+  };
+  assert.equal(buildMixedAggregate(malformedDuration, profile()).status, 'INVALID');
+});
+
+test('duration count 불일치와 malformed 통계가 함께 있으면 INVALID가 우선한다', () => {
+  const summary = aggregateSummary();
+  summary.metrics['room_mixed_request_duration{tier:hot,operation:t1,outcome:success}'] = {
+    values: { count: 1, p50: null, p95: null, p99: null, max: null },
+  };
+
+  assert.equal(buildMixedAggregate(summary, profile()).status, 'INVALID');
 });
 
 test('mixed aggregate는 tag 없는 series를 유효한 표본으로 계산하지 않는다', () => {
@@ -236,6 +295,35 @@ test('mixed의 필수 arrival artifact가 없으면 fixture 사후 판정도 INV
   const result = evaluateFixture(fixture, snapshot, 'after', { metrics: {} });
 
   assert.equal(result.status, 'INVALID');
+  assert.ok(result.failures.some((failure) => failure.includes('mixed aggregate')));
+});
+
+test('mixed fixture는 snapshot 참여·대기 사용자의 write/read partition 격리를 확인한다', () => {
+  const plan = createFixturePlan(profile({ scenario: 'mixed', runId: 'mixed-snapshot-partition-identity' }));
+  const fixture = hydrateFixture(plan, fixtureResources(plan), 'a'.repeat(32));
+  const snapshot = initialSnapshot(fixture);
+  fixture.baselineSnapshot = structuredClone(snapshot);
+
+  const writeRoomIds = new Set(
+    fixture.fixturePartitions.write.roomKeys.map((roomKey) => fixture.rooms[roomKey].id),
+  );
+  const readUserId = fixture.users[fixture.fixturePartitions.read.userKeys[0]].id;
+  const participation = snapshot.participations.find((entry) => writeRoomIds.has(entry.roomId));
+  const waitlist = snapshot.waitlists.find((entry) => writeRoomIds.has(entry.roomId));
+  assert.ok(participation);
+  assert.ok(waitlist);
+  participation.userId = readUserId;
+  waitlist.userId = readUserId;
+
+  const before = evaluateFixture(fixture, snapshot, 'before');
+  assert.equal(before.status, 'INVALID');
+  assert.ok(before.failures.some((failure) => failure.includes('snapshot participation')));
+  assert.ok(before.failures.some((failure) => failure.includes('snapshot waitlist')));
+
+  const after = evaluateFixture(fixture, snapshot, 'after', aggregateSummary());
+  assert.equal(after.status, 'FAIL');
+  assert.ok(after.failures.some((failure) => failure.includes('snapshot participation')));
+  assert.ok(after.failures.some((failure) => failure.includes('snapshot waitlist')));
 });
 
 test('mixed fixture는 key뿐 아니라 hydrate된 DB ROOM·사용자 ID까지 write/read 격리를 확인한다', () => {
@@ -254,6 +342,21 @@ test('mixed fixture는 key뿐 아니라 hydrate된 DB ROOM·사용자 ID까지 w
   assert.equal(result.status, 'INVALID');
   assert.ok(result.failures.some((failure) => failure.includes('같은 DB ROOM ID')));
   assert.ok(result.failures.some((failure) => failure.includes('같은 DB 사용자 ID')));
+});
+
+test('유효한 mixed fixture의 사후 write/read DB ID 격리 위반은 FAIL이다', () => {
+  const plan = createFixturePlan(profile({ scenario: 'mixed', runId: 'mixed-after-partition-identity' }));
+  const fixture = hydrateFixture(plan, fixtureResources(plan), 'a'.repeat(32));
+  const snapshot = initialSnapshot(fixture);
+  fixture.baselineSnapshot = structuredClone(snapshot);
+  const writeRoomKey = fixture.fixturePartitions.write.roomKeys[0];
+  const readRoomKey = fixture.fixturePartitions.read.roomKeys[0];
+  fixture.rooms[readRoomKey].id = fixture.rooms[writeRoomKey].id;
+
+  const result = evaluateFixture(fixture, snapshot, 'after', aggregateSummary());
+
+  assert.equal(result.status, 'FAIL');
+  assert.ok(result.failures.some((failure) => failure.includes('같은 DB ROOM ID')));
 });
 
 test('mixed fixture plan과 portable bundle은 같은 options·selection digest·격리 partition을 보존한다', () => {

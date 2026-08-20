@@ -8,13 +8,11 @@ import {
   evaluateResponse,
   getRoomDetail,
   loadRuntime,
-  recordStartSkew,
   requestEmpty,
   scenarioTags,
   sessionFor,
   writeSetup,
 } from './lib/room-k6.js';
-import { START_SKEW_THRESHOLD } from './lib/start-skew.mjs';
 import { outcomeDurationThresholds } from './lib/write-options.mjs';
 
 const runtime = loadRuntime('mixed');
@@ -25,6 +23,9 @@ if (!profile?.selectionPlanDigest || !profile.selectionCounts) {
 
 const mixedRequests = new Counter('room_mixed_requests');
 const mixedRequestDuration = new Trend('room_mixed_request_duration', true);
+const MIXED_TIERS = ['hot', 'spread'];
+const MIXED_OPERATIONS = ['t1', 't2', 't5'];
+const MIXED_OUTCOMES = ['success', 'business', 'concurrency', 'unexpected'];
 
 function constantArrivalOptions() {
   const options = runtime.fixture.options;
@@ -38,6 +39,20 @@ function constantArrivalOptions() {
   };
 }
 
+function mixedAggregateThresholds() {
+  const thresholds = {};
+  for (const tier of MIXED_TIERS) {
+    for (const operation of MIXED_OPERATIONS) {
+      for (const outcome of MIXED_OUTCOMES) {
+        const tags = `tier:${tier},operation:${operation},outcome:${outcome}`;
+        thresholds[`room_mixed_requests{${tags}}`] = ['count>=0'];
+        thresholds[`room_mixed_request_duration{${tags}}`] = ['p(99)>=0'];
+      }
+    }
+  }
+  return thresholds;
+}
+
 export const options = {
   summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(90)', 'p(95)', 'p(99)', 'count'],
   scenarios: {
@@ -45,10 +60,10 @@ export const options = {
   },
   thresholds: {
     ...outcomeDurationThresholds(),
+    ...mixedAggregateThresholds(),
     room_contract_failures: ['count==0'],
     room_unexpected_4xx: ['count==0'],
     room_server_failures: ['count==0'],
-    room_start_skew_ms: [START_SKEW_THRESHOLD],
   },
 };
 
@@ -56,14 +71,13 @@ export function setup() {
   const prepared = writeSetup(runtime);
   return {
     sessions: prepared.sessions,
-    firstArrivalAt: Date.now(),
   };
 }
 
-function targetForArrival(arrivalIndex) {
-  const target = runtime.fixture.targets[arrivalIndex];
-  if (!target || target.arrivalIndex !== arrivalIndex) {
-    throw new Error(`mixed constant-arrival-rate target을 찾지 못했습니다: ${arrivalIndex}`);
+function targetForExecutedArrival(actualArrivalIndex) {
+  const target = runtime.fixture.targets[actualArrivalIndex];
+  if (!target) {
+    throw new Error(`mixed constant-arrival-rate 실행 target을 찾지 못했습니다: ${actualArrivalIndex}`);
   }
   return target;
 }
@@ -119,24 +133,22 @@ function executeT5(client, target, room, tags) {
 }
 
 export default function (window) {
-  const arrivalIndex = execution.scenario.iterationInTest;
-  const target = targetForArrival(arrivalIndex);
+  // dropped iteration은 이 함수에 진입하지 않는다. iterationInTest는 scheduled slot이 아니라 실제 실행 순번이다.
+  const actualArrivalIndex = execution.scenario.iterationInTest;
+  const target = targetForExecutedArrival(actualArrivalIndex);
   const room = runtime.fixture.rooms[target.roomKey];
   if (!room) {
     throw new Error(`mixed target ROOM을 찾지 못했습니다: ${target.roomKey}`);
   }
   const client = sessionFor(runtime, window.sessions, target.actorKey);
-  const plannedArrivalAt = window.firstArrivalAt
-    + Math.floor((arrivalIndex * 1_000) / runtime.fixture.options.arrivalRate);
   const tags = scenarioTags(runtime, target, {
     phase: 'measurement',
     operation: target.operation,
     tier: target.tier,
     fixture_partition: target.fixture,
-    arrival_index: String(arrivalIndex),
+    actual_arrival_index: String(actualArrivalIndex),
     execution_model: 'constant-arrival-rate',
   });
-  recordStartSkew(plannedArrivalAt, tags);
 
   if (target.operation === 't1') {
     executeT1(client, target, room, tags);

@@ -52,7 +52,7 @@ $bundle = node load-tests/k6/jiwon/tools/fixture.mjs render-bundle `
   ConvertFrom-Json
 ```
 
-`manifest.json`, `fixture-plan.json`, `execution-options.json`은 같은 normalized options와 `selectionPlanDigest`를 보존한다. `execution-options.json`의 `mixedProfile`에는 rate·time unit·duration·VU 범위와 selection count가 남는다. 실행 결과에서는 raw `k6-summary.json`의 `dropped_iterations`를 유지하고, `final-result.json`의 `mixedAggregate`가 target/actual arrival, dropped iterations, hot·spread × T1·T2·T5 × outcome count와 outcome latency를 빈 조합까지 포함해 정규화한다.
+`manifest.json`, `fixture-plan.json`, `execution-options.json`은 같은 normalized options와 `selectionPlanDigest`를 보존한다. `execution-options.json`의 `mixedProfile`에는 rate·time unit·duration·VU 범위와 selection count가 남는다. 실행 결과에서는 raw `k6-summary.json`의 `dropped_iterations`를 유지하고, `final-result.json`의 `mixedAggregate`가 target/actual arrival, dropped iterations, hot·spread × T1·T2·T5 × outcome count와 outcome latency를 빈 조합까지 포함해 정규화한다. constant-arrival-rate에서 k6가 노출하는 실행 순번은 dropped slot을 포함한 scheduled slot이 아니므로, mixed 요청 tag는 `actual_arrival_index`만 기록하며 `room_start_skew_ms`로 scheduled start skew를 주장하지 않는다.
 
 T1·T2 write fixture와 T5 read fixture는 같은 run 안에서도 ROOM·user·participation·waitlist identity를 공유하지 않는다. 필수 profile/manifest/seed/arrival artifact가 없거나 malformed면 `INVALID`이고, 계약이 갖춰진 뒤 aggregate 불일치·write/read 격리·사후 DB 불변식이 깨지면 `FAIL`이다. 이 profile의 실제 Terraform apply/run/destroy는 이 이슈 범위 밖이며 별도 운영 승인이 필요하다.
 
@@ -129,7 +129,7 @@ node load-tests/k6/jiwon/tools/fixture.mjs verify `
   --fixture $prepared.fixturePath --stage after
 ```
 
-`run`은 k6 시작 전에 fixture의 결정적 plan과 현재 DB resource identity를 다시 대조한 뒤, fixture의 SHA-256을 같은 `run-manifest.json`에 기록하고 fixture가 가리키는 scenario 스크립트만 실행한다. `after` 검증은 현재 fixture SHA-256과 manifest를 다시 대조한 뒤 같은 경로의 `k6-summary.json`만 사용하므로, 실행 뒤 손상된 fixture나 수동으로 섞은 다른 실행 summary를 성능 근거로 쓰지 않는다. T5 manifest에는 실제 적용한 `t5ReadOptions`(VU·duration·think time)를 남기고, 같은 정규화 값으로 k6 child process를 실행한다. `ALBAM_MATE_SOURCE_SHA`에는 로컬 스크립트 checkout이 아니라 **대상 환경에 배포된** SHA를 넣는다. T1~T5는 `room_start_skew_ms`의 최댓값이 `1,000ms` 미만이어야 한다. 이는 응답 성능 SLO가 아니라 같은 barrier에 둔 VU가 실제로 함께 시작했는지 판정하는 실행 유효성 gate다.
+`run`은 k6 시작 전에 fixture의 결정적 plan과 현재 DB resource identity를 다시 대조한 뒤, fixture의 SHA-256을 같은 `run-manifest.json`에 기록하고 fixture가 가리키는 scenario 스크립트만 실행한다. `after` 검증은 현재 fixture SHA-256과 manifest를 다시 대조한 뒤 같은 경로의 `k6-summary.json`만 사용하므로, 실행 뒤 손상된 fixture나 수동으로 섞은 다른 실행 summary를 성능 근거로 쓰지 않는다. T5 manifest에는 실제 적용한 `t5ReadOptions`(VU·duration·think time)를 남기고, 같은 정규화 값으로 k6 child process를 실행한다. `ALBAM_MATE_SOURCE_SHA`에는 로컬 스크립트 checkout이 아니라 **대상 환경에 배포된** SHA를 넣는다. 기존 barrier 기반 T1~T5 profile은 `room_start_skew_ms`의 최댓값이 `1,000ms` 미만이어야 한다. 이는 응답 성능 SLO가 아니라 같은 barrier에 둔 VU가 실제로 함께 시작했는지 판정하는 실행 유효성 gate다. mixed constant-arrival profile은 [위 실행 순번 규칙](#mixed-constant-arrival-profile)을 따른다.
 
 ## Terraform 원격 실행 bundle
 
@@ -199,7 +199,7 @@ node load-tests/k6/jiwon/tools/fixture.mjs compare-t5 --run-id $runId
 
 portable bundle의 `manifest.json`은 실행 입력 계약이고, `infra-execution.json`·before/after diagnosis·`final-result.json`·`k6-summary.json`은 실행 결과다.
 
-`room_success`, `room_created`, `room_business_failures`, `room_concurrent_failures`, `room_unexpected_4xx`, `room_server_failures`, `room_contract_failures`, `room_start_skew_ms`와 아래 outcome별 duration metric을 k6 summary에서 확인한다.
+`room_success`, `room_created`, `room_business_failures`, `room_concurrent_failures`, `room_unexpected_4xx`, `room_server_failures`, `room_contract_failures`, 기존 barrier 기반 profile의 `room_start_skew_ms`와 아래 outcome별 duration metric을 k6 summary에서 확인한다.
 
 `k6-summary.json`은 `room_request_duration{outcome:success}`, `room_request_duration{outcome:business}`, `room_request_duration{outcome:concurrency}`, `room_request_duration{outcome:unexpected}`를 항상 포함한다. 각 metric의 `values`는 다음 구조로 정규화한다.
 

@@ -285,10 +285,7 @@ function outcomeLatency(metric, count) {
   const values = metricValues(metric);
   const metricSampleCount = metricCount(metric);
   if (!values || metricSampleCount === null) {
-    return null;
-  }
-  if (metricSampleCount !== count) {
-    return { mismatch: true, count: metricSampleCount };
+    return { invalid: true };
   }
   const result = {
     count,
@@ -298,10 +295,18 @@ function outcomeLatency(metric, count) {
     max: metricStatistic(values, ['max']),
   };
   const statistics = [result.p50, result.p95, result.p99, result.max];
-  if (count === 0) {
-    return statistics.every((value) => value === null) ? result : { mismatch: true, ...result };
+  if (metricSampleCount === 0) {
+    const emptyTrend = statistics.every((value) => value === null)
+      || statistics.every((value) => value === 0);
+    if (!emptyTrend) {
+      return { invalid: true, ...result };
+    }
+    return metricSampleCount === count ? emptyOutcomeLatency() : { mismatch: true, count: metricSampleCount };
   }
-  return statistics.every(Number.isFinite) ? result : { mismatch: true, ...result };
+  if (!statistics.every(Number.isFinite)) {
+    return { invalid: true, ...result };
+  }
+  return metricSampleCount === count ? result : { mismatch: true, count: metricSampleCount };
 }
 
 function outcomeMetricCount(summary, outcome) {
@@ -387,10 +392,12 @@ export function buildMixedAggregate(summary, input) {
           continue;
         }
         const latency = outcomeLatency(durationSeries.metric, count);
-        if (!latency || latency.mismatch) {
+        if (latency?.invalid) {
+          invalidReasons.push(`${tier}/${operation}/${outcome} outcome duration artifact가 없거나 malformed입니다.`);
+        } else if (latency?.mismatch) {
           failureReasons.push(`${tier}/${operation}/${outcome} outcome latency와 request count가 일치하지 않습니다.`);
         }
-        outcomes[outcome] = latency && !latency.mismatch ? latency : emptyOutcomeLatency();
+        outcomes[outcome] = latency && !latency.mismatch && !latency.invalid ? latency : emptyOutcomeLatency();
         actualArrivals += count;
       }
       tiers[tier][operation] = outcomes;

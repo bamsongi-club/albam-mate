@@ -329,10 +329,14 @@ function assertFixtureMatchesPlan(fixturePath, fixture) {
     || !isDeepStrictEqual(fixture.options, plan.options)
     || !hasExactKeys(fixture, [
       'schemaVersion', 'fixtureId', 'options', 'prepareOwnership', 'users', 'rooms', 'targets', 'sessionUserKeys', 'baselineSnapshot',
+      ...(plan.fixturePartitions ? ['fixturePartitions'] : []),
+      ...(plan.mixedProfile ? ['mixedProfile'] : []),
     ])
     || !fixture.baselineSnapshot || typeof fixture.baselineSnapshot !== 'object' || Array.isArray(fixture.baselineSnapshot)
     || !isDeepStrictEqual(fixture.targets, plan.targets)
-    || !isDeepStrictEqual(fixture.sessionUserKeys, [...new Set(plan.sessionUserKeys)])) {
+    || !isDeepStrictEqual(fixture.sessionUserKeys, [...new Set(plan.sessionUserKeys)])
+    || !isDeepStrictEqual(fixture.fixturePartitions, plan.fixturePartitions)
+    || !isDeepStrictEqual(fixture.mixedProfile, plan.mixedProfile)) {
     fixturePlanMismatch();
   }
 
@@ -629,6 +633,10 @@ function completedRunArtifact(fixturePath, fixture) {
     return { failure: 'run-manifest.json에 완료 lifecycle 기록이 없습니다.' };
   }
 
+  const mixedProfileMatches = fixture.options.scenario === 'mixed'
+    ? isDeepStrictEqual(manifest.mixedProfile, fixture.mixedProfile)
+    : !Object.hasOwn(manifest, 'mixedProfile');
+
   if (manifest.schemaVersion !== 2
     || manifest.fixtureId !== fixture.fixtureId
     || manifest.runId !== fixture.options.runId
@@ -643,6 +651,7 @@ function completedRunArtifact(fixturePath, fixture) {
     || !SHA256_PATTERN.test(manifest.fixtureSha256 || '')
     || !SHA256_PATTERN.test(manifest.summarySha256 || '')
     || manifest.summaryFile !== RUN_SUMMARY_FILE
+    || !mixedProfileMatches
     || (fixture.options.scenario === 't5' && !isT5ReadOptions(manifest.t5ReadOptions))) {
     return { failure: 'run-manifest.json이 현재 fixture의 완료된 실행 기록과 맞지 않습니다.' };
   }

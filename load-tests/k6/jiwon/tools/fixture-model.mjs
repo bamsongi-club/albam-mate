@@ -1362,13 +1362,13 @@ function snapshotForRoomKeys(snapshot, fixture, roomKeys) {
   };
 }
 
-function evaluateMixedPartitions(fixture, failures) {
+function evaluateMixedPartitions(fixture, snapshot, failures) {
   const failureStart = failures.length;
   const write = mixedPartition(fixture, 'write');
   const read = mixedPartition(fixture, 'read');
   addFailure(failures, write !== null && read !== null, 'mixed write/read fixture partition이 없습니다.');
   if (!write || !read) {
-    return false;
+    return { invalid: true, valid: false };
   }
 
   const writeRoomKeys = new Set(write.roomKeys);
@@ -1397,23 +1397,43 @@ function evaluateMixedPartitions(fixture, failures) {
   for (const partition of partitionDefinitions) {
     const rooms = [...partition.roomKeys].map((key) => fixture.rooms[key]);
     const users = [...partition.userKeys].map((key) => fixture.users[key]);
+    if (!rooms.every(Boolean) || !users.every(Boolean)) {
+      addFailure(failures, false, `mixed ${partition.name} fixture partition의 resource key를 찾지 못했습니다.`);
+      return { invalid: true, valid: false };
+    }
+
+    const roomIds = rooms.map((room) => room.id);
+    const userIds = users.map((user) => user.id);
+    if (!roomIds.every(Number.isInteger) || !userIds.every(Number.isInteger)) {
+      addFailure(failures, false, `mixed ${partition.name} fixture partition의 DB resource identity가 올바르지 않습니다.`);
+      return { invalid: true, valid: false };
+    }
     addFailure(
       failures,
-      rooms.every(Boolean) && users.every(Boolean),
-      `mixed ${partition.name} fixture partition의 resource key를 찾지 못했습니다.`,
+      new Set(roomIds).size === roomIds.length,
+      `mixed ${partition.name} fixture partition의 DB ROOM ID가 유일하지 않습니다.`,
+    );
+    addFailure(
+      failures,
+      new Set(userIds).size === userIds.length,
+      `mixed ${partition.name} fixture partition의 DB 사용자 ID가 유일하지 않습니다.`,
     );
 
-    const roomIds = rooms.map((room) => room?.id);
-    const userIds = users.map((user) => user?.id);
+    const partitionRoomIds = new Set(roomIds);
+    const partitionUserIds = new Set(userIds);
+    const partitionParticipations = snapshot.participations
+      .filter((entry) => partitionRoomIds.has(entry.roomId));
+    const partitionWaitlists = snapshot.waitlists
+      .filter((entry) => partitionRoomIds.has(entry.roomId));
     addFailure(
       failures,
-      roomIds.every(Number.isInteger) && new Set(roomIds).size === roomIds.length,
-      `mixed ${partition.name} fixture partition의 DB ROOM ID가 유효·유일하지 않습니다.`,
+      partitionParticipations.every((entry) => partitionUserIds.has(entry.userId)),
+      `mixed ${partition.name} snapshot participation의 사용자가 같은 partition에 속하지 않습니다.`,
     );
     addFailure(
       failures,
-      userIds.every(Number.isInteger) && new Set(userIds).size === userIds.length,
-      `mixed ${partition.name} fixture partition의 DB 사용자 ID가 유효·유일하지 않습니다.`,
+      partitionWaitlists.every((entry) => partitionUserIds.has(entry.userId)),
+      `mixed ${partition.name} snapshot waitlist의 사용자가 같은 partition에 속하지 않습니다.`,
     );
 
     for (const room of rooms) {
@@ -1465,7 +1485,7 @@ function evaluateMixedPartitions(fixture, failures) {
       `mixed ${target.operation} target의 fixture partition이 다릅니다.`,
     );
   }
-  return failures.length === failureStart;
+  return { invalid: false, valid: failures.length === failureStart };
 }
 
 function evaluateMixedT1(fixture, snapshot, failures, aggregate) {
@@ -1556,11 +1576,16 @@ function evaluateMixedT5(fixture, snapshot, failures, aggregate) {
 }
 
 function evaluateMixed(fixture, snapshot, failures, summary) {
-  const partitionValid = evaluateMixedPartitions(fixture, failures);
-  if (!partitionValid) {
+  const partitions = evaluateMixedPartitions(fixture, snapshot, failures);
+  if (partitions.invalid) {
     return { invalid: true };
   }
   const aggregate = summary ? buildMixedAggregate(summary, fixture.options) : null;
+  if (aggregate?.status === 'INVALID') {
+    aggregate.invalidReasons.forEach((reason) => {
+      addFailure(failures, false, `mixed aggregate: ${reason}`);
+    });
+  }
   if (aggregate?.status === 'FAIL') {
     aggregate.failureReasons.forEach((reason) => {
       addFailure(failures, false, `mixed aggregate: ${reason}`);
@@ -1661,7 +1686,7 @@ export function evaluateFixture(fixture, snapshot, stage, summary = null) {
 
   if (stage === 'before') {
     if (fixture.options.scenario === 'mixed') {
-      evaluateMixedPartitions(fixture, failures);
+      evaluateMixedPartitions(fixture, snapshot, failures);
     }
     for (const room of Object.values(fixture.rooms)) {
       const current = roomSnapshot(snapshot, room.id);
