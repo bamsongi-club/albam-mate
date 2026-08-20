@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.time.Instant;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -37,6 +38,23 @@ class AssistantDraftIdempotencyExpiryIntegrationTest {
 	private UserRepository userRepository;
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
+
+	@AfterEach
+	void tearDown() {
+		jdbcTemplate.update(
+			"delete from assistant_idempotency_records where user_id in (select id from users where email like 'expiry-%@example.com')");
+		jdbcTemplate.update(
+			"delete from assistant_drafts where user_id in (select id from users where email like 'expiry-%@example.com')");
+		jdbcTemplate.update(
+			"delete from chat_rooms where room_id in (select id from rooms where host_user_id in (select id from users where email like 'expiry-%@example.com'))");
+		jdbcTemplate.update(
+			"delete from participations where room_id in (select id from rooms where host_user_id in (select id from users where email like 'expiry-%@example.com'))");
+		jdbcTemplate.update(
+			"delete from rooms where host_user_id in (select id from users where email like 'expiry-%@example.com')");
+		jdbcTemplate.update(
+			"delete from assistant_consents where user_id in (select id from users where email like 'expiry-%@example.com')");
+		jdbcTemplate.update("delete from users where email like 'expiry-%@example.com'");
+	}
 
 	@Test
 	void T5_다음_초안_생성은_만료된_멱등기록만_정리하고_기존_Room을_건드리지_않는다() {

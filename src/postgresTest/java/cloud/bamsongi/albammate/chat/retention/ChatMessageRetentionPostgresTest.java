@@ -438,7 +438,7 @@ class ChatMessageRetentionPostgresTest {
 		long roomId = jdbcTemplate.queryForObject("""
 			insert into rooms (host_user_id, room_type, title, experience_level, is_rulemaster_led, region, capacity,
 			active_participant_count, start_at, place, status, created_at, updated_at)
-			values (?, 'PERSON_FOCUSED', ?, 'ALL_LEVELS', false, '서울', 1, 0, ?, '테스트', ?, ?, ?) returning id
+			values (?, 'PERSON_FOCUSED', ?, 'ALL_LEVELS', false, '홍대', 1, 0, ?, '테스트', ?, ?, ?) returning id
 			""", Long.class, userId, "retention-" + suffix, timestamp(now.plusSeconds(3600)), status, timestamp(now),
 			timestamp(now));
 		long chatRoomId = jdbcTemplate.queryForObject("""
@@ -460,7 +460,7 @@ class ChatMessageRetentionPostgresTest {
 			"""
 				insert into retention_migration_test.rooms (host_user_id, room_type, title, experience_level, is_rulemaster_led,
 				region, capacity, active_participant_count, start_at, place, status, created_at, updated_at)
-				values (?, 'PERSON_FOCUSED', ?, 'ALL_LEVELS', false, '서울', 1, 0, current_timestamp, '테스트', ?,
+				values (?, 'PERSON_FOCUSED', ?, 'ALL_LEVELS', false, '홍대', 1, 0, current_timestamp, '테스트', ?,
 				current_timestamp, current_timestamp) returning id
 				""",
 			Long.class, userId, suffix, status);
