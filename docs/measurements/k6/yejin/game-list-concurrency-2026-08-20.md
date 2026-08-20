@@ -78,7 +78,30 @@ relation 지연의 원인을 확인하기 위해 V1 query shape를 고정한 채
 
 전체 시나리오 회귀 gate와 relation·complex 개선 조건을 모두 만족하지 못했으므로 복합 인덱스 후보는 `REJECTED`다. 따라서 현재 PR에는 인덱스 migration을 추가하지 않고 V1 query shape를 유지한다.
 
-EXPLAIN에서도 인덱스는 theme subquery의 `ix_game_theme_relations_theme_game_experiment_867` index-only scan(4,258행)에는 사용됐지만, mechanism subquery가 만드는 24,419건의 `games` PK lookup은 그대로 남았다. 즉 후보 인덱스가 관계 필터 전체 비용의 일부만 줄이며, complex 회귀와 relation 중앙값 정체를 설명한다. 다음 실험 대상은 인덱스 추가 자체가 아니라 두 relation subquery의 join/order와 mechanism→games lookup 비용이며, 동일한 6시나리오 gate를 다시 적용해야 한다.
+EXPLAIN에서도 인덱스는 theme subquery의 `ix_game_theme_relations_theme_game_experiment_867` index-only scan(4,258행)에는 사용됐지만, mechanism subquery가 만드는 24,419건의 `games` PK lookup은 그대로 남았다. 즉 후보 인덱스가 관계 필터 전체 비용의 일부만 줄이며, complex 회귀와 relation 중앙값 정체를 설명한다. 후속 실험 대상으로 인덱스 추가 자체가 아니라 두 relation subquery의 join/order와 mechanism→games lookup 비용을 정하고, 아래와 같이 동일한 6시나리오 gate를 적용했다.
+
+## V1 relation 교집합 query gate
+
+복합 인덱스 후보가 탈락했으므로, 인덱스 migration 없이 theme·mechanism `ANY` 필터를 하나의 `DISTINCT game_id` 교집합 subquery로 묶는 query variant를 실험했다. `ANY`+`ANY` 조합에서만 적용하고 `ALL` 및 단일 relation 필터의 의미는 기존 query shape로 보존했다.
+
+동일한 `game-list-170005-local-2026-08-19-frozen` fixture와 manifest를 사용해 직전 서버 commit `c837428cacb4dce077ed7d66afd80d68e0570b35`를 control, 현재 commit `7efd640d9fd017ae43de6e7296a5dcfd4e5bd93c`를 candidate로 두었다. runner commit은 `7efd640d9fd017ae43de6e7296a5dcfd4e5bd93c`, runner SHA-256은 `3e7fce5c5cd4da9ed0773365255f9e68c65068941ec642593e935223c98a3e47`이며, 양쪽 모두 warm-up 5회·측정 20회·6개 시나리오를 네 번 paired round로 실행했다. 8개 artifact는 모두 `status=success`, HTTP 오류 0건, Slice 계약 check 통과였다.
+
+판정 기준은 각 시나리오의 네 round p95 중앙값이 control 대비 `+5%` 이내이고, relation·complex는 control보다 낮아야 한다는 기존 T5 gate다.
+
+| 시나리오 | control p95 중앙값 | 교집합 query p95 중앙값 | 변화 | 판정 |
+| --- | ---: | ---: | ---: | --- |
+| base | 21.155ms | 19.684ms | -6.95% | 통과 |
+| keyword | 16.332ms | 16.320ms | -0.08% | 통과 |
+| player-count | 15.780ms | 14.327ms | -9.21% | 통과 |
+| relation-theme-mechanism | 143.406ms | 35.282ms | -75.40% | 통과 |
+| complex | 114.616ms | 38.908ms | -66.05% | 통과 |
+| flags-upcoming-exact | 16.853ms | 16.592ms | -1.55% | 통과 |
+
+전체 회귀 및 relation·complex 개선 gate를 만족했으므로 교집합 query variant를 최종 선택한다. 일부 round에서 로컬 Docker host 변동으로 candidate p95 outlier가 있었지만, 사전 합의한 네 round 중앙값 기준은 통과했다.
+
+동일 DB에서 수행한 보조 `EXPLAIN (ANALYZE, BUFFERS)`는 기존 분리 subquery의 실행 시간이 `302.812ms`, `games_pkey` lookup 24,419회였고, 교집합 subquery는 `39.516ms`, `games_pkey` lookup 70회였다. 교집합 plan은 `idx_game_mechanism_relations_mechanism_game`와 기존 `game_theme_relations_pkey`를 사용하며 새 migration은 필요하지 않다. 이 단일 실행 시간은 p95 gate를 대체하지 않고 query 구조를 설명하는 진단 증거로만 사용한다.
+
+focused 검증은 `GameMatchModeHttpIntegrationTest`의 ANY/ALL·Slice 보존 테스트와 `GameListFilterPostgresTest`의 uncorrelated subquery·기존 index 보존 테스트를 통과했다.
 
 ## App·PostgreSQL 자원
 
