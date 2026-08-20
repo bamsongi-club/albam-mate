@@ -209,6 +209,7 @@ class RoomWaitlistRepositoryTest {
 			Set.of(
 				"findStateWithPositionByRoomIdAndUserId",
 				"findFirstWaitingByRoomId",
+				"promoteFirstWaitingByRoomId",
 				"findWaitingRoomIdsByUserIdAndRoomIds",
 				"getNextQueueOrder",
 				"cancelWaiting",

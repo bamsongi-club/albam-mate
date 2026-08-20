@@ -4,8 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -14,8 +15,8 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.InOrder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -24,6 +25,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
@@ -43,8 +45,8 @@ import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.enums.RoomWaitlistStatus;
 import cloud.bamsongi.albammate.room.repository.ParticipationRepository;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
-import cloud.bamsongi.albammate.room.repository.RoomWaitlistCandidateProjection;
 import cloud.bamsongi.albammate.room.repository.RoomWaitlistRepository;
+import cloud.bamsongi.albammate.room.repository.RoomWaitlistRepository.FirstWaitingPromotionProjection;
 import jakarta.persistence.EntityManager;
 
 @SpringBootTest
@@ -60,12 +62,29 @@ class RoomParticipationCancelExecutorTest {
 	private RoomRepository roomRepository;
 	@Autowired
 	private ParticipationRepository participationRepository;
-	@Autowired
+	@MockitoSpyBean
 	private RoomWaitlistRepository roomWaitlistRepository;
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
 	@Autowired
 	private EntityManager entityManager;
+
+	@BeforeEach
+	void useH2CompatibilityPromotion() {
+		doAnswer(invocation -> {
+			Long roomId = invocation.getArgument(0);
+			Instant requestTime = invocation.getArgument(1);
+			return roomWaitlistRepository.findFirstWaitingByRoomId(roomId)
+				.map(candidate -> h2Promotion(
+					candidate.getUserId(),
+					candidate.getQueueOrder(),
+					roomWaitlistRepository.promoteWaiting(
+						roomId,
+						candidate.getUserId(),
+						candidate.getQueueOrder(),
+						requestTime) == 1));
+		}).when(roomWaitlistRepository).promoteFirstWaitingByRoomId(any(Long.class), any(Instant.class));
+	}
 
 	@Test
 	void 없는_방의_서비스_통합_경로는_ROOM_NOT_FOUND로_종료한다() {
@@ -224,8 +243,8 @@ class RoomParticipationCancelExecutorTest {
 		RoomWaitlistRepository mockedWaitlistRepository = mock(RoomWaitlistRepository.class);
 		Room mockedRoom = mock(Room.class);
 		Participation leavingParticipation = mock(Participation.class);
-		RoomWaitlistCandidateProjection staleCandidate = candidate(staleWaitingUserId, 10L);
-		RoomWaitlistCandidateProjection currentCandidate = candidate(currentWaitingUserId, 20L);
+		FirstWaitingPromotionProjection stalePromotion = promotion(staleWaitingUserId, 10L, false);
+		FirstWaitingPromotionProjection currentPromotion = promotion(currentWaitingUserId, 20L, true);
 		RoomParticipationCancelExecutor executor = new RoomParticipationCancelExecutor(
 			mockedRoomRepository,
 			mockedParticipationRepository,
@@ -244,18 +263,15 @@ class RoomParticipationCancelExecutorTest {
 			.thenReturn(java.util.Optional.of(leavingParticipation));
 		when(mockedParticipationRepository.findByRoomIdAndUserId(roomId, currentWaitingUserId))
 			.thenReturn(java.util.Optional.empty());
-		when(mockedWaitlistRepository.findFirstWaitingByRoomId(roomId))
-			.thenReturn(java.util.Optional.of(staleCandidate), java.util.Optional.of(currentCandidate));
-		when(mockedWaitlistRepository.promoteWaiting(roomId, staleWaitingUserId, 10L, NOW)).thenReturn(0);
-		when(mockedWaitlistRepository.promoteWaiting(roomId, currentWaitingUserId, 20L, NOW)).thenReturn(1);
+		when(mockedWaitlistRepository.promoteFirstWaitingByRoomId(roomId, NOW))
+			.thenReturn(java.util.Optional.of(stalePromotion), java.util.Optional.of(currentPromotion));
 
 		executor.cancelParticipation(leavingUserId, roomId, NOW);
 
-		InOrder transitionOrder = inOrder(mockedWaitlistRepository);
-		transitionOrder.verify(mockedWaitlistRepository).promoteWaiting(roomId, staleWaitingUserId, 10L, NOW);
-		transitionOrder.verify(mockedWaitlistRepository).promoteWaiting(roomId, currentWaitingUserId, 20L, NOW);
+		verify(mockedWaitlistRepository, times(2)).promoteFirstWaitingByRoomId(roomId, NOW);
 		verify(mockedParticipationRepository, times(2)).save(any(Participation.class));
 		verify(mockedParticipationRepository).findByRoomIdAndUserId(roomId, currentWaitingUserId);
+		verify(mockedWaitlistRepository, never()).promoteWaiting(roomId, staleWaitingUserId, 10L, NOW);
 	}
 
 	@Test
@@ -384,7 +400,8 @@ class RoomParticipationCancelExecutorTest {
 		when(participation.getStatus()).thenReturn(ParticipationStatus.ACTIVE);
 		when(mockedParticipationRepository.findByRoomIdAndUserId(roomId, participantUserId))
 			.thenReturn(java.util.Optional.of(participation));
-		when(mockedWaitlistRepository.findFirstWaitingByRoomId(roomId)).thenReturn(java.util.Optional.empty());
+		when(mockedWaitlistRepository.promoteFirstWaitingByRoomId(roomId, NOW))
+			.thenReturn(java.util.Optional.empty());
 
 		executor.cancelParticipation(participantUserId, roomId, NOW);
 
@@ -405,7 +422,7 @@ class RoomParticipationCancelExecutorTest {
 		RoomChangeEventRecorder promotedRecorder = mock(RoomChangeEventRecorder.class);
 		Room promotedRoom = mock(Room.class);
 		Participation leavingParticipation = mock(Participation.class);
-		RoomWaitlistCandidateProjection waiting = candidate(20L, 1L);
+		FirstWaitingPromotionProjection waiting = promotion(20L, 1L, true);
 		RoomParticipationCancelExecutor promotedExecutor = new RoomParticipationCancelExecutor(
 			promotedRoomRepository, promotedParticipationRepository, promotedWaitlistRepository, promotedRecorder,
 			NO_OP_EVENT_PUBLISHER);
@@ -418,8 +435,8 @@ class RoomParticipationCancelExecutorTest {
 		when(promotedParticipationRepository.findByRoomIdAndUserId(roomId, participantUserId))
 			.thenReturn(java.util.Optional.of(leavingParticipation));
 		when(promotedParticipationRepository.findByRoomIdAndUserId(roomId, 20L)).thenReturn(java.util.Optional.empty());
-		when(promotedWaitlistRepository.findFirstWaitingByRoomId(roomId)).thenReturn(java.util.Optional.of(waiting));
-		when(promotedWaitlistRepository.promoteWaiting(roomId, 20L, 1L, NOW)).thenReturn(1);
+		when(promotedWaitlistRepository.promoteFirstWaitingByRoomId(roomId, NOW))
+			.thenReturn(java.util.Optional.of(waiting));
 
 		promotedExecutor.cancelParticipation(participantUserId, roomId, NOW);
 
@@ -443,7 +460,7 @@ class RoomParticipationCancelExecutorTest {
 		RoomChangeEventRecorder recorder = mock(RoomChangeEventRecorder.class);
 		Room room = mock(Room.class);
 		Participation leavingParticipation = mock(Participation.class);
-		RoomWaitlistCandidateProjection waiting = candidate(promotedUserId, 1L);
+		FirstWaitingPromotionProjection waiting = promotion(promotedUserId, 1L, true);
 		RoomParticipationCancelExecutor executor = new RoomParticipationCancelExecutor(
 			mockedRoomRepository, mockedParticipationRepository, mockedWaitlistRepository, recorder,
 			NO_OP_EVENT_PUBLISHER);
@@ -457,8 +474,8 @@ class RoomParticipationCancelExecutorTest {
 			.thenReturn(java.util.Optional.of(leavingParticipation));
 		when(mockedParticipationRepository.findByRoomIdAndUserId(roomId, promotedUserId))
 			.thenReturn(java.util.Optional.empty());
-		when(mockedWaitlistRepository.findFirstWaitingByRoomId(roomId)).thenReturn(java.util.Optional.of(waiting));
-		when(mockedWaitlistRepository.promoteWaiting(roomId, promotedUserId, 1L, NOW)).thenReturn(1);
+		when(mockedWaitlistRepository.promoteFirstWaitingByRoomId(roomId, NOW))
+			.thenReturn(java.util.Optional.of(waiting));
 
 		executor.cancelParticipation(leavingUserId, roomId, NOW);
 
@@ -484,7 +501,7 @@ class RoomParticipationCancelExecutorTest {
 		RoomChangeEventRecorder recorder = mock(RoomChangeEventRecorder.class);
 		Room room = mock(Room.class);
 		Participation participation = mock(Participation.class);
-		RoomWaitlistCandidateProjection waiting = candidate(20L, 1L);
+		FirstWaitingPromotionProjection waiting = promotion(20L, 1L, false);
 		RoomParticipationCancelExecutor executor = new RoomParticipationCancelExecutor(
 			mockedRoomRepository, mockedParticipationRepository, mockedWaitlistRepository, recorder,
 			NO_OP_EVENT_PUBLISHER);
@@ -497,9 +514,8 @@ class RoomParticipationCancelExecutorTest {
 		when(participation.getStatus()).thenReturn(ParticipationStatus.ACTIVE);
 		when(mockedParticipationRepository.findByRoomIdAndUserId(roomId, participantUserId))
 			.thenReturn(java.util.Optional.of(participation));
-		when(mockedWaitlistRepository.findFirstWaitingByRoomId(roomId))
+		when(mockedWaitlistRepository.promoteFirstWaitingByRoomId(roomId, NOW))
 			.thenReturn(java.util.Optional.of(waiting), java.util.Optional.empty());
-		when(mockedWaitlistRepository.promoteWaiting(roomId, 20L, 1L, NOW)).thenReturn(0);
 
 		executor.cancelParticipation(participantUserId, roomId, NOW);
 
@@ -558,11 +574,36 @@ class RoomParticipationCancelExecutorTest {
 				capacity));
 	}
 
-	private RoomWaitlistCandidateProjection candidate(long userId, long queueOrder) {
-		RoomWaitlistCandidateProjection candidate = mock(RoomWaitlistCandidateProjection.class);
-		when(candidate.getUserId()).thenReturn(userId);
-		when(candidate.getQueueOrder()).thenReturn(queueOrder);
-		return candidate;
+	private FirstWaitingPromotionProjection promotion(long userId, long queueOrder, boolean promoted) {
+		FirstWaitingPromotionProjection promotion = mock(FirstWaitingPromotionProjection.class);
+		when(promotion.getUserId()).thenReturn(userId);
+		when(promotion.getQueueOrder()).thenReturn(queueOrder);
+		when(promotion.getPromoted()).thenReturn(promoted);
+		return promotion;
+	}
+
+	private FirstWaitingPromotionProjection h2Promotion(long userId, long queueOrder, boolean promoted) {
+		return new H2Promotion(userId, queueOrder, promoted);
+	}
+
+	private record H2Promotion(Long userId, Long queueOrder, Boolean promoted)
+		implements
+			FirstWaitingPromotionProjection {
+
+		@Override
+		public Long getUserId() {
+			return userId;
+		}
+
+		@Override
+		public Long getQueueOrder() {
+			return queueOrder;
+		}
+
+		@Override
+		public Boolean getPromoted() {
+			return promoted;
+		}
 	}
 
 	private long insertUser(String email, String nickname) {

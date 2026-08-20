@@ -99,13 +99,12 @@ class RoomParticipationCancelExecutor {
 		}
 
 		while (true) {
-			var candidate = roomWaitlistRepository.findFirstWaitingByRoomId(room.getId());
-			if (candidate.isEmpty()) {
+			var promotion = roomWaitlistRepository.promoteFirstWaitingByRoomId(room.getId(), requestTime);
+			if (promotion.isEmpty()) {
 				return Optional.empty();
 			}
-			var waiting = candidate.get();
-			if (roomWaitlistRepository.promoteWaiting(
-				room.getId(), waiting.getUserId(), waiting.getQueueOrder(), requestTime) == 0) {
+			var waiting = promotion.get();
+			if (!waiting.getPromoted()) {
 				continue;
 			}
 			promotionAttemptedObserver.run();

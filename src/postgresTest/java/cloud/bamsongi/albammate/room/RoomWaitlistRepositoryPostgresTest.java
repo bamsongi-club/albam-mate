@@ -14,6 +14,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import cloud.bamsongi.albammate.room.entity.RoomWaitlist;
+import cloud.bamsongi.albammate.room.entity.RoomWaitlistId;
 import cloud.bamsongi.albammate.room.enums.RoomWaitlistStatus;
 import cloud.bamsongi.albammate.room.repository.RoomWaitlistCandidateProjection;
 import cloud.bamsongi.albammate.room.repository.RoomWaitlistRepository;
@@ -64,6 +65,26 @@ class RoomWaitlistRepositoryPostgresTest extends SharedPostgresIntegrationSuppor
 		assertEquals(2L, state.getPosition());
 		assertEquals(firstUserId, candidate.getUserId());
 		assertEquals(10L, candidate.getQueueOrder());
+	}
+
+	@Test
+	void T2_PostgreSQL_한_statement로_첫_WAITING을_조건부_PROMOTED로_전이하고_FIFO_결과를_반환한다() {
+		roomWaitlistRepository.saveAndFlush(RoomWaitlist.create(roomId, firstUserId, 10L, FIRST_REQUEST_TIME));
+		roomWaitlistRepository.saveAndFlush(RoomWaitlist.create(roomId, secondUserId, 20L, FIRST_REQUEST_TIME));
+
+		RoomWaitlistRepository.FirstWaitingPromotionProjection promotion = roomWaitlistRepository
+			.promoteFirstWaitingByRoomId(roomId, FIRST_REQUEST_TIME.plusSeconds(60))
+			.orElseThrow();
+
+		assertEquals(firstUserId, promotion.getUserId());
+		assertEquals(10L, promotion.getQueueOrder());
+		assertEquals(true, promotion.getPromoted());
+		assertEquals(
+			RoomWaitlistStatus.PROMOTED,
+			roomWaitlistRepository.findById(new RoomWaitlistId(roomId, firstUserId)).orElseThrow().getStatus());
+		assertEquals(
+			RoomWaitlistStatus.WAITING,
+			roomWaitlistRepository.findById(new RoomWaitlistId(roomId, secondUserId)).orElseThrow().getStatus());
 	}
 
 	private long insertUser(String email) {

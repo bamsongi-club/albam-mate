@@ -42,6 +42,33 @@ public interface RoomWaitlistRepository extends JpaRepository<RoomWaitlist, Room
 	Optional<RoomWaitlistCandidateProjection> findFirstWaitingByRoomId(@Param("roomId")
 	Long roomId);
 
+	/** 첫 WAITING 대기자를 조건부로 승격하고, 경쟁으로 0행이 되면 같은 후보를 반환한다. */
+	@Query(value = """
+		with first_waiting as materialized (
+		    select room_id, user_id, queue_order
+		    from room_waitlists
+		    where room_id = :roomId and status = 'WAITING'
+		    order by queue_order asc
+		    limit 1
+		), promoted as (
+		    update room_waitlists waitlist
+		    set status = 'PROMOTED', updated_at = :requestTime
+		    from first_waiting
+		    where waitlist.room_id = first_waiting.room_id
+		      and waitlist.user_id = first_waiting.user_id
+		      and waitlist.status = 'WAITING'
+		      and waitlist.queue_order = first_waiting.queue_order
+		    returning waitlist.user_id
+		)
+		select first_waiting.user_id as "userId", first_waiting.queue_order as "queueOrder",
+		    exists (select 1 from promoted) as "promoted"
+		from first_waiting
+		""", nativeQuery = true)
+	Optional<FirstWaitingPromotionProjection> promoteFirstWaitingByRoomId(
+		@Param("roomId")
+		Long roomId, @Param("requestTime")
+		Instant requestTime);
+
 	@Query(value = """
 		select room_id
 		from room_waitlists
@@ -125,4 +152,13 @@ public interface RoomWaitlistRepository extends JpaRepository<RoomWaitlist, Room
 		long queueOrder,
 		@Param("requestTime")
 		Instant requestTime);
+
+	interface FirstWaitingPromotionProjection {
+
+		Long getUserId();
+
+		Long getQueueOrder();
+
+		Boolean getPromoted();
+	}
 }

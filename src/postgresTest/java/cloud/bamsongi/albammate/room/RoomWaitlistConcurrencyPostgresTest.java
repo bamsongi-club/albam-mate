@@ -134,6 +134,42 @@ class RoomWaitlistConcurrencyPostgresTest extends SharedPostgresIntegrationSuppo
 	}
 
 	@Test
+	void T3_동일_첫_WAITING_경쟁은_한_전이만_성공하고_실패_호출은_다음_FIFO만_승격한다() throws Exception {
+		new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+			roomWaitlistRepository.saveAndFlush(RoomWaitlist.create(roomId, firstUserId, 10L, REQUEST_TIME));
+			roomWaitlistRepository.saveAndFlush(RoomWaitlist.create(roomId, secondUserId, 20L, REQUEST_TIME));
+			roomWaitlistRepository.saveAndFlush(RoomWaitlist.create(roomId, thirdUserId, 30L, REQUEST_TIME));
+		});
+
+		List<java.util.Optional<RoomWaitlistRepository.FirstWaitingPromotionProjection>> attempts = executeConcurrentlyWhileWaitlistLocked(
+			() -> new TransactionTemplate(transactionManager).execute(status -> roomWaitlistRepository
+				.promoteFirstWaitingByRoomId(roomId, REQUEST_TIME.plusSeconds(60))),
+			() -> new TransactionTemplate(transactionManager).execute(status -> roomWaitlistRepository
+				.promoteFirstWaitingByRoomId(roomId, REQUEST_TIME.plusSeconds(60))));
+
+		assertEquals(2, attempts.size());
+		assertEquals(2, attempts.stream().filter(java.util.Optional::isPresent).count());
+		assertEquals(1, attempts.stream().map(java.util.Optional::orElseThrow)
+			.filter(promotion -> promotion.getPromoted()).count());
+		assertEquals(1, attempts.stream().map(java.util.Optional::orElseThrow)
+			.filter(promotion -> !promotion.getPromoted()).count());
+		assertTrue(attempts.stream().map(java.util.Optional::orElseThrow)
+			.allMatch(promotion -> promotion.getUserId().equals(firstUserId) && promotion.getQueueOrder().equals(10L)));
+
+		RoomWaitlistRepository.FirstWaitingPromotionProjection nextPromotion = new TransactionTemplate(
+			transactionManager)
+			.execute(
+				status -> roomWaitlistRepository.promoteFirstWaitingByRoomId(roomId, REQUEST_TIME.plusSeconds(120)))
+			.orElseThrow();
+		assertEquals(secondUserId, nextPromotion.getUserId());
+		assertEquals(20L, nextPromotion.getQueueOrder());
+		assertEquals(true, nextPromotion.getPromoted());
+		assertEquals("PROMOTED", waitlistStatus(roomId, firstUserId));
+		assertEquals("PROMOTED", waitlistStatus(roomId, secondUserId));
+		assertEquals("WAITING", waitlistStatus(roomId, thirdUserId));
+	}
+
+	@Test
 	void T3_대기열_진입_취소_FIFO_승격은_PostgreSQL_커밋_뒤_유한_metric과_불변식으로_수렴한다() {
 		long canceledUserId = insertUser("concurrency-waitlist-canceled@example.com");
 		jdbcTemplate.update("update rooms set capacity = 1, active_participant_count = 1 where id = ?", roomId);
