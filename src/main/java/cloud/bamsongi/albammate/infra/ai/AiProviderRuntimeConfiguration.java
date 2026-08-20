@@ -60,9 +60,10 @@ class AiProviderRuntimeConfiguration {
 		ObjectProvider<AiQuotaLedger> quotaLedgerProvider,
 		AssistantUsageEventSink usageEventSink,
 		AiProviderProperties properties) {
-		AiQuotaLedger quotaLedger = "fake".equals(properties.getProvider())
+		AiQuotaLedger configuredLedger = quotaLedgerProvider.getIfAvailable();
+		AiQuotaLedger quotaLedger = configuredLedger != null && "fake".equals(properties.getProvider())
 			? new NoOpAiQuotaLedger()
-			: quotaLedgerProvider.getIfAvailable(UnavailableAiQuotaLedger::new);
+			: configuredLedger != null ? configuredLedger : new UnavailableAiQuotaLedger();
 		return new AiProviderIntentExtractor(
 			provider,
 			quotaLedger,
