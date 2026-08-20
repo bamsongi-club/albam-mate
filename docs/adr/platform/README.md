@@ -28,3 +28,4 @@
 | [0073](0073-profile-image-shared-object-storage.md) | 프로필 이미지 저장소를 다중 인스턴스 공용 객체 스토리지(S3)로 전환 | 제안됨 | 미정 | 미검증 |
 | [0074](0074-p2-ai-provider-consent-and-operation-boundary.md) | P2 AI provider·동의·운영 경계를 단일 port와 fail-closed 정책으로 고정 | 승인됨 | 2026-08-18 | 미검증 |
 | [0083](0083-github-actions-develop-p1-continuous-deployment.md) | develop 기준 P1 GitHub Actions 연속 배포 경계 | 승인됨 | 2026-08-20 | 미검증 |
+| [0085](0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md) | P2 AI 호출 quota·고정 예약 비용과 정확 게임명 직접 조회 | 승인됨 | 2026-08-21 | 미검증 |

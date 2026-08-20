@@ -1044,11 +1044,13 @@ PostgreSQL에 커밋된 매칭 요청·제안·성공 파티·채팅 접근 관�
 | `region` | Region | Y | Y | 방 생성 필드. 서버가 정규화한 지역 |
 | `experienceLevel` | ExperienceLevel | Y | Y | 추천에 사용한 경험 수준. 없으면 `null` |
 
-`categories`·`mechanisms`·`themes`·`complexityMax`·`playTimeMax`는 승인된 게임 목록 검색의 같은 code 집합과 값 범위를 그대로 쓴다. 세 배열은 각각 목록 안 `ANY`로 결합하고 서로 다른 조건 종류끼리는 `AND`로 결합한다. AI 경로는 게임 목록 검색의 `mechanismMatch`·`themeMatch`에 해당하는 선택지를 노출하지 않고 항상 `ANY`로 고정하므로, 후보를 좁히는 판단은 결합 모드가 아니라 조건 종류를 늘리는 방식으로만 한다. `RECOMMEND`는 `categories`·`mechanisms`·`themes` 가운데 하나 이상이 있어야 후보를 조회하며, 하나도 없으면 `GAME_STYLE`만 담은 `NEEDS_INPUT`으로 끝낸다. `complexityMax`·`playTimeMax`는 선택 정제 조건이라 누락으로 요구하지 않는다. 이미 확인된 `gameId`·`playerCount`는 후보 조회의 추가 `AND` 필터로 쓸 수 있지만 `RECOMMEND`의 누락 조건으로 요구하지 않는다.
+`categories`·`mechanisms`·`themes`·`complexityMax`·`playTimeMax`는 승인된 게임 목록 검색의 같은 code 집합과 값 범위를 그대로 쓴다. 세 배열은 각각 목록 안 `ANY`로 결합하고 서로 다른 조건 종류끼리는 `AND`로 결합한다. AI 경로는 게임 목록 검색의 `mechanismMatch`·`themeMatch`에 해당하는 선택지를 노출하지 않고 항상 `ANY`로 고정하므로, 후보를 좁히는 판단은 결합 모드가 아니라 조건 종류를 늘리는 방식으로만 한다. **provider 기반 일반 추천 경로**는 `categories`·`mechanisms`·`themes` 가운데 하나 이상이 있어야 후보를 조회하며, 하나도 없으면 `GAME_STYLE`만 담은 `NEEDS_INPUT`으로 끝낸다. `complexityMax`·`playTimeMax`는 선택 정제 조건이라 누락으로 요구하지 않는다. 이미 확인된 `gameId`·`playerCount`는 후보 조회의 추가 `AND` 필터로 쓸 수 있지만 `RECOMMEND`의 누락 조건으로 요구하지 않는다.
+
+[ADR-0085](adr/platform/0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md)의 정확 게임명 직접 경로는 위 일반 추천의 예외다. 정규화한 단독 입력이 카탈로그 `Game.name` 하나와 유일하게 일치하면 서버가 그 ID를 `gameId`에 넣고 후보 한 건을 반환한다. 이 경로는 스타일 조건·`RANK-01` 필터를 적용하지 않는다. `conditions`는 서버가 같은 schema로 다시 검증하며, 유일 매치가 아닌 경우에는 `gameId`를 이 경로에서 설정하지 않는다.
 
 ### 4.36 AssistantRecommendationResponse
 
-> **도입 단계: P2** · **기능: AI-02** · **API 계약 상태: 계약 확정** · **제공 상태: AI-01a T1~T5 검증 범위 제공**
+> **도입 단계: P2** · **기능: AI-02** · **API 계약 상태: 계약 확정** · **제공 상태: AI-01a T1~T5 검증 범위 제공 · ADR-0085 후보 전용 DTO·정확 게임명 직접 조회는 구현 예정**
 
 `RECOMMEND` 흐름의 결과다. 이 응답은 Room·ChatRoom·임시 초안을 만들지 않는다.
 
@@ -1057,9 +1059,20 @@ PostgreSQL에 커밋된 매칭 요청·제안·성공 파티·채팅 접근 관�
 | `state` | AssistantRecommendationState | Y | N | 추가 질문, 추천, 지원하지 않는 요청 |
 | `conditions` | AssistantConditionSummary | Y | N | 서버가 검증한 구조화 조건. 미확정 필드는 `null` |
 | `missingFields` | AssistantMissingField[] | Y | N | `NEEDS_INPUT`일 때 필요한 필드 집합. 그 밖에는 `[]` |
-| `candidates` | GameSummary[] | Y | N | 서버의 AND 조건과 내부 `RANK-01` 순서로 정렬한 후보 최대 10건. 없으면 `[]` |
+| `candidates` | AssistantRecommendationCandidate[] | Y | N | 후보 최대 10건. 없으면 `[]` |
 
-후보는 provider가 반환한 게임 식별자를 신뢰하지 않고 서버가 `game.contract`로 다시 조회한다. 공개 `RANK-01` 상위 결과나 `DISCOVERY-01`의 `SEARCH-04` tool을 사용하지 않는다. 후보는 AND 필터와 내부 `RANK-01` 정렬 뒤 상위 10건으로 절단하며, 동점은 게임 ID 오름차순으로 끊는다. 절단 사실을 알리는 총 개수 필드나 pagination은 제공하지 않는다.
+후보는 provider가 반환한 게임 식별자를 신뢰하지 않고 서버가 `game.contract`로 다시 조회한다. 공개 `RANK-01` 상위 결과나 `DISCOVERY-01`의 `SEARCH-04` tool을 사용하지 않는다. provider 기반 일반 추천의 후보는 AND 필터와 내부 `RANK-01` 정렬 뒤 상위 10건으로 절단하며, 동점은 게임 ID 오름차순으로 끊는다. [ADR-0085](adr/platform/0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md)의 유일한 정확 게임명 직접 경로는 위 정렬을 거치지 않고 일치한 후보 1건만 반환한다. 절단 사실을 알리는 총 개수 필드나 pagination은 제공하지 않는다.
+
+### 4.36.1 AssistantRecommendationCandidate
+
+`AI-02` 추천 카드 전용 projection이다. `GameSummary`는 Room 등 다른 응답의 공유 DTO이므로 이 화면 요구로 확장하지 않는다. 상세 화면 이동은 이 DTO가 아니라 기존 `#/game/:id` route가 소유한다.
+
+| 필드 | 타입 | 필수 | nullable | 설명 |
+|---|---|:---:|:---:|---|
+| `id` | integer | Y | N | 내부 게임 ID. 상세 route와 `GAME_FOCUSED` 초안의 `gameId`에 사용 |
+| `name` | string | Y | N | 카탈로그 정식 게임명 |
+| `imageUrl` | string | Y | Y | 대표 이미지 URL. `null`이면 클라이언트가 이미지 없이 카드 fallback을 표시 |
+| `description` | string | Y | N | `GET /api/games/{gameId}`의 간단 설명과 같은 공개 값. 상세 설명·BGG 원문은 포함하지 않음 |
 
 ### 4.37 AssistantDraftResponse
 
@@ -1967,7 +1980,7 @@ Vary: Cookie
 
 > **도입 단계: P2** · **기능: AI-01·AI-02·AI-03** · **API 계약 상태: 계약 확정** · **제공 상태: AI-01a T1~T5와 AI-03a T1~T6 검증 범위 제공**
 >
-> 이 절의 AI-01 동의·AI-02 자연어 추천과 AI-03 초안·확인 경로는 현재 제공한다. 외부 provider·보존·호출 한도는 [ADR-0074](adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md), 초안·확인·멱등성은 [ADR-0075](adr/room/0075-p2-ai-draft-confirmation-and-idempotent-room-command.md), 지역은 [ADR-0076](adr/room/0076-p2-room-region-closed-set-and-compatibility.md)을 따른다.
+> 이 절의 AI-01 동의·AI-02 자연어 추천과 AI-03 초안·확인 경로는 현재 제공한다. 외부 provider·보존 경계는 [ADR-0074](adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md), AI-02의 호출 quota·고정 예약 비용·정확 게임명 직접 조회는 [ADR-0085](adr/platform/0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md), 초안·확인·멱등성은 [ADR-0075](adr/room/0075-p2-ai-draft-confirmation-and-idempotent-room-command.md), 지역은 [ADR-0076](adr/room/0076-p2-room-region-closed-set-and-compatibility.md)을 따른다. ADR-0085의 후보 DTO·직접 조회 확장은 승인된 목표 계약이며 제공 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)에서 판정한다.
 
 모든 AI 기능군 API는 로그인한 현재 사용자만 호출한다. `GET`은 CSRF가 필요 없고 상태 변경 `PUT`·`POST`·`PATCH`·`DELETE`는 세션과 CSRF가 필요하다. 유효한 외부 처리 동의가 없으면 provider 호출·추천·초안 생성·확인을 시작하지 않는다. AI-01은 동의·제품 흐름, AI-02는 자연어 추천, AI-03은 확인형 초안·Room 생성 경로를 소유하며, 기존 `POST /api/rooms` 즉시 생성 경로는 유지한다.
 
@@ -2027,7 +2040,9 @@ Vary: Cookie
 | `message` | string | Y | N | 앞뒤 공백 제거 후 1~2000자, 제어문자 금지. 현재 한 번의 사용자 입력만 전달 |
 | `conditions` | AssistantConditionSummary | N | Y | 직전 응답이 반환한 누적 조건. 첫 요청이나 새 대화에서는 `null` |
 
-서버는 provider 호출 전에 PII·secret·지원하지 않는 지시를 검사한다. provider에는 버전이 지정된 instruction·강제 `propose_game_room_intent` schema·기준 시각·현재 문장·서버가 식별한 누락 필드만 allowlist로 전달하며, 원문 응답·대화 이력·prompt hash는 저장하지 않는다. 서버는 대화 이력과 추천 상태를 저장하지 않으므로 다회 입력 흐름은 클라이언트가 잇는다. `NEEDS_INPUT`을 받은 클라이언트는 다음 요청에 직전 응답의 `conditions`를 그대로 담아 보내고, 서버는 이를 신뢰할 수 없는 구조화 입력으로 다시 검증한 뒤 필드 단위로 병합한다. 이번 문장에서 값을 추출한 필드만 대체하고, 배열이 비어 있거나 스칼라가 `null`인 필드는 이번 문장이 그 조건을 언급하지 않은 것으로 보아 이전 값을 그대로 유지한다. 따라서 후속 문장이 게임 스타일을 다시 말하지 않아도 앞 턴에서 확보한 `categories`·`mechanisms`·`themes`가 지워지지 않는다. 조건을 비우려면 `conditions`를 생략해 새 대화로 시작한다. `conditions`를 생략하면 이번 문장만으로 판정하므로 이전 조건은 이어지지 않는다. provider에는 병합 결과가 아니라 현재 문장과 서버가 식별한 누락 필드만 전달한다. `NEEDS_INPUT`과 `UNSUPPORTED`는 HTTP 성공 결과이며 Room·ChatRoom·초안을 만들지 않는다. 후보가 있으면 서버가 모든 구조화 조건을 `AND`로 적용하고 내부 `RANK-01` 순서로 정렬한다.
+공통 인증·CSRF·feature gate·유효한 외부 처리 동의를 통과한 뒤, 서버는 provider 전에 `game.contract`의 정확 게임명 resolver를 수행한다. 직접 조회는 `message` 전체가 단독 게임명일 때만 적용하며 `Game.name`과 Unicode NFKC, 앞뒤 공백 제거, 연속 공백 하나로 축약, `Locale.ROOT` 대소문자 정규화 뒤 유일하게 같은지를 판정한다. 문장 부호 제거, 부분 일치, 별칭·영문명·BGG ID, 기본판과 확장판의 자동 통합은 하지 않는다. 유일 매치면 `RECOMMENDED`·후보 1건·해당 `conditions.gameId`를 반환하고 provider 호출, provider quota·비용 예약, provider usage event, 초안·Room·ChatRoom 생성은 모두 0건이다. 0건 또는 복수 매치면 이 직접 경로는 성공으로 처리하지 않고 아래 provider 기반 일반 추천으로 계속한다.
+
+일반 추천에서 서버는 provider 호출 전에 PII·secret·지원하지 않는 지시를 검사한다. provider에는 버전이 지정된 instruction·강제 `propose_game_room_intent` schema·기준 시각·현재 문장·서버가 식별한 누락 필드만 allowlist로 전달하며, 원문 응답·대화 이력·prompt hash는 저장하지 않는다. 서버는 대화 이력과 추천 상태를 저장하지 않으므로 다회 입력 흐름은 클라이언트가 잇는다. `NEEDS_INPUT`을 받은 클라이언트는 다음 요청에 직전 응답의 `conditions`를 그대로 담아 보내고, 서버는 이를 신뢰할 수 없는 구조화 입력으로 다시 검증한 뒤 필드 단위로 병합한다. 이번 문장에서 값을 추출한 필드만 대체하고, 배열이 비어 있거나 스칼라가 `null`인 필드는 이번 문장이 그 조건을 언급하지 않은 것으로 보아 이전 값을 그대로 유지한다. 따라서 후속 문장이 게임 스타일을 다시 말하지 않아도 앞 턴에서 확보한 `categories`·`mechanisms`·`themes`가 지워지지 않는다. 조건을 비우려면 `conditions`를 생략해 새 대화로 시작한다. `conditions`를 생략하면 이번 문장만으로 판정하므로 이전 조건은 이어지지 않는다. provider에는 병합 결과가 아니라 현재 문장과 서버가 식별한 누락 필드만 전달한다. `NEEDS_INPUT`과 `UNSUPPORTED`는 HTTP 성공 결과이며 Room·ChatRoom·초안을 만들지 않는다. 후보가 있으면 서버가 모든 구조화 조건을 `AND`로 적용하고 내부 `RANK-01` 순서로 정렬한다.
 
 ### AI-03 초안 생성
 
@@ -2042,6 +2057,8 @@ Vary: Cookie
 `AssistantRoomDraftInput`과 같은 필드를 사용한다. `region`은 생략할 수 있고 `홍대`로 정규화하며, `place`는 확인 카드에서 입력하기 위해 `null`을 허용한다. `roomType`, `title`, `experienceLevel`, `isRulemasterLed`, `startsAt`, `recruitmentCapacity`는 필수이고 `GAME_FOCUSED`의 `gameId`는 필수다. 모든 Room 필드 검증은 기존 `ROOM-03`과 같은 범위를 사용한다.
 
 새 초안을 만들면 같은 사용자의 이전 `ACTIVE` 초안은 `DISCARDED`로 종결한다. 이 endpoint는 provider를 호출하지 않으며 Room·ChatRoom·참가 관계를 만들지 않는다. 초안은 생성 시점부터 15분 동안 유효하지만 응답에는 만료 시각이나 남은 시간을 포함하지 않는다.
+
+추천 후보의 “이 조건으로 만들기”는 별도 서버 기본값 생성 API가 아니라, 클라이언트가 이 `AssistantRoomDraftInput`을 완성해 보내는 UI 흐름이다. `roomType = GAME_FOCUSED`, 선택 후보의 `gameId`, 제목 `"{정식 게임명} 모임"`, `description = null`, 응답 조건의 `experienceLevel`(없으면 `BEGINNER_WELCOME`), `isRulemasterLed = false`, 응답 조건의 `region`(없으면 `홍대`), `place = null`을 사용한다. `playerCount`가 2~11명이고 미래 `startsAt`이 있을 때만 `recruitmentCapacity = playerCount - 1`을 채워 자동 초안을 허용한다. 제목이 100자를 넘거나 위 두 필수 조건이 없으면 자동 초안을 만들지 않고 직접 입력 흐름만 제공한다. “내가 직접 채우기”는 선택 후보를 가진 편집 폼만 열며 제출 전에는 이 endpoint를 호출하지 않는다.
 
 ### AI-03 활성 초안 조회
 
@@ -3022,7 +3039,7 @@ WebSocket은 수신 전용이다. 클라이언트가 애플리케이션 메시�
 
 `METHOD_NOT_ALLOWED`, `NOT_ACCEPTABLE`, `UNSUPPORTED_MEDIA_TYPE` 응답은 Spring MVC 예외가 제공하는 `Allow`, `Accept`, `Accept-Patch` 등의 프로토콜 헤더가 있으면 그대로 포함한다.
 
-`SERVICE_UNAVAILABLE`의 현재 적용 범위는 [채팅 API](#채팅-공통-계약)의 세 엔드포인트, `POST /api/auth/signup`, `POST /api/auth/login`, `POST /api/assistant/recommendations`이다. `local`과 `production`에서 인증 요청 제한 Redis를 확인할 수 없으면 회원가입·로그인은 사용자 조회·생성과 비밀번호 해시 전에 이 코드를 반환한다. 채팅 요청이 Spring Session Redis의 세션 상태를 확인할 수 없으면 같은 코드를 반환하며, 메시지 전송은 세션 저장소가 정상이더라도 전송 제한 상태 저장소를 확인할 수 없으면 저장 전에 같은 코드를 반환한다. AI 추천은 비용·사용량 예약 Redis를 확인할 수 없을 때 provider를 호출하지 않고 같은 코드를 반환한다. 이 503에는 `Retry-After`를 포함하지 않으며 Redis 장애 시 인메모리 구현으로 자동 대체하지 않는다.
+`SERVICE_UNAVAILABLE`의 현재 적용 범위는 [채팅 API](#채팅-공통-계약)의 세 엔드포인트, `POST /api/auth/signup`, `POST /api/auth/login`, `POST /api/assistant/recommendations`의 provider 기반 추천 경로다. `local`과 `production`에서 인증 요청 제한 Redis를 확인할 수 없으면 회원가입·로그인은 사용자 조회·생성과 비밀번호 해시 전에 이 코드를 반환한다. 채팅 요청이 Spring Session Redis의 세션 상태를 확인할 수 없으면 같은 코드를 반환하며, 메시지 전송은 세션 저장소가 정상이더라도 전송 제한 상태 저장소를 확인할 수 없으면 저장 전에 같은 코드를 반환한다. AI provider 기반 추천은 비용·사용량 예약 Redis를 확인할 수 없을 때 provider를 호출하지 않고 같은 코드를 반환한다. 정확 게임명 직접 조회는 이 예약 저장소를 읽지 않는다. 이 503에는 `Retry-After`를 포함하지 않으며 Redis 장애 시 인메모리 구현으로 자동 대체하지 않는다.
 
 로그인·로그아웃과 그 밖의 현재 P0·P1 세션 사용 엔드포인트로 이 코드를 확장할지는 이 문서에서 아직 결정하지 않는다. P2 MATCH 채팅의 계획된 적용 범위는 [MATCH 채팅 API](#match-채팅-공통-계약)와 오류 매트릭스에만 적으며, 이 계약이 현재 제공 범위를 넓히지 않는다.
 
@@ -3114,13 +3131,13 @@ MATCH 채팅 경로(`/api/matches/parties/{partyId}/chat/**`)는 성공 파티 �
 | `ASSISTANT_INPUT_NOT_ALLOWED` | 400 | 외부 AI 처리에 허용되지 않는 입력입니다. | PII·secret·지원하지 않는 지시를 안전하게 처리할 수 없음 |
 | `ASSISTANT_PROVIDER_UNAVAILABLE` | 503 | AI provider를 현재 사용할 수 없습니다. | provider를 호출하는 경로에서 provider·정책을 확인할 수 없거나 timeout·provider 429가 발생함. provider를 호출하지 않는 동의·초안 경로에는 사용하지 않음 |
 | `ASSISTANT_PROVIDER_RESPONSE_INVALID` | 503 | AI provider 응답을 처리할 수 없습니다. | 강제 구조화 schema를 검증하지 못함 |
-| `RATE_LIMIT_EXCEEDED` | 429 | 요청 처리 한도를 초과했습니다. 잠시 후 다시 시도해 주세요. | 사용자별 KST 일일 5회 또는 월간 150회 quota에 도달함 |
-| `ASSISTANT_COST_LIMIT_EXCEEDED` | 429 | AI 사용 비용 한도를 초과했습니다. | 앱 전체 월 hard cap `$5`에 도달함 |
+| `RATE_LIMIT_EXCEEDED` | 429 | 요청 처리 한도를 초과했습니다. 잠시 후 다시 시도해 주세요. | provider 기반 추천 경로에서 사용자별 KST 일일 10회 또는 월간 150회 quota에 도달함 |
+| `ASSISTANT_COST_LIMIT_EXCEEDED` | 429 | AI 사용 비용 한도를 초과했습니다. | provider 기반 추천의 다음 USD `0.10` 고정 예약이 앱 전체 KST 월 `$5` hard cap을 초과함. `$4`에서 warning을 발행하며 빈 월에는 50번째 예약까지 허용 |
 | `ASSISTANT_DRAFT_NOT_FOUND` | 404 | AI 초안을 찾을 수 없습니다. | 없는 초안 또는 현재 사용자 소유가 아닌 초안 |
 | `ASSISTANT_DRAFT_EXPIRED` | 410 | AI 초안이 만료되었습니다. | 요청 시작 시각에 초안의 15분 유효 기간이 지남 |
 | `ASSISTANT_DRAFT_CONFLICT` | 409 | AI 초안이 동시에 변경되었습니다. 다시 확인해 주세요. | 오래된 version, 다른 멱등키, 범위 밖 key 재사용, confirm 경합 또는 `CONFIRMED`·`DISCARDED` 초안 수정과 `CONFIRMED` 초안 폐기 시도 |
 
-`ASSISTANT_PROVIDER_UNAVAILABLE`는 실제 provider를 자동 재시도하거나 다른 model로 조용히 대체하지 않는다. Redis 비용·사용량 예약을 확인할 수 없는 경우에는 공통 오류인 `SERVICE_UNAVAILABLE`을 반환하고 provider를 호출하지 않는다. `ASSISTANT_PROVIDER_RESPONSE_INVALID`와 모든 provider 실패는 Room·ChatRoom·초안 확인 결과를 남기지 않는다. `ASSISTANT_DRAFT_EXPIRED`는 HTTP `410 Gone`을 사용하며 클라이언트는 새 초안을 시작해야 한다.
+`ASSISTANT_PROVIDER_UNAVAILABLE`는 실제 provider를 자동 재시도하거나 다른 model로 조용히 대체하지 않는다. Redis 비용·사용량 예약을 확인할 수 없는 경우 provider 기반 추천은 공통 오류인 `SERVICE_UNAVAILABLE`을 반환하고 provider를 호출하지 않는다. 정확 게임명 직접 조회는 예약 저장소를 읽거나 예약하지 않으므로 이 Redis 실패를 적용하지 않는다. `ASSISTANT_PROVIDER_RESPONSE_INVALID`와 모든 provider 실패는 Room·ChatRoom·초안 확인 결과를 남기지 않는다. `ASSISTANT_DRAFT_EXPIRED`는 HTTP `410 Gone`을 사용하며 클라이언트는 새 초안을 시작해야 한다.
 
 ## 11. 부록: 엔드포인트별 오류 매트릭스
 

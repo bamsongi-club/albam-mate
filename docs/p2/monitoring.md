@@ -250,24 +250,25 @@ p50·p95·p99는 같은 timer의 분포에서 계산한다. 평균만 표시하�
 | 화면·비용 | [요약 대시보드의 사용량과 추정 비용](dashboard.md#4-사용량과-추정-비용), [완료 증거](dashboard.md#완료-증거) |
 | 현재 상태 | [P2 기능 상태 정본](README.md#기능별-현재-상태) |
 
-AI 기능의 외부 처리·provider·model·호출 예산·가격 snapshot 소유 경계는 완료된 [#795](https://github.com/bamsongi-club/albam-mate/issues/795)와 승인된 [ADR-0074](../adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md)에 정본으로 등록돼 있다. `OPS-04`는 그 승인 경계를 관측·비용 계산에 연결하며 provider나 비용 정책을 이 문서에서 임의로 결정하지 않는다. 실제 배포·관측·가격 snapshot 전에는 `OPS-04`를 완료로 표시하지 않는다.
+AI 기능의 외부 처리·provider·model·호출 예산 경계는 완료된 [#795](https://github.com/bamsongi-club/albam-mate/issues/795)와 승인된 [ADR-0074](../adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md)·[ADR-0085](../adr/platform/0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md)에 정본으로 등록돼 있다. `OPS-04`는 그 승인 경계를 관측·표시에 연결하며 provider나 비용 정책을 이 문서에서 임의로 결정하지 않는다. 실제 배포·관측·가격 snapshot 전에는 `OPS-04`를 완료로 표시하지 않는다.
 
 ### 기능 규칙
 
 - provider·model·feature별 AI 요청 수와 success·fallback·failure
 - 입력·출력·전체 token과 모델별 누적 사용량
 - Tool별 호출 수·성공·실패·실행시간. Tool 이름은 허용 목록만 사용
-- provider 공식 가격표 snapshot을 이용한 요청별·기간별 추정 비용
+- 실제 외부 provider 호출 수 × USD `0.10`의 기간별 고정 예약 비용과 앱 월 `$5` cap·`$4` warning 사용량
+- provider 공식 가격표 snapshot을 이용한 token 기반 참고 추정값. 이는 고정 예약 cap의 계산값이 아님
 - CloudWatch custom metric 수, log ingestion·보존량처럼 P2 관측이 추가한 비용 입력
 
-추정 비용은 실제 청구액이 아니다. 환율, 할인, 무료 구간, 캐시 token, provider 청구 단위와 세금이 다를 수 있으므로 가격 출처·적용일·통화·계산식을 함께 표시한다. AI 기능이 아직 배포되지 않은 환경의 값 없음은 비용 `0`의 증거로 사용하지 않는다.
+고정 예약 비용은 앱 내부 예산 판정값이고 실제 청구액·청구 호출 수가 아니다. token 기반 참고 추정값도 실제 청구액이 아니다. 환율, 할인, 무료 구간, 캐시 token, provider 청구 단위와 세금이 다를 수 있으므로 가격 출처·적용일·통화·계산식을 함께 표시한다. 가격 snapshot은 USD `0.10` 예약값 적정성 재검토에 쓰되 월 cap을 다시 계산하지 않는다. AI 기능이 아직 배포되지 않은 환경의 값 없음은 비용 `0`의 증거로 사용하지 않는다.
 
 ### 완료 기준
 
 - `OPS-04-AC1` AI 호출 경계가 요청 수와 입력·출력 token을 provider·model·feature의 제한된 label로 기록한다.
 - `OPS-04-AC2` 프롬프트·응답·Tool 인자·사용자 ID 없이 success·fallback·failure와 Tool 결과를 집계한다.
-- `OPS-04-AC3` 공식 가격표 snapshot, 통화, 적용일과 계산식으로 추정 비용을 재현할 수 있다.
-- `OPS-04-AC4` dashboard가 기간·provider·model별 token과 추정 비용을 보여주고 청구 확정액으로 표현하지 않는다.
+- `OPS-04-AC3` 실제 외부 provider 호출 수와 USD `0.10`으로 고정 예약 비용·월 cap·warning 사용량을 재현하고, 공식 가격표 snapshot·통화·적용일·계산식의 token 기반 참고 추정값을 별도 표시할 수 있다.
+- `OPS-04-AC4` dashboard가 기간·provider·model별 token, 고정 예약 예산 사용량과 참고 추정값을 서로 구분해 보여주며 어느 값도 청구 확정액으로 표현하지 않는다.
 - `OPS-04-AC5` metric·log 수집량과 보존기간으로 P2 관측 자체의 비용 증가 요인을 설명할 수 있다.
 - `OPS-04-AC6` AI 기능·provider·model은 확정됐지만, 실제 배포·관측·가격 snapshot이 없는 상태에서는 `OPS-04`를 완료로 표시하지 않는다.
 - `OPS-04-AC7` P2가 추가하는 애플리케이션 OTLP metric·중앙 로그·신규 alarm의 예상 월 비용은 USD 10 이하이며 기존 host 관측 비용을 별도로 표시한다.
@@ -276,7 +277,7 @@ AI 기능의 외부 처리·provider·model·호출 예산·가격 snapshot 소�
 ### 제외 범위
 
 - AI provider의 실제 청구액 확정과 AWS 계정 전체 FinOps
-- 환율·할인·무료 구간·세금을 임의로 추정해 공식 가격표 snapshot을 덮어쓰기
+- 환율·할인·무료 구간·세금을 임의로 추정해 공식 가격표 snapshot을 덮어쓰거나, token 추정값으로 고정 예약 cap을 대체하기
 - AI 답변의 정확성·유용성·근거 품질 평가
 - AI 기능이 배포되지 않은 환경의 값 없음을 비용 `0`으로 판정
 
