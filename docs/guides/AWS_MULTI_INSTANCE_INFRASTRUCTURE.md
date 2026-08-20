@@ -1,6 +1,6 @@
 # P1 AWS 저비용 4 EC2 인프라 실행안
 
-이 문서는 Albam Mate P1 검증 환경을 Terraform으로 반복 생성하고 Ansible로 호스트 설정을 적용한 뒤, 실제 사용 흐름을 재현한 부하에서 역할별 병목을 찾기 위한 실행안이다.
+이 문서는 Albam Mate P1 검증 환경을 Terraform으로 반복 생성하고 Ansible로 호스트 설정을 적용한 뒤, 실제 사용 흐름과 배포 경계를 확인하기 위한 실행안이다. 부하 측정은 P1 배포 대상과 분리된 별도 EC2 테스트 환경에서 수행한다.
 
 기술 선택과 ADR-0038의 부분 대체 범위는 [승인된 ADR-0051](../adr/platform/0051-p1-self-managed-aws-infrastructure.md)이 소유한다. Terraform·Ansible 1차 코드는 별도 `albam-mate-infra` 저장소에 있다. 2026-08-11 임시 서울 리전 스택에서 App 두 대·PostgreSQL·Redis를 모두 `t4g.micro`로 배포하고 외부 web 진입점으로 인증·알림 계약과 fan-out·혼합 부하를 실행했다. 정확한 실행 근거와 한계는 [ADR-0051 검증](../adr/platform/0051-p1-self-managed-aws-infrastructure.md#검증)과 [인증·알림 AWS 용량 측정](../measurements/k6/jiho/auth-notification-capacity-2026-08-11.md)을 따른다. 다른 팀원 계정의 독립 재현, Ansible `--syntax-check`·`--check`와 SSM 실행, 데이터 복구, 교차 인스턴스 WebSocket·Scheduler, App2 장애 처리와 지속 혼합 부하의 유효한 용량 경계는 아직 확인하지 않았다.
 
@@ -27,6 +27,7 @@
 | 문서·저장소 | 소유 내용 |
 | --- | --- |
 | 승인된 ADR-0051 | Nginx 진입점, 자체 운영 데이터 서비스, EC2 수와 트레이드오프 |
+| 승인된 ADR-0083, [develop P1 자동 CD 가이드](CD_DEPLOYMENT.md) | `develop` 자동 CD의 SHA·OIDC/SSM·직렬 실행·App2 migrator·LKG manifest·앱 rollback 경계. 실제 workflow·권한·실행 증거는 아직 소유·구현되지 않았다. |
 | 이 가이드 | 생성·배포·측정·확장·철거 순서, 검증 체크리스트와 P1 최소 배포 목표 상태 |
 | `docs/archive/p1/P1-spec.md`, `docs/ARCHITECTURE.md` | P1 애플리케이션 실행 계약과 다중 인스턴스 동작 |
 | `docs/p2/monitoring.md`, ADR-0071·ADR-0059 | P2 운영 질문·완료 기준과 애플리케이션 metric·구조화 log 전송 경계. 이 P1 실행안은 해당 구현·검증 상태를 소유하지 않는다. |
@@ -40,8 +41,6 @@
 ```mermaid
 flowchart TB
     USER["P1 기능 스모크 사용자"] -->|"HTTPS 443<br/>최초 배포는 SSM 포트 포워딩"| NGINX["App1 EC2 · Elastic IP<br/>Nginx + Spring · t4g.micro"]
-    LOADGEN["외부 부하 발생기"] -->|"허용 CIDR 제한 후<br/>SSM 제외 직접 경로"| NGINX
-
     subgraph AWS["AWS · 단일 리전 · public subnet"]
         NGINX
         APP2["App2 EC2<br/>Spring · t4g.micro"]
@@ -66,7 +65,7 @@ flowchart TB
     SSM -.-> REDIS
 ```
 
-App1은 Nginx와 Spring을 함께 실행하고 App2는 Spring만 실행한다. Nginx는 App1 로컬 Spring과 App2 private DNS upstream으로 요청을 분산한다. App1이 더 많은 자원을 사용하므로 부하 결과에서 두 Spring 인스턴스의 CPU·메모리를 따로 기록한다.
+App1은 Nginx와 Spring을 함께 실행하고 App2는 Spring만 실행한다. Nginx는 App1 로컬 Spring과 App2 private DNS upstream으로 요청을 분산한다. 별도 EC2 측정 환경에서도 두 Spring 인스턴스의 CPU·메모리를 따로 기록해 역할별 병목을 구분한다.
 
 App1 장애는 전체 외부 진입점 장애다. App2 장애는 Nginx의 실패 대상 제외 설정으로 일부 요청을 App1에 보낼 수 있지만, 실제 WebSocket 연결과 재시도 결과를 검증하기 전에는 무중단 전환을 보장하지 않는다.
 
@@ -122,7 +121,13 @@ App1 Elastic IP는 외부 DNS가 가리킬 안정적인 진입 주소다. 실제
 
 ## P1 최소 배포 목표 상태
 
-이 절은 App1·App2·PostgreSQL·Redis 네 노드의 최소 배포가 성립하는 목표 상태를 확정한다. 후속 구현 이슈는 이 절만 근거로 착수하며, 여기에 없는 계약을 구현에서 새로 정하지 않는다. 이 저장소가 소유하는 항목은 [albam-mate#494](https://github.com/bamsongi-club/albam-mate/issues/494)가, [albam-mate-infra#1](https://github.com/bamsongi-club/albam-mate-infra/issues/1)은 ECR 저장소 이름과 Docker Compose 플러그인 설치·검증만 소유한다. 실제 ARM64 이미지 게시·노드별 환경 전달·배포·분산·복구·부하 증거의 소유자는 별도 인프라 후속 이슈가 확정하기 전까지 미배정이다.
+이 절은 App1·App2·PostgreSQL·Redis 네 노드의 최소 배포가 성립하는 목표 상태를 확정한다. 후속 구현 이슈는 이 절만 근거로 착수하며, 여기에 없는 계약을 구현에서 새로 정하지 않는다. 이 저장소가 소유하는 항목은 [albam-mate#494](https://github.com/bamsongi-club/albam-mate/issues/494)가, [albam-mate-infra#1](https://github.com/bamsongi-club/albam-mate-infra/issues/1)은 ECR 저장소 이름과 Docker Compose 플러그인 설치·검증만 소유한다. 실제 ARM64 이미지 게시·노드별 환경 전달·배포·분산·복구·부하 증거의 소유자는 별도 인프라 후속 이슈가 확정하기 전까지 미배정이다. `develop` 자동 CD의 정책 정본은 [ADR-0083](../adr/platform/0083-github-actions-develop-p1-continuous-deployment.md)과 [CD 가이드](CD_DEPLOYMENT.md)이며, 이 문서화 자체는 해당 구현·실측의 완료를 뜻하지 않는다.
+
+### develop 자동 CD 후속 계약
+
+현재 실행 가능한 상태는 아래 [ECR 저장소 이름과 수동 이미지 릴리스](#5-ecr-저장소-이름과-수동-이미지-릴리스)와 수동 배포 흐름이다. [ADR-0083](../adr/platform/0083-github-actions-develop-p1-continuous-deployment.md)은 이후 `develop` 병합 뒤 같은 SHA의 CI 통과·ARM64 image·OIDC/SSM 배포·전용 Flyway migrator·App2→App1 앱 rollback을 목표 계약으로 승인했다.
+
+이 자동 CD는 아직 구현·검증되지 않았다. Terraform apply, P1 초기 생성·데이터 노드 기동, k6 실행, DB 자동 rollback 및 App1 무중단 보장은 여전히 이 범위 밖이다. 자동 CD 구현에는 App2의 `/etc/albam-mate/app2.env`를 재사용하는 SSM migrator와 비밀이 아닌 LKG Parameter bootstrap·IAM 경계가 포함된다. 실제 workflow와 배포 실행 기록이 생기기 전에는 아래 수동 절차를 자동화됐다고 표현하지 않는다.
 
 ### 최초 배포 접근과 인증서 순서
 
@@ -134,81 +139,15 @@ App1 Elastic IP는 외부 DNS가 가리킬 안정적인 진입 주소다. 실제
 | `enable_https` | `false` | 공개 TCP 443 리스너를 만들지 않는다. |
 | `ALBAM_MATE_HTTPS_BIND_ADDRESS` | `127.0.0.1` | web의 443 게시를 App1 호스트 루프백으로 제한한다. |
 | 기능 스모크 경로 | SSM 포트 포워딩 | 인터넷 노출 없이 App1의 HTTPS에 접근한다. |
-| 부하 측정 경로 | 최초 배포에서는 실행하지 않음. 이후 SSM을 거치지 않는 제한된 직접 경로 | SSM 터널의 지연·처리량을 App1·App2 병목과 섞지 않는다. |
+| 부하 측정 환경 | P1 배포 대상과 분리된 별도 EC2 테스트 환경 | P1 배포 EC2의 CPU·네트워크·컨테이너 재생성 영향을 측정 결과와 섞지 않는다. |
 
 web의 Nginx는 `ssl_certificate`와 `ssl_certificate_key` 파일이 없으면 기동하지 못한다. 따라서 기존 "App1 기동 후 TLS 연결" 순서가 아니라 **임시 또는 유효 인증서를 App1에 배치한 뒤 web을 기동한다**. 임시 인증서는 SSM 포트 포워딩 클라이언트에서만 신뢰하면 되고 공개 신뢰 체인을 요구하지 않는다.
 
-외부 DNS A record, 공인 인증서, HTTP 80 리스너와 80→443 전환은 후속 범위로 유지한다. 따라서 이 최초 배포 상태에서는 직접 HTTPS 부하를 실행하지 않으며, 측정이 필요할 때만 아래 전환 절차를 수행한다.
+외부 DNS A record, 공인 인증서, HTTP 80 리스너와 80→443 전환은 후속 범위로 유지한다. 최초 배포 상태에서는 P1 App1·App2의 직접 HTTPS 부하를 실행하지 않는다.
 
-### 직접 부하 전환과 원복
+### 별도 EC2 부하 측정 경계
 
-최초 배포의 `public_ingress_cidrs=[]`, `enable_https=false`, `ALBAM_MATE_HTTPS_BIND_ADDRESS=127.0.0.1` 조합은 SSM 기능 스모크 전용이다. 이 상태에서는 외부 부하 발생기가 App1의 443에 연결할 수 없고, SSM 포워딩용 Origin을 그대로 사용하면 직접 WebSocket handshake도 거절된다. 따라서 `public_ingress_cidrs`만 변경해서는 측정 상태가 되지 않는다.
-
-#### 측정 경로로 전환
-
-측정 전환은 부하 발생기에서 App1의 외부 HTTPS endpoint로 직접 접속할 때만 수행한다.
-
-1. 부하 발생기의 고정 source CIDR을 먼저 정한다. `0.0.0.0/0`은 사용하지 않으며, `DIRECT_HOST`는 실제 HTTPS URL의 hostname이면서 배치한 인증서의 SAN에 포함된 값으로 고정한다.
-2. Terraform 입력과 App1·App2에 전달하는 `/etc/albam-mate/app1.env`, `/etc/albam-mate/app2.env`를 다음처럼 바꾼다. `ALBAM_MATE_CHAT_WEBSOCKET_ALLOWED_ORIGIN`에는 SSM용 `https://127.0.0.1:<포워딩 포트>`가 아니라 직접 접속 URL의 정확한 Origin을 넣는다. 기본 HTTPS 포트 443이면 포트를 생략하고, 비표준 포트면 포트까지 포함한다.
-
-   ```hcl
-   # Terraform 입력
-   public_ingress_cidrs = ["<load-generator-cidr>"]
-   enable_https        = true
-   ```
-
-   ```dotenv
-   # /etc/albam-mate/app1.env
-   ALBAM_MATE_HTTPS_BIND_ADDRESS=0.0.0.0
-   ALBAM_MATE_CHAT_WEBSOCKET_ALLOWED_ORIGIN=https://<direct-host>
-   ```
-
-3. Terraform을 적용한 뒤 App1 보안 그룹의 TCP 443이 `<load-generator-cidr>`에서만 허용되는지 확인한다. App2·PostgreSQL·Redis에는 공개 인바운드를 추가하지 않는다.
-4. `<direct-host>`로 검증 가능한 인증서를 App1의 `ALBAM_MATE_TLS_PATH`에 배치한다. 임시 인증서를 사용할 때는 부하 발생기가 해당 발급자 체인을 신뢰하도록 준비해야 하며, `-k`로 인증서 검증을 우회한 결과는 HTTPS 운영 부하 증거로 기록하지 않는다.
-5. bind address와 Origin은 컨테이너 시작 시 읽으므로 설정 파일만 바꾸지 말고 web·spring을 반드시 재생성한다.
-
-   ```sh
-   docker compose --env-file /etc/albam-mate/app1.env -f compose.production.yml config --quiet
-   docker compose --env-file /etc/albam-mate/app1.env -f compose.production.yml up -d --force-recreate --wait
-   docker compose --env-file /etc/albam-mate/app1.env -f compose.production.yml ps
-   docker compose --env-file /etc/albam-mate/app1.env -f compose.production.yml logs --tail 200 web spring
-   ```
-
-6. 부하 발생기에서 먼저 연결을 확인한다. HTTP는 `https://<direct-host>/`에 인증서 검증을 포함해 성공해야 하며, WebSocket은 기존 로그인 `JSESSIONID`와 같은 방의 권한을 사용해 다음 endpoint에 `Origin: https://<direct-host>`로 접속하고 `101 Switching Protocols`를 확인한다.
-
-   ```text
-   wss://<direct-host>/api/rooms/<roomId>/chat/ws
-   ```
-
-   App1 Nginx access log에 해당 요청과 WebSocket `101`이 남고, `/api/` HTTP 응답의 `X-Albam-Mate-Upstream=app1|app2` 또는 upstream 로그로 App1·App2 분산을 확인한 뒤에만 부하를 시작한다. 응답 header는 raw upstream 주소를 내보내지 않으며, 내부 `upstream_addr`는 private infra가 manifest와 대조해 역할로 변환한다. 이 접속 확인과 부하 모두 SSM 포워딩이 아닌 동일한 직접 경로에서 수행한다.
-7. 측정 시작 시각, release SHA·이미지 digest, Terraform commit, 허용 CIDR, `DIRECT_HOST`, 두 Origin 값과 전환·원복 시각을 함께 기록한다.
-
-#### 측정 후 원복
-
-측정이 끝나면 외부 경로를 먼저 닫고, 컨테이너 설정도 최초 배포 상태로 되돌린다.
-
-1. 부하 발생기를 중지하고 로그·지표·결과를 보존한다.
-2. Terraform 입력과 `/etc/albam-mate/app1.env`, `/etc/albam-mate/app2.env`를 다음 값으로 되돌린다.
-
-   ```hcl
-   public_ingress_cidrs = []
-   enable_https        = false
-   ```
-
-   ```dotenv
-   ALBAM_MATE_HTTPS_BIND_ADDRESS=127.0.0.1
-   ALBAM_MATE_CHAT_WEBSOCKET_ALLOWED_ORIGIN=https://<ssm-local-host>:<ssm-local-port>
-   ```
-
-   SSM 클라이언트가 실제로 사용하는 host·포트와 Origin을 일치시키며, SSM WebSocket 스모크를 사용하지 않으면 Origin을 비워 모든 handshake를 거절하는 기본 보안 상태로 둘 수 있다.
-3. Terraform을 적용해 App1 TCP 443의 직접 허용 규칙을 제거한 뒤, 다음 명령으로 web·spring을 다시 재생성한다.
-
-   ```sh
-   docker compose --env-file /etc/albam-mate/app1.env -f compose.production.yml config --quiet
-   docker compose --env-file /etc/albam-mate/app1.env -f compose.production.yml up -d --force-recreate --wait
-   ```
-
-4. 부하 발생기의 직접 HTTPS 접속이 더 이상 성공하지 않고, SSM 포트 포워딩을 통한 기능 스모크만 성공하는지 확인한다. 직접 443이 닫히고 SSM 경로가 복구된 뒤에야 원복 완료로 기록한다.
+P1 배포 대상 App1·App2에는 직접 HTTP·WebSocket 또는 k6 부하를 실행하지 않는다. 부하 측정은 별도 EC2 테스트 환경에 측정 대상 애플리케이션 스택과 부하 발생기를 구성한 뒤 수행한다. 이 문서는 그 환경의 배포·원복·지표 수집을 소유하지 않으며, P1 자동 CD에도 별도 측정 환경의 배포·측정 제어를 추가하지 않는다.
 
 ### 1. web 컨테이너 기동 계약
 
@@ -326,7 +265,7 @@ Spring 컨테이너가 구조화 로그 파일을 쓸 수 있도록 App1·App2 �
 | TLS | web 컨테이너가 인증서를 직접 마운트하고 최초 배포는 임시 인증서를 쓴다. | 공인 인증서의 발급·저장·갱신 주체와 HTTP 80 리스너·80→443 전환 절차를 확정한다. |
 | PostgreSQL TLS | production 접속이 TLS를 쓰지 않는다. | 자체 운영 PostgreSQL의 서버 인증서와 Spring 접속 검증 수준을 확정한다. |
 | Redis 보안 | production 설정은 host와 port만 받는다. | password·TLS 사용 여부와 Spring 환경변수 계약을 확정한다. |
-| Flyway | production Spring 기동마다 Flyway가 자동 실행된다. | 두 Spring 동시 기동 방식을 검증하거나 별도 1회 migration 작업을 구현한다. |
+| Flyway | production Spring 기동마다 Flyway가 자동 실행된다. | [ADR-0083](../adr/platform/0083-github-actions-develop-p1-continuous-deployment.md)의 App2 SSM one-shot migrator, 앱별 Flyway 비활성화와 expand/contract를 구현·검증한다. |
 | 프로필 이미지 | App1·App2가 각자 로컬 named volume을 쓴다. | 공유 객체 스토리지로 옮기고 다중 노드에서 업로드·조회를 검증한다. |
 
 ## Terraform 저장소 구성
@@ -361,6 +300,8 @@ Ansible을 Terraform `apply`의 provisioner로 호출하지 않는다. plan·app
 6. 계정을 바꾸면 새 backend와 새 state로 같은 stack을 적용한다. 기존 계정 state를 복사해 소유권을 바꾸지 않는다.
 
 ## 배포 흐름
+
+이 절은 현재 P1을 처음 만들고 수동으로 확인하는 흐름이다. `develop` 자동 CD가 구현된 뒤의 image·migrator·앱 rollout·rollback 순서는 [CD 가이드](CD_DEPLOYMENT.md)를 따른다. 자동 CD는 Terraform apply나 아래 최초 인프라 생성을 실행하지 않는다.
 
 ```mermaid
 flowchart LR
@@ -406,13 +347,13 @@ flowchart LR
    docker compose --env-file /etc/albam-mate/app1.env -f compose.production.yml up -d --wait
    ```
 9. SSM 포트 포워딩으로 HTTPS에 접근해 기능 스모크와 HTTP·WebSocket 교차 인스턴스 시나리오를 실행한다.
-10. 부하 측정이 필요하면 [직접 부하 전환과 원복](#직접-부하-전환과-원복) 절차에 따라 `enable_https=true`, 외부 수신 bind address, 직접 HTTPS Origin, 제한 CIDR을 적용하고 컨테이너를 재생성한다. 직접 HTTP와 WebSocket 접속 확인 뒤에만 측정하고, 종료 후 같은 절차의 원복을 완료한다.
+10. 부하 테스트는 이 P1 배포 절차에서 실행하지 않는다. 필요하면 별도 EC2 측정 환경의 배포·측정 절차를 따른다.
 
 App1을 갱신하면 단일 진입점이 중단될 수 있다. 이 구성에서 무중단 순차 배포를 보장한다고 표현하지 않는다.
 
 ## 병목 측정과 단계적 확장
 
-SSM 포트 포워딩은 최초 배포의 기능 스모크와 교차 인스턴스 확인에만 사용한다. 부하 발생기는 네 EC2 밖의 별도 환경에서 실행하고, [직접 부하 전환과 원복](#직접-부하-전환과-원복)의 `enable_https=true`·외부 수신 bind·직접 HTTPS Origin·제한 CIDR을 적용한 뒤 SSM을 거치지 않는 직접 경로로 연결한다. 직접 HTTP·WebSocket 접속 확인과 전환 기록이 없는 결과는 부하 증거로 인정하지 않는다. 같은 EC2에서 부하를 만들거나 SSM 터널을 거치면 측정 대상의 CPU·네트워크·터널 지연을 함께 소비해 결과를 왜곡한다.
+SSM 포트 포워딩은 P1 배포 대상의 기능 스모크와 교차 인스턴스 확인에만 사용한다. 부하 측정은 P1 네 EC2 밖의 별도 테스트 환경에서 애플리케이션 스택과 부하 발생기를 분리해 수행하며, 해당 환경은 P1 자동 CD의 배포 대상·증거 범위와 분리한다. 같은 P1 EC2에서 부하를 만들거나 SSM 터널을 거치면 배포 검증과 측정 결과가 섞이므로 이 가이드에서는 허용하지 않는다.
 
 | 역할 | 함께 기록할 지표와 증상 | 해석 경계 |
 | --- | --- | --- |
@@ -451,8 +392,7 @@ SSM 포트 포워딩은 최초 배포의 기능 스모크와 교차 인스턴스
 - App1·App2 Spring이 같은 release digest로 실행되는지 확인
 - `ALBAM_MATE_APP2_HOST`를 비운 배포가 기동을 거부하는지 확인
 - upstream 식별 헤더나 로그로 두 Spring에 요청이 분산되는지 확인
-- [직접 부하 전환과 원복](#직접-부하-전환과-원복)의 `enable_https=true`, `ALBAM_MATE_HTTPS_BIND_ADDRESS=0.0.0.0`, 직접 HTTPS Origin, 컨테이너 재생성과 제한 CIDR을 적용했는지 확인
-- 직접 HTTP 응답과 WebSocket `101 Switching Protocols`를 부하 발생기에서 확인한 뒤 측정했는지, 종료 후 443·Compose 설정을 원복했는지 확인
+- P1 배포 대상에서는 기능 smoke만 실행하고, HTTP·WebSocket·k6 부하는 별도 EC2 측정 환경에서 수행하는지 확인
 - HTTP 세션과 WebSocket handshake가 다른 Spring에 도달해도 동일 세션을 사용하는지 확인
 - Pub/Sub 신호 유실 뒤 PostgreSQL catch-up으로 메시지를 복구하는지 확인
 - Scheduler가 PostgreSQL ShedLock으로 한 인스턴스에서만 실행되는지 확인
@@ -473,7 +413,7 @@ SSM 포트 포워딩은 최초 배포의 기능 스모크와 교차 인스턴스
 1. AWS 계정, 리전, 도메인, 비용 한도와 철거일을 기록한다.
 2. Terraform state 접근자와 `apply` 담당자를 정한다.
 3. 기준 release SHA, 두 이미지의 digest, Terraform commit과 부하 시나리오를 함께 기록한다.
-4. App1 Elastic IP, 기능 스모크용 SSM 포트 포워딩 경로, [직접 부하 전환과 원복](#직접-부하-전환과-원복)에 따른 부하 경로·배치 인증서·네 upstream 경계를 확인한다.
+4. App1 Elastic IP와 기능 스모크용 SSM 포트 포워딩 경계를 확인하고, 별도 EC2 측정 환경의 애플리케이션·부하 발생기 인스턴스와 직접 endpoint를 별도로 기록한다.
 5. PostgreSQL 논리 백업과 복원 절차를 확인한다.
 
 ### 측정 반복마다
