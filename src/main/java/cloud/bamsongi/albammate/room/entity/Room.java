@@ -97,6 +97,24 @@ public class Room extends BaseEntity {
 		Instant startAt,
 		String place,
 		int capacity) {
+		return create(
+			hostUserId, roomType, title, description, gameId, experienceLevel, rulemasterLed,
+			startAt, "홍대", place, capacity);
+	}
+
+	/** 확인형 생성은 닫힌 지역 값을 Room 저장 행에 함께 반영한다. */
+	public static Room create(
+		Long hostUserId,
+		RoomType roomType,
+		String title,
+		String description,
+		Long gameId,
+		ExperienceLevel experienceLevel,
+		boolean rulemasterLed,
+		Instant startAt,
+		String region,
+		String place,
+		int capacity) {
 		Room room = new Room();
 		room.hostUserId = Objects.requireNonNull(hostUserId, "hostUserId");
 		room.roomType = Objects.requireNonNull(roomType, "roomType");
@@ -105,7 +123,7 @@ public class Room extends BaseEntity {
 		room.gameId = gameId;
 		room.experienceLevel = Objects.requireNonNull(experienceLevel, "experienceLevel");
 		room.rulemasterLed = rulemasterLed;
-		room.region = "홍대";
+		room.region = Objects.requireNonNull(region, "region");
 		room.capacity = capacity;
 		room.activeParticipantCount = 0;
 		room.startAt = Objects.requireNonNull(startAt, "startAt");

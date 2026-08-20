@@ -824,9 +824,9 @@ Outbox의 `occurred_at`과 Notification의 `created_at`은 애플리케이션 `C
 - 사용자·방 삭제 기능은 P1 알림 범위에 없으므로 관련 FK는 `ON DELETE NO ACTION`으로 둔다. 향후 계정 삭제나 방 물리 삭제를 도입할 때 알림 익명화·삭제 순서를 별도로 결정한다.
 - 별도 복구 이력 테이블은 두지 않는다. 현재·누적 실패 횟수, 재처리 횟수와 마지막 실패·재처리·폐기 근거만 Outbox에 보존하며 강한 감사 이력이 필요해지면 후속 저장 계약으로 확장한다.
 
-## P2 AI 기능군 저장 계약 (계획·미구현)
+## P2 AI 기능군 저장 계약
 
-> 이 절은 `AI-01`~`AI-03`의 승인된 목표 저장 계약이며 아직 Flyway·JPA 엔티티·생산 테이블이 없다. 현재 제공·검증·배포·실측 여부는 [P2 기능 상태](p2/README.md#기능별-현재-상태)에서만 판정한다. 외부 provider·동의·보존·비용 경계는 [ADR-0074](adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md), 초안·확인·멱등성은 [ADR-0075](adr/room/0075-p2-ai-draft-confirmation-and-idempotent-room-command.md), 지역은 [ADR-0076](adr/room/0076-p2-room-region-closed-set-and-compatibility.md)을 따른다.
+> 이 절의 AI-01 동의와 AI-03 초안·확인 저장 계약은 Flyway·JPA 엔티티·생산 테이블로 제공한다. 현재 배포·실측 여부는 [P2 기능 상태](p2/README.md#기능별-현재-상태)에서만 판정한다. 외부 provider·동의·보존·비용 경계는 [ADR-0074](adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md), 초안·확인·멱등성은 [ADR-0075](adr/room/0075-p2-ai-draft-confirmation-and-idempotent-room-command.md), 지역은 [ADR-0076](adr/room/0076-p2-room-region-closed-set-and-compatibility.md)을 따른다.
 
 이 절은 AI-01 동의와 AI-03 초안·확인 멱등성의 저장 이름·타입·제약과 저장 효과만 소유한다. AI-02의 자연어 요청·provider payload·모델 원문 응답·대화 이력·게임 후보는 저장하지 않으며, HTTP 필드·오류는 [AI 기능군 API](API.md#ai-기능군-api), 모듈·트랜잭션 흐름은 [아키텍처의 AI 기능군 모듈 계약](ARCHITECTURE.md#p2-ai-기능군-모듈-계약-승인된-계획미구현)이 소유한다.
 

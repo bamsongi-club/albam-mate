@@ -192,7 +192,7 @@ class RoomDetailQueryMeasurementPostgresTest {
 			ExperienceLevel.ALL_LEVELS,
 			false,
 			FIXTURE_TIME,
-			"서울",
+			"홍대",
 			10));
 		for (int index = 0; index < activeParticipantCount; index++) {
 			long userId = user(

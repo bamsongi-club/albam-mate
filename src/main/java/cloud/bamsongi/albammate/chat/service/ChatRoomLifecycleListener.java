@@ -18,7 +18,8 @@ public class ChatRoomLifecycleListener {
 
 	@EventListener
 	public void createChatRoom(RoomCreated event) {
-		chatRoomRepository.save(ChatRoom.create(event.roomId()));
+		ChatRoom chatRoom = chatRoomRepository.save(ChatRoom.create(event.roomId()));
+		event.completeChatRoom(chatRoom.getId());
 	}
 
 	@EventListener

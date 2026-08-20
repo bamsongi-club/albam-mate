@@ -99,7 +99,7 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.backend == 'true' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 7
+    timeout-minutes: 12
     env:
       TZ: UTC
 

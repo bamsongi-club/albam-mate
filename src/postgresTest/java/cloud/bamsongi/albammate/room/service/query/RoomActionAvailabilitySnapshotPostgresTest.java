@@ -308,7 +308,7 @@ class RoomActionAvailabilitySnapshotPostgresTest extends SharedPostgresIntegrati
 
 	private Room room(long hostUserId, Instant startAt) {
 		return roomRepository.saveAndFlush(Room.create(hostUserId, RoomType.PERSON_FOCUSED, "스냅샷 방", null, null,
-			ExperienceLevel.ALL_LEVELS, false, startAt, "서울", 2));
+			ExperienceLevel.ALL_LEVELS, false, startAt, "홍대", 2));
 	}
 
 	@TestConfiguration(proxyBeanMethods = false)

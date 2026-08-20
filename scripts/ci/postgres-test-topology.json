@@ -2,6 +2,7 @@
   "schemaVersion": 1,
   "shared": [
     "cloud.bamsongi.albammate.assistant.AssistantConsentPostgresTest",
+	"cloud.bamsongi.albammate.assistant.AssistantDraftPostgresTest",
     "cloud.bamsongi.albammate.chat.ChatMessageCommandConcurrencyPostgresTest",
     "cloud.bamsongi.albammate.chat.ChatMessageHistoryCursorConcurrencyPostgresTest",
     "cloud.bamsongi.albammate.chat.ChatRoomPreviewHttpPostgresTest",

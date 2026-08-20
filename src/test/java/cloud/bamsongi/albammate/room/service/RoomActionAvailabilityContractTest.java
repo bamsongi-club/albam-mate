@@ -100,7 +100,7 @@ class RoomActionAvailabilityContractTest {
 
 	private Room room(int capacity, RoomStatus status) {
 		Room room = Room.create(1L, RoomType.PERSON_FOCUSED, "방", null, null,
-			ExperienceLevel.ALL_LEVELS, false, Instant.parse("2099-01-01T10:00:00Z"), "서울", capacity);
+			ExperienceLevel.ALL_LEVELS, false, Instant.parse("2099-01-01T10:00:00Z"), "홍대", capacity);
 		ReflectionTestUtils.setField(room, "status", status);
 		return room;
 	}

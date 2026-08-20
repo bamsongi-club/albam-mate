@@ -11,7 +11,7 @@
 | 이 문서가 담지 않는 것 | 제품 규칙의 배경(→ [P2-spec](P2-spec.md), [P2 기능 문서](p2/README.md), [P1 종료 명세](archive/p1/README.md), [P0 완료 명세](archive/p0/P0-spec.md)), 저장 구조·계산식(→ [ERD](ERD.md)), 되돌리기 어려운 기술 결정과 근거(→ [ADR](adr/README.md)) |
 | 변경 시 함께 갱신 | API 계약을 바꾸면 같은 변경에서 이 문서와 [엔드포인트별 오류 매트릭스](#11-부록-엔드포인트별-오류-매트릭스)를 함께 갱신하고, 관련 P2 기능 명세·[ERD](ERD.md)·[ADR](adr/README.md)과의 정합을 확인한다. 상세 규칙은 [CONVENTIONS](CONVENTIONS.md#api-응답)를 따른다. |
 
-> `P0`, `P1`, `P2`는 API가 도입되는 제품 단계이며 현재 구현 상태값이 아니다. P0·P1·RANK-02(P2) 계약은 현재 제공 인터페이스로 유지한다. P2 AI 기능은 기능별 제공 상태를 따른다. 현재 `AI-01a`의 동의·추천 orchestration T1~T5 범위는 제공하며, 나머지 AI-03과 후속 범위는 `구현 예정`이므로 현재 요청에 사용하거나 현재 응답으로 기대하면 안 된다. P1 종료 상태는 [P1 기능 종료 상태](archive/p1/README.md#기능별-종료-상태), P2 진행 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)를 따른다.
+> `P0`, `P1`, `P2`는 API가 도입되는 제품 단계이며 현재 구현 상태값이 아니다. P0·P1·RANK-02(P2) 계약은 현재 제공 인터페이스로 유지한다. P2 AI 기능은 기능별 제공 상태를 따른다. 현재 `AI-01a`의 동의·추천 orchestration T1~T5와 `AI-03a`의 초안·확인 T1~T6 범위는 제공하며, AI-02 provider 운영 세부·AI-04와 후속 범위는 `구현 예정`이므로 현재 요청에 사용하거나 현재 응답으로 기대하면 안 된다. P1 종료 상태는 [P1 기능 종료 상태](archive/p1/README.md#기능별-종료-상태), P2 진행 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)를 따른다.
 
 ### 도입 단계와 제공 상태
 
@@ -263,11 +263,11 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 | 37.1 | P2 | [AI-01](#ai-01-동의-조회) · [정본](p2/assistant.md#ai-01-ai-모임-도우미) · API 계약 확정·AI-01a T1~T5 검증 범위 제공 | GET | `/api/assistant/consent` | Y | N | 200 |
 | 37.2 | P2 | [AI-01](#ai-01-동의-변경) · [정본](p2/assistant.md#ai-01-ai-모임-도우미) · API 계약 확정·AI-01a T1~T5 검증 범위 제공 | PUT | `/api/assistant/consent` | Y | Y | 200 |
 | 37.3 | P2 | [AI-02](#ai-02-자연어-추천) · [정본](p2/assistant.md#ai-02-ai-의도-추출추천provider-운영) · API 계약 확정·AI-01a T1~T5 검증 범위 제공 | POST | `/api/assistant/recommendations` | Y | Y | 200 |
-| 37.4 | P2 | [AI-03](#ai-03-초안-생성) · [정본](p2/assistant.md#ai-03-ai-초안확인형-room-생성) · API 계약 확정·구현 보류 | POST | `/api/assistant/drafts` | Y | Y | 201 |
-| 37.5 | P2 | [AI-03](#ai-03-활성-초안-조회) · [정본](p2/assistant.md#ai-03-ai-초안확인형-room-생성) · API 계약 확정·구현 보류 | GET | `/api/assistant/drafts/active` | Y | N | 200·204 |
-| 37.6 | P2 | [AI-03](#ai-03-초안-수정) · [정본](p2/assistant.md#ai-03-ai-초안확인형-room-생성) · API 계약 확정·구현 보류 | PATCH | `/api/assistant/drafts/{draftId}` | Y | Y | 200 |
-| 37.7 | P2 | [AI-03](#ai-03-초안-폐기) · [정본](p2/assistant.md#ai-03-ai-초안확인형-room-생성) · API 계약 확정·구현 보류 | DELETE | `/api/assistant/drafts/{draftId}` | Y | Y | 200 |
-| 37.8 | P2 | [AI-03](#ai-03-초안-확인과-room-생성) · [정본](p2/assistant.md#ai-03-ai-초안확인형-room-생성) · API 계약 확정·구현 보류 | POST | `/api/assistant/drafts/{draftId}/confirm` | Y | Y | 201·200 |
+| 37.4 | P2 | [AI-03](#ai-03-초안-생성) · [정본](p2/assistant.md#ai-03-ai-초안확인형-room-생성) · API 계약 확정·AI-03a T1~T6 검증 범위 제공 | POST | `/api/assistant/drafts` | Y | Y | 201 |
+| 37.5 | P2 | [AI-03](#ai-03-활성-초안-조회) · [정본](p2/assistant.md#ai-03-ai-초안확인형-room-생성) · API 계약 확정·AI-03a T1~T6 검증 범위 제공 | GET | `/api/assistant/drafts/active` | Y | N | 200·204 |
+| 37.6 | P2 | [AI-03](#ai-03-초안-수정) · [정본](p2/assistant.md#ai-03-ai-초안확인형-room-생성) · API 계약 확정·AI-03a T1~T6 검증 범위 제공 | PATCH | `/api/assistant/drafts/{draftId}` | Y | Y | 200 |
+| 37.7 | P2 | [AI-03](#ai-03-초안-폐기) · [정본](p2/assistant.md#ai-03-ai-초안확인형-room-생성) · API 계약 확정·AI-03a T1~T6 검증 범위 제공 | DELETE | `/api/assistant/drafts/{draftId}` | Y | Y | 200 |
+| 37.8 | P2 | [AI-03](#ai-03-초안-확인과-room-생성) · [정본](p2/assistant.md#ai-03-ai-초안확인형-room-생성) · API 계약 확정·AI-03a T1~T6 검증 범위 제공 | POST | `/api/assistant/drafts/{draftId}/confirm` | Y | Y | 201·200 |
 | 38 | P2 | [MATCH-01](#match-01-현재-상태-조회) · [정본](p2/matching.md#match-01-실시간-파티-매칭) · API 계약 준비 완료·구현 예정 | GET | `/api/matches/current` | Y | N | 200 |
 | 39 | P2 | [MATCH-01](#match-01-매칭-요청-등록) · [정본](p2/matching.md#match-01-실시간-파티-매칭) · API 계약 준비 완료·구현 예정 | POST | `/api/matches/requests` | Y | Y | 201·200 |
 | 40 | P2 | [MATCH-01](#match-01-매칭-요청-취소) · [정본](p2/matching.md#match-01-실시간-파티-매칭) · API 계약 준비 완료·구현 예정 | DELETE | `/api/matches/requests/me` | Y | Y | 200 |
@@ -330,7 +330,7 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 
 ### Region
 
-> **도입 단계: P2** · **기능: AI-02·AI-03** · **API 계약 상태: 계약 확정** · **제공 상태: 구현 보류**
+> **도입 단계: P2** · **기능: AI-02·AI-03** · **API 계약 상태: 계약 확정** · **제공 상태: AI-03a T1~T6 검증 범위 제공·AI-02 후속 구현 보류**
 
 | 값 | 의미 |
 |---|---|
@@ -343,7 +343,7 @@ AI-03 초안 요청에서 `region`을 생략하면 호환 기간 동안 `홍대`
 
 ### AI 기능군 목표 enum
 
-> **도입 단계: P2** · **기능: AI-01·AI-02·AI-03** · **API 계약 상태: 계약 확정** · **제공 상태: AI-01a T1~T5 검증 범위 제공·AI-03 구현 예정**
+> **도입 단계: P2** · **기능: AI-01·AI-02·AI-03** · **API 계약 상태: 계약 확정** · **제공 상태: AI-01a T1~T5와 AI-03a T1~T6 구현·검증 완료**
 
 | 이름 | 값 | 의미 |
 |---|---|---|
@@ -1059,7 +1059,7 @@ PostgreSQL에 커밋된 매칭 요청·제안·성공 파티·채팅 접근 관�
 
 ### 4.37 AssistantDraftResponse
 
-> **도입 단계: P2** · **기능: AI-03** · **API 계약 상태: 계약 확정** · **제공 상태: 구현 보류**
+> **도입 단계: P2** · **기능: AI-03** · **API 계약 상태: 계약 확정** · **제공 상태: AI-03a T1~T6 검증 범위 제공**
 
 | 필드 | 타입 | 필수 | nullable | 설명 |
 |---|---|:---:|:---:|---|
@@ -1073,7 +1073,7 @@ PostgreSQL에 커밋된 매칭 요청·제안·성공 파티·채팅 접근 관�
 
 ### 4.38 AssistantRoomDraftInput
 
-> **도입 단계: P2** · **기능: AI-03** · **API 계약 상태: 계약 확정** · **제공 상태: 구현 보류**
+> **도입 단계: P2** · **기능: AI-03** · **API 계약 상태: 계약 확정** · **제공 상태: AI-03a T1~T6 검증 범위 제공**
 
 확인형 Room command에 전달할 서버 검증 입력이다. `POST /api/rooms`의 기존 요청과 같은 Room 불변식을 사용하지만, AI 초안에는 `region`이 포함되고 확인 전 `place`가 비어 있을 수 있다.
 
@@ -1092,7 +1092,7 @@ PostgreSQL에 커밋된 매칭 요청·제안·성공 파티·채팅 접근 관�
 
 ### 4.39 AssistantRoomCreationResult
 
-> **도입 단계: P2** · **기능: AI-03** · **API 계약 상태: 계약 확정** · **제공 상태: 구현 보류**
+> **도입 단계: P2** · **기능: AI-03** · **API 계약 상태: 계약 확정** · **제공 상태: AI-03a T1~T6 검증 범위 제공**
 
 | 필드 | 타입 | 필수 | nullable | 설명 |
 |---|---|:---:|:---:|---|
@@ -1961,9 +1961,9 @@ Vary: Cookie
 
 ## AI 기능군 API
 
-> **도입 단계: P2** · **기능: AI-01·AI-02·AI-03** · **API 계약 상태: 계약 확정** · **제공 상태: AI-01a T1~T5 검증 범위 제공·AI-03 구현 예정**
+> **도입 단계: P2** · **기능: AI-01·AI-02·AI-03** · **API 계약 상태: 계약 확정** · **제공 상태: AI-01a T1~T5와 AI-03a T1~T6 검증 범위 제공**
 >
-> 이 절의 AI-01 동의와 AI-02 자연어 추천은 AI-01a T1~T5 검증 범위에서 현재 제공한다. AI-03 초안·확인 경로는 승인된 목표 계약이지만 아직 제공하지 않는다. 외부 provider·보존·호출 한도는 [ADR-0074](adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md), 초안·확인·멱등성은 [ADR-0075](adr/room/0075-p2-ai-draft-confirmation-and-idempotent-room-command.md), 지역은 [ADR-0076](adr/room/0076-p2-room-region-closed-set-and-compatibility.md)을 따른다.
+> 이 절의 AI-01 동의·AI-02 자연어 추천과 AI-03 초안·확인 경로는 현재 제공한다. 외부 provider·보존·호출 한도는 [ADR-0074](adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md), 초안·확인·멱등성은 [ADR-0075](adr/room/0075-p2-ai-draft-confirmation-and-idempotent-room-command.md), 지역은 [ADR-0076](adr/room/0076-p2-room-region-closed-set-and-compatibility.md)을 따른다.
 
 모든 AI 기능군 API는 로그인한 현재 사용자만 호출한다. `GET`은 CSRF가 필요 없고 상태 변경 `PUT`·`POST`·`PATCH`·`DELETE`는 세션과 CSRF가 필요하다. 유효한 외부 처리 동의가 없으면 provider 호출·추천·초안 생성·확인을 시작하지 않는다. AI-01은 동의·제품 흐름, AI-02는 자연어 추천, AI-03은 확인형 초안·Room 생성 경로를 소유하며, 기존 `POST /api/rooms` 즉시 생성 경로는 유지한다.
 
@@ -3100,7 +3100,7 @@ MATCH 채팅 경로(`/api/matches/parties/{partyId}/chat/**`)는 성공 파티 �
 
 ### 10.8 AI 기능군 오류
 
-> **도입 단계: P2** · **기능: AI-01·AI-02·AI-03** · **API 계약 상태: 계약 확정** · **제공 상태: AI-01a T1~T5 검증 범위 제공·AI-03 구현 예정**
+> **도입 단계: P2** · **기능: AI-01·AI-02·AI-03** · **API 계약 상태: 계약 확정** · **제공 상태: AI-01a T1~T5와 AI-03a T1~T6 구현·검증 완료**
 
 | code | HTTP | 기본 message | 발생 조건 |
 |---|---:|---|---|

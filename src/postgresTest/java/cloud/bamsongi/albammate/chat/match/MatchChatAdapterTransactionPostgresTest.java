@@ -272,7 +272,7 @@ class MatchChatAdapterTransactionPostgresTest extends SharedPostgresIntegrationS
 		long roomId = jdbcTemplate.queryForObject(
 			"insert into rooms (host_user_id, room_type, title, experience_level, is_rulemaster_led, region, "
 				+ "capacity, active_participant_count, start_at, place, status, created_at, updated_at) "
-				+ "values (?, 'PERSON_FOCUSED', 'P1 room', 'ALL_LEVELS', false, '서울', 1, 0, "
+				+ "values (?, 'PERSON_FOCUSED', 'P1 room', 'ALL_LEVELS', false, '홍대', 1, 0, "
 				+ "current_timestamp, '테스트', 'RECRUITING', current_timestamp, current_timestamp) returning id",
 			Long.class,
 			userId);
