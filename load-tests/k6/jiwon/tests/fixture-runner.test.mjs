@@ -2035,6 +2035,79 @@ test('portable bundle은 DB·k6 없이 full closure와 immutable 계약을 생�
   }
 });
 
+test('T1 c10과 T1·T2 c16 portable bundle은 승인된 options를 보존하고 c32는 생성 전에 거절한다', () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'room-k6-contention-limit-'));
+  const buildRoot = path.join(root, 'build', 'k6', 'room');
+  const context = {
+    repositoryRoot,
+    scenarioDirectory: path.join(repositoryRoot, 'load-tests', 'k6', 'jiwon'),
+    buildRoot,
+    bundleRoot: null,
+    isBundleRuntime: false,
+    environment: {
+      ROOM_K6_FIXTURE_PASSWORD_HASH: '{bcrypt}$2a$10$contention-limit-test',
+      ROOM_K6_SESSION_WARMUP_SECONDS: '15',
+      ROOM_K6_ROUND_INTERVAL_SECONDS: '20',
+    },
+  };
+  const provenance = { sourceRevision: 'b'.repeat(40), sourceDirty: false };
+  const approved = [
+    { scenario: 't1', mode: 'hot', concurrency: 10 },
+    { scenario: 't1', mode: 'spread', concurrency: 16 },
+    { scenario: 't2', mode: 'hot', subcase: 'distinct', concurrency: 16 },
+    { scenario: 't2', mode: 'spread', subcase: 'distinct', concurrency: 16 },
+  ];
+
+  try {
+    approved.forEach((options, index) => {
+      const rendered = renderBundle({
+        ...options,
+        runId: `contention-limit-${index}`,
+        profile: 'spike',
+      }, context, provenance);
+      const manifest = JSON.parse(readFileSync(path.join(rendered.bundlePath, 'manifest.json'), 'utf8'));
+      const fixturePlan = JSON.parse(readFileSync(path.join(rendered.bundlePath, 'fixture-plan.json'), 'utf8'));
+
+      assert.equal(manifest.options.concurrency, options.concurrency);
+      assert.equal(manifest.options.mode, options.mode);
+      assert.deepEqual(fixturePlan.options, manifest.options);
+      assert.deepEqual(validateBundle(rendered.bundlePath, context, { forExecution: true }), {
+        bundlePath: rendered.bundlePath,
+        runId: manifest.options.runId,
+        fixtureId: manifest.fixtureId,
+      });
+      assert.deepEqual(bundleExecutionOptions(rendered.bundlePath, context), {
+        schemaVersion: 1,
+        k6Environment: {
+          ROOM_K6_SESSION_WARMUP_SECONDS: '15',
+          ROOM_K6_ROUND_INTERVAL_SECONDS: '20',
+        },
+        t5ReadOptions: null,
+      });
+    });
+
+    const rejected = [
+      { scenario: 't1', mode: 'hot', concurrency: 16 },
+      { scenario: 't1', mode: 'hot', concurrency: 32 },
+      { scenario: 't2', mode: 'spread', subcase: 'distinct', concurrency: 32 },
+    ];
+    rejected.forEach((options, index) => {
+      const rejectedBuildRoot = path.join(root, `rejected-build-${index}`);
+      assert.throws(
+        () => renderBundle({
+          ...options,
+          runId: `contention-limit-rejected-${index}`,
+          profile: 'spike',
+        }, { ...context, buildRoot: rejectedBuildRoot }, provenance),
+        /concurrency/,
+      );
+      assert.equal(existsSync(rejectedBuildRoot), false);
+    });
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('portable bundle hydrate와 before diagnosis는 prepare ownership과 raw DB artifact를 다시 대조한다', () => {
   const root = mkdtempSync(path.join(os.tmpdir(), 'room-k6-portable-hydrate-'));
   const buildRoot = path.join(root, 'build', 'k6', 'room');

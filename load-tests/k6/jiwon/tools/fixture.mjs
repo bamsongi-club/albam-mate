@@ -103,11 +103,14 @@ function usage() {
   node load-tests/k6/jiwon/tools/fixture.mjs aggregate --bundle <bundle-directory>
 
 prepare 공통 옵션: --profile stress|spike --rounds <1..20>
-T1/T2: --mode hot|spread --concurrency 2|4|8
-T2: --subcase distinct|duplicate (duplicate는 concurrency=2)
+T1 hot: --mode hot --concurrency 2|4|8|10
+T1 spread: --mode spread --concurrency 2|4|8|16
+T2 distinct: --mode hot|spread --subcase distinct --concurrency 2|4|8|16
+T2 duplicate: --mode hot --subcase duplicate --concurrency 2
 T3: --t3-mode race|wait-first|cancel-first
 T4: --concurrency 2|4|8
 T5: --t5-role public|host|participant --t5-scale 1|10
+c32: 별도 범위와 실행 승인 전에는 어떤 시나리오에서도 지원하지 않음
 `;
 }
 

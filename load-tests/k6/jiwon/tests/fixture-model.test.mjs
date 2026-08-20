@@ -260,6 +260,42 @@ test('T1 hot stress fixture는 8명 취소·9명 FIFO 대기자를 round마다 �
   });
 });
 
+test('T1 hot c10 fixture는 제품 정원 상한에서 취소자와 FIFO 대기자를 결정적으로 만든다', () => {
+  const input = {
+    scenario: 't1',
+    runId: 'fixture-t1-hot-c10',
+    profile: 'spike',
+    mode: 'hot',
+    concurrency: 10,
+  };
+  const first = createFixturePlan(input);
+  const second = createFixturePlan(input);
+
+  assert.deepEqual(first, second);
+  assert.equal(first.targets.length, 10);
+  assert.equal(first.rooms.length, 1);
+  assert.equal(first.rooms[0].capacity, 10);
+  assert.equal(first.rooms[0].activeKeys.length, 10);
+  assert.equal(first.rooms[0].waiterKeys.length, 11);
+});
+
+test('T1 spread c16 fixture는 16개 독립 ROOM과 취소 대상을 만든다', () => {
+  const plan = createFixturePlan({
+    scenario: 't1',
+    runId: 'fixture-t1-spread-c16',
+    profile: 'spike',
+    mode: 'spread',
+    concurrency: 16,
+  });
+
+  assert.equal(plan.targets.length, 16);
+  assert.equal(plan.rooms.length, 16);
+  assert.equal(new Set(plan.targets.map((target) => target.roomKey)).size, 16);
+  assert.ok(plan.rooms.every((room) => room.capacity === 1));
+  assert.ok(plan.rooms.every((room) => room.activeKeys.length === 1));
+  assert.ok(plan.rooms.every((room) => room.waiterKeys.length === 2));
+});
+
 test('T2 duplicate는 같은 ROOM·같은 사용자 요청 두 개만 만든다', () => {
   const { plan, fixture } = fixtureFor({
     scenario: 't2',
@@ -278,6 +314,61 @@ test('T2 duplicate는 같은 ROOM·같은 사용자 요청 두 개만 만든다'
   assert.deepEqual(evaluateFixture(fixture, initialSnapshot(fixture), 'before'), {
     status: 'PASS',
     failures: [],
+  });
+});
+
+test('T2 distinct hot·spread c16 fixture는 승인된 경합과 대조군 대상을 만든다', () => {
+  const hot = createFixturePlan({
+    scenario: 't2',
+    runId: 'fixture-t2-hot-c16',
+    profile: 'spike',
+    mode: 'hot',
+    subcase: 'distinct',
+    concurrency: 16,
+  });
+  const spread = createFixturePlan({
+    scenario: 't2',
+    runId: 'fixture-t2-spread-c16',
+    profile: 'spike',
+    mode: 'spread',
+    subcase: 'distinct',
+    concurrency: 16,
+  });
+
+  assert.equal(hot.targets.length, 16);
+  assert.equal(hot.rooms.length, 1);
+  assert.equal(new Set(hot.targets.map((target) => target.actorKey)).size, 16);
+  assert.equal(spread.targets.length, 16);
+  assert.equal(spread.rooms.length, 16);
+  assert.equal(new Set(spread.targets.map((target) => target.roomKey)).size, 16);
+});
+
+test('승인되지 않은 c10·c16 조합과 모든 c32 fixture는 거절한다', () => {
+  const rejected = [
+    { scenario: 't1', mode: 'hot', concurrency: 16 },
+    { scenario: 't1', mode: 'spread', concurrency: 10 },
+    { scenario: 't2', mode: 'hot', subcase: 'distinct', concurrency: 10 },
+    { scenario: 't4', concurrency: 16 },
+    { scenario: 't1', mode: 'hot', concurrency: 32 },
+    { scenario: 't1', mode: 'spread', concurrency: 32 },
+    { scenario: 't2', mode: 'hot', subcase: 'distinct', concurrency: 32 },
+    { scenario: 't2', mode: 'spread', subcase: 'distinct', concurrency: 32 },
+    { scenario: 't2', mode: 'hot', subcase: 'duplicate', concurrency: 32 },
+    { scenario: 't3', concurrency: 32 },
+    { scenario: 't4', concurrency: 32 },
+    { scenario: 't5', concurrency: 32 },
+    { scenario: 'mixed', concurrency: 32 },
+  ];
+
+  rejected.forEach((options, index) => {
+    assert.throws(
+      () => createFixturePlan({
+        ...options,
+        runId: `fixture-rejected-concurrency-${index}`,
+        profile: 'spike',
+      }),
+      /concurrency/,
+    );
   });
 });
 

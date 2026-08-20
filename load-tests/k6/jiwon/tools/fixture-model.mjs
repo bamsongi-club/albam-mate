@@ -23,6 +23,9 @@ const SCENARIOS = new Set(['t1', 't2', 't3', 't4', 't5', 'mixed']);
 const PROFILES = new Set(['stress', 'spike']);
 const T3_MODES = new Set(['race', 'wait-first', 'cancel-first']);
 const T5_ROLES = new Set(['public', 'host', 'participant']);
+const T1_HOT_CONCURRENCY_LEVELS = new Set([2, 4, 8, 10]);
+const T1_SPREAD_CONCURRENCY_LEVELS = new Set([2, 4, 8, 16]);
+const T2_DISTINCT_CONCURRENCY_LEVELS = new Set([2, 4, 8, 16]);
 const COMMON_OPTION_KEYS = new Set(['scenario', 'runId', 'profile', 'rounds']);
 const MIXED_COMMON_OPTION_KEYS = new Set(['scenario', 'runId', 'profile']);
 const SCENARIO_OPTION_KEYS = {
@@ -149,6 +152,16 @@ function oneOf(value, name, allowed) {
   return text;
 }
 
+function concurrencyLevelsFor(scenario, mode) {
+  if (scenario === 't1') {
+    return mode === 'hot' ? T1_HOT_CONCURRENCY_LEVELS : T1_SPREAD_CONCURRENCY_LEVELS;
+  }
+  if (scenario === 't2') {
+    return T2_DISTINCT_CONCURRENCY_LEVELS;
+  }
+  return CONCURRENCY_LEVELS;
+}
+
 function assertAllowedOptionKeys(input, scenario) {
   const commonOptionKeys = scenario === 'mixed' ? MIXED_COMMON_OPTION_KEYS : COMMON_OPTION_KEYS;
   const allowed = new Set([...commonOptionKeys, ...SCENARIO_OPTION_KEYS[scenario]]);
@@ -254,16 +267,18 @@ export function normalizeFixtureOptions(input) {
   const rounds = integer(input.rounds || defaultRounds, 'rounds', 1, 20);
   const normalized = { scenario, runId, profile, rounds };
 
-  if (scenario === 't1' || scenario === 't2' || scenario === 't4') {
-    const concurrency = integer(input.concurrency || 8, 'concurrency', 2, 8);
-    if (!CONCURRENCY_LEVELS.has(concurrency)) {
-      fail('concurrency는 2, 4, 8 중 하나여야 합니다.');
-    }
-    normalized.concurrency = concurrency;
-  }
-
   if (scenario === 't1' || scenario === 't2') {
     normalized.mode = oneOf(input.mode || 'hot', 'mode', new Set(['hot', 'spread']));
+  }
+
+  if (scenario === 't1' || scenario === 't2' || scenario === 't4') {
+    const concurrency = integer(input.concurrency || 8, 'concurrency', 2, 16);
+    const allowedLevels = concurrencyLevelsFor(scenario, normalized.mode);
+    if (!allowedLevels.has(concurrency)) {
+      const mode = normalized.mode ? ` ${normalized.mode}` : '';
+      fail(`${scenario.toUpperCase()}${mode} concurrency는 ${Array.from(allowedLevels).join(', ')} 중 하나여야 합니다.`);
+    }
+    normalized.concurrency = concurrency;
   }
 
   if (scenario === 't2') {
