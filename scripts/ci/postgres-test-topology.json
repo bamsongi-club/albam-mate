@@ -21,6 +21,7 @@
     "cloud.bamsongi.albammate.game.GameListFilterPostgresTest",
     "cloud.bamsongi.albammate.game.GameMetadataCatalogImportPostgresTest",
     "cloud.bamsongi.albammate.game.GameMetadataFilterPostgresTest",
+    "cloud.bamsongi.albammate.game.GameNameCorrectionPostgresTest",
     "cloud.bamsongi.albammate.game.GameNameSearchIndexPostgresTest",
     "cloud.bamsongi.albammate.game.GamePopularityBatchPostgresTest",
     "cloud.bamsongi.albammate.game.GameRankingPostgresTest",

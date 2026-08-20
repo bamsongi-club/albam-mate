@@ -177,7 +177,9 @@ class GameNameCorrectionPostgresTest extends SharedPostgresIntegrationSupport {
 	private void execute(Path sql) throws Exception {
 		try (var connection = dataSource.getConnection(); var statement = connection.createStatement()) {
 			for (String statementSql : Files.readString(sql).split(";")) {
-				if (!statementSql.isBlank()) statement.execute(statementSql);
+				if (!statementSql.isBlank()) {
+					statement.execute(statementSql);
+				}
 			}
 		}
 	}
