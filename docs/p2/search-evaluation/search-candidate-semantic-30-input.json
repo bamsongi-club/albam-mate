@@ -32,6 +32,10 @@
     "path": "search-candidate-comparison/semantic-30-human-judgement-packet.json",
     "sha256": "cac1a01307e44a174001ec84a0e8eff2b40cab2ccb61a1e522ac73aa7c2f615f"
   },
+  "judgements": {
+    "path": "search-candidate-comparison/semantic-30-search-candidate-qrels.json",
+    "sha256": "929e5f0a21af2a337f63ab73f2918dd32c3f385b7db03b6391fc97af4fca1d36"
+  },
   "candidates": [
     {
       "name": "lexical",

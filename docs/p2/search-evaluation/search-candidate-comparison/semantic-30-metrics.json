@@ -1,0 +1,2583 @@
+{
+  "schemaVersion": 1,
+  "kind": "search-04-search-candidate-comparison",
+  "status": "provisional-human-calibration",
+  "blockingReasons": [
+    "독립 제3 인간 판정 전 provisional qrels로 계산한 참고 지표입니다."
+  ],
+  "queryCount": 30,
+  "evaluation": {
+    "topK": 20,
+    "candidatePoolSha256": "22cba9cb32fb2e00b5b9c76054fd3a7ecdc767a432b30b3c060674201a47f0ec"
+  },
+  "hybrid": {
+    "rule": "rrf",
+    "rrfK": 60,
+    "status": "provisional-included"
+  },
+  "metrics": {
+    "lexical": {
+      "perQuery": [
+        {
+          "queryId": "Q-001",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": true,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0,
+          "judgedRelevantCount": 8,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-002",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0,
+          "judgedRelevantCount": 12,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-003",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.07142857142857142,
+          "mrrAtK": 0.14285714285714285,
+          "ndcgAtK": 0.2131632553954261,
+          "judgedRelevantCount": 14,
+          "recallAt10": 0.07142857142857142,
+          "mrrAt10": 0.14285714285714285,
+          "ndcgAt10": 0.2131632553954261,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-004",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.5,
+          "mrrAtK": 0.14285714285714285,
+          "ndcgAtK": 0.29851673169450543,
+          "judgedRelevantCount": 8,
+          "recallAt10": 0.5,
+          "mrrAt10": 0.14285714285714285,
+          "ndcgAt10": 0.29851673169450543,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-005",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.08333333333333333,
+          "mrrAtK": 0.1,
+          "ndcgAtK": 0.12359794886934229,
+          "judgedRelevantCount": 12,
+          "recallAt10": 0.08333333333333333,
+          "mrrAt10": 0.1,
+          "ndcgAt10": 0.12359794886934229,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-006",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0.597935982904976,
+          "judgedRelevantCount": 1,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0.597935982904976,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-007",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.6666666666666666,
+          "mrrAtK": 0.1111111111111111,
+          "ndcgAtK": 0.5425470878403659,
+          "judgedRelevantCount": 3,
+          "recallAt10": 0.6666666666666666,
+          "mrrAt10": 0.1111111111111111,
+          "ndcgAt10": 0.5425470878403659,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-008",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0.05657095544334432,
+          "judgedRelevantCount": 6,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0.05657095544334432,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-009",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": true,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0,
+          "judgedRelevantCount": 13,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-010",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.125,
+          "mrrAtK": 0.16666666666666666,
+          "ndcgAtK": 0.14367369766465254,
+          "judgedRelevantCount": 8,
+          "recallAt10": 0.125,
+          "mrrAt10": 0.16666666666666666,
+          "ndcgAt10": 0.14367369766465254,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-011",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0.16608354859740931,
+          "judgedRelevantCount": 13,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0.16608354859740931,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-012",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0.1364242383868342,
+          "judgedRelevantCount": 13,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0.1364242383868342,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-013",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.16666666666666666,
+          "mrrAtK": 1,
+          "ndcgAtK": 0.5867141336423759,
+          "judgedRelevantCount": 6,
+          "recallAt10": 0.16666666666666666,
+          "mrrAt10": 1,
+          "ndcgAt10": 0.5867141336423759,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-014",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.09090909090909091,
+          "mrrAtK": 1,
+          "ndcgAtK": 0.22009176629808014,
+          "judgedRelevantCount": 11,
+          "recallAt10": 0.09090909090909091,
+          "mrrAt10": 1,
+          "ndcgAt10": 0.22009176629808014,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-015",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0,
+          "judgedRelevantCount": 6,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-016",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0.12279187804629571,
+          "judgedRelevantCount": 13,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0.12279187804629571,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-017",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.11764705882352941,
+          "mrrAtK": 1,
+          "ndcgAtK": 0.572636140114423,
+          "judgedRelevantCount": 17,
+          "recallAt10": 0.11764705882352941,
+          "mrrAt10": 1,
+          "ndcgAt10": 0.572636140114423,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-018",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0.06774631125090026,
+          "judgedRelevantCount": 10,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0.06774631125090026,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-019",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 1,
+          "mrrAtK": 0.125,
+          "ndcgAtK": 0.40060985749401284,
+          "judgedRelevantCount": 1,
+          "recallAt10": 1,
+          "mrrAt10": 0.125,
+          "ndcgAt10": 0.40060985749401284,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-020",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.6,
+          "mrrAtK": 0.3333333333333333,
+          "ndcgAtK": 0.49825064579222794,
+          "judgedRelevantCount": 10,
+          "recallAt10": 0.6,
+          "mrrAt10": 0.3333333333333333,
+          "ndcgAt10": 0.49825064579222794,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-021",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "contrast-hard-semantic",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.5,
+          "mrrAtK": 1,
+          "ndcgAtK": 0.8043754776986981,
+          "judgedRelevantCount": 16,
+          "recallAt10": 0.5,
+          "mrrAt10": 1,
+          "ndcgAt10": 0.8043754776986981,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-022",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "contrast-hard-semantic",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0.07074212199097152,
+          "judgedRelevantCount": 14,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0.07074212199097152,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-023",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "contrast-hard-semantic",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.13043478260869565,
+          "mrrAtK": 1,
+          "ndcgAtK": 0.6215454215139964,
+          "judgedRelevantCount": 23,
+          "recallAt10": 0.13043478260869565,
+          "mrrAt10": 1,
+          "ndcgAt10": 0.6215454215139964,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-024",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "contrast-hard-semantic",
+          "anchor": true,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0.051723574529084305,
+          "judgedRelevantCount": 4,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0.051723574529084305,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-025",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "contrast-hard-semantic",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0,
+          "judgedRelevantCount": 9,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-026",
+          "cohorts": [
+            "intent+hard filter"
+          ],
+          "analysisClass": "hybrid-hard-filter",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0.49332393801531293,
+          "judgedRelevantCount": 1,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0.49332393801531293,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-027",
+          "cohorts": [
+            "intent+hard filter"
+          ],
+          "analysisClass": "hybrid-hard-filter",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0.054436304265575074,
+          "judgedRelevantCount": 1,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0.054436304265575074,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-028",
+          "cohorts": [
+            "intent+hard filter"
+          ],
+          "analysisClass": "hybrid-hard-filter",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0.07336392209936005,
+          "judgedRelevantCount": 0,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0.07336392209936005,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-029",
+          "cohorts": [
+            "intent+hard filter"
+          ],
+          "analysisClass": "hybrid-hard-filter",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.5,
+          "mrrAtK": 0.125,
+          "ndcgAtK": 0.3057263425106612,
+          "judgedRelevantCount": 2,
+          "recallAt10": 0.5,
+          "mrrAt10": 0.125,
+          "ndcgAt10": 0.3057263425106612,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-030",
+          "cohorts": [
+            "intent+hard filter"
+          ],
+          "analysisClass": "hybrid-hard-filter",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 1,
+          "judgedRelevantCount": 0,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 1,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        }
+      ],
+      "overall": {
+        "queryCount": 30,
+        "recallAt10": 0.15173620568121846,
+        "mrrAt10": 0.20822751322751323,
+        "ndcgAt10": 0.2740863760686277,
+        "hardFilterViolationRate": 0,
+        "qualityEligible": true
+      },
+      "cohorts": {
+        "intent/description": {
+          "queryCount": 25,
+          "recallAt10": 0.16208344681746215,
+          "mrrAt10": 0.24487301587301588,
+          "ndcgAt10": 0.25182963100671685,
+          "hardFilterViolationRate": 0,
+          "qualityEligible": true
+        },
+        "intent+hard filter": {
+          "queryCount": 5,
+          "recallAt10": 0.1,
+          "mrrAt10": 0.025,
+          "ndcgAt10": 0.38537010137818184,
+          "hardFilterViolationRate": 0,
+          "qualityEligible": true
+        }
+      },
+      "analysisClasses": {
+        "semantic-core": {
+          "queryCount": 20,
+          "recallAt10": 0.17108256939139294,
+          "mrrAt10": 0.20609126984126985,
+          "ndcgAt10": 0.23736770897175857,
+          "hardFilterViolationRate": 0,
+          "qualityEligible": true
+        },
+        "contrast-hard-semantic": {
+          "queryCount": 5,
+          "recallAt10": 0.12608695652173912,
+          "mrrAt10": 0.4,
+          "ndcgAt10": 0.30967731914655006,
+          "hardFilterViolationRate": 0,
+          "qualityEligible": true
+        },
+        "hybrid-hard-filter": {
+          "queryCount": 5,
+          "recallAt10": 0.1,
+          "mrrAt10": 0.025,
+          "ndcgAt10": 0.38537010137818184,
+          "hardFilterViolationRate": 0,
+          "qualityEligible": true
+        }
+      }
+    },
+    "sparse": {
+      "perQuery": [
+        {
+          "queryId": "Q-001",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": true,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0,
+          "judgedRelevantCount": 8,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-002",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0,
+          "judgedRelevantCount": 12,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-003",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.07142857142857142,
+          "mrrAtK": 0.14285714285714285,
+          "ndcgAtK": 0.2131632553954261,
+          "judgedRelevantCount": 14,
+          "recallAt10": 0.07142857142857142,
+          "mrrAt10": 0.14285714285714285,
+          "ndcgAt10": 0.2131632553954261,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-004",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.5,
+          "mrrAtK": 0.14285714285714285,
+          "ndcgAtK": 0.29851673169450543,
+          "judgedRelevantCount": 8,
+          "recallAt10": 0.5,
+          "mrrAt10": 0.14285714285714285,
+          "ndcgAt10": 0.29851673169450543,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-005",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.16666666666666666,
+          "mrrAtK": 0.1111111111111111,
+          "ndcgAtK": 0.19815309415953766,
+          "judgedRelevantCount": 12,
+          "recallAt10": 0.16666666666666666,
+          "mrrAt10": 0.1111111111111111,
+          "ndcgAt10": 0.19815309415953766,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-006",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0.26684887301247345,
+          "judgedRelevantCount": 1,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0.26684887301247345,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-007",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.6666666666666666,
+          "mrrAtK": 0.1111111111111111,
+          "ndcgAtK": 0.5425470878403659,
+          "judgedRelevantCount": 3,
+          "recallAt10": 0.6666666666666666,
+          "mrrAt10": 0.1111111111111111,
+          "ndcgAt10": 0.5425470878403659,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-008",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0.05657095544334432,
+          "judgedRelevantCount": 6,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0.05657095544334432,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-009",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": true,
+          "k": 10,
+          "recallAtK": 0.23076923076923078,
+          "mrrAtK": 0.3333333333333333,
+          "ndcgAtK": 0.5140589806486532,
+          "judgedRelevantCount": 13,
+          "recallAt10": 0.23076923076923078,
+          "mrrAt10": 0.3333333333333333,
+          "ndcgAt10": 0.5140589806486532,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-010",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0.11760687961426174,
+          "judgedRelevantCount": 8,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0.11760687961426174,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-011",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.5384615384615384,
+          "mrrAtK": 1,
+          "ndcgAtK": 0.8064934766869569,
+          "judgedRelevantCount": 13,
+          "recallAt10": 0.5384615384615384,
+          "mrrAt10": 1,
+          "ndcgAt10": 0.8064934766869569,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-012",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.07692307692307693,
+          "mrrAtK": 0.5,
+          "ndcgAtK": 0.2828612513195008,
+          "judgedRelevantCount": 13,
+          "recallAt10": 0.07692307692307693,
+          "mrrAt10": 0.5,
+          "ndcgAt10": 0.2828612513195008,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-013",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0.40738844762703974,
+          "judgedRelevantCount": 6,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0.40738844762703974,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-014",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0,
+          "judgedRelevantCount": 11,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-015",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0,
+          "judgedRelevantCount": 6,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-016",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0.12279187804629571,
+          "judgedRelevantCount": 13,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0.12279187804629571,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-017",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.11764705882352941,
+          "mrrAtK": 0.1111111111111111,
+          "ndcgAtK": 0.22376087428990468,
+          "judgedRelevantCount": 17,
+          "recallAt10": 0.11764705882352941,
+          "mrrAt10": 0.1111111111111111,
+          "ndcgAt10": 0.22376087428990468,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-018",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0.06774631125090026,
+          "judgedRelevantCount": 10,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0.06774631125090026,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-019",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 1,
+          "mrrAtK": 0.14285714285714285,
+          "ndcgAtK": 0.5229660023853748,
+          "judgedRelevantCount": 1,
+          "recallAt10": 1,
+          "mrrAt10": 0.14285714285714285,
+          "ndcgAt10": 0.5229660023853748,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-020",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.6,
+          "mrrAtK": 0.3333333333333333,
+          "ndcgAtK": 0.49825064579222794,
+          "judgedRelevantCount": 10,
+          "recallAt10": 0.6,
+          "mrrAt10": 0.3333333333333333,
+          "ndcgAt10": 0.49825064579222794,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-021",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "contrast-hard-semantic",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.5,
+          "mrrAtK": 1,
+          "ndcgAtK": 0.8043754776986981,
+          "judgedRelevantCount": 16,
+          "recallAt10": 0.5,
+          "mrrAt10": 1,
+          "ndcgAt10": 0.8043754776986981,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-022",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "contrast-hard-semantic",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0.07074212199097152,
+          "judgedRelevantCount": 14,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0.07074212199097152,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-023",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "contrast-hard-semantic",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.17391304347826086,
+          "mrrAtK": 0.14285714285714285,
+          "ndcgAtK": 0.44174951502695864,
+          "judgedRelevantCount": 23,
+          "recallAt10": 0.17391304347826086,
+          "mrrAt10": 0.14285714285714285,
+          "ndcgAt10": 0.44174951502695864,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-024",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "contrast-hard-semantic",
+          "anchor": true,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0.06526788426294015,
+          "judgedRelevantCount": 4,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0.06526788426294015,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-025",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "contrast-hard-semantic",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.2222222222222222,
+          "mrrAtK": 0.3333333333333333,
+          "ndcgAtK": 0.4907020665070839,
+          "judgedRelevantCount": 9,
+          "recallAt10": 0.2222222222222222,
+          "mrrAt10": 0.3333333333333333,
+          "ndcgAt10": 0.4907020665070839,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-026",
+          "cohorts": [
+            "intent+hard filter"
+          ],
+          "analysisClass": "hybrid-hard-filter",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 1,
+          "mrrAtK": 0.5,
+          "ndcgAtK": 0.8871958738785232,
+          "judgedRelevantCount": 1,
+          "recallAt10": 1,
+          "mrrAt10": 0.5,
+          "ndcgAt10": 0.8871958738785232,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-027",
+          "cohorts": [
+            "intent+hard filter"
+          ],
+          "analysisClass": "hybrid-hard-filter",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0.6943559465628251,
+          "judgedRelevantCount": 1,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0.6943559465628251,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-028",
+          "cohorts": [
+            "intent+hard filter"
+          ],
+          "analysisClass": "hybrid-hard-filter",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0.07336392209936005,
+          "judgedRelevantCount": 0,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0.07336392209936005,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-029",
+          "cohorts": [
+            "intent+hard filter"
+          ],
+          "analysisClass": "hybrid-hard-filter",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.5,
+          "mrrAtK": 0.125,
+          "ndcgAtK": 0.3057263425106612,
+          "judgedRelevantCount": 2,
+          "recallAt10": 0.5,
+          "mrrAt10": 0.125,
+          "ndcgAt10": 0.3057263425106612,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-030",
+          "cohorts": [
+            "intent+hard filter"
+          ],
+          "analysisClass": "hybrid-hard-filter",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0.9363792118010483,
+          "judgedRelevantCount": 0,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0.9363792118010483,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        }
+      ],
+      "overall": {
+        "queryCount": 30,
+        "recallAt10": 0.2121566025146588,
+        "mrrAt10": 0.16765873015873015,
+        "ndcgAt10": 0.3303194369181946,
+        "hardFilterViolationRate": 0,
+        "qualityEligible": true
+      },
+      "cohorts": {
+        "intent/description": {
+          "queryCount": 25,
+          "recallAt10": 0.19458792301759054,
+          "mrrAt10": 0.17619047619047618,
+          "ndcgAt10": 0.2805024724277368,
+          "hardFilterViolationRate": 0,
+          "qualityEligible": true
+        },
+        "intent+hard filter": {
+          "queryCount": 5,
+          "recallAt10": 0.3,
+          "mrrAt10": 0.125,
+          "ndcgAt10": 0.5794042593704836,
+          "hardFilterViolationRate": 0,
+          "qualityEligible": true
+        }
+      },
+      "analysisClasses": {
+        "semantic-core": {
+          "queryCount": 20,
+          "recallAt10": 0.19842814048696403,
+          "mrrAt10": 0.1464285714285714,
+          "ndcgAt10": 0.2569862372603384,
+          "hardFilterViolationRate": 0,
+          "qualityEligible": true
+        },
+        "contrast-hard-semantic": {
+          "queryCount": 5,
+          "recallAt10": 0.17922705314009663,
+          "mrrAt10": 0.2952380952380952,
+          "ndcgAt10": 0.37456741309733044,
+          "hardFilterViolationRate": 0,
+          "qualityEligible": true
+        },
+        "hybrid-hard-filter": {
+          "queryCount": 5,
+          "recallAt10": 0.3,
+          "mrrAt10": 0.125,
+          "ndcgAt10": 0.5794042593704836,
+          "hardFilterViolationRate": 0,
+          "qualityEligible": true
+        }
+      }
+    },
+    "dense-bge-m3": {
+      "perQuery": [
+        {
+          "queryId": "Q-001",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": true,
+          "k": 10,
+          "recallAtK": 0.5,
+          "mrrAtK": 1,
+          "ndcgAtK": 0.6958231780383197,
+          "judgedRelevantCount": 8,
+          "recallAt10": 0.5,
+          "mrrAt10": 1,
+          "ndcgAt10": 0.6958231780383197,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-002",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.75,
+          "mrrAtK": 1,
+          "ndcgAtK": 0.9575861412006988,
+          "judgedRelevantCount": 12,
+          "recallAt10": 0.75,
+          "mrrAt10": 1,
+          "ndcgAt10": 0.9575861412006988,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-003",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.42857142857142855,
+          "mrrAtK": 0.5,
+          "ndcgAtK": 0.6866018078833959,
+          "judgedRelevantCount": 14,
+          "recallAt10": 0.42857142857142855,
+          "mrrAt10": 0.5,
+          "ndcgAt10": 0.6866018078833959,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-004",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.125,
+          "mrrAtK": 0.5,
+          "ndcgAtK": 0.4421022441735812,
+          "judgedRelevantCount": 8,
+          "recallAt10": 0.125,
+          "mrrAt10": 0.5,
+          "ndcgAt10": 0.4421022441735812,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-005",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.5833333333333334,
+          "mrrAtK": 1,
+          "ndcgAtK": 0.8420631275202292,
+          "judgedRelevantCount": 12,
+          "recallAt10": 0.5833333333333334,
+          "mrrAt10": 1,
+          "ndcgAt10": 0.8420631275202292,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-006",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0.2846518555225615,
+          "judgedRelevantCount": 1,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0.2846518555225615,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-007",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.3333333333333333,
+          "mrrAtK": 0.3333333333333333,
+          "ndcgAtK": 0.25344695044756405,
+          "judgedRelevantCount": 3,
+          "recallAt10": 0.3333333333333333,
+          "mrrAt10": 0.3333333333333333,
+          "ndcgAt10": 0.25344695044756405,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-008",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.5,
+          "mrrAtK": 0.3333333333333333,
+          "ndcgAtK": 0.6436553049062356,
+          "judgedRelevantCount": 6,
+          "recallAt10": 0.5,
+          "mrrAt10": 0.3333333333333333,
+          "ndcgAt10": 0.6436553049062356,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-009",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": true,
+          "k": 10,
+          "recallAtK": 0.5384615384615384,
+          "mrrAtK": 1,
+          "ndcgAtK": 0.8354476510703749,
+          "judgedRelevantCount": 13,
+          "recallAt10": 0.5384615384615384,
+          "mrrAt10": 1,
+          "ndcgAt10": 0.8354476510703749,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-010",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0.08967478537732981,
+          "judgedRelevantCount": 8,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0.08967478537732981,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-011",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.23076923076923078,
+          "mrrAtK": 1,
+          "ndcgAtK": 0.589088768612251,
+          "judgedRelevantCount": 13,
+          "recallAt10": 0.23076923076923078,
+          "mrrAt10": 1,
+          "ndcgAt10": 0.589088768612251,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-012",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.46153846153846156,
+          "mrrAtK": 1,
+          "ndcgAtK": 0.7830474250493152,
+          "judgedRelevantCount": 13,
+          "recallAt10": 0.46153846153846156,
+          "mrrAt10": 1,
+          "ndcgAt10": 0.7830474250493152,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-013",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.3333333333333333,
+          "mrrAtK": 0.14285714285714285,
+          "ndcgAtK": 0.4174129397237417,
+          "judgedRelevantCount": 6,
+          "recallAt10": 0.3333333333333333,
+          "mrrAt10": 0.14285714285714285,
+          "ndcgAt10": 0.4174129397237417,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-014",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.45454545454545453,
+          "mrrAtK": 1,
+          "ndcgAtK": 0.6839155966057554,
+          "judgedRelevantCount": 11,
+          "recallAt10": 0.45454545454545453,
+          "mrrAt10": 1,
+          "ndcgAt10": 0.6839155966057554,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-015",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.8333333333333334,
+          "mrrAtK": 1,
+          "ndcgAtK": 0.7662501535197572,
+          "judgedRelevantCount": 6,
+          "recallAt10": 0.8333333333333334,
+          "mrrAt10": 1,
+          "ndcgAt10": 0.7662501535197572,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-016",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.5384615384615384,
+          "mrrAtK": 1,
+          "ndcgAtK": 0.7898916330153442,
+          "judgedRelevantCount": 13,
+          "recallAt10": 0.5384615384615384,
+          "mrrAt10": 1,
+          "ndcgAt10": 0.7898916330153442,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-017",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.11764705882352941,
+          "mrrAtK": 0.5,
+          "ndcgAtK": 0.3460946769814979,
+          "judgedRelevantCount": 17,
+          "recallAt10": 0.11764705882352941,
+          "mrrAt10": 0.5,
+          "ndcgAt10": 0.3460946769814979,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-018",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.5,
+          "mrrAtK": 0.3333333333333333,
+          "ndcgAtK": 0.5167365246875791,
+          "judgedRelevantCount": 10,
+          "recallAt10": 0.5,
+          "mrrAt10": 0.3333333333333333,
+          "ndcgAt10": 0.5167365246875791,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-019",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0.4546098528922327,
+          "judgedRelevantCount": 1,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0.4546098528922327,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-020",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.2,
+          "mrrAtK": 0.5,
+          "ndcgAtK": 0.26674016151301333,
+          "judgedRelevantCount": 10,
+          "recallAt10": 0.2,
+          "mrrAt10": 0.5,
+          "ndcgAt10": 0.26674016151301333,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-021",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "contrast-hard-semantic",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.1875,
+          "mrrAtK": 1,
+          "ndcgAtK": 0.43714703251806847,
+          "judgedRelevantCount": 16,
+          "recallAt10": 0.1875,
+          "mrrAt10": 1,
+          "ndcgAt10": 0.43714703251806847,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-022",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "contrast-hard-semantic",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.42857142857142855,
+          "mrrAtK": 1,
+          "ndcgAtK": 0.6698415290119422,
+          "judgedRelevantCount": 14,
+          "recallAt10": 0.42857142857142855,
+          "mrrAt10": 1,
+          "ndcgAt10": 0.6698415290119422,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-023",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "contrast-hard-semantic",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.2608695652173913,
+          "mrrAtK": 1,
+          "ndcgAtK": 0.7096961062469467,
+          "judgedRelevantCount": 23,
+          "recallAt10": 0.2608695652173913,
+          "mrrAt10": 1,
+          "ndcgAt10": 0.7096961062469467,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-024",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "contrast-hard-semantic",
+          "anchor": true,
+          "k": 10,
+          "recallAtK": 0.5,
+          "mrrAtK": 0.5,
+          "ndcgAtK": 0.5650934571618782,
+          "judgedRelevantCount": 4,
+          "recallAt10": 0.5,
+          "mrrAt10": 0.5,
+          "ndcgAt10": 0.5650934571618782,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-025",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "contrast-hard-semantic",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.4444444444444444,
+          "mrrAtK": 0.5,
+          "ndcgAtK": 0.6136821613098165,
+          "judgedRelevantCount": 9,
+          "recallAt10": 0.4444444444444444,
+          "mrrAt10": 0.5,
+          "ndcgAt10": 0.6136821613098165,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-026",
+          "cohorts": [
+            "intent+hard filter"
+          ],
+          "analysisClass": "hybrid-hard-filter",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0.6943559465628251,
+          "judgedRelevantCount": 1,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0.6943559465628251,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-027",
+          "cohorts": [
+            "intent+hard filter"
+          ],
+          "analysisClass": "hybrid-hard-filter",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 1,
+          "mrrAtK": 0.16666666666666666,
+          "ndcgAtK": 0.6517234706107368,
+          "judgedRelevantCount": 1,
+          "recallAt10": 1,
+          "mrrAt10": 0.16666666666666666,
+          "ndcgAt10": 0.6517234706107368,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-028",
+          "cohorts": [
+            "intent+hard filter"
+          ],
+          "analysisClass": "hybrid-hard-filter",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0.5266128295913879,
+          "judgedRelevantCount": 0,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0.5266128295913879,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-029",
+          "cohorts": [
+            "intent+hard filter"
+          ],
+          "analysisClass": "hybrid-hard-filter",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.5,
+          "mrrAtK": 0.16666666666666666,
+          "ndcgAtK": 0.5796315672836863,
+          "judgedRelevantCount": 2,
+          "recallAt10": 0.5,
+          "mrrAt10": 0.16666666666666666,
+          "ndcgAt10": 0.5796315672836863,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-030",
+          "cohorts": [
+            "intent+hard filter"
+          ],
+          "analysisClass": "hybrid-hard-filter",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0.8611375561264454,
+          "judgedRelevantCount": 0,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0.8611375561264454,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        }
+      ],
+      "overall": {
+        "queryCount": 30,
+        "recallAt10": 0.35832378275792587,
+        "mrrAt10": 0.5492063492063494,
+        "ndcgAt10": 0.588458747838817,
+        "hardFilterViolationRate": 0,
+        "qualityEligible": true
+      },
+      "cohorts": {
+        "intent/description": {
+          "queryCount": 25,
+          "recallAt10": 0.3699885393095111,
+          "mrrAt10": 0.6457142857142858,
+          "ndcgAt10": 0.5736120425995771,
+          "hardFilterViolationRate": 0,
+          "qualityEligible": true
+        },
+        "intent+hard filter": {
+          "queryCount": 5,
+          "recallAt10": 0.3,
+          "mrrAt10": 0.06666666666666667,
+          "ndcgAt10": 0.6626922740350164,
+          "hardFilterViolationRate": 0,
+          "qualityEligible": true
+        }
+      },
+      "analysisClasses": {
+        "semantic-core": {
+          "queryCount": 20,
+          "recallAt10": 0.37141640222522565,
+          "mrrAt10": 0.6071428571428572,
+          "ndcgAt10": 0.5672420389370388,
+          "hardFilterViolationRate": 0,
+          "qualityEligible": true
+        },
+        "contrast-hard-semantic": {
+          "queryCount": 5,
+          "recallAt10": 0.3642770876466529,
+          "mrrAt10": 0.8,
+          "ndcgAt10": 0.5990920572497304,
+          "hardFilterViolationRate": 0,
+          "qualityEligible": true
+        },
+        "hybrid-hard-filter": {
+          "queryCount": 5,
+          "recallAt10": 0.3,
+          "mrrAt10": 0.06666666666666667,
+          "ndcgAt10": 0.6626922740350164,
+          "hardFilterViolationRate": 0,
+          "qualityEligible": true
+        }
+      }
+    },
+    "hybrid-rrf": {
+      "perQuery": [
+        {
+          "queryId": "Q-001",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": true,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0,
+          "judgedRelevantCount": 8,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-002",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0,
+          "judgedRelevantCount": 12,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-003",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.07142857142857142,
+          "mrrAtK": 0.14285714285714285,
+          "ndcgAtK": 0.2131632553954261,
+          "judgedRelevantCount": 14,
+          "recallAt10": 0.07142857142857142,
+          "mrrAt10": 0.14285714285714285,
+          "ndcgAt10": 0.2131632553954261,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-004",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.5,
+          "mrrAtK": 0.14285714285714285,
+          "ndcgAtK": 0.29851673169450543,
+          "judgedRelevantCount": 8,
+          "recallAt10": 0.5,
+          "mrrAt10": 0.14285714285714285,
+          "ndcgAt10": 0.29851673169450543,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-005",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.16666666666666666,
+          "mrrAtK": 1,
+          "ndcgAtK": 0.3436897151674224,
+          "judgedRelevantCount": 12,
+          "recallAt10": 0.16666666666666666,
+          "mrrAt10": 1,
+          "ndcgAt10": 0.3436897151674224,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-006",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0.5843636094869076,
+          "judgedRelevantCount": 1,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0.5843636094869076,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-007",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.6666666666666666,
+          "mrrAtK": 1,
+          "ndcgAtK": 0.7178146895855171,
+          "judgedRelevantCount": 3,
+          "recallAt10": 0.6666666666666666,
+          "mrrAt10": 1,
+          "ndcgAt10": 0.7178146895855171,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-008",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0.05657095544334432,
+          "judgedRelevantCount": 6,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0.05657095544334432,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-009",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": true,
+          "k": 10,
+          "recallAtK": 0.23076923076923078,
+          "mrrAtK": 0.3333333333333333,
+          "ndcgAtK": 0.43040054112895293,
+          "judgedRelevantCount": 13,
+          "recallAt10": 0.23076923076923078,
+          "mrrAt10": 0.3333333333333333,
+          "ndcgAt10": 0.43040054112895293,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-010",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0.12484312764745345,
+          "judgedRelevantCount": 8,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0.12484312764745345,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-011",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.3076923076923077,
+          "mrrAtK": 1,
+          "ndcgAtK": 0.634558665722226,
+          "judgedRelevantCount": 13,
+          "recallAt10": 0.3076923076923077,
+          "mrrAt10": 1,
+          "ndcgAt10": 0.634558665722226,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-012",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.23076923076923078,
+          "mrrAtK": 1,
+          "ndcgAtK": 0.4909133002057446,
+          "judgedRelevantCount": 13,
+          "recallAt10": 0.23076923076923078,
+          "mrrAt10": 1,
+          "ndcgAt10": 0.4909133002057446,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-013",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0.40738844762703974,
+          "judgedRelevantCount": 6,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0.40738844762703974,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-014",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0,
+          "judgedRelevantCount": 11,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-015",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0,
+          "judgedRelevantCount": 6,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-016",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0.12279187804629571,
+          "judgedRelevantCount": 13,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0.12279187804629571,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-017",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.23529411764705882,
+          "mrrAtK": 0.5,
+          "ndcgAtK": 0.518385110245233,
+          "judgedRelevantCount": 17,
+          "recallAt10": 0.23529411764705882,
+          "mrrAt10": 0.5,
+          "ndcgAt10": 0.518385110245233,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-018",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0.06774631125090026,
+          "judgedRelevantCount": 10,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0.06774631125090026,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-019",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 1,
+          "mrrAtK": 0.125,
+          "ndcgAtK": 0.5534318842126004,
+          "judgedRelevantCount": 1,
+          "recallAt10": 1,
+          "mrrAt10": 0.125,
+          "ndcgAt10": 0.5534318842126004,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-020",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "semantic-core",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.5,
+          "mrrAtK": 0.25,
+          "ndcgAtK": 0.46867838338751894,
+          "judgedRelevantCount": 10,
+          "recallAt10": 0.5,
+          "mrrAt10": 0.25,
+          "ndcgAt10": 0.46867838338751894,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-021",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "contrast-hard-semantic",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.4375,
+          "mrrAtK": 0.5,
+          "ndcgAtK": 0.6175968379004295,
+          "judgedRelevantCount": 16,
+          "recallAt10": 0.4375,
+          "mrrAt10": 0.5,
+          "ndcgAt10": 0.6175968379004295,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-022",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "contrast-hard-semantic",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0.1331896237946325,
+          "judgedRelevantCount": 14,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0.1331896237946325,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-023",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "contrast-hard-semantic",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.21739130434782608,
+          "mrrAtK": 0.5,
+          "ndcgAtK": 0.5655774588596235,
+          "judgedRelevantCount": 23,
+          "recallAt10": 0.21739130434782608,
+          "mrrAt10": 0.5,
+          "ndcgAt10": 0.5655774588596235,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-024",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "contrast-hard-semantic",
+          "anchor": true,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0.06526788426294015,
+          "judgedRelevantCount": 4,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0.06526788426294015,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-025",
+          "cohorts": [
+            "intent/description"
+          ],
+          "analysisClass": "contrast-hard-semantic",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.2222222222222222,
+          "mrrAtK": 0.14285714285714285,
+          "ndcgAtK": 0.35901089240160616,
+          "judgedRelevantCount": 9,
+          "recallAt10": 0.2222222222222222,
+          "mrrAt10": 0.14285714285714285,
+          "ndcgAt10": 0.35901089240160616,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-026",
+          "cohorts": [
+            "intent+hard filter"
+          ],
+          "analysisClass": "hybrid-hard-filter",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 1,
+          "mrrAtK": 0.5,
+          "ndcgAtK": 0.8389858920495985,
+          "judgedRelevantCount": 1,
+          "recallAt10": 1,
+          "mrrAt10": 0.5,
+          "ndcgAt10": 0.8389858920495985,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-027",
+          "cohorts": [
+            "intent+hard filter"
+          ],
+          "analysisClass": "hybrid-hard-filter",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0.5009912932916563,
+          "judgedRelevantCount": 1,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0.5009912932916563,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-028",
+          "cohorts": [
+            "intent+hard filter"
+          ],
+          "analysisClass": "hybrid-hard-filter",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0.07336392209936005,
+          "judgedRelevantCount": 0,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0.07336392209936005,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-029",
+          "cohorts": [
+            "intent+hard filter"
+          ],
+          "analysisClass": "hybrid-hard-filter",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0.5,
+          "mrrAtK": 0.1,
+          "ndcgAtK": 0.31362217542031673,
+          "judgedRelevantCount": 2,
+          "recallAt10": 0.5,
+          "mrrAt10": 0.1,
+          "ndcgAt10": 0.31362217542031673,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        },
+        {
+          "queryId": "Q-030",
+          "cohorts": [
+            "intent+hard filter"
+          ],
+          "analysisClass": "hybrid-hard-filter",
+          "anchor": false,
+          "k": 10,
+          "recallAtK": 0,
+          "mrrAtK": 0,
+          "ndcgAtK": 0.9305687780632227,
+          "judgedRelevantCount": 0,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0.9305687780632227,
+          "hardFilterViolationRate": 0,
+          "hardFilterViolationGameIds": [],
+          "qualityEligible": true
+        }
+      ],
+      "overall": {
+        "queryCount": 30,
+        "recallAt10": 0.2095466772736594,
+        "mrrAt10": 0.2412301587301587,
+        "ndcgAt10": 0.34771437881301576,
+        "hardFilterViolationRate": 0,
+        "qualityEligible": true
+      },
+      "cohorts": {
+        "intent/description": {
+          "queryCount": 25,
+          "recallAt10": 0.19145601272839127,
+          "mrrAt10": 0.2654761904761905,
+          "ndcgAt10": 0.3109559721386528,
+          "hardFilterViolationRate": 0,
+          "qualityEligible": true
+        },
+        "intent+hard filter": {
+          "queryCount": 5,
+          "recallAt10": 0.3,
+          "mrrAt10": 0.12,
+          "ndcgAt10": 0.5315064121848309,
+          "hardFilterViolationRate": 0,
+          "qualityEligible": true
+        }
+      },
+      "analysisClasses": {
+        "semantic-core": {
+          "queryCount": 20,
+          "recallAt10": 0.19546433958198664,
+          "mrrAt10": 0.2747023809523809,
+          "ndcgAt10": 0.30166283031235436,
+          "hardFilterViolationRate": 0,
+          "qualityEligible": true
+        },
+        "contrast-hard-semantic": {
+          "queryCount": 5,
+          "recallAt10": 0.17542270531400966,
+          "mrrAt10": 0.22857142857142856,
+          "ndcgAt10": 0.34812853944384636,
+          "hardFilterViolationRate": 0,
+          "qualityEligible": true
+        },
+        "hybrid-hard-filter": {
+          "queryCount": 5,
+          "recallAt10": 0.3,
+          "mrrAt10": 0.12,
+          "ndcgAt10": 0.5315064121848309,
+          "hardFilterViolationRate": 0,
+          "qualityEligible": true
+        }
+      }
+    }
+  },
+  "selection": {
+    "status": "provisional-selected",
+    "selectedMethod": "dense-bge-m3",
+    "reason": "provisional qrels 기준 30개 질의에서 dense-bge-m3가 Recall@10 0.3583, MRR@10 0.5492, nDCG@10 0.5885로 네 방식 중 모두 가장 높았고 hard-filter 위반율도 0%였습니다. 독립 제3 인간 판정과 최종 60+ query 품질 게이트 전에는 방식 선정으로 확정하지 않습니다."
+  },
+  "provenance": {
+    "approvalReference": "https://github.com/bamsongi-club/albam-mate/issues/885#issuecomment-5344383511",
+    "candidates": [
+      {
+        "name": "lexical",
+        "sourcePullRequest": 884,
+        "queryFixture": {
+          "path": "search-candidate-comparison/semantic-30-queries.json",
+          "sha256": "84522f97b196d12db33b082fc26529218555b9408a973e6b6da3577587387142"
+        },
+        "results": {
+          "path": "search-candidate-comparison/semantic-30-lexical-results.json",
+          "sha256": "52c3a4c8d8bb834bf12eebe999f76cd5aa7b7a78827500db4626ca4ee920eec8"
+        }
+      },
+      {
+        "name": "sparse",
+        "sourcePullRequest": 884,
+        "queryFixture": {
+          "path": "search-candidate-comparison/semantic-30-queries.json",
+          "sha256": "84522f97b196d12db33b082fc26529218555b9408a973e6b6da3577587387142"
+        },
+        "results": {
+          "path": "search-candidate-comparison/semantic-30-sparse-results.json",
+          "sha256": "839b30f7e845b4a1af8b7750b01c36a7c3b63e4cedf10af0cff4456309eac26f"
+        }
+      },
+      {
+        "name": "dense-bge-m3",
+        "sourcePullRequest": 878,
+        "queryFixture": {
+          "path": "search-candidate-comparison/semantic-30-queries.json",
+          "sha256": "84522f97b196d12db33b082fc26529218555b9408a973e6b6da3577587387142"
+        },
+        "results": {
+          "path": "search-candidate-comparison/semantic-30-dense-results.json",
+          "sha256": "d156b0b9d1982bd383acd8b197502b2867b07f4e671f29b3f3906f98a29f7783"
+        }
+      }
+    ],
+    "inputContract": {
+      "path": "search-candidate-comparison/semantic-30-dense-input-contract.json",
+      "sha256": "6bfa028232c531e80db6f3fdc4d74708c4641d450e724301af684142091c70ca"
+    },
+    "judgementPacket": {
+      "path": "search-candidate-comparison/semantic-30-human-judgement-packet.json",
+      "sha256": "cac1a01307e44a174001ec84a0e8eff2b40cab2ccb61a1e522ac73aa7c2f615f"
+    },
+    "judgements": {
+      "path": "search-candidate-comparison/semantic-30-search-candidate-qrels.json",
+      "status": "provisional-human-calibration",
+      "sha256": "929e5f0a21af2a337f63ab73f2918dd32c3f385b7db03b6391fc97af4fca1d36"
+    }
+  }
+}
