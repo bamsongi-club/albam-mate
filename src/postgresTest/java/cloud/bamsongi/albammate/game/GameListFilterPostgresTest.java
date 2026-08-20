@@ -183,7 +183,8 @@ class GameListFilterPostgresTest extends SharedPostgresIntegrationSupport {
 				.filter(sql -> sql.contains("from games"))
 				.findFirst()
 				.orElseThrow();
-			assertTrue(relationSql.contains("in ((select"));
+			assertTrue(relationSql.contains("in ((select distinct"));
+			assertEquals(1, relationSql.split("in \\(\\(select", -1).length - 1);
 			assertTrue(relationSql.contains("game_theme_relations"));
 			assertTrue(relationSql.contains("game_mechanism_relations"));
 		} finally {
