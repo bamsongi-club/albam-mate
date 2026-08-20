@@ -38,6 +38,7 @@
     "cloud.bamsongi.albammate.notification.NotificationReadPostgresTest",
     "cloud.bamsongi.albammate.notification.NotificationRoomChangeOutboxPostgresTest",
     "cloud.bamsongi.albammate.notification.recovery.NotificationOutboxRecoveryPostgresTest",
+    "cloud.bamsongi.albammate.room.ChatUnreadSummaryQueryServicePostgresTest",
     "cloud.bamsongi.albammate.room.RoomCommandRequestTimeRetryBoundaryPostgresTest",
     "cloud.bamsongi.albammate.room.RoomListPostgresTest",
     "cloud.bamsongi.albammate.room.RoomParticipationConcurrencyPostgresTest",

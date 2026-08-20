@@ -14,14 +14,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import cloud.bamsongi.albammate.AlbamMateApplication;
 import cloud.bamsongi.albammate.chat.entity.ChatMessage;
@@ -34,6 +31,7 @@ import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
 import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
 import cloud.bamsongi.albammate.room.service.query.ChatUnreadSummaryQueryService;
+import cloud.bamsongi.albammate.testsupport.SharedPostgresIntegrationSupport;
 
 /**
  * CHAT-07 상단 채팅 아이콘 배지용 미읽음 방 개수(GET /api/users/me/chat/unread-summary)의 T1~T3를 실제
@@ -46,16 +44,10 @@ import cloud.bamsongi.albammate.room.service.query.ChatUnreadSummaryQueryService
 @Testcontainers
 @SpringBootTest(classes = AlbamMateApplication.class)
 @Import(ChatUnreadSummaryQueryServicePostgresTest.FixedClockConfiguration.class)
-class ChatUnreadSummaryQueryServicePostgresTest {
+class ChatUnreadSummaryQueryServicePostgresTest extends SharedPostgresIntegrationSupport {
 
-	private static final String POSTGRES_IMAGE = "postgres:18.4";
 	private static final Instant NOW = Instant.parse("2026-08-19T00:00:00Z");
 	private static final Instant RECRUITING_START = NOW.plusSeconds(3600);
-
-	@Container
-	@ServiceConnection
-	static final PostgreSQLContainer postgres = new PostgreSQLContainer(POSTGRES_IMAGE)
-		.withDatabaseName("albam_mate_chat_unread_summary_test");
 
 	@Autowired
 	private ChatUnreadSummaryQueryService chatUnreadSummaryQueryService;
