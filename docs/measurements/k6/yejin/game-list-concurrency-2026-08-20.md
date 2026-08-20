@@ -47,6 +47,20 @@ node scripts/measurements/game-list-concurrency.mjs \
 
 VU 8은 VU 4보다 처리량이 소폭 증가했지만 p95는 약 2.36배, p99는 약 4.35배 증가했다. 이는 이 로컬 Docker 호스트에서 동시성이 올라갈 때 tail latency가 악화되는 관찰값이며, production capacity threshold가 아니다.
 
+## V0/V1 시나리오 분리 진단
+
+mixed 결과의 `494.930ms` tail 원인을 분리하기 위해 같은 170,005건 dump를 새로 복원한 V0·V1 격리 런타임에서 VU 8·20초를 시나리오별로 한 번씩 실행했다. V0 서버 commit은 `7d29232f30bc4122f08a2aa4e8059cb643b9a2c1`, V1 서버 commit은 `853d1eeee384783372649a1b258c3f816d24e835`, 시나리오 선택을 지원한 runner commit은 `90361ba4`다. 원본은 `build/k6/game-list-867/targeted/v{0,1}-{base,relation,complex}.json`에 보존했다.
+
+| 시나리오 | V0 p50 / p95 / p99 | V1 p50 / p95 / p99 | V1 p95 변화 | V0 → V1 처리량 |
+| --- | ---: | ---: | ---: | ---: |
+| base | 89.542 / 238.781 / 560.736ms | 58.307 / 166.225 / 317.267ms | -30.35% | 48.739 → 63.235 req/s |
+| relation | 1,677.730 / 3,773.049 / 3,780.221ms | 1,388.561 / 1,769.973 / 1,944.998ms | -53.09% | 3.918 → 5.590 req/s |
+| complex | 783.842 / 1,170.729 / 1,407.169ms | 942.087 / 1,801.525 / 2,186.464ms | +53.88% | 9.252 → 7.308 req/s |
+
+세 시나리오 모두 HTTP 오류율은 `0%`, Slice check는 `100%`, App·DB 재시작은 `0회`였다. relation은 V1에서도 p95가 `1.77초`이고 PostgreSQL CPU 최대가 V0 `174.34%`, V1 `187.45%`로 App보다 높았다. 따라서 `495ms` mixed tail은 base가 아니라 relation·complex가 섞인 DB 관계 필터 부하의 영향으로 보는 것이 타당하다.
+
+이 분리 실행은 각 시나리오 한 round의 진단 자료이므로, 네 round 교차 순서로 확정한 V1 후보 선택 gate를 다시 판정하지 않는다. 특히 complex의 단일 실행은 V1이 V0보다 높게 관측되어 반복 확인이 필요하다. 현재 결과만으로 V2/V3 인덱스를 다시 채택하지 않으며, relation 절대 p95를 더 낮추려면 전 시나리오 회귀 gate를 포함한 별도 인덱스·query tuning 실험이 필요하다.
+
 ## App·PostgreSQL 자원
 
 CPU는 Docker stats가 보고한 컨테이너 CPU percentage라서 PostgreSQL처럼 multi-core를 사용하는 컨테이너는 100%를 넘을 수 있다. memory는 사용량 MiB의 단계별 최댓값이다. DB connection은 `pg_stat_activity`의 단계별 최댓값이다.
