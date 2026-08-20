@@ -16,6 +16,7 @@ import static org.mockito.Mockito.when;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
@@ -86,6 +87,25 @@ class RoomChatAccessGuardTest {
 
 		assertForbidden(() -> guard.verifyCurrentAccess(2L, 7L));
 		assertForbidden(() -> guard.verifyCurrentAccess(1L, 8L));
+	}
+
+	@Test
+	void T3_참가자_목록_조회는_주최자와_ACTIVE_참가자만_반환하고_취소된_참가자는_제외한다() {
+		Room room = mock(Room.class);
+		when(room.getHostUserId()).thenReturn(1L);
+		when(roomRepository.findById(7L)).thenReturn(Optional.of(room));
+		when(
+			participationRepository.findUserIdsByRoomIdAndStatusOrderByJoinedAtAscIdAsc(7L, ParticipationStatus.ACTIVE))
+			.thenReturn(List.of(2L, 3L));
+
+		assertEquals(List.of(1L, 2L, 3L), guard.findCurrentParticipantUserIds(7L));
+	}
+
+	@Test
+	void T3_존재하지_않는_방의_참가자_목록_조회는_빈_목록을_반환한다() {
+		when(roomRepository.findById(999L)).thenReturn(Optional.empty());
+
+		assertEquals(List.of(), guard.findCurrentParticipantUserIds(999L));
 	}
 
 	private void assertForbidden(Runnable action) {
