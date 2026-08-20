@@ -16,6 +16,7 @@ export const DEFAULT_METRIC_K = 10;
 export const DEFAULT_EVALUATION_TOP_K = 20;
 export const DEFAULT_RRF_K = 60;
 export const COMPARISON_BLIND_SEED = "search-04-candidate-comparison-v1";
+const JUDGEMENT_PROVENANCE_SCHEMA_VERSION = 1;
 const FILLED_HUMAN_JUDGE_PACKET_STATUS = "filled";
 const AI_DRAFTED_JUDGE_PACKET_STATUS = "filled-ai-drafted-not-independent-human";
 
@@ -86,11 +87,19 @@ export function compareFromManifest({
     allowProvisionalAiAdjudication = false,
 }) {
     const loaded = loadComparisonManifest(manifestPath);
-    const judgements = judgementsPath
-        ? readJson(path.resolve(loaded.baseDir, judgementsPath), "human qrels")
+    const resolvedJudgementsPath = judgementsPath
+        ? path.resolve(loaded.baseDir, judgementsPath)
+        : null;
+    const judgements = resolvedJudgementsPath
+        ? readJson(resolvedJudgementsPath, "human qrels")
         : loaded.judgements;
     if (judgements?.status === "approved" && !loaded.judgementPacketDescriptor) {
         fail("approved human qrels에는 canonical judgementPacket descriptor가 필요합니다.");
+    }
+    if (judgements?.status === "approved"
+        && resolvedJudgementsPath
+        && !isManifestJudgementsArtifact(loaded, resolvedJudgementsPath)) {
+        validateApprovedJudgementOverrideProvenance({ judgements, loaded });
     }
     const queries = loaded.candidates[0].queries;
     const report = buildComparisonReport({
@@ -118,6 +127,99 @@ export function compareFromManifest({
             judgements: loaded.manifest.judgements ?? null,
         },
     };
+}
+
+function isManifestJudgementsArtifact(loaded, resolvedJudgementsPath) {
+    return Boolean(loaded.manifest.judgements)
+        && path.resolve(loaded.baseDir, loaded.manifest.judgements.path) === resolvedJudgementsPath;
+}
+
+function validateApprovedJudgementOverrideProvenance({ judgements, loaded }) {
+    const provenance = judgements.provenance;
+    requireExactObjectKeys(
+        provenance,
+        ["schemaVersion", "canonicalPacket", "judgePackets", "independentThirdJudge"],
+        "approved human qrels override provenance",
+    );
+    if (provenance.schemaVersion !== JUDGEMENT_PROVENANCE_SCHEMA_VERSION) {
+        fail("approved human qrels override provenance schemaVersion이 올바르지 않습니다.");
+    }
+
+    const canonicalSource = readProvenanceArtifact(
+        provenance.canonicalPacket,
+        loaded.baseDir,
+        "approved human qrels override provenance.canonicalPacket",
+    );
+    const canonicalDescriptor = loaded.judgementPacketDescriptor;
+    if (canonicalSource.descriptor.path !== canonicalDescriptor.path
+        || canonicalSource.descriptor.sha256 !== canonicalDescriptor.sha256) {
+        fail("approved human qrels override provenance의 canonical packet이 manifest와 다릅니다.");
+    }
+
+    if (!Array.isArray(provenance.judgePackets)
+        || (provenance.judgePackets.length !== 2 && provenance.judgePackets.length !== 3)) {
+        fail("approved human qrels override provenance에는 2개 또는 3개의 판정 packet이 필요합니다.");
+    }
+    if (provenance.independentThirdJudge !== (provenance.judgePackets.length === 3)) {
+        fail("approved human qrels override provenance의 제3 판정 독립성 표기가 올바르지 않습니다.");
+    }
+
+    const judgeIds = [];
+    const judgePackets = provenance.judgePackets.map((descriptor, index) => {
+        requireExactObjectKeys(
+            descriptor,
+            ["judgeId", "path", "sha256", "independentHuman"],
+            `approved human qrels override provenance.judgePackets[${index}]`,
+        );
+        if (!isNonEmptyString(descriptor.judgeId) || judgeIds.includes(descriptor.judgeId)) {
+            fail("approved human qrels override provenance의 judge ID가 없거나 중복되었습니다.");
+        }
+        if (descriptor.independentHuman !== true) {
+            fail("approved human qrels override provenance에는 독립 human 판정 packet만 사용할 수 있습니다.");
+        }
+        judgeIds.push(descriptor.judgeId);
+        return readProvenanceArtifact(
+            { path: descriptor.path, sha256: descriptor.sha256 },
+            loaded.baseDir,
+            `approved human qrels override provenance.judgePackets[${index}]`,
+        ).value;
+    });
+
+    const expected = buildApprovedHumanQrels({
+        packet: canonicalSource.value,
+        judgePackets: judgePackets.slice(0, 2),
+        thirdJudgePacket: judgePackets.length === 3 ? judgePackets[2] : null,
+        judgeIds,
+        packetSha256: canonicalDescriptor.sha256,
+    });
+    const actual = { ...judgements };
+    delete actual.provenance;
+    if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+        fail("approved human qrels override가 source packet으로 재생성한 결과와 다릅니다.");
+    }
+}
+
+function readProvenanceArtifact(descriptor, baseDir, name) {
+    requireExactObjectKeys(descriptor, ["path", "sha256"], name);
+    const resolvedPath = resolveProvenancePath(descriptor.path, baseDir, name);
+    const bytes = fs.readFileSync(resolvedPath);
+    if (sha256(bytes) !== descriptor.sha256) {
+        fail(`${name}.sha256 checksum이 실제 파일과 다릅니다.`);
+    }
+    return {
+        descriptor: { path: descriptor.path, sha256: descriptor.sha256 },
+        value: parseJson(bytes, name),
+    };
+}
+
+function resolveProvenancePath(sourcePath, baseDir, name) {
+    if (!isNonEmptyString(sourcePath)) fail(`${name}.path가 없습니다.`);
+    if (!path.isAbsolute(sourcePath) && sourcePath.split(/[\\/]/u).includes("..")) {
+        fail(`${name}.path는 상위 경로를 포함할 수 없습니다.`);
+    }
+    return path.isAbsolute(sourcePath)
+        ? path.resolve(sourcePath)
+        : path.resolve(baseDir, sourcePath);
 }
 
 export function packetFromManifest({ manifestPath, topK = undefined }) {
@@ -466,11 +568,8 @@ export function buildApprovedHumanQrels({
         : null;
     if (normalizedThirdJudgePacket) {
         requireIndependentHumanJudgePacket(normalizedThirdJudgePacket, "third judge packet");
+        validateThirdJudgePacketSubset(reference, normalizedThirdJudgePacket, "third judge packet");
     }
-    if (normalizedThirdJudgePacket && judgementPacketIdentity(reference) !== judgementPacketIdentity(normalizedThirdJudgePacket)) {
-        fail("third judge packet이 canonical packet과 다릅니다.");
-    }
-
     const queries = reference.queries.map((query, queryIndex) => {
         const judgeResults = normalizedJudgePackets.map((judgePacket, judgeIndex) => extractJudgeResult(
             judgePacket.queries[queryIndex],
@@ -1106,6 +1205,66 @@ function judgementPacketIdentity(packet) {
     });
 }
 
+function judgementPacketMetadataIdentity(packet) {
+    return JSON.stringify({
+        schemaVersion: packet.schemaVersion,
+        kind: packet.kind,
+        seed: packet.seed ?? null,
+        evaluation: packet.evaluation,
+        hides: packet.hides ?? null,
+        gradeScale: packet.gradeScale ?? null,
+        judgementContract: packet.judgementContract ?? null,
+        provenance: packet.provenance ?? null,
+    });
+}
+
+function judgementQueryMetadataIdentity(query) {
+    return JSON.stringify({
+        id: query.id,
+        query: query.query,
+        cohorts: query.cohorts,
+        analysisClass: query.analysisClass,
+        anchor: query.anchor,
+        hardFilters: query.hardFilters,
+        judgementRubric: query.judgementRubric ?? null,
+    });
+}
+
+function judgementCandidateIdentity(candidate) {
+    return JSON.stringify({
+        blindRank: candidate.blindRank,
+        gameId: Number(candidate.gameId),
+        evidenceText: candidate.evidenceText,
+    });
+}
+
+function validateThirdJudgePacketSubset(referencePacket, thirdJudgePacket, name) {
+    if (judgementPacketMetadataIdentity(referencePacket)
+        !== judgementPacketMetadataIdentity(thirdJudgePacket)) {
+        fail(`${name} metadata가 canonical packet과 다릅니다.`);
+    }
+    if (thirdJudgePacket.queries.length !== referencePacket.queries.length) {
+        fail(`${name} query 수가 canonical packet과 다릅니다.`);
+    }
+
+    thirdJudgePacket.queries.forEach((query, queryIndex) => {
+        const referenceQuery = referencePacket.queries[queryIndex];
+        if (judgementQueryMetadataIdentity(query) !== judgementQueryMetadataIdentity(referenceQuery)) {
+            fail(`${name} ${query.id} query metadata가 canonical packet과 다릅니다.`);
+        }
+        const referenceCandidates = new Map(
+            referenceQuery.candidates.map((candidate) => [String(Number(candidate.gameId)), candidate]),
+        );
+        for (const candidate of query.candidates) {
+            const referenceCandidate = referenceCandidates.get(String(Number(candidate.gameId)));
+            if (!referenceCandidate
+                || judgementCandidateIdentity(candidate) !== judgementCandidateIdentity(referenceCandidate)) {
+                fail(`${name} ${query.id} candidate가 canonical packet과 다릅니다.`);
+            }
+        }
+    });
+}
+
 function extractJudgeResult(judgeQuery, referenceQuery, name, { allowPartial = false } = {}) {
     if (judgeQuery?.id !== referenceQuery.id) fail(`${name} query ID가 canonical packet과 다릅니다.`);
     const grades = {};
@@ -1256,6 +1415,7 @@ export function writeJsonAtomically(outputPath, contents, {
     );
     let fileDescriptor = null;
     let temporaryCreated = false;
+    let published = false;
     try {
         fileDescriptor = openFile(temporaryPath, "wx", 0o600);
         temporaryCreated = true;
@@ -1269,7 +1429,12 @@ export function writeJsonAtomically(outputPath, contents, {
             }
         }
         publish(temporaryPath, outputPath);
-        unlink(temporaryPath);
+        published = true;
+        try {
+            unlink(temporaryPath);
+        } catch {
+            // The output is already published; cleanup failure must not report a failed result.
+        }
         temporaryCreated = false;
     } catch (error) {
         if (fileDescriptor !== null) {
@@ -1279,7 +1444,7 @@ export function writeJsonAtomically(outputPath, contents, {
                 // Preserve the original write/publish error.
             }
         }
-        if (temporaryCreated) {
+        if (temporaryCreated && !published) {
             try {
                 unlink(temporaryPath);
             } catch {
@@ -1288,6 +1453,37 @@ export function writeJsonAtomically(outputPath, contents, {
         }
         throw error;
     }
+}
+
+function buildJudgementSourceDescriptor(baseDir, filePath) {
+    const resolvedPath = path.resolve(filePath);
+    const relativePath = path.relative(baseDir, resolvedPath);
+    const safeRelativePath = relativePath
+        && !path.isAbsolute(relativePath)
+        && !relativePath.split(/[\\/]/u).includes("..");
+    return {
+        path: safeRelativePath ? relativePath : resolvedPath,
+        sha256: sha256(fs.readFileSync(resolvedPath)),
+    };
+}
+
+function buildJudgementProvenance({
+    baseDir,
+    canonicalPacketPath,
+    judgePaths,
+    judgeIds,
+    provisional,
+}) {
+    return {
+        schemaVersion: JUDGEMENT_PROVENANCE_SCHEMA_VERSION,
+        canonicalPacket: buildJudgementSourceDescriptor(baseDir, canonicalPacketPath),
+        judgePackets: judgePaths.map((filePath, index) => ({
+            ...buildJudgementSourceDescriptor(baseDir, filePath),
+            judgeId: judgeIds[index],
+            independentHuman: !provisional || index < 2,
+        })),
+        independentThirdJudge: !provisional && judgePaths.length === 3,
+    };
 }
 
 function main() {
@@ -1307,6 +1503,16 @@ function main() {
             const judgeAPath = path.resolve(options.judgeA);
             const judgeBPath = path.resolve(options.judgeB);
             const thirdJudgePath = options.judgeC ? path.resolve(options.judgeC) : null;
+            const judgeIds = thirdJudgePath
+                ? [options.judgeAId ?? "judge-a", options.judgeBId ?? "judge-b", options.judgeCId ?? "judge-c"]
+                : [options.judgeAId ?? "judge-a", options.judgeBId ?? "judge-b"];
+            const judgementProvenance = buildJudgementProvenance({
+                baseDir: loaded.baseDir,
+                canonicalPacketPath,
+                judgePaths: [judgeAPath, judgeBPath, ...(thirdJudgePath ? [thirdJudgePath] : [])],
+                judgeIds,
+                provisional: options.provisionalAiAdjudication,
+            });
             const canonicalPacketBytes = fs.readFileSync(canonicalPacketPath);
             if (sha256(canonicalPacketBytes) !== loaded.judgementPacketDescriptor.sha256) {
                 fail("--canonical-packet이 manifest의 judgementPacket.sha256와 다릅니다.");
@@ -1322,13 +1528,15 @@ function main() {
                 ],
                 thirdJudgePacket: thirdJudgePath ? readJson(thirdJudgePath, "third judge packet") : null,
                 thirdJudgeSource: thirdJudgePath
-                    ? path.relative(loaded.baseDir, thirdJudgePath)
+                    ? judgementProvenance.judgePackets[2].path
                     : null,
-                judgeIds: thirdJudgePath
-                    ? [options.judgeAId ?? "judge-a", options.judgeBId ?? "judge-b", options.judgeCId ?? "judge-c"]
-                    : [options.judgeAId ?? "judge-a", options.judgeBId ?? "judge-b"],
+                judgeIds,
                 packetSha256: sha256(canonicalPacketBytes),
             });
+            qrels.provenance = {
+                ...judgementProvenance,
+                ...(qrels.provenance ?? {}),
+            };
             const inputPaths = [
                 manifestPath,
                 canonicalPacketPath,

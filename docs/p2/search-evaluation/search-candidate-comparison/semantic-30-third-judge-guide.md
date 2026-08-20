@@ -1,8 +1,8 @@
 # semantic-30 제3 판정자 검수 안내
 
-아래 안내와 [`semantic-30-judge-c-worklist.json`](semantic-30-judge-c-worklist.json)을 독립 제3 판정자에게 전달합니다.
+아래 안내와 [`semantic-30-judge-c-independent-packet.json`](semantic-30-judge-c-independent-packet.json)만 독립 제3 판정자에게 전달합니다.
 
-> 현재 저장된 worklist는 `ai-drafted-not-independent-human` 상태로 이미 채워진 provisional 초안입니다. 아래 안내는 이 초안을 실제 독립 인간 판정으로 교체할 때 적용하며, 현재 초안으로 계산한 결과는 approved qrels가 아닙니다.
+> `semantic-30-judge-c-independent-packet.json`은 A/B 불일치 585개 후보만 담은 빈 C 입력 packet이며 모든 `grade`와 `rationale`이 비어 있습니다. `semantic-30-judge-c-worklist.json`과 `semantic-30-judge-c.json`에는 AI 판정값이 포함되어 있으므로 독립 판정자에게 전달하거나 열어 보이지 마세요. 현재 AI 초안으로 계산한 결과는 approved qrels가 아닙니다.
 
 ## 그대로 전달할 문구
 
@@ -22,7 +22,7 @@
 
 ### 입력 방법
 
-1. `semantic-30-judge-c-worklist.json`을 엽니다. 이 파일에는 이번에 판정할 585개 후보만 들어 있습니다.
+1. `semantic-30-judge-c-independent-packet.json`을 엽니다. 이 파일에는 이번에 판정할 585개 후보만 들어 있습니다.
 2. 각 질의의 `query`와 `judgementRubric`을 먼저 읽습니다.
 3. 해당 후보의 `evidenceText`를 읽고 `grade`에 `0`, `1`, `2` 중 하나를 입력합니다.
 4. `rationale`에는 왜 그 점수를 줬는지 한 문장으로 적습니다. 제공된 게임 설명에 근거해 작성해 주세요.
@@ -43,14 +43,14 @@
 
 ```text
 제3 판정 완료
-- 판정 파일: semantic-30-judge-c-worklist.json
+- 판정 파일: semantic-30-judge-c-independent-packet.json
 - 입력 완료: 585/585
 - 미입력 grade/rationale: 0
 - grade 허용 범위 위반: 0
 - 후보·질의 정보 수정: 없음
 ```
 
-반환된 파일은 담당자가 canonical packet에 반영한 뒤, A/B와 제3 판정의 다수결로 최종 qrels를 다시 생성합니다. 이 worklist 자체는 최종 qrels 파일이 아니므로, 판정자는 별도의 qrels·metrics 파일을 만들지 않습니다.
+반환된 파일은 담당자가 canonical packet에 반영한 뒤, A/B와 제3 판정의 다수결로 최종 qrels를 다시 생성합니다. 이 C 입력 packet 자체는 최종 qrels 파일이 아니므로, 판정자는 별도의 qrels·metrics 파일을 만들지 않습니다.
 
 ## 담당자 확인 사항
 
@@ -62,4 +62,4 @@
 - `gameId`와 `evidenceText`가 전달 전과 같은지
 - A/B 파일이나 기존 추론 C 값이 판정자에게 노출되지 않았는지
 
-검증이 끝난 뒤에만 제3 판정 결과를 `semantic-30-judge-c.json`에 병합하고 approved qrels와 metrics를 재생성합니다.
+검증이 끝난 뒤에만 제3 판정 결과를 `semantic-30-judge-c-independent-packet.json`으로 `--judge-c` 입력으로 사용하고 approved qrels와 metrics를 재생성합니다.

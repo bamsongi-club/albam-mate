@@ -432,6 +432,25 @@ test("manifest로 만든 blind packet은 provenance에서 후보 이름을 노�
     }
 });
 
+test("독립 제3 판정 packet은 AI 판정값 없이 불일치 후보만 담는다", () => {
+    const filePath = path.resolve(
+        "docs/p2/search-evaluation/search-candidate-comparison/semantic-30-judge-c-independent-packet.json",
+    );
+    const packet = JSON.parse(fs.readFileSync(filePath, "utf8"));
+    const candidateCount = packet.queries.reduce((sum, query) => sum + query.candidates.length, 0);
+
+    assert.equal(packet.status, "pending-independent-third-human-judgement");
+    assert.equal(packet.queries.length, 30);
+    assert.equal(candidateCount, 585);
+    assert.equal(Object.hasOwn(packet.provenance, "judgedBy"), false);
+    assert.equal(
+        packet.queries.every((query) => query.candidates.every((candidate) => (
+            candidate.grade === null && candidate.rationale === null
+        ))),
+        true,
+    );
+});
+
 test("독립 판정 packet 두 개의 일치 결과를 approved qrels로 보존한다", () => {
     const packet = judgementPacket();
     const grades = { "1": 2, "2": 1, "3": 0, "4": 2 };
@@ -463,6 +482,8 @@ test("판정 불일치는 제3 판정의 다수결과 근거를 함께 보존한
             candidate.rationale = null;
         }
     }
+    thirdPacket.queries[0].candidates = thirdPacket.queries[0].candidates
+        .filter((candidate) => candidate.gameId === 1);
     const qrels = buildApprovedHumanQrels({
         packet,
         judgePackets: [
@@ -826,6 +847,26 @@ test("CLI는 두 판정 packet을 checksum 고정 qrels로 조립한다", () => 
         const qrels = JSON.parse(fs.readFileSync(outputPath, "utf8"));
         assert.equal(qrels.status, "approved");
         assert.match(qrels.packetSha256, /^[a-f0-9]{64}$/u);
+        assert.equal(qrels.provenance.schemaVersion, 1);
+        assert.deepEqual(
+            qrels.provenance.judgePackets.map(({ judgeId, independentHuman }) => ({ judgeId, independentHuman })),
+            [
+                { judgeId: "judge-a", independentHuman: true },
+                { judgeId: "judge-b", independentHuman: true },
+            ],
+        );
+
+        const report = compareFromManifest({ manifestPath, judgementsPath: outputPath });
+        assert.equal(report.status, "metrics-ready");
+
+        const untrustedOutputPath = path.join(directory, "untrusted-qrels.json");
+        const untrustedQrels = { ...qrels };
+        delete untrustedQrels.provenance;
+        fs.writeFileSync(untrustedOutputPath, `${JSON.stringify(untrustedQrels)}\n`);
+        assert.throws(
+            () => compareFromManifest({ manifestPath, judgementsPath: untrustedOutputPath }),
+            /approved human qrels override provenance/u,
+        );
 
         assert.throws(
             () => execFileSync(process.execPath, [
@@ -887,6 +928,18 @@ test("원자적 JSON 출력은 write·rename 실패에서 기존 결과와 임�
         );
         assert.equal(fs.readFileSync(outputPath, "utf8"), "previous\n");
         assert.equal(fs.existsSync(path.join(directory, ".results.json.no-replace.tmp")), false);
+
+        const cleanupOutputPath = path.join(directory, "cleanup.json");
+        let cleanupAttempts = 0;
+        assert.doesNotThrow(() => writeJsonAtomically(cleanupOutputPath, "published\n", {
+            randomId: () => "cleanup-failure",
+            unlink: () => {
+                cleanupAttempts += 1;
+                throw new Error("cleanup failed");
+            },
+        }));
+        assert.equal(fs.readFileSync(cleanupOutputPath, "utf8"), "published\n");
+        assert.equal(cleanupAttempts, 1);
     } finally {
         fs.rmSync(directory, { recursive: true, force: true });
     }
