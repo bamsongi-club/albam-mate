@@ -10,6 +10,8 @@ import {
 const NON_BACKEND_ONLY_PATTERNS = [
   /\.md$/,
   /^docs\//,
+  // SEARCH-04 offline contract scripts are exercised by the always-on Docs job.
+  /^scripts\/search-evaluation\//,
   /^\.github\/ISSUE_TEMPLATE\//,
   /^load-tests\//,
   /^scripts\/ci\/classify-ci-paths(?:\.test)?\.mjs$/,

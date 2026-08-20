@@ -58,6 +58,17 @@ test("k6 측정 도구 변경은 backend와 frontend를 실행하지 않는다",
   );
 });
 
+test("SEARCH-04 offline 평가 스크립트 변경은 Docs 계약 검증으로 처리한다", () => {
+  assert.deepEqual(
+    classifyCiPaths([
+      "scripts/search-evaluation/search-candidate-comparison.mjs",
+      "scripts/search-evaluation/search-candidate-comparison.test.mjs",
+      "scripts/search-evaluation/run-bge-m3.test.py",
+    ]),
+    noBackend(false),
+  );
+});
+
 test("frontend 변경은 frontend만 실행한다", () => {
   assert.deepEqual(
     classifyCiPaths(["frontend/src/App.tsx", "frontend/README.md"]),
