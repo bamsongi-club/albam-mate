@@ -167,6 +167,7 @@ node scripts/search-evaluation/search-candidate-comparison.mjs \
 ```
 
 `--manifest`의 `judgementPacket.path`가 가리키는 동일 파일을 `--canonical-packet`으로 지정해야 하며, 조립기는 manifest descriptor의 SHA-256도 다시 검증합니다. packet을 다시 생성하면 manifest의 descriptor SHA-256도 함께 갱신·검증해야 합니다.
+canonical packet은 `status: pending-independent-human-judgement`이고 모든 candidate의 `grade`·`rationale`이 비어 있어야 하며, 이미 채점된 packet은 blind 입력으로 사용할 수 없습니다. canonical·A/B/C source가 같은 실제 파일·symlink·hardlink를 가리키는 경우에도 독립 판정이 아니므로 조립을 거부합니다.
 
 불일치 query가 있으면 제3 판정 packet을 추가합니다. 제3 판정자는 불일치 candidate만 `grade`·`rationale`를 채우고 나머지는 빈 값으로 둡니다. 조립 결과는 canonical packet SHA-256, 각 판정자의 grade·rationale, query별 합의 방식(`independent-agreement` 또는 `third-judge-majority`)을 보존합니다.
 

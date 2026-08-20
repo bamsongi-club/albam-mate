@@ -64,6 +64,9 @@ export function loadComparisonManifest(manifestPath) {
     const judgements = manifest.judgements
         ? loadArtifact(baseDir, manifest.judgements, "judgements")
         : null;
+    if (judgementPacket) {
+        validateCanonicalBlindJudgementPacket(judgementPacket.value, "judgementPacket");
+    }
     return {
         manifest,
         candidates,
@@ -93,6 +96,11 @@ export function compareFromManifest({
     const judgements = resolvedJudgementsPath
         ? readJson(resolvedJudgementsPath, "human qrels")
         : loaded.judgements;
+    const resolvedJudgementsDescriptor = judgements
+        ? resolvedJudgementsPath
+            ? buildJudgementSourceDescriptor(loaded.baseDir, resolvedJudgementsPath)
+            : loaded.manifest.judgements ?? null
+        : null;
     const requiresJudgementProvenance = judgements?.status === "approved"
         || judgements?.status === "provisional-ai-adjudication";
     if (requiresJudgementProvenance && !loaded.judgementPacketDescriptor) {
@@ -129,7 +137,7 @@ export function compareFromManifest({
             })),
             inputContract: loaded.inputContractDescriptor ?? null,
             judgementPacket: loaded.judgementPacketDescriptor ?? null,
-            ...(loaded.manifest.judgements ? { judgements: loaded.manifest.judgements } : {}),
+            ...(resolvedJudgementsDescriptor ? { judgements: resolvedJudgementsDescriptor } : {}),
         },
     };
 }
@@ -189,6 +197,11 @@ function validateApprovedJudgementOverrideProvenance({ judgements, loaded }) {
             `approved human qrels override provenance.judgePackets[${index}]`,
         ).value;
     });
+    assertDistinctProvenanceArtifacts(
+        [provenance.canonicalPacket, ...provenance.judgePackets],
+        loaded.baseDir,
+        "approved human qrels override provenance source",
+    );
 
     const expected = buildApprovedHumanQrels({
         packet: canonicalSource.value,
@@ -260,6 +273,11 @@ function validateProvisionalAiAdjudicationProvenance({ judgements, loaded }) {
     if (provenance.thirdJudgeSource !== judgeDescriptors[2].descriptor.path) {
         fail(`${name}.thirdJudgeSource가 AI C packet과 다릅니다.`);
     }
+    assertDistinctProvenanceArtifacts(
+        [provenance.canonicalPacket, ...provenance.judgePackets],
+        loaded.baseDir,
+        `${name} source`,
+    );
 
     const expected = buildProvisionalAiAdjudicationQrels({
         packet: canonicalSource.value,
@@ -631,7 +649,7 @@ export function buildApprovedHumanQrels({
     judgeIds = ["judge-a", "judge-b"],
     packetSha256 = null,
 }) {
-    const reference = validateJudgementPacket(packet, "canonical packet");
+    const reference = validateCanonicalBlindJudgementPacket(packet, "canonical packet");
     if (!Array.isArray(judgePackets) || judgePackets.length !== 2) {
         fail("독립 판정 packet은 2개가 필요합니다.");
     }
@@ -749,7 +767,7 @@ export function buildProvisionalAiAdjudicationQrels({
     judgeIds = ["judge-a", "judge-b", "judge-c-ai-drafted"],
     packetSha256 = null,
 }) {
-    const reference = validateJudgementPacket(packet, "canonical packet");
+    const reference = validateCanonicalBlindJudgementPacket(packet, "canonical packet");
     if (!Array.isArray(judgePackets) || judgePackets.length !== 2) {
         fail("독립 판정 packet은 2개가 필요합니다.");
     }
@@ -1272,6 +1290,21 @@ function validateJudgementPacket(packet, name) {
     return packet;
 }
 
+function validateCanonicalBlindJudgementPacket(packet, name) {
+    const validated = validateJudgementPacket(packet, name);
+    if (validated.status !== "pending-independent-human-judgement") {
+        fail(`${name} status는 pending-independent-human-judgement여야 합니다.`);
+    }
+    for (const query of validated.queries) {
+        for (const candidate of query.candidates) {
+            if (candidate.grade !== null || candidate.rationale !== null) {
+                fail(`${name}은 모든 candidate의 grade·rationale이 비어 있어야 합니다.`);
+            }
+        }
+    }
+    return validated;
+}
+
 function judgementPacketIdentity(packet) {
     return JSON.stringify({
         schemaVersion: packet.schemaVersion,
@@ -1561,6 +1594,34 @@ function buildJudgementSourceDescriptor(baseDir, filePath) {
     };
 }
 
+function assertDistinctJudgementSources(filePaths, name) {
+    const seenRealPaths = new Map();
+    const seenInodes = new Map();
+    filePaths.forEach((filePath, index) => {
+        let realPath;
+        let stat;
+        try {
+            realPath = fs.realpathSync(filePath);
+            stat = fs.statSync(realPath);
+        } catch (error) {
+            fail(`${name}[${index}] 파일을 확인할 수 없습니다: ${error.message}`);
+        }
+        const inode = `${stat.dev}:${stat.ino}`;
+        if (seenRealPaths.has(realPath) || seenInodes.has(inode)) {
+            fail(`${name}는 서로 다른 실제 파일이어야 합니다.`);
+        }
+        seenRealPaths.set(realPath, index);
+        seenInodes.set(inode, index);
+    });
+}
+
+function assertDistinctProvenanceArtifacts(descriptors, baseDir, name) {
+    assertDistinctJudgementSources(
+        descriptors.map((descriptor) => resolveProvenancePath(descriptor.path, baseDir, name)),
+        name,
+    );
+}
+
 function buildJudgementProvenance({
     baseDir,
     canonicalPacketPath,
@@ -1597,6 +1658,10 @@ function main() {
             const judgeAPath = path.resolve(options.judgeA);
             const judgeBPath = path.resolve(options.judgeB);
             const thirdJudgePath = options.judgeC ? path.resolve(options.judgeC) : null;
+            assertDistinctJudgementSources(
+                [canonicalPacketPath, judgeAPath, judgeBPath, ...(thirdJudgePath ? [thirdJudgePath] : [])],
+                "qrels 판정 packet source",
+            );
             const judgeIds = thirdJudgePath
                 ? [options.judgeAId ?? "judge-a", options.judgeBId ?? "judge-b", options.judgeCId ?? "judge-c"]
                 : [options.judgeAId ?? "judge-a", options.judgeBId ?? "judge-b"];
@@ -1611,11 +1676,15 @@ function main() {
             if (sha256(canonicalPacketBytes) !== loaded.judgementPacketDescriptor.sha256) {
                 fail("--canonical-packet이 manifest의 judgementPacket.sha256와 다릅니다.");
             }
+            const canonicalPacket = validateCanonicalBlindJudgementPacket(
+                parseJson(canonicalPacketBytes, "canonical packet"),
+                "canonical packet",
+            );
             const qrelsBuilder = options.provisionalAiAdjudication
                 ? buildProvisionalAiAdjudicationQrels
                 : buildApprovedHumanQrels;
             const qrels = qrelsBuilder({
-                packet: parseJson(canonicalPacketBytes, "canonical packet"),
+                packet: canonicalPacket,
                 judgePackets: [
                     readJson(judgeAPath, "judge A packet"),
                     readJson(judgeBPath, "judge B packet"),

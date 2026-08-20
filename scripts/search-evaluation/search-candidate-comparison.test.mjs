@@ -619,6 +619,38 @@ test("provisional qrels는 AI-drafted 제3 판정 packet만 허용한다", () =>
     );
 });
 
+test("canonical packet은 pending 상태와 빈 판정 필드를 강제한다", () => {
+    const packet = judgementPacket();
+    const filled = filledJudgementPacket(packet, { "1": 2, "2": 1, "3": 0, "4": 2 }, "A");
+
+    assert.throws(
+        () => buildApprovedHumanQrels({
+            packet: filled,
+            judgePackets: [
+                filledJudgementPacket(packet, { "1": 2, "2": 1, "3": 0, "4": 2 }, "A"),
+                filledJudgementPacket(packet, { "1": 2, "2": 1, "3": 0, "4": 2 }, "B"),
+            ],
+            packetSha256: "a".repeat(64),
+        }),
+        /pending-independent-human-judgement/u,
+    );
+
+    const partiallyFilled = JSON.parse(JSON.stringify(packet));
+    partiallyFilled.queries[0].candidates[0].grade = 2;
+    partiallyFilled.queries[0].candidates[0].rationale = "노출된 판정";
+    assert.throws(
+        () => buildApprovedHumanQrels({
+            packet: partiallyFilled,
+            judgePackets: [
+                filledJudgementPacket(packet, { "1": 2, "2": 1, "3": 0, "4": 2 }, "A"),
+                filledJudgementPacket(packet, { "1": 2, "2": 1, "3": 0, "4": 2 }, "B"),
+            ],
+            packetSha256: "a".repeat(64),
+        }),
+        /grade·rationale이 비어 있어야/u,
+    );
+});
+
 test("판정 불일치에 제3 판정이 없으면 qrels 승인을 거부한다", () => {
     const packet = judgementPacket();
     assert.throws(
@@ -839,6 +871,24 @@ test("CLI는 두 판정 packet을 checksum 고정 qrels로 조립한다", () => 
 
         const report = compareFromManifest({ manifestPath, judgementsPath: outputPath });
         assert.equal(report.status, "metrics-ready");
+        assert.deepEqual(report.provenance.judgements, {
+            path: "qrels.json",
+            sha256: checksum(fs.readFileSync(outputPath)),
+        });
+
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+        const manifestQrelsPath = path.join(directory, "manifest-qrels.json");
+        fs.copyFileSync(outputPath, manifestQrelsPath);
+        const manifestQrelsBytes = fs.readFileSync(manifestQrelsPath);
+        manifest.judgements = { path: "manifest-qrels.json", sha256: checksum(manifestQrelsBytes) };
+        fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+        const overridePath = path.join(directory, "override-qrels.json");
+        fs.copyFileSync(outputPath, overridePath);
+        const overrideReport = compareFromManifest({ manifestPath, judgementsPath: overridePath });
+        assert.deepEqual(overrideReport.provenance.judgements, {
+            path: "override-qrels.json",
+            sha256: checksum(fs.readFileSync(overridePath)),
+        });
 
         const untrustedOutputPath = path.join(directory, "untrusted-qrels.json");
         const untrustedQrels = { ...qrels };
@@ -847,6 +897,65 @@ test("CLI는 두 판정 packet을 checksum 고정 qrels로 조립한다", () => 
         assert.throws(
             () => compareFromManifest({ manifestPath, judgementsPath: untrustedOutputPath }),
             /approved human qrels override provenance/u,
+        );
+
+        const duplicateSourceQrels = JSON.parse(fs.readFileSync(outputPath, "utf8"));
+        duplicateSourceQrels.provenance.judgePackets[1] = {
+            ...duplicateSourceQrels.provenance.judgePackets[1],
+            path: duplicateSourceQrels.provenance.judgePackets[0].path,
+            sha256: duplicateSourceQrels.provenance.judgePackets[0].sha256,
+        };
+        const duplicateSourcePath = path.join(directory, "duplicate-source-qrels.json");
+        fs.writeFileSync(duplicateSourcePath, `${JSON.stringify(duplicateSourceQrels)}\n`);
+        assert.throws(
+            () => compareFromManifest({ manifestPath, judgementsPath: duplicateSourcePath }),
+            /서로 다른 실제 파일이어야/u,
+        );
+
+        const samePathOutput = path.join(directory, "same-path.json");
+        assert.throws(
+            () => execFileSync(process.execPath, [
+                path.resolve("scripts/search-evaluation/search-candidate-comparison.mjs"),
+                "--qrels",
+                "--manifest", manifestPath,
+                "--canonical-packet", packetArtifact.filePath,
+                "--judge-a", judgeAArtifact.filePath,
+                "--judge-b", judgeAArtifact.filePath,
+                "--out", samePathOutput,
+            ], { encoding: "utf8" }),
+            (error) => error.status === 1 && error.stderr.includes("서로 다른 실제 파일이어야"),
+        );
+
+        const symlinkPath = path.join(directory, "judge-a-symlink.json");
+        fs.symlinkSync(judgeAArtifact.filePath, symlinkPath);
+        const symlinkOutput = path.join(directory, "symlink.json");
+        assert.throws(
+            () => execFileSync(process.execPath, [
+                path.resolve("scripts/search-evaluation/search-candidate-comparison.mjs"),
+                "--qrels",
+                "--manifest", manifestPath,
+                "--canonical-packet", packetArtifact.filePath,
+                "--judge-a", judgeAArtifact.filePath,
+                "--judge-b", symlinkPath,
+                "--out", symlinkOutput,
+            ], { encoding: "utf8" }),
+            (error) => error.status === 1 && error.stderr.includes("서로 다른 실제 파일이어야"),
+        );
+
+        const hardlinkPath = path.join(directory, "judge-a-hardlink.json");
+        fs.linkSync(judgeAArtifact.filePath, hardlinkPath);
+        const hardlinkOutput = path.join(directory, "hardlink.json");
+        assert.throws(
+            () => execFileSync(process.execPath, [
+                path.resolve("scripts/search-evaluation/search-candidate-comparison.mjs"),
+                "--qrels",
+                "--manifest", manifestPath,
+                "--canonical-packet", packetArtifact.filePath,
+                "--judge-a", judgeAArtifact.filePath,
+                "--judge-b", hardlinkPath,
+                "--out", hardlinkOutput,
+            ], { encoding: "utf8" }),
+            (error) => error.status === 1 && error.stderr.includes("서로 다른 실제 파일이어야"),
         );
 
         assert.throws(
