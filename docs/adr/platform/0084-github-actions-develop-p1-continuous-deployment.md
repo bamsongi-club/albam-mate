@@ -1,11 +1,11 @@
 # ADR-0084: develop 기준 P1 GitHub Actions 연속 배포 경계
 
-- 상태: 승인됨
+- 상태: 대체됨
 - 작성일: 2026-08-20
 - 결정일: 2026-08-20
 - 관련: [#933](https://github.com/bamsongi-club/albam-mate/issues/933), [ADR-0008](0008-flyway-database-migrations.md), [ADR-0051](0051-p1-self-managed-aws-infrastructure.md), [P1 AWS 저비용 4 EC2 인프라 실행안](../../guides/AWS_MULTI_INSTANCE_INFRASTRUCTURE.md), [CD 배포 가이드](../../guides/CD_DEPLOYMENT.md)
 - 대체 대상: [ADR-0008](0008-flyway-database-migrations.md) (P1 production App1·App2의 Flyway 실행 위치 범위)
-- 후속 ADR: 없음
+- 후속 ADR: [ADR-0086](0086-github-actions-develop-p2-continuous-deployment.md) (P2 전용 `develop` CD 대상과 실행·복구 경계)
 
 ## 맥락
 

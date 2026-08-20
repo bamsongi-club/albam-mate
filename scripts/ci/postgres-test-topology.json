@@ -65,6 +65,7 @@
   ],
   "dedicated": {
     "cloud.bamsongi.albammate.SchemaValidationPostgresTest": "isolated Flyway and schema lifecycle",
+    "cloud.bamsongi.albammate.migration.FlywayMigratorPostgresTest": "isolated one-shot Flyway migrator lifecycle",
     "cloud.bamsongi.albammate.game.AssistantExactGameNamePostgresTest": "dedicated Testcontainers exact game-name fixture",
     "cloud.bamsongi.albammate.game.AssistantGameCandidatePostgresTest": "dedicated Testcontainers catalog and ranking fixture",
     "cloud.bamsongi.albammate.chat.ChatMessageRateLimitPostgresTest": "Redis container",

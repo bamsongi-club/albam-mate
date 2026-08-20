@@ -20,5 +20,9 @@ out
 docs
 compose.local.yml
 compose.production.yml
+compose.app2.yml
+!compose.production.yml
+!compose.app2.yml
+!compose.migrator.yml
 src/postgresTest
 src/test
