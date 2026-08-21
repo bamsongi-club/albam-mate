@@ -40,6 +40,7 @@ jobs:
         env:
           EVENT_NAME: ${{ github.event_name }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PUSH_BEFORE_SHA: ${{ github.event.before }}
         run: |
           if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
@@ -49,8 +50,10 @@ jobs:
 
           if [[ "$EVENT_NAME" == "pull_request" ]]; then
             base_sha="$PR_BASE_SHA"
+            target_sha="$PR_HEAD_SHA"
           else
             base_sha="$PUSH_BEFORE_SHA"
+            target_sha="$GITHUB_SHA"
           fi
 
           if [[ -z "$base_sha" || "$base_sha" =~ ^0+$ ]]; then
@@ -64,7 +67,7 @@ jobs:
           fi
 
           echo "base_sha=$base_sha" >> "$GITHUB_OUTPUT"
-          git diff --name-only --no-renames -z "$base_sha" "$GITHUB_SHA" \
+          git diff --name-only --no-renames -z "$base_sha" "$target_sha" \
             > "$RUNNER_TEMP/changed-paths.txt"
           node scripts/ci/classify-ci-paths.mjs \
             --paths-file "$RUNNER_TEMP/changed-paths.txt" \
@@ -534,6 +537,7 @@ jobs:
           scripts/validate-backend-test-manifest.test.mjs
           scripts/validate-coverage-ratchet.test.mjs
           scripts/measurements/room09-measurement-report.test.mjs
+          scripts/measurements/match01-response-completion-report.test.mjs
           scripts/measurements/match01-candidate-baseline-report.test.mjs
 
       - name: Check PostgreSQL test topology
@@ -543,6 +547,12 @@ jobs:
       # 재현 명령·대비 표·SHA-256이 보존 원자료와 어긋나면 측정 없이 여기서 잡는다.
       - name: Check ROOM-09d measurement report
         run: node scripts/measurements/room09-measurement-report.mjs --check
+
+      # MATCH-01 public artifact와 private sidecar의 digest·coverage·판정을 병합 전에 검증한다.
+      - name: Check MATCH-01 response-completion measurement report
+        run: >-
+          node scripts/measurements/match01-response-completion-report.mjs --check
+          docs/measurements/results/match-01/response-completion/response-completion-91d0fd9c8ccf51e073223e069aee5f98571ce228.json
 
       - name: Test game catalog contracts
         run: node --test scripts/game-catalog/*.test.mjs
