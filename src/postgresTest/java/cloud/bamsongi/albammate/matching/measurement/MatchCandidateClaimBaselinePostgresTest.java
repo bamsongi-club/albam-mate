@@ -208,8 +208,8 @@ class MatchCandidateClaimBaselinePostgresTest {
 		Path firstOutputFile = Files.createTempFile("issue775-cleanup-", ".log");
 		Path secondArgumentFile = Files.createTempFile("issue775-cleanup-", ".args");
 		Path secondOutputFile = Files.createTempFile("issue775-cleanup-", ".log");
-		Process firstProcess = new ProcessBuilder("cmd.exe", "/c", "ping -n 30 127.0.0.1 > nul").start();
-		Process secondProcess = new ProcessBuilder("cmd.exe", "/c", "ping -n 30 127.0.0.1 > nul").start();
+		Process firstProcess = startCleanupProbeProcess();
+		Process secondProcess = startCleanupProbeProcess();
 		try {
 			Thread.currentThread().interrupt();
 			MatchCandidateClaimBaselineSupport.cleanupWorkers(List.of(
@@ -490,5 +490,12 @@ class MatchCandidateClaimBaselinePostgresTest {
 		} catch (java.security.NoSuchAlgorithmException exception) {
 			throw new IllegalStateException(exception);
 		}
+	}
+
+	private Process startCleanupProbeProcess() throws java.io.IOException {
+		if (System.getProperty("os.name").toLowerCase().contains("win")) {
+			return new ProcessBuilder("cmd.exe", "/c", "ping -n 30 127.0.0.1 > nul").start();
+		}
+		return new ProcessBuilder("sh", "-c", "sleep 30").start();
 	}
 }
