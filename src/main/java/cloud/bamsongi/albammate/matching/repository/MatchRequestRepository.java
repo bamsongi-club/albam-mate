@@ -31,6 +31,36 @@ public interface MatchRequestRepository extends JpaRepository<MatchRequest, Long
 	java.util.List<MatchRequest> findOldestWaitingForUpdateSkipLocked();
 
 	@org.springframework.data.jpa.repository.Query(value = """
+		select pg_try_advisory_xact_lock((extract(epoch from priority_since) * 1000000)::bigint)
+		from match_requests
+		where id = :requestId
+		""", nativeQuery = true)
+	boolean tryLockPrioritySince(@Param("requestId")
+	long requestId);
+
+	@org.springframework.data.jpa.repository.Query(value = """
+		select * from match_requests
+		where status = 'WAITING'
+		  and priority_since > :afterPrioritySince
+		order by priority_since asc, id asc
+		limit 1
+		for update skip locked
+		""", nativeQuery = true)
+	java.util.List<MatchRequest> findOldestWaitingAfterPriorityForUpdateSkipLocked(
+		@Param("afterPrioritySince")
+		java.time.Instant afterPrioritySince);
+
+	@org.springframework.data.jpa.repository.Query(value = """
+		select * from match_requests
+		where status = 'WAITING'
+		  and priority_since = (select priority_since from match_requests where id = :requestId)
+		order by id asc
+		for update
+		""", nativeQuery = true)
+	java.util.List<MatchRequest> findWaitingWithSamePrioritySinceForUpdate(@Param("requestId")
+	long requestId);
+
+	@org.springframework.data.jpa.repository.Query(value = """
 		select * from match_requests
 		where status = 'WAITING'
 		  and (priority_since > :afterPrioritySince

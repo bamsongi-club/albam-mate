@@ -57,16 +57,24 @@ public class MatchProposalExecutor {
 		MatchRequest oldestAnchor = requestRepository.findOldestWaitingForUpdateSkipLocked().stream()
 			.findFirst()
 			.orElse(null);
-		if (oldestAnchor == null) {
-			return;
-		}
-		RequestSnapshot anchor = RequestSnapshot.from(oldestAnchor);
-		entityManager.clear();
-		CandidateSnapshot candidateSnapshot = findCandidate(anchor);
-		entityManager.clear();
-		Candidate candidate = loadCandidate(candidateSnapshot);
-		if (candidate != null && lockUsersAndRecheckBlocks(candidate)) {
-			claim(candidate);
+		while (oldestAnchor != null) {
+			if (requestRepository.tryLockPrioritySince(oldestAnchor.getId())) {
+				List<MatchRequest> samePriorityRequests = requestRepository
+					.findWaitingWithSamePrioritySinceForUpdate(oldestAnchor.getId());
+				if (!samePriorityRequests.isEmpty()) {
+					RequestSnapshot anchor = RequestSnapshot.from(samePriorityRequests.get(0));
+					entityManager.clear();
+					CandidateSnapshot candidateSnapshot = findCandidate(anchor);
+					entityManager.clear();
+					Candidate candidate = loadCandidate(candidateSnapshot);
+					if (candidate != null && lockUsersAndRecheckBlocks(candidate)) {
+						claim(candidate);
+					}
+					return;
+				}
+			}
+			oldestAnchor = requestRepository.findOldestWaitingAfterPriorityForUpdateSkipLocked(
+				oldestAnchor.getPrioritySince()).stream().findFirst().orElse(null);
 		}
 	}
 

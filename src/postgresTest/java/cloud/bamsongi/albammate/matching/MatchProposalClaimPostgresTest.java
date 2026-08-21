@@ -10,6 +10,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -247,6 +248,67 @@ class MatchProposalClaimPostgresTest extends SharedPostgresIntegrationSupport {
 	}
 
 	@Test
+	void 같은_prioritySince_락_경합에서도_뒤_priority_후보를_같은_claim에서_처리한다() throws Exception {
+		long firstUserId = insertUser("locked-priority-first");
+		long secondUserId = insertUser("locked-priority-second");
+		long laterFirstUserId = insertUser("later-priority-first");
+		long laterSecondUserId = insertUser("later-priority-second");
+		long firstRequestId = insertRequest(firstUserId, 2, 2, 10);
+		long secondRequestId = insertRequest(secondUserId, 2, 2, 10);
+		long laterFirstRequestId = insertRequest(laterFirstUserId, 2, 2, 20);
+		long laterSecondRequestId = insertRequest(laterSecondUserId, 2, 2, 20);
+
+		try (Connection priorityLock = dataSource.getConnection()) {
+			priorityLock.setAutoCommit(false);
+			try (var statement = priorityLock.prepareStatement("select pg_advisory_xact_lock(?)")) {
+				statement.setLong(1, advisoryLockKey(firstRequestId));
+				statement.executeQuery();
+			}
+
+			matchProposalCoordinator.claimAvailableCandidates();
+
+			assertEquals("WAITING", requestStatus(firstRequestId));
+			assertEquals("WAITING", requestStatus(secondRequestId));
+			assertEquals("PROPOSED", requestStatus(laterFirstRequestId));
+			assertEquals("PROPOSED", requestStatus(laterSecondRequestId));
+			assertEquals(List.of(laterFirstRequestId, laterSecondRequestId), jdbcTemplate.queryForList(
+				"select match_request_id from match_proposal_members order by match_request_id", Long.class));
+			priorityLock.rollback();
+		}
+	}
+
+	@Test
+	void 같은_prioritySince_동점_요청은_동시_matcher에도_requestId_순서의_Proposal로_claim한다() throws Exception {
+		long firstUserId = insertUser("tie-first");
+		long secondUserId = insertUser("tie-second");
+		long thirdUserId = insertUser("tie-third");
+		long fourthUserId = insertUser("tie-fourth");
+		long firstRequestId = insertRequest(firstUserId, 2, 2, 10);
+		long secondRequestId = insertRequest(secondUserId, 2, 2, 10);
+		long thirdRequestId = insertRequest(thirdUserId, 2, 2, 10);
+		long fourthRequestId = insertRequest(fourthUserId, 2, 2, 10);
+		CountDownLatch ready = new CountDownLatch(2);
+		CountDownLatch start = new CountDownLatch(1);
+		ExecutorService executor = Executors.newFixedThreadPool(2);
+		try {
+			Future<?> firstMatcher = executor.submit(() -> claimAfterStart(ready, start));
+			Future<?> secondMatcher = executor.submit(() -> claimAfterStart(ready, start));
+			assertEquals(true, ready.await(5, TimeUnit.SECONDS));
+			start.countDown();
+			firstMatcher.get(10, TimeUnit.SECONDS);
+			secondMatcher.get(10, TimeUnit.SECONDS);
+		} finally {
+			executor.shutdownNow();
+		}
+		matchProposalCoordinator.claimAvailableCandidates();
+
+		List<Long> proposalIds = jdbcTemplate.queryForList("select id from match_proposals order by id", Long.class);
+		assertEquals(2, proposalIds.size());
+		assertEquals(List.of(firstRequestId, secondRequestId), proposalMemberRequestIds(proposalIds.get(0)));
+		assertEquals(List.of(thirdRequestId, fourthRequestId), proposalMemberRequestIds(proposalIds.get(1)));
+	}
+
+	@Test
 	void 허용_범위의_101개_요청은_고정_100건_경계없이_하나의_Proposal로_claim한다() {
 		for (int index = 1; index <= 101; index++) {
 			long userId = insertUser("bounded-" + index);
@@ -386,6 +448,29 @@ class MatchProposalClaimPostgresTest extends SharedPostgresIntegrationSupport {
 
 	private String requestStatus(long requestId) {
 		return jdbcTemplate.queryForObject("select status from match_requests where id = ?", String.class, requestId);
+	}
+
+	private long advisoryLockKey(long requestId) {
+		return jdbcTemplate.queryForObject(
+			"select (extract(epoch from priority_since) * 1000000)::bigint from match_requests where id = ?",
+			Long.class, requestId);
+	}
+
+	private void claimAfterStart(CountDownLatch ready, CountDownLatch start) {
+		ready.countDown();
+		try {
+			start.await();
+		} catch (InterruptedException exception) {
+			Thread.currentThread().interrupt();
+			throw new IllegalStateException("동시 matcher 시작 대기 중 인터럽트되었습니다.", exception);
+		}
+		matchProposalCoordinator.claimAvailableCandidates();
+	}
+
+	private List<Long> proposalMemberRequestIds(long proposalId) {
+		return jdbcTemplate.queryForList(
+			"select match_request_id from match_proposal_members where proposal_id = ? order by match_request_id",
+			Long.class, proposalId);
 	}
 
 	private void awaitTransactionLockWait() throws InterruptedException {
