@@ -155,18 +155,21 @@ export function verifyChangedH2Coverage({ buildFileText, reportXml, changedPacka
     const coverage = coverageFromJacocoXml(reportXml);
     const problems = [];
     const checkedPackages = [];
+    const globalChecked = changedPackages.length > 0;
 
-    for (const [type, minimum] of rules.globalMinimums) {
-        const counter = coverage.totals[type.toLowerCase()];
-        if (!counter) {
-            problems.push(`JaCoCo 리포트에 전체 ${type} counter가 없습니다.`);
-            continue;
-        }
-        const actual = ratio(counter);
-        if (actual < minimum) {
-            problems.push(
-                `전체 ${type} 커버리지가 ${percentage(actual)}로 최소선 ${percentage(minimum)}보다 낮습니다.`,
-            );
+    if (globalChecked) {
+        for (const [type, minimum] of rules.globalMinimums) {
+            const counter = coverage.totals[type.toLowerCase()];
+            if (!counter) {
+                problems.push(`JaCoCo 리포트에 전체 ${type} counter가 없습니다.`);
+                continue;
+            }
+            const actual = ratio(counter);
+            if (actual < minimum) {
+                problems.push(
+                    `전체 ${type} 커버리지가 ${percentage(actual)}로 최소선 ${percentage(minimum)}보다 낮습니다.`,
+                );
+            }
         }
     }
 
@@ -189,7 +192,7 @@ export function verifyChangedH2Coverage({ buildFileText, reportXml, changedPacka
         }
     }
 
-    return { problems, checkedPackages };
+    return { problems, checkedPackages, globalChecked };
 }
 
 function parseArguments(argv) {
@@ -235,11 +238,13 @@ function runCli() {
         }
 
         const checked = result.checkedPackages.map((entry) => entry.packageName).join(', ');
-        console.log(
-            checked === ''
-                ? 'H2 전체 최소선을 통과했고 변경 패키지에 개별 BRANCH 규칙이 없다.'
-                : `H2 전체 최소선과 변경 패키지 BRANCH 최소선을 통과했다: ${checked}`,
-        );
+        if (!result.globalChecked) {
+            console.log('변경된 프로덕션 Java 패키지가 없어 H2 전체 최소선 검증을 건너뛰었다.');
+        } else if (checked === '') {
+            console.log('H2 전체 최소선을 통과했고 변경 패키지에 개별 BRANCH 규칙이 없다.');
+        } else {
+            console.log(`H2 전체 최소선과 변경 패키지 BRANCH 최소선을 통과했다: ${checked}`);
+        }
     } catch (error) {
         console.error(`변경 패키지 H2 커버리지 검증 실패: ${error.message}`);
         process.exitCode = 1;
