@@ -534,6 +534,7 @@ jobs:
           scripts/validate-backend-test-manifest.test.mjs
           scripts/validate-coverage-ratchet.test.mjs
           scripts/measurements/room09-measurement-report.test.mjs
+          scripts/measurements/match01-candidate-baseline-report.test.mjs
 
       - name: Check PostgreSQL test topology
         run: node scripts/ci/validate-postgres-test-topology.mjs
