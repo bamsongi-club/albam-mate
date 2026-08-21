@@ -169,3 +169,22 @@ test("response completion 결과는 candidate와 다른 SHA의 별도 consumer�
   mixedResponse.integrationEvidence.push(mixedResponse.responseCompletionConsumer);
   assert.equal(evaluateIntegrationGate(repository, mixedResponse).outcome, "INVALID");
 });
+
+test("1MB를 초과하는 candidate artifact도 Git blob과 digest를 검증한다", () => {
+  const repository = createRepository();
+  const gate = completeGate(repository);
+  const candidatePath = path.join(repository, gate.candidateClaim.path);
+  const largeCandidate = {
+    measuredGitCommitSha: gate.measuredGitCommitSha,
+    decision: { outcome: "BASELINE_ACCEPTED" },
+    report: "x".repeat(1_100_000),
+  };
+  const contents = `${JSON.stringify(largeCandidate)}\n`;
+  writeFileSync(candidatePath, contents);
+  execFileSync("git", ["-C", repository, "add", "."]);
+  execFileSync("git", ["-C", repository, "commit", "--quiet", "-m", "large candidate fixture"]);
+  gate.candidateClaim.gitCanonicalBlobSha256 = sha256(contents);
+  gate.candidateClaim.artifactSha256 = sha256(contents);
+
+  assert.deepEqual(evaluateIntegrationGate(repository, gate), { outcome: "ACCEPTED" });
+});

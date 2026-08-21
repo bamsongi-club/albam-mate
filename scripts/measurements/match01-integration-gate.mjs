@@ -52,7 +52,9 @@ function gitBlobBytes(repository, relativePath) {
   const blobId = execFileSync("git", ["-C", repository, "rev-parse", `HEAD:${relativePath}`], {
     encoding: "utf8",
   }).trim();
-  return execFileSync("git", ["-C", repository, "cat-file", "blob", blobId]);
+  return execFileSync("git", ["-C", repository, "cat-file", "blob", blobId], {
+    maxBuffer: 64 * 1024 * 1024,
+  });
 }
 
 function gitCommitExists(repository, commitSha) {
