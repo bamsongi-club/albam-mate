@@ -189,6 +189,38 @@ describe('AI 모임 도우미 화면', () => {
     expect(screen.getByRole('heading', { name: '주말 협력 게임 모임' })).toBeTruthy();
   });
 
+  it('자동 초안 생성 실패 뒤에는 같은 모달에서 재시도할 수 있다', async () => {
+    vi.spyOn(api, 'recommendAssistant').mockResolvedValue(recommendation());
+    const createDraft = vi.spyOn(api, 'createAssistantDraft')
+      .mockRejectedValueOnce(new Error('network'))
+      .mockResolvedValueOnce(activeDraft());
+
+    render(<AssistantView onBack={vi.fn()} onNavigate={vi.fn()} />);
+
+    await requestRecommendation();
+    await act(async () => { screen.getByRole('button', { name: '이 게임으로 모임 만들기' }).click(); });
+    await act(async () => { screen.getByRole('button', { name: '이 조건으로 만들기' }).click(); });
+    await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+
+    await act(async () => { screen.getByRole('button', { name: '이 조건으로 만들기' }).click(); });
+
+    await waitFor(() => expect(createDraft).toHaveBeenCalledTimes(2));
+    expect(screen.getByRole('heading', { name: '주말 협력 게임 모임' })).toBeTruthy();
+  });
+
+  it('확인 모달을 닫으면 후보 CTA로 포커스가 돌아온다', async () => {
+    vi.spyOn(api, 'recommendAssistant').mockResolvedValue(recommendation());
+    render(<AssistantView onBack={vi.fn()} onNavigate={vi.fn()} />);
+
+    await requestRecommendation();
+    const cta = screen.getByRole('button', { name: '이 게임으로 모임 만들기' });
+    cta.focus();
+    await act(async () => { cta.click(); });
+    await act(async () => { screen.getByRole('button', { name: '취소' }).click(); });
+
+    expect(document.activeElement).toBe(cta);
+  });
+
   it('자동 조건이 부족하면 직접 입력만 열고 제출 전에는 초안을 만들지 않는다', async () => {
     vi.spyOn(api, 'recommendAssistant').mockResolvedValue(recommendation({
       conditions: {

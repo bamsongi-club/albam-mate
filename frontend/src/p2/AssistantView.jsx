@@ -276,7 +276,15 @@ function CandidateConfirmationModal({ candidate, conditions, onClose, onCreate, 
   const [error, setError] = useState('');
   const submitted = useRef(false);
   const dialogRef = useRef(null);
+  const triggerRef = useRef(document.activeElement);
   const automaticInput = automaticDraftInput(candidate, conditions);
+
+  useEffect(() => {
+    const trigger = triggerRef.current;
+    return () => {
+      if (trigger && typeof trigger.focus === 'function') trigger.focus();
+    };
+  }, []);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -314,6 +322,7 @@ function CandidateConfirmationModal({ candidate, conditions, onClose, onCreate, 
       await onCreate(automaticInput);
       onClose();
     } catch (requestError) {
+      submitted.current = false;
       setError(assistantErrorMessage(requestError));
     } finally {
       setSaving(false);
