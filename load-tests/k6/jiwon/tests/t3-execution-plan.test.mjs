@@ -175,3 +175,19 @@ test('쓰기 실행은 barrier 시작 편차가 1초를 넘으면 실패한다',
 
   assert.deepEqual(options.thresholds.room_start_skew_ms, ['max<1000']);
 });
+
+test('쓰기 실행은 dropped iteration이 있으면 실패한다', () => {
+  const options = writeOptions({
+    fixture: fixtureFor({
+      scenario: 't1',
+      runId: 't1-dropped-iterations-threshold',
+      profile: 'stress',
+      mode: 'hot',
+      concurrency: 10,
+    }),
+    sessionWarmupSeconds: 15,
+    roundIntervalSeconds: 20,
+  });
+
+  assert.deepEqual(options.thresholds.dropped_iterations, ['count==0']);
+});
