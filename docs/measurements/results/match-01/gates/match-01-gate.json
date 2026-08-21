@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "measuredGitCommitSha": "4646c3eae33aff636aecc2a4860ea2c86f5aed4a",
+  "candidateClaim": {
+    "id": "MATCH-01-CANDIDATE-CLAIM",
+    "path": "docs/measurements/results/match-01/candidate-claim/candidate-claim-4646c3eae33aff636aecc2a4860ea2c86f5aed4a.json",
+    "gitCanonicalBlobSha256": "6aa0c139928658c2b5d416b9640fd038e9bbad370eed44cbb2e4327818117dce",
+    "artifactSha256": "6aa0c139928658c2b5d416b9640fd038e9bbad370eed44cbb2e4327818117dce"
+  },
+  "integrationEvidence": [
+    {
+      "id": "MATCH-01-T1",
+      "path": "docs/measurements/results/match-01/integration/match-01-t1-4646c3eae33aff636aecc2a4860ea2c86f5aed4a.json",
+      "gitCanonicalBlobSha256": "8f349494d58a52ba6b91c0361a1c74b4cf9af9c5070d34d4cdb88485438be553",
+      "artifactSha256": "8f349494d58a52ba6b91c0361a1c74b4cf9af9c5070d34d4cdb88485438be553"
+    },
+    {
+      "id": "MATCH-01-T5",
+      "path": "docs/measurements/results/match-01/integration/match-01-t5-4646c3eae33aff636aecc2a4860ea2c86f5aed4a.json",
+      "gitCanonicalBlobSha256": "1904083a06d79378ac04bbdd6d74eb862c4030f99480b0020abbbe9418c52817",
+      "artifactSha256": "1904083a06d79378ac04bbdd6d74eb862c4030f99480b0020abbbe9418c52817"
+    },
+    {
+      "id": "MATCH-01-T6",
+      "path": "docs/measurements/results/match-01/integration/match-01-t6-4646c3eae33aff636aecc2a4860ea2c86f5aed4a.json",
+      "gitCanonicalBlobSha256": "1921bf7e83cd2fc8593784cd19cc51039a87b38007b644d918f482d076954223",
+      "artifactSha256": "1921bf7e83cd2fc8593784cd19cc51039a87b38007b644d918f482d076954223"
+    },
+    {
+      "id": "MATCH-01-T7",
+      "path": "docs/measurements/results/match-01/integration/match-01-t7-4646c3eae33aff636aecc2a4860ea2c86f5aed4a.json",
+      "gitCanonicalBlobSha256": "50448ef2c64c08d54b47e1cbcc88a0d8cf2e0d87bd376bc603291f7c7c4e4ac8",
+      "artifactSha256": "50448ef2c64c08d54b47e1cbcc88a0d8cf2e0d87bd376bc603291f7c7c4e4ac8"
+    }
+  ],
+  "responseCompletionConsumer": {
+    "id": "MATCH-01-RESPONSE-COMPLETION",
+    "path": "docs/measurements/results/match-01/response-completion/response-completion-consumer-91d0fd9c8ccf51e073223e069aee5f98571ce228.json",
+    "gitCanonicalBlobSha256": "8eba493956f91529f468f2f3894914f913449b95cda3e736cb4f41d6f1d8bb4f",
+    "artifactSha256": "8eba493956f91529f468f2f3894914f913449b95cda3e736cb4f41d6f1d8bb4f"
+  },
+  "currentStateConsumer": {
+    "id": "MATCH-01-T12",
+    "path": "docs/measurements/results/match-01/integration/match-01-t12-4646c3eae33aff636aecc2a4860ea2c86f5aed4a.json",
+    "gitCanonicalBlobSha256": "e5aed4eaf98741fe72ce77f232b9a8470507904f1d2e9836852eeb1252e6961e",
+    "artifactSha256": "e5aed4eaf98741fe72ce77f232b9a8470507904f1d2e9836852eeb1252e6961e"
+  }
+}
