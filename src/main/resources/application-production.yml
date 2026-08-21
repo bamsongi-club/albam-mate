@@ -14,6 +14,8 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration,classpath:db/vendor-migration/postgresql
+    # one-shot migrator는 아직 적용되지 않은 version을 허용해 validate 뒤 migrate한다.
+    ignore-migration-patterns: "*:pending"
   jpa:
     hibernate:
       ddl-auto: validate

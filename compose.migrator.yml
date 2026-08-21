@@ -1,0 +1,40 @@
+services:
+  migrator:
+    image: ${ALBAM_MATE_IMAGE_NAMESPACE:?ALBAM_MATE_IMAGE_NAMESPACE must be set}/backend:${ALBAM_MATE_RELEASE:?ALBAM_MATE_RELEASE must be set}
+    platform: linux/arm64
+    pull_policy: always
+    restart: "no"
+    init: true
+    environment:
+      SPRING_PROFILES_ACTIVE: production,migrator
+      SPRING_FLYWAY_ENABLED: true
+      ALBAM_MATE_RELEASE: ${ALBAM_MATE_RELEASE:?ALBAM_MATE_RELEASE must be set}
+      ALBAM_MATE_DB_HOST: ${ALBAM_MATE_DB_HOST:?ALBAM_MATE_DB_HOST must be set}
+      ALBAM_MATE_DB_PORT: ${ALBAM_MATE_DB_PORT:-5432}
+      ALBAM_MATE_DB_NAME: ${ALBAM_MATE_DB_NAME:?ALBAM_MATE_DB_NAME must be set}
+      ALBAM_MATE_DB_USER: ${ALBAM_MATE_DB_USER:?ALBAM_MATE_DB_USER must be set}
+      ALBAM_MATE_DB_PASSWORD: ${ALBAM_MATE_DB_PASSWORD:?ALBAM_MATE_DB_PASSWORD must be set}
+      ALBAM_MATE_DB_MAXIMUM_POOL_SIZE: ${ALBAM_MATE_DB_MAXIMUM_POOL_SIZE:-2}
+      ALBAM_MATE_DB_MINIMUM_IDLE: ${ALBAM_MATE_DB_MINIMUM_IDLE:-0}
+      ALBAM_MATE_REDIS_HOST: ${ALBAM_MATE_REDIS_HOST:-localhost}
+      ALBAM_MATE_REDIS_PORT: ${ALBAM_MATE_REDIS_PORT:-6379}
+      ALBAM_MATE_ENVIRONMENT: ${ALBAM_MATE_ENVIRONMENT:?ALBAM_MATE_ENVIRONMENT must be set}
+      ALBAM_MATE_STACK_ID: ${ALBAM_MATE_STACK_ID:?ALBAM_MATE_STACK_ID must be set}
+      ALBAM_MATE_ROLE: migrator
+      ALBAM_MATE_INSTANCE_ID: ${ALBAM_MATE_INSTANCE_ID:?ALBAM_MATE_INSTANCE_ID must be set}
+      ALBAM_MATE_OBSERVABILITY_LOG_PATH: ${ALBAM_MATE_OBSERVABILITY_LOG_PATH:?ALBAM_MATE_OBSERVABILITY_LOG_PATH must be set}
+      MANAGEMENT_OTLP_METRICS_EXPORT_ENABLED: false
+      TZ: UTC
+    volumes:
+      - type: bind
+        source: ${ALBAM_MATE_OBSERVABILITY_LOG_PATH:?ALBAM_MATE_OBSERVABILITY_LOG_PATH must be set}
+        target: /var/log/albam-mate
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 128
+    mem_limit: 256m

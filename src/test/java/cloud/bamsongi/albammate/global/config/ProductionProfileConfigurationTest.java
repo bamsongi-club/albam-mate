@@ -40,6 +40,7 @@ class ProductionProfileConfigurationTest {
 		assertEquals(
 			"classpath:db/migration,classpath:db/vendor-migration/postgresql",
 			properties.getProperty("spring.flyway.locations"));
+		assertEquals("*:pending", properties.getProperty("spring.flyway.ignore-migration-patterns"));
 		assertEquals("validate", properties.getProperty("spring.jpa.hibernate.ddl-auto"));
 		assertEquals("UTC", properties.getProperty("spring.jpa.properties.hibernate.jdbc.time_zone"));
 		assertEquals("30s", properties.getProperty("spring.lifecycle.timeout-per-shutdown-phase"));

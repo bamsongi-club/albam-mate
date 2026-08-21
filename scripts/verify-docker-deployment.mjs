@@ -257,6 +257,12 @@ function loadComposeConfig(file, env) {
     return JSON.parse(docker(['compose', '-f', file, 'config', '--format', 'json'], { env }).stdout);
 }
 
+function loadComposeConfigs(files, env) {
+    return JSON.parse(
+        docker(['compose', ...files.flatMap((file) => ['-f', file]), 'config', '--format', 'json'], { env }).stdout,
+    );
+}
+
 function assertSpringObservabilityEnvironment(spring, role, instanceId) {
     assert(
         spring.environment.ALBAM_MATE_ENVIRONMENT === 'production',
@@ -1203,6 +1209,36 @@ function verifyT8() {
     }
 }
 
+function verifyT9() {
+    const certificateDirectory = createTempDirectory('albam-mate-contract-t9');
+    const observabilityLogDirectory = createTempDirectory('albam-mate-contract-t9-observability-log');
+    const springImage = contractImage('albam-mate-migrator-assets', 'T9');
+    const ownedImages = new Set();
+    try {
+        const env = app2ProductionEnvironment(certificateDirectory, observabilityLogDirectory);
+        const app1 = loadProductionConfig(env);
+        const app2 = loadComposeConfig('compose.app2.yml', env);
+        const migrator = loadComposeConfigs(['compose.app2.yml', 'compose.migrator.yml'], env);
+        assert(app1.services.spring.environment.SPRING_FLYWAY_ENABLED === 'false', 'App1 enables Flyway');
+        assert(app2.services.spring.environment.SPRING_FLYWAY_ENABLED === 'false', 'App2 enables Flyway');
+        assert(migrator.services.migrator.environment.SPRING_FLYWAY_ENABLED === 'true', 'migrator disables Flyway');
+        assert(migrator.services.migrator.environment.SPRING_PROFILES_ACTIVE === 'production,migrator', 'migrator profile is not isolated');
+        assert(migrator.services.migrator.restart === 'no', `migrator restart is ${migrator.services.migrator.restart}`);
+        assert(!JSON.stringify(migrator).includes('notification-ops'), 'migrator composes notification operations');
+        assert(!JSON.stringify(migrator).includes('deployment-verification.env'), 'Compose reads smoke credentials');
+        buildOwnedImage(ownedImages, springImage, ['.']);
+        docker([
+            'run', '--rm', '--entrypoint', 'sh', springImage, '-c',
+            'test -f /app/deployment/compose.production.yml && test -f /app/deployment/compose.app2.yml && test -f /app/deployment/compose.migrator.yml',
+        ]);
+        console.log('T9 PASS: backend image contains exact Compose assets; App1/App2 disable Flyway and the isolated one-shot migrator enables it without smoke credentials.');
+    } finally {
+        removeOwnedImages(ownedImages);
+        removeOwnedTempDirectory(certificateDirectory, 'albam-mate-contract-t9');
+        removeOwnedTempDirectory(observabilityLogDirectory, 'albam-mate-contract-t9-observability-log');
+    }
+}
+
 const verifiers = {
     T1: verifyT1,
     T2: verifyT2,
@@ -1212,12 +1248,13 @@ const verifiers = {
     T6: verifyT6,
     T7: verifyT7,
     T8: verifyT8,
+    T9: verifyT9,
 };
 
 try {
     const testId = process.argv[2];
     if (!Object.hasOwn(verifiers, testId)) {
-        console.error('Usage: node scripts/verify-docker-deployment.mjs T1|T2|T3|T4|T5|T6|T7|T8');
+        console.error('Usage: node scripts/verify-docker-deployment.mjs T1|T2|T3|T4|T5|T6|T7|T8|T9');
         process.exitCode = 2;
     } else {
         try {

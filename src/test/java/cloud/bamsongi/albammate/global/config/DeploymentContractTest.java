@@ -29,13 +29,89 @@ import cloud.bamsongi.albammate.global.security.ratelimit.InMemoryAuthentication
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 
-class P1DeploymentContractTest {
+class DeploymentContractTest {
 
 	private static final Path REPOSITORY_ROOT = Path.of("").toAbsolutePath();
 	private static final Pattern FORWARDED_FOR_REMOTE_ADDRESS_DIRECTIVE = Pattern.compile(
 		"(?m)^[\\t ]*proxy_set_header X-Forwarded-For \\$remote_addr;[\\t ]*$");
 	private static final Pattern FORWARDED_REMOVAL_DIRECTIVE = Pattern.compile(
 		"(?m)^[\\t ]*proxy_set_header Forwarded \"\";[\\t ]*$");
+
+	@Test
+	void P2_일반_앱은_Flyway를_실행하지_않고_전용_migrator만_한번_실행한다() throws IOException {
+		for (String composePath : new String[] {"compose.production.yml", "compose.app2.yml"}) {
+			assertTrue(file(composePath).contains("SPRING_FLYWAY_ENABLED: false"));
+		}
+		String migrator = file("compose.migrator.yml");
+		assertTrue(migrator.contains("SPRING_PROFILES_ACTIVE: production,migrator"));
+		assertTrue(migrator.contains("SPRING_FLYWAY_ENABLED: true"));
+		assertTrue(migrator.contains("restart: \"no\""));
+		assertFalse(migrator.contains("notification-ops"));
+	}
+
+	@Test
+	void T1_P2_CD는_성공한_develop_CI_head_SHA만_source로_사용한다() throws IOException {
+		String trigger = file(".github/workflows/p2-cd-trigger.yml");
+		String workflow = file(".github/workflows/p2-cd.yml");
+		assertTrue(trigger.contains("github.event.workflow_run.head_sha"));
+		assertTrue(trigger.contains("higher successful develop push CI run exists"));
+		assertTrue(trigger.contains("workflow_id: 'ci.yml'"));
+		assertTrue(trigger.contains("bamsongi-club/albam-mate/.github/workflows/p2-cd.yml@develop"));
+		assertFalse(trigger.contains("concurrency:"));
+		assertFalse(trigger.contains("github.sha"));
+		assertFalse(trigger.contains("github.ref"));
+		assertTrue(workflow.contains("group: p2-deploy"));
+		assertTrue(workflow.contains("cancel-in-progress: false"));
+	}
+
+	@Test
+	void T2_P2_CD는_SHA_pin과_OIDC_immutable_ARM64_계약을_사용한다() throws IOException {
+		String workflow = file(".github/workflows/p2-cd.yml");
+		assertTrue(workflow.contains("id-token: write"));
+		assertTrue(workflow.contains("configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708"));
+		assertTrue(workflow.contains("P2_IMAGE_PUBLISH_ROLE_ARN"));
+		assertTrue(workflow.contains("linux/arm64"));
+		assertTrue(workflow.contains("org.opencontainers.image.revision"));
+		assertTrue(workflow.contains("frontend/Dockerfile.production"));
+		assertTrue(workflow.contains("/usr/local/bin/albam-mate-entrypoint"));
+	}
+
+	@Test
+	void T3_P2_CD는_고정_digest_계약과_infra_IAM_경계를_유지한다() throws IOException {
+		String workflow = file(".github/workflows/p2-cd.yml");
+		assertTrue(workflow.contains("P2_DEPLOY_ROLE_ARN"));
+		assertTrue(workflow.contains("aws ssm get-parameter"));
+		assertTrue(workflow.contains("aws ssm send-command"));
+		assertTrue(workflow.contains("--document-name \"$SSM_DOCUMENT\""));
+		assertFalse(workflow.contains("AWS_ACCESS_KEY_ID"));
+		assertFalse(workflow.contains("AWS_SECRET_ACCESS_KEY"));
+	}
+
+	@Test
+	void T5_P2_CD는_host_local_인증_smoke_입력을_출력하지_않는다() throws IOException {
+		String workflow = file(".github/workflows/p2-cd.yml");
+		assertTrue(workflow.contains("deployment-verification.env itself"));
+		assertFalse(workflow.contains("deployment-verification.env cat"));
+		assertFalse(workflow.toLowerCase().contains("csrf"));
+	}
+
+	@Test
+	void T6_P2_CD는_LKG_app_rollback만_계약으로_남긴다() throws IOException {
+		String workflow = file(".github/workflows/p2-cd.yml");
+		assertTrue(workflow.contains("rollback_app2()"));
+		assertTrue(workflow.contains("rollback_app1_app2()"));
+		assertTrue(workflow.contains("databaseRollbackSupported == false"));
+	}
+
+	@Test
+	void T7_P2_CD_receipt은_허용된_식별자만_남긴다() throws IOException {
+		String workflow = file(".github/workflows/p2-cd.yml");
+		assertTrue(workflow.contains(
+			"receipt allowlist: SHA, CI URL, digest, role/target/command identifier, phase, LKG version/status"));
+		assertFalse(workflow.contains("terraform apply"));
+		assertTrue(workflow.contains("aws ssm send-command"));
+		assertFalse(workflow.contains("AWS-RunShellScript"));
+	}
 
 	@Test
 	void 모든_Compose와_검증기와_부하_문서는_ALBAM_MATE_LOGIN_LIMIT만_쓴다() throws IOException {
