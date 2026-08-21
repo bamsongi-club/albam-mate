@@ -29,7 +29,7 @@ import cloud.bamsongi.albammate.global.security.ratelimit.InMemoryAuthentication
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 
-class P1DeploymentContractTest {
+class DeploymentContractTest {
 
 	private static final Path REPOSITORY_ROOT = Path.of("").toAbsolutePath();
 	private static final Pattern FORWARDED_FOR_REMOTE_ADDRESS_DIRECTIVE = Pattern.compile(
