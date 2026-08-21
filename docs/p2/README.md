@@ -27,6 +27,12 @@ P2는 AI 챗봇(게임 탐색 도우미 포함), 게임 의미 기반 검색, �
 
 P2 구현은 [API](../API.md), [ERD](../ERD.md), [아키텍처](../ARCHITECTURE.md)와 승인 ADR 또는 아직 승인되지 않은 목표 계약을 구분해 유지한다. 각 기능 작성자는 자신의 상세 명세가 요구하는 변경만 식별하고, 구현 작업에서 소유 정본과 필요한 ADR을 함께 갱신한다.
 
+## ROOM-PERF 통합 품질 gate
+
+P2의 AI·검색·매칭 기능은 P1 ROOM·참가·대기열 계약 위에 통합된다. ROOM-PERF는 P2 기능 ID가 아니라 이 기반을 출시 품질 관점에서 확인하는 cross-cutting gate다. 측정 계약·campaign·evidence·`PASS`/`FAIL`/`INVALID`와 `current`/`superseded` 판정은 [측정 문서](../measurements/README.md)와 [ROOM k6 campaign 인덱스](../measurements/k6/jiwon/README.md)가 소유한다.
+
+이 문서는 ROOM-PERF 결과와 수치를 복제하지 않고 위 정본을 참조한다. 따라서 ROOM-PERF를 P2 기능 라우팅·상태표의 기능으로 추가하지 않으며, 별도 `docs/p2/room.md`도 만들지 않는다.
+
 ## 기능별 현재 상태
 
 이 표는 P1 종료 표와 같은 축으로 P2 기능별 계약 준비·생산 코드·자동 검증·배포·실측 상태를 구분한다. 기능 문서에는 변하지 않는 규칙과 완료 기준만 두고, 상태를 바꾸는 계약·코드·테스트·배포·측정 변경은 같은 변경에서 해당 행만 갱신한다.
