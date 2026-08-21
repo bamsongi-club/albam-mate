@@ -102,7 +102,25 @@ class AssistantRecommendationExactGameNameHttpIntegrationTest {
 	}
 
 	@Test
-	void T2_인증_CSRF_동의_뒤_복수_정규화_매치는_provider로_한번만_fallback하고_direct_후보를_만들지_않는다()
+	void T2_인증_CSRF_동의_뒤_문장에_포함된_유일한_정식명은_provider없이_후보를_반환한다() throws Exception {
+		User user = userRepository.saveAndFlush(User.create(TEST_EMAIL, "{bcrypt}hash", "정확 게임 사용자"));
+		long gameId = insertGame(TEST_BGG_ID, "카탄", null, "공개 설명", "상세 설명");
+		grant(user);
+
+		mockMvc.perform(post("/api/assistant/recommendations")
+			.contentType("application/json")
+			.content("{\"message\":\"카탄 모임 만들어줘\"}")
+			.with(authenticationFor(user.getId())).with(csrf()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.state").value("RECOMMENDED"))
+			.andExpect(jsonPath("$.data.conditions.gameId").value(gameId))
+			.andExpect(jsonPath("$.data.candidates[0].id").value(gameId));
+
+		verifyNoInteractions(assistantIntentExtractor);
+	}
+
+	@Test
+	void T3_인증_CSRF_동의_뒤_복수_정규화_매치는_provider로_한번만_fallback하고_direct_후보를_만들지_않는다()
 		throws Exception {
 		User user = userRepository.saveAndFlush(User.create(TEST_EMAIL, "{bcrypt}hash", "정확 게임 사용자"));
 		insertGame(TEST_BGG_ID, "카 탄", null, "공개 설명", "상세 설명");

@@ -94,6 +94,18 @@ describe('AI 모임 도우미 화면', () => {
     expect(screen.getByText('공포 테마 추천해줘')).toBeTruthy();
   });
 
+  it('유일한 게임명이 포함된 모임 생성 문장은 확인 모달을 바로 연다', async () => {
+    const recommend = vi.spyOn(api, 'recommendAssistant').mockResolvedValue(recommendation());
+    render(<AssistantView onBack={vi.fn()} onNavigate={vi.fn()} />);
+
+    const message = await screen.findByLabelText('알밤봇에게 묻기');
+    fireEvent.change(message, { target: { value: '카탄 모임 만들어줘' } });
+    await act(async () => { screen.getByRole('button', { name: '전송' }).click(); });
+
+    await waitFor(() => expect(recommend).toHaveBeenCalledWith('카탄 모임 만들어줘', null));
+    expect(screen.getByRole('dialog', { name: '이 게임으로 모임 만들기' })).toBeTruthy();
+  });
+
   it('Shift+Enter는 전송하지 않고 입력을 유지한다', async () => {
     const recommend = vi.spyOn(api, 'recommendAssistant').mockResolvedValue(recommendation());
     render(<AssistantView onBack={vi.fn()} onNavigate={vi.fn()} />);

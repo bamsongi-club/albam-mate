@@ -80,6 +80,12 @@ function isFutureInstant(value) {
   return Number.isFinite(instant) && instant > Date.now();
 }
 
+function requestsRoomCreation(message) {
+  const normalized = message.toLocaleLowerCase('ko-KR').replace(/\s+/g, '');
+  return /(모임|방)(을|를)?(만들|생성|열|모집)/.test(normalized)
+    || /(만들|생성|열|모집)(어줘|고싶어|고싶다)?(모임|방)/.test(normalized);
+}
+
 function automaticDraftInput(candidate, conditions) {
   const playerCount = Number(conditions?.playerCount);
   const gameName = candidateName(candidate).trim();
@@ -572,13 +578,17 @@ function AssistantStart({ initialMemory, onMemoryChange, onCreateDraft, onConsen
     setError('');
     try {
       const next = await api.recommendAssistant(currentMessage, previousConditions);
+      const automaticCandidate = requestsRoomCreation(currentMessage)
+        && next?.state === 'RECOMMENDED'
+        && next.candidates?.length === 1
+        ? next.candidates[0]
+        : null;
       setResult(next);
       setConversationConditions(next?.conditions || null);
-      setSelectedCandidate(null);
+      setSelectedCandidate(automaticCandidate);
       setEditState(null);
-      setModalCandidate(null);
-      setManualCandidate(null);
-      storeMemory(next, null, null);
+      setModalCandidate(automaticCandidate);
+      storeMemory(next, automaticCandidate, null);
       const reply = botReplyText(next);
       if (reply) setHistory((entries) => [...entries, { role: 'theirs', text: reply }]);
     } catch (requestError) {
