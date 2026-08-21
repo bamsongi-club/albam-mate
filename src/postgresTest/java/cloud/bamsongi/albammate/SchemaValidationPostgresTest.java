@@ -52,7 +52,8 @@ import cloud.bamsongi.albammate.user.repository.UserRepository;
 @Import(SchemaValidationPostgresTest.ConcurrentSignupBarrierConfiguration.class)
 class SchemaValidationPostgresTest {
 
-	private static final String POSTGRES_IMAGE = "postgres:18.4";
+	private static final org.testcontainers.utility.DockerImageName POSTGRES_IMAGE = cloud.bamsongi.albammate.testsupport.PgVectorPostgresImages
+		.postgres18();
 	private static final Set<String> EXPECTED_TABLES = Set.of(
 		"users",
 		"games",

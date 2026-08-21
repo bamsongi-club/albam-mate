@@ -55,7 +55,8 @@ import cloud.bamsongi.albammate.testsupport.SharedPostgresIntegrationSupport;
 @Import(RoomWaitlistRegistrationConcurrencyPostgresTest.WaitlistRegistrationConcurrencyConfiguration.class)
 class RoomWaitlistRegistrationConcurrencyPostgresTest extends SharedPostgresIntegrationSupport {
 
-	private static final String POSTGRES_IMAGE = "postgres:15.15";
+	private static final org.testcontainers.utility.DockerImageName POSTGRES_IMAGE = cloud.bamsongi.albammate.testsupport.PgVectorPostgresImages
+		.postgres15();
 	private static final Instant REQUEST_TIME = Instant.parse("2026-08-10T00:00:00Z");
 	private static final long WAIT_SECONDS = 10;
 	private static final String WAITING_QUEUE_ORDER_CONSTRAINT = "uq_room_waitlists_waiting_room_queue_order";

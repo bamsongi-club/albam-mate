@@ -31,7 +31,8 @@ import jakarta.persistence.metamodel.EntityType;
 @SpringBootTest(classes = AlbamMateApplication.class)
 class NotificationSchemaPostgresTest {
 
-	private static final String POSTGRES_IMAGE = "postgres:18.4";
+	private static final org.testcontainers.utility.DockerImageName POSTGRES_IMAGE = cloud.bamsongi.albammate.testsupport.PgVectorPostgresImages
+		.postgres18();
 	private static final String OPERATION_TIME = "TIMESTAMPTZ '2026-08-02T00:00:00Z'";
 	private static final String OCCURRED_AT = "TIMESTAMPTZ '2026-08-01T12:00:00Z'";
 

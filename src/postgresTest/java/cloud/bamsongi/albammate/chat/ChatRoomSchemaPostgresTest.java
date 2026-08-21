@@ -31,7 +31,8 @@ import jakarta.persistence.metamodel.EntityType;
 @SpringBootTest(classes = AlbamMateApplication.class)
 class ChatRoomSchemaPostgresTest {
 
-	private static final String POSTGRES_IMAGE = "postgres:18.4";
+	private static final org.testcontainers.utility.DockerImageName POSTGRES_IMAGE = cloud.bamsongi.albammate.testsupport.PgVectorPostgresImages
+		.postgres18();
 	private static final String GENERAL_MIGRATION_LOCATION = "classpath:db/migration";
 	private static final String POSTGRES_MIGRATION_LOCATION = "classpath:db/vendor-migration/postgresql";
 

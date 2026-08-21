@@ -75,7 +75,8 @@ import cloud.bamsongi.albammate.room.service.query.RoomListQueryService;
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class SearchPerformancePostgresTest {
 
-	private static final String POSTGRES_IMAGE = "postgres:18.4";
+	private static final org.testcontainers.utility.DockerImageName POSTGRES_IMAGE = cloud.bamsongi.albammate.testsupport.PgVectorPostgresImages
+		.postgres18();
 	private static final long USER_ID = 9_000_001L;
 	private static final long GAME_ID_BASE = 1_000_000L;
 	private static final long ROOM_ID_BASE = 2_000_000L;

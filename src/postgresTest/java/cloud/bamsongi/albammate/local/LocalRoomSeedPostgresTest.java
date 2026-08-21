@@ -28,7 +28,8 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 @ActiveProfiles("local")
 class LocalRoomSeedPostgresTest {
 
-	private static final String POSTGRES_IMAGE = "postgres:18.4";
+	private static final org.testcontainers.utility.DockerImageName POSTGRES_IMAGE = cloud.bamsongi.albammate.testsupport.PgVectorPostgresImages
+		.postgres18();
 	private static final String REDIS_IMAGE = "redis:8.4-alpine";
 	private static final String SEED_HOST_EMAIL = "local.seed.host@albammate.local";
 	private static final String HOST_MANUAL_ROOM_TITLE = "로컬 사용자의 수동 모임";

@@ -25,7 +25,8 @@ import cloud.bamsongi.albammate.game.contract.AssistantGameCandidateQuery;
 @SpringBootTest
 class AssistantGameCandidatePostgresTest {
 
-	private static final String POSTGRES_IMAGE = "postgres:18.4";
+	private static final org.testcontainers.utility.DockerImageName POSTGRES_IMAGE = cloud.bamsongi.albammate.testsupport.PgVectorPostgresImages
+		.postgres18();
 	private static final Instant NOW = Instant.parse("2099-01-01T00:00:00Z");
 	private static final OffsetDateTime NOW_UTC = NOW.atOffset(ZoneOffset.UTC);
 

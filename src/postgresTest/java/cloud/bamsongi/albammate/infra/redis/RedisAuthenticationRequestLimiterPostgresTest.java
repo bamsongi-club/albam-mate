@@ -241,11 +241,13 @@ class RedisAuthenticationRequestLimiterPostgresTest {
 
 	@Test
 	void T2_두_인스턴스의_로그인_IP_이동창은_서른_건만_허용한다() {
+		AuthenticationRequestLimiter firstLimiter = limiter(firstFactory, Duration.ofSeconds(10));
+		AuthenticationRequestLimiter secondLimiter = limiter(secondFactory, Duration.ofSeconds(10));
 		for (int index = 0; index < 30; index++) {
-			assertTrue((index % 2 == 0 ? first : second).checkAndRecordLogin("203.0.113.12").allowed());
+			assertTrue((index % 2 == 0 ? firstLimiter : secondLimiter).checkAndRecordLogin("203.0.113.12").allowed());
 		}
 
-		assertFalse(second.checkAndRecordLogin("203.0.113.12").allowed());
+		assertFalse(secondLimiter.checkAndRecordLogin("203.0.113.12").allowed());
 	}
 
 	@Test

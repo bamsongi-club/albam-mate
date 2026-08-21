@@ -25,7 +25,8 @@ import cloud.bamsongi.albammate.AlbamMateApplication;
 @SpringBootTest(classes = AlbamMateApplication.class)
 class ChatFixtureSqlPostgresTest {
 
-	private static final String POSTGRES_IMAGE = "postgres:18.4";
+	private static final org.testcontainers.utility.DockerImageName POSTGRES_IMAGE = cloud.bamsongi.albammate.testsupport.PgVectorPostgresImages
+		.postgres18();
 	private static final String POSTGRES_DATABASE = "albam_mate_chat_fixture_test";
 	private static final String POSTGRES_USER = "test";
 	private static final String PASSWORD_HASH = "{bcrypt}$2a$10$fixturePasswordHashOnlyForK6";

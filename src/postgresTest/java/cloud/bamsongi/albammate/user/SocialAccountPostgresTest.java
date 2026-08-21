@@ -50,7 +50,8 @@ import cloud.bamsongi.albammate.user.repository.UserRepository;
 @Import(SocialAccountPostgresTest.SocialAccountConcurrencyConfiguration.class)
 class SocialAccountPostgresTest {
 
-	private static final String POSTGRES_IMAGE = "postgres:18.4";
+	private static final org.testcontainers.utility.DockerImageName POSTGRES_IMAGE = cloud.bamsongi.albammate.testsupport.PgVectorPostgresImages
+		.postgres18();
 
 	@Container
 	@ServiceConnection

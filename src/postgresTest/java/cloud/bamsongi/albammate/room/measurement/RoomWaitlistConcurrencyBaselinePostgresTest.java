@@ -90,7 +90,8 @@ class RoomWaitlistConcurrencyBaselinePostgresTest {
 
 	@Container
 	@ServiceConnection
-	static final PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:18.4")
+	static final PostgreSQLContainer postgres = new PostgreSQLContainer(
+		cloud.bamsongi.albammate.testsupport.PgVectorPostgresImages.postgres18())
 		.withCommand("postgres", "-c", "shared_preload_libraries=pg_stat_statements")
 		.withDatabaseName("albam_mate_room_10b");
 

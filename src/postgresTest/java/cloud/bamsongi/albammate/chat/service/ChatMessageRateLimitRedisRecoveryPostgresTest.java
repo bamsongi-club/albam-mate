@@ -62,7 +62,8 @@ import io.lettuce.core.ClientOptions;
 })
 class ChatMessageRateLimitRedisRecoveryPostgresTest {
 
-	private static final String POSTGRES_IMAGE = "postgres:18.4";
+	private static final org.testcontainers.utility.DockerImageName POSTGRES_IMAGE = cloud.bamsongi.albammate.testsupport.PgVectorPostgresImages
+		.postgres18();
 	private static final String REDIS_IMAGE = "redis:8.4-alpine";
 	private static final String PASSWORD = "123456789012345";
 	private static final int REDIS_STARTUP_MAX_ATTEMPTS = 50;
