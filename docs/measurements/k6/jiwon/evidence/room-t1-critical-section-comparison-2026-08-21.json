@@ -6,7 +6,7 @@
   "campaignStatus": "completed",
   "documentStatus": "current",
   "reportStatus": "PASS",
-  "purpose": "Issue #781의 승인된 T1~T5 계약으로 ROOM T1 참가 취소·자동 승격 persistence variant V0/V1/V2를 T1 hot c8에서 각 3회 비교하고, ADR-0086의 V0 선택 근거를 기록한다.",
+  "purpose": "Issue #781의 승인된 T1~T5 계약으로 ROOM T1 참가 취소·자동 승격 persistence variant V0/V1/V2를 T1 hot c8에서 각 3회 비교하고, ADR-0087의 V0 선택 근거를 기록한다.",
   "report": "../room-t1-critical-section-comparison-2026-08-21.md",
   "contract": {
     "source": "Issue #781 최신 승인 T1~T5 댓글",
@@ -131,7 +131,7 @@
     "baselineVariant": "V0",
     "decision": "RETAIN_V0",
     "automatedT5Result": "RETAIN_V0",
-    "decisionAuthority": "ADR-0086",
+    "decisionAuthority": "ADR-0087",
     "candidateResults": [
       {
         "variant": "V1",

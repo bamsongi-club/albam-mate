@@ -1,4 +1,4 @@
-# ADR-0086: ROOM T1 참가 취소·자동 승격 critical section 전략을 실측으로 선택
+# ADR-0087: ROOM T1 참가 취소·자동 승격 critical section 전략을 실측으로 선택
 
 - 상태: 승인됨
 - 작성일: 2026-08-21

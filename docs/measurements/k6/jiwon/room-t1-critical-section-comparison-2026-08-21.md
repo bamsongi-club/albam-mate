@@ -11,7 +11,7 @@ T5의 주 지표인 성공 응답 p95 중앙값은 V0 `233.240ms`, V1 `457.929ms
 | 항목 | 값 |
 | --- | --- |
 | Campaign ID | `room-t1-critical-section-comparison-2026-08-21` |
-| Issue / 결정 ADR | [#781](https://github.com/bamsongi-club/albam-mate/issues/781) / [ADR-0086](../../../adr/participation/0086-room-t1-participation-cancel-critical-section-selection.md) |
+| Issue / 결정 ADR | [#781](https://github.com/bamsongi-club/albam-mate/issues/781) / [ADR-0087](../../../adr/participation/0087-room-t1-participation-cancel-critical-section-selection.md) |
 | 조건 | `T1 / stress / hot / c8 / 5 rounds` |
 | 반복 | variant별 3회, 총 9회 |
 | 실행 구간 | UTC `2026-08-20T22:55:23Z`–`2026-08-20T23:56:16Z` |
