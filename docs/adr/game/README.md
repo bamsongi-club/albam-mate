@@ -23,3 +23,4 @@
 | [0066](0066-search-quality-corpus-and-full-catalog-scale-corpus-split.md) | 검색 품질 데이터와 대규모 catalog 성능 검증 데이터를 분리 | 승인됨 | 2026-08-18 | 미검증 |
 | [0072](0072-search-quality-corpus-membership-and-versioning.md) | SEARCH-04 품질 corpus membership·version·rollback 계약 | 승인됨 | 2026-08-19 | 미검증 |
  | [0081](0081-game-list-relation-filter-performance-selection.md) | 게임 목록 relation filter는 query shape·theme index를 실측 비교해 선택 | 승인됨 | 2026-08-19 | 미검증 |
+| [0086](0086-search-04-dense-serving-architecture.md) | SEARCH-04 dense serving core와 index delivery를 분리 | 승인됨 | 2026-08-20 | 미검증 |

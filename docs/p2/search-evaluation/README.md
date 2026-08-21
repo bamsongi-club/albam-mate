@@ -230,7 +230,7 @@ node scripts/search-evaluation/search-candidate-comparison.mjs \
 
 provenance의 상대 경로는 운영체제와 무관한 `/` 구분자로 기록하며, reader는 기존 Windows `\` 구분자도 현재 실행 환경의 경로로 정규화한다.
 
-현재 결과는 평가 요약 문서에 기록된 provisional 참고값이며 Final Quality Evaluation 또는 production 전환 승인으로 해석하지 않는다. 최종 60+ query 품질 게이트는 별도로 충족해야 한다.
+현재 결과는 평가 요약 문서에 기록된 provisional 참고값이며 Final Quality Evaluation 또는 production 전환 승인으로 해석하지 않는다. [#897](https://github.com/bamsongi-club/albam-mate/issues/897)은 `dense-bge-m3`를 [#836](https://github.com/bamsongi-club/albam-mate/issues/836)의 implementation selection으로만 확정했고, raw metrics artifact의 `pending-human-judgement` 상태나 `selectedMethod: null`을 human qrels·Final Quality·production 선택으로 바꾸지 않는다. 최종 60+ query 품질 게이트는 별도로 충족해야 한다.
 
 ### 구조 검증
 
@@ -283,7 +283,7 @@ node scripts/p2-search-evaluation.mjs \
 
 - 의미 검색 API·DTO·응답 계약
 - 실제 lexical/Sparse/Dense/Hybrid/RRF 검색 구현
-- embedding model/provider/vector DB 선택
+- embedding model/provider/vector DB의 Final Quality·production 선택 (implementation-only `dense-bge-m3` runtime 경계는 [ADR-0086](../../adr/game/0086-search-04-dense-serving-architecture.md)가 소유)
 - Flyway / production index / backfill
 - backend/frontend 기능 구현
 - 17만 건 전체 한국어 설명 자동 번역

@@ -92,6 +92,30 @@ public final class GameListSearchCriteria {
 		this.bestPlayerCounts = source.bestPlayerCounts;
 	}
 
+	private GameListSearchCriteria(GameListSearchCriteria source, String keyword) {
+		this.keyword = keyword;
+		this.upcomingOnly = source.upcomingOnly;
+		this.upcomingGameIds = source.upcomingGameIds;
+		this.playerCount = source.playerCount;
+		this.playerCountMin = source.playerCountMin;
+		this.playerCountMax = source.playerCountMax;
+		this.playerCountExact = source.playerCountExact;
+		this.exclusivePlayerCounts = source.exclusivePlayerCounts;
+		this.playTimes = source.playTimes;
+		this.youngestPlayerAge = source.youngestPlayerAge;
+		this.complexityMin = source.complexityMin;
+		this.complexityMax = source.complexityMax;
+		this.playedFilter = source.playedFilter;
+		this.currentUserId = source.currentUserId;
+		this.mechanisms = source.mechanisms;
+		this.mechanismMatch = source.mechanismMatch;
+		this.categories = source.categories;
+		this.themes = source.themes;
+		this.themeMatch = source.themeMatch;
+		this.recommendedPlayerCounts = source.recommendedPlayerCounts;
+		this.bestPlayerCounts = source.bestPlayerCounts;
+	}
+
 	/** 같은 값을 반복 전달해도 한 번 전달한 것과 같도록 빈 값과 중복을 걷어낸다. */
 	private static <T> List<T> distinctValues(List<T> values) {
 		if (values == null) {
@@ -110,6 +134,10 @@ public final class GameListSearchCriteria {
 
 	public GameListSearchCriteria withPlayedFilter(long currentUserId) {
 		return new GameListSearchCriteria(this, upcomingGameIds, currentUserId);
+	}
+
+	public GameListSearchCriteria withKeyword(String keyword) {
+		return new GameListSearchCriteria(this, keyword.strip());
 	}
 
 }
