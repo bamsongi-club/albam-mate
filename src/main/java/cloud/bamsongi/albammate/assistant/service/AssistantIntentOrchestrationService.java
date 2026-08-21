@@ -12,7 +12,9 @@ import cloud.bamsongi.albammate.assistant.dto.AssistantMissingField;
 import cloud.bamsongi.albammate.assistant.dto.AssistantRecommendationRequest;
 import cloud.bamsongi.albammate.assistant.dto.AssistantRecommendationResponse;
 import cloud.bamsongi.albammate.assistant.dto.AssistantRecommendationState;
+import cloud.bamsongi.albammate.game.contract.AssistantExactGameNameQuery;
 import cloud.bamsongi.albammate.game.contract.AssistantGameCandidateQuery;
+import cloud.bamsongi.albammate.game.contract.AssistantRecommendationCandidate;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -23,16 +25,26 @@ import lombok.RequiredArgsConstructor;
 public class AssistantIntentOrchestrationService {
 
 	private final AssistantConsentGate assistantConsentGate;
+	private final AssistantConsentProperties assistantConsentProperties;
+	private final AssistantExactGameNameQuery assistantExactGameNameQuery;
 	private final AssistantIntentExtractor assistantIntentExtractor;
 	private final AssistantGameCandidateQuery assistantGameCandidateQuery;
 
 	public AssistantIntentExtraction extract(long userId, AssistantIntentRequest request) {
-		assistantConsentGate.requireGranted(userId);
+		requireAssistantAccess(userId);
 		return assistantIntentExtractor.extract(request);
 	}
 
 	public AssistantRecommendationResponse recommend(long userId, AssistantRecommendationRequest request) {
-		AssistantIntentExtraction extraction = extract(userId,
+		requireAssistantAccess(userId);
+		var exactCandidate = assistantExactGameNameQuery.findUniqueByNormalizedName(request.message());
+		if (exactCandidate.isPresent()) {
+			AssistantConditionSummary conditions = conditionsFor(request.conditions(), exactCandidate.get());
+			assistantGameCandidateQuery.validateCriteria(criteriaFor(conditions));
+			return response(AssistantRecommendationState.RECOMMENDED,
+				conditions, java.util.List.of(), java.util.List.of(exactCandidate.get()));
+		}
+		AssistantIntentExtraction extraction = assistantIntentExtractor.extract(
 			AssistantIntentRequest.forUser(Long.toString(userId), request.message(), java.util.List.of()));
 		if (extraction.status() != AssistantIntentStatus.SUCCESS) {
 			throw new BusinessException(errorCodeFor(extraction.status()));
@@ -75,6 +87,28 @@ public class AssistantIntentOrchestrationService {
 		return conditions.hasRecommendationSearchCondition() || conditions.gameId() != null;
 	}
 
+	private void requireAssistantAccess(long userId) {
+		assistantConsentGate.requireGranted(userId);
+		if (!assistantConsentProperties.isGrantable()) {
+			throw new BusinessException(ErrorCode.ASSISTANT_NOT_ENABLED);
+		}
+	}
+
+	private AssistantGameCandidateQuery.Criteria criteriaFor(AssistantConditionSummary conditions) {
+		return new AssistantGameCandidateQuery.Criteria(
+			conditions.categories(), conditions.mechanisms(), conditions.themes(), conditions.complexityMax(),
+			conditions.playTimeMax(), conditions.gameId(), conditions.playerCount());
+	}
+
+	private AssistantConditionSummary conditionsFor(
+		AssistantConditionSummary requested,
+		AssistantRecommendationCandidate candidate) {
+		AssistantConditionSummary source = requested == null ? AssistantConditionSummary.empty() : requested;
+		return new AssistantConditionSummary(
+			source.categories(), source.mechanisms(), source.themes(), source.complexityMax(), source.playTimeMax(),
+			candidate.id(), source.playerCount(), source.startsAt(), source.region(), source.experienceLevel());
+	}
+
 	private AssistantRecommendationResponse response(
 		AssistantRecommendationState state,
 		AssistantConditionSummary conditions,
@@ -86,7 +120,7 @@ public class AssistantIntentOrchestrationService {
 		AssistantRecommendationState state,
 		AssistantConditionSummary conditions,
 		java.util.List<AssistantMissingField> missingFields,
-		java.util.List<cloud.bamsongi.albammate.game.contract.GameSummary> candidates) {
+		java.util.List<AssistantRecommendationCandidate> candidates) {
 		return new AssistantRecommendationResponse(
 			state, conditions, missingFields, candidates);
 	}

@@ -14,6 +14,8 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import cloud.bamsongi.albammate.game.contract.AssistantExactGameNameMatch;
+import cloud.bamsongi.albammate.game.contract.AssistantRecommendationCandidate;
 import cloud.bamsongi.albammate.game.contract.GameSummary;
 import cloud.bamsongi.albammate.game.entity.Game;
 
@@ -34,6 +36,28 @@ public interface GameRepository extends JpaRepository<Game, Long>, JpaSpecificat
 		return findBy(specification, query -> query.as(GameSummary.class)
 			.slice(fallbackPageable));
 	}
+
+	default Slice<AssistantRecommendationCandidate> findAssistantRecommendationCandidates(
+		Specification<Game> specification, Pageable pageable) {
+		return findBy(specification, query -> query.as(AssistantRecommendationCandidate.class)
+			.sortBy(Sort.by(Sort.Order.asc("id")))
+			.slice(pageable));
+	}
+
+	@Query("""
+		select new cloud.bamsongi.albammate.game.contract.AssistantExactGameNameMatch(g.id, g.name)
+		from Game g
+		""")
+	List<AssistantExactGameNameMatch> findAssistantExactGameNameMatches();
+
+	@Query("""
+		select new cloud.bamsongi.albammate.game.contract.AssistantRecommendationCandidate(
+			g.id, g.name, g.imageUrl, g.description)
+		from Game g
+		where g.id = :gameId
+		""")
+	Optional<AssistantRecommendationCandidate> findAssistantRecommendationCandidateById(@Param("gameId")
+	Long gameId);
 
 	@Query("""
 		select new cloud.bamsongi.albammate.game.contract.GameSummary(g.id, g.bggId, g.name)
