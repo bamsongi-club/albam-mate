@@ -6,6 +6,7 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const getGames = vi.fn();
+const getGamesSemanticSearch = vi.fn();
 const getGameMechanisms = vi.fn();
 const getGameCategories = vi.fn();
 const getGameThemes = vi.fn();
@@ -14,6 +15,7 @@ vi.mock('./api', () => ({
   ApiError: class ApiError extends Error {},
   api: {
     getGames: (...parameters) => getGames(...parameters),
+    getGamesSemanticSearch: (...parameters) => getGamesSemanticSearch(...parameters),
     getGameMechanisms: (...parameters) => getGameMechanisms(...parameters),
     getGameCategories: (...parameters) => getGameCategories(...parameters),
     getGameThemes: (...parameters) => getGameThemes(...parameters),
@@ -97,6 +99,8 @@ beforeEach(() => {
   vi.useFakeTimers();
   getGames.mockReset();
   getGames.mockResolvedValue(EMPTY_PAGE);
+  getGamesSemanticSearch.mockReset();
+  getGamesSemanticSearch.mockResolvedValue(EMPTY_PAGE);
   getGameMechanisms.mockReset();
   getGameMechanisms.mockResolvedValue(MECHANISM_OPTIONS);
   getGameCategories.mockReset();
@@ -859,8 +863,9 @@ describe('T10 조건 조합', () => {
 
     applyEveryCondition();
 
-    expect(lastQuery()).toMatchObject({
-      keyword: '루미',
+    // 검색어가 있으면 GAME-01의 keyword 대신 의미 검색 API로 넘어간다.
+    expect(getGamesSemanticSearch.mock.calls.at(-1)[0]).toMatchObject({
+      query: '루미',
       playerCountMin: '2',
       playerCountMax: '4',
       playerCountExact: false,

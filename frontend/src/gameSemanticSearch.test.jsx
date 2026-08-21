@@ -37,16 +37,19 @@ const SEMANTIC_HIT = {
 };
 const FALLBACK_HIT = { ...SEMANTIC_HIT, searchMode: 'LEXICAL_FALLBACK' };
 
-async function renderGamesView() {
+async function renderGamesView(gameQuery = '') {
+  const onGameQueryChange = vi.fn();
   const view = render(
-    <GamesView title="게임 찾기" gameQuery="" onGameQueryChange={vi.fn()} dataVersion={0} />
+    <GamesView title="게임 찾기" gameQuery={gameQuery} onGameQueryChange={onGameQueryChange} dataVersion={0} />
   );
   await act(async () => {});
-  return view;
+  return { ...view, onGameQueryChange };
 }
 
-function switchToSemanticTab() {
-  fireEvent.click(screen.getByRole('tab', { name: '의미로 검색' }));
+function submitQuery(value) {
+  const input = screen.getByPlaceholderText(/게임 이름 또는 예:/);
+  fireEvent.change(input, { target: { value } });
+  fireEvent.submit(input.closest('form'));
 }
 
 beforeEach(() => {
@@ -66,82 +69,68 @@ afterEach(() => {
   cleanup();
 });
 
-describe('T1 검색 방식 기본값과 전환', () => {
-  it('기본은 이름 검색이고 의미 검색 입력은 보이지 않는다', async () => {
+describe('T1 검색어 없이 열면 기존 인기순 목록을 그대로 쓴다', () => {
+  it('탭 없이 검색창 하나만 있고 초기 조회는 GAME-01로 간다', async () => {
     await renderGamesView();
 
-    expect(screen.getByRole('tab', { name: '이름으로 검색' }).getAttribute('aria-selected')).toBe('true');
-    expect(screen.getByPlaceholderText('게임 이름으로 검색')).toBeTruthy();
-    expect(screen.queryByPlaceholderText(/예: 가족과 짧게/)).toBeNull();
-  });
-
-  it('의미로 검색 탭을 누르면 이름 입력 대신 의미 검색 입력이 보인다', async () => {
-    await renderGamesView();
-
-    switchToSemanticTab();
-
-    expect(screen.getByRole('tab', { name: '의미로 검색' }).getAttribute('aria-selected')).toBe('true');
-    expect(screen.queryByPlaceholderText('게임 이름으로 검색')).toBeNull();
-    expect(screen.getByPlaceholderText(/예: 가족과 짧게/)).toBeTruthy();
-  });
-});
-
-describe('T2 의미 검색 제출 전 상태', () => {
-  it('아직 제출하지 않았으면 core를 호출하지 않고 안내 문구만 보여준다', async () => {
-    await renderGamesView();
-    getGamesSemanticSearch.mockClear();
-
-    switchToSemanticTab();
-    await act(async () => {});
-
+    expect(getGames).toHaveBeenCalled();
     expect(getGamesSemanticSearch).not.toHaveBeenCalled();
-    expect(screen.getByText('찾고 싶은 게임을 문장으로 설명해보세요')).toBeTruthy();
+    expect(screen.getByPlaceholderText(/게임 이름 또는 예:/)).toBeTruthy();
   });
 });
 
-describe('T3 의미 검색 조회', () => {
-  it('의미 검색어를 제출하면 query와 페이지 파라미터로 조회한다', async () => {
-    getGamesSemanticSearch.mockResolvedValue(SEMANTIC_HIT);
-    await renderGamesView();
-    switchToSemanticTab();
+describe('T2 검색어 제출', () => {
+  it('검색창에 입력해 제출하면 부모 상태로 올린다', async () => {
+    const { onGameQueryChange } = await renderGamesView();
 
-    fireEvent.change(screen.getByPlaceholderText(/예: 가족과 짧게/), { target: { value: '가족과 짧게 할 협력 게임' } });
-    fireEvent.submit(screen.getByPlaceholderText(/예: 가족과 짧게/).closest('form'));
-    await act(async () => {});
+    submitQuery('가족과 짧게 할 협력 게임');
+
+    expect(onGameQueryChange).toHaveBeenCalledWith('가족과 짧게 할 협력 게임');
+  });
+
+  it('부모가 올려준 검색어가 있으면 의미 검색 API를 호출한다', async () => {
+    getGamesSemanticSearch.mockResolvedValue(SEMANTIC_HIT);
+    await renderGamesView('가족과 짧게 할 협력 게임');
 
     expect(getGamesSemanticSearch).toHaveBeenCalledWith(
       expect.objectContaining({ query: '가족과 짧게 할 협력 게임', page: 0, size: 24 }),
       expect.anything()
     );
+    expect(getGames).not.toHaveBeenCalled();
     expect(screen.getByText('협동 게임')).toBeTruthy();
   });
 });
 
-describe('T4 fallback 상태 표시', () => {
+describe('T3 fallback 상태 표시', () => {
   it('searchMode가 LEXICAL_FALLBACK이면 대체 안내를 보여준다', async () => {
     getGamesSemanticSearch.mockResolvedValue(FALLBACK_HIT);
-    await renderGamesView();
-    switchToSemanticTab();
-
-    fireEvent.change(screen.getByPlaceholderText(/예: 가족과 짧게/), { target: { value: '가벼운 파티 게임' } });
-    fireEvent.submit(screen.getByPlaceholderText(/예: 가족과 짧게/).closest('form'));
-    await act(async () => {});
+    await renderGamesView('가벼운 파티 게임');
 
     expect(screen.getByText('키워드 검색 결과로 대신 보여드려요')).toBeTruthy();
   });
+
+  it('검색어가 없을 때는 fallback 배너를 보여주지 않는다', async () => {
+    getGames.mockResolvedValue(EMPTY_PAGE);
+    await renderGamesView();
+
+    expect(screen.queryByText('키워드 검색 결과로 대신 보여드려요')).toBeNull();
+  });
 });
 
-describe('T5 의미 검색 결과 없음', () => {
-  it('제출했지만 결과가 없으면 이름 검색과 다른 안내 문구를 보여준다', async () => {
+describe('T4 검색 결과 없음 안내 문구', () => {
+  it('검색어로 조회했지만 결과가 없으면 다른 표현을 안내한다', async () => {
     getGamesSemanticSearch.mockResolvedValue({ ...EMPTY_PAGE, searchMode: 'SEMANTIC' });
-    await renderGamesView();
-    switchToSemanticTab();
-
-    fireEvent.change(screen.getByPlaceholderText(/예: 가족과 짧게/), { target: { value: '아무도 없는 조건' } });
-    fireEvent.submit(screen.getByPlaceholderText(/예: 가족과 짧게/).closest('form'));
-    await act(async () => {});
+    await renderGamesView('아무도 없는 조건');
 
     expect(screen.getByText('검색 결과가 없어요')).toBeTruthy();
     expect(screen.getByText('다른 표현이나 조건으로 다시 시도해보세요.')).toBeTruthy();
+  });
+
+  it('검색어 없이 결과가 없으면 기존 이름 검색 안내 문구를 보여준다', async () => {
+    getGames.mockResolvedValue(EMPTY_PAGE);
+    await renderGamesView();
+
+    expect(screen.getByText('검색 결과가 없어요')).toBeTruthy();
+    expect(screen.getByText('게임 이름의 일부만 넣어보세요.')).toBeTruthy();
   });
 });

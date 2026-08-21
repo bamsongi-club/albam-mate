@@ -78,17 +78,10 @@ function GameSlicePagination({ page, hasNext, loading, onChange }) {
   );
 }
 
-const EMPTY_SEMANTIC_RESULT = Promise.resolve({ content: [], page: 0, size: GAME_LIST_PAGE_SIZE, hasNext: false });
-
 export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, onPlayedError, headerActions, initialFilters = EMPTY_GAME_FILTERS, onBack }) {
   const [input, setInput] = useState(gameQuery);
-  const [searchMode, setSearchMode] = useState('name');
-  const [semanticInput, setSemanticInput] = useState('');
-  const [semanticQuery, setSemanticQuery] = useState('');
   const [filters, setFilters] = useState(initialFilters);
-  const keyword = gameQuery.trim();
-  const isSemanticMode = searchMode === 'semantic';
-  const trimmedSemanticQuery = semanticQuery.trim();
+  const query = gameQuery.trim();
   const parameters = gameFilterParameters(useAppliedGameFilters(filters));
   const filterKey = JSON.stringify(parameters);
   const playedGames = usePlayedGames(onPlayedError);
@@ -97,18 +90,16 @@ export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, on
   const playedRefreshKey = filters.playedFilter ? playedGames.version : 0;
   const { data, loading, error, unauthenticated, setPage, retry } = usePaginatedRequest(
     (page, signal) => {
-      if (isSemanticMode) {
-        // 의미 검색 계약은 빈 query를 허용하지 않는다. 아직 입력하지 않았으면 호출 없이 안내만 보여준다.
-        if (!trimmedSemanticQuery) return EMPTY_SEMANTIC_RESULT;
-        return api.getGamesSemanticSearch({ query: trimmedSemanticQuery, ...parameters, page, size: GAME_LIST_PAGE_SIZE }, signal);
-      }
-      return api.getGames({ keyword, ...parameters, page, size: GAME_LIST_PAGE_SIZE }, signal);
+      // 검색어가 없으면 기존 인기순 목록(GAME-01)을 그대로 보여주고, 검색어가 있으면 의미 검색으로 넘긴다.
+      // 탭 없이 한 검색창에서 이름·문장 검색을 모두 받기 위한 분기다.
+      if (!query) return api.getGames({ ...parameters, page, size: GAME_LIST_PAGE_SIZE }, signal);
+      return api.getGamesSemanticSearch({ query, ...parameters, page, size: GAME_LIST_PAGE_SIZE }, signal);
     },
-    [isSemanticMode, keyword, trimmedSemanticQuery, filterKey, dataVersion, playedRefreshKey]
+    [query, filterKey, dataVersion, playedRefreshKey]
   );
   const games = (data?.content || []).map(normalizeGameSummary);
-  const semanticPromptEmpty = isSemanticMode && !trimmedSemanticQuery;
-  const isFallback = isSemanticMode && data?.searchMode === 'LEXICAL_FALLBACK';
+  const isSearching = Boolean(query);
+  const isFallback = isSearching && data?.searchMode === 'LEXICAL_FALLBACK';
   useEffect(() => setInput(gameQuery), [gameQuery]);
 
   const playedChips = (
@@ -134,38 +125,21 @@ export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, on
         : null}
       <div className={'screen-body pad-bottom' + (onBack ? '' : ' pad-top')}>
       {!onBack && <ScreenTitle actions={headerActions}>{title}</ScreenTitle>}
-      <div className="filter-bar nos" style={{ marginTop: 16 }} role="tablist" aria-label="검색 방식">
-        <button type="button" role="tab" aria-selected={!isSemanticMode} className={'chip' + (!isSemanticMode ? ' on' : '')} onClick={() => setSearchMode('name')}>이름으로 검색</button>
-        <button type="button" role="tab" aria-selected={isSemanticMode} className={'chip' + (isSemanticMode ? ' on' : '')} onClick={() => setSearchMode('semantic')}>의미로 검색</button>
-      </div>
-      {!isSemanticMode && (
-        <form
-          className="searchbox"
-          style={{ marginTop: 12 }}
-          onSubmit={(event) => { event.preventDefault(); onGameQueryChange(input.trim()); }}
-        >
-          <SearchIcon />
-          <label className="sr-only" htmlFor="game-q">게임 이름 검색</label>
-          <input id="game-q" value={input} onChange={(event) => setInput(event.target.value)} placeholder="게임 이름으로 검색" />
-        </form>
-      )}
-      {isSemanticMode && (
-        <form
-          className="searchbox"
-          style={{ marginTop: 12 }}
-          onSubmit={(event) => { event.preventDefault(); setSemanticQuery(semanticInput.trim()); }}
-        >
-          <SearchIcon />
-          <label className="sr-only" htmlFor="game-semantic-q">어떤 게임을 찾는지 문장으로 검색</label>
-          <input
-            id="game-semantic-q"
-            value={semanticInput}
-            onChange={(event) => setSemanticInput(event.target.value)}
-            placeholder="예: 가족과 짧게 즐길 협동 게임"
-            maxLength={200}
-          />
-        </form>
-      )}
+      <form
+        className="searchbox"
+        style={{ marginTop: 16 }}
+        onSubmit={(event) => { event.preventDefault(); onGameQueryChange(input.trim()); }}
+      >
+        <SearchIcon />
+        <label className="sr-only" htmlFor="game-q">게임 이름이나 찾는 느낌으로 검색</label>
+        <input
+          id="game-q"
+          value={input}
+          onChange={(event) => setInput(event.target.value)}
+          placeholder="게임 이름 또는 예: 가족과 짧게 즐길 협동 게임"
+          maxLength={200}
+        />
+      </form>
       <GameFilters filters={filters} onChange={setFilters} quickSlot={playedChips} />
       {isFallback && !error && (
         <div style={{ marginTop: 18 }}>
@@ -196,12 +170,10 @@ export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, on
       )}
       {!error && !loading && !games.length && (
         <div style={{ marginTop: 26 }}>
-          {semanticPromptEmpty
-            ? <StateBlock title="찾고 싶은 게임을 문장으로 설명해보세요" description="예: 초보자와 즐기기 좋은 가벼운 파티 게임" />
-            : <StateBlock title="검색 결과가 없어요" description={isSemanticMode ? '다른 표현이나 조건으로 다시 시도해보세요.' : '게임 이름의 일부만 넣어보세요.'} />}
+          <StateBlock title="검색 결과가 없어요" description={isSearching ? '다른 표현이나 조건으로 다시 시도해보세요.' : '게임 이름의 일부만 넣어보세요.'} />
         </div>
       )}
-      {!error && data && !semanticPromptEmpty && (
+      {!error && data && (
         <GameSlicePagination page={data.page ?? 0} hasNext={Boolean(data.hasNext)} loading={loading} onChange={setPage} />
       )}
       </div>
