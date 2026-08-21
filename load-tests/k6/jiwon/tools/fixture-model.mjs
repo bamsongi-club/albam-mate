@@ -765,7 +765,7 @@ VALUES
         ${sqlLiteral(ownershipDescription)},
         'ALL_LEVELS',
         false,
-        'ROOM-K6',
+        '홍대',
         ${capacity},
         ${activeCount},
         clock_timestamp() + interval '6 hours',
