@@ -304,12 +304,12 @@ class MatchResponseCompletionBaselinePostgresTest {
 		List<PrivateManifestRow> privateManifestRows = new ArrayList<>();
 		measurement: for (Scenario scenario : Scenario.values()) {
 			runScenarioRound(scenario, 0, true, roundArtifacts, privateManifestRows);
-			if (!roundArtifacts.getLast().accepted()) {
+			if (roundArtifacts.getLast().invalidReason() != null) {
 				break;
 			}
 			for (int round = 1; round <= 3; round++) {
 				runScenarioRound(scenario, round, false, roundArtifacts, privateManifestRows);
-				if (!roundArtifacts.getLast().accepted()) {
+				if (roundArtifacts.getLast().invalidReason() != null) {
 					break measurement;
 				}
 			}
@@ -517,12 +517,19 @@ class MatchResponseCompletionBaselinePostgresTest {
 			LockWaitMonitor lockWaitMonitor = new LockWaitMonitor(jdbcTemplate);
 			try {
 				lockWaitMonitor.start();
+				if (!lockWaitMonitor.awaitFirstPoll(5, TimeUnit.SECONDS)) {
+					invalidReasons.add("lockWaitInitialPollMissing");
+				}
 				observationStartedAt = Instant.now();
-				execution = executeCommandsConcurrently(commands, false);
-			} finally {
-				observationEndedAt = Instant.now();
 				lockWaitMonitor.observeNow();
-				lockWait = lockWaitMonitor.stop();
+				execution = executeCommandsConcurrently(commands, false);
+				lockWaitMonitor.observeNow();
+				observationEndedAt = Instant.now();
+			} finally {
+				if (observationEndedAt == null) {
+					observationEndedAt = Instant.now();
+				}
+				lockWait = lockWaitMonitor.stop(observationStartedAt, observationEndedAt);
 			}
 			if (!lockWait.observed()) {
 				invalidReasons.add("lockWaitObservationMissing");
@@ -693,35 +700,39 @@ class MatchResponseCompletionBaselinePostgresTest {
 		long expectedProposalCount = scenario == Scenario.ACCEPT_FINAL ? 500L : 1_000L;
 		long expectedPartyCount = scenario == Scenario.ACCEPT_FINAL ? 500L : 0L;
 		long expectedParticipantCount = scenario == Scenario.ACCEPT_FINAL ? 1_000L : 0L;
-		long completePartyGroupCount = scenario == Scenario.ACCEPT_FINAL ? assertFinalPartyGroups() : 0L;
+		PartyGroupDistribution partyGroups = scenario == Scenario.ACCEPT_FINAL
+			? loadFinalPartyGroups() : PartyGroupDistribution.notApplicable();
 		long expectedRequestStatusCount = scenario == Scenario.ACCEPT_FINAL ? 1_000L
 			: scenario == Scenario.CANCEL ? 1_000L : 2_000L;
-		CurrentStateDistribution currentStates = assertCurrentStateDistribution(scenario, execution,
-			requirePerProposalCurrentStateGroups);
 		TransitionDistribution transitions = loadTransitionDistribution(scenario, execution.commandExecutions());
+		CurrentStateDistribution currentStates = inspectCurrentStateDistribution(scenario, execution,
+			requirePerProposalCurrentStateGroups, transitions);
 		MaterializedStateFacts materializedFacts = loadMaterializedStateFacts(scenario, materialized);
+		IdempotencyRecordFacts idempotencyRecords = loadIdempotencyRecordFacts(materialized.commands());
 		long duplicatePartyCount = Math.max(0L, partyCount - expectedPartyCount);
 		long partialSuccessCount = Math.max(0L, expectedProposalCount - proposalCount);
 		boolean passed = proposalCount == expectedProposalCount
 			&& memberResponseCount == materialized.commands().size()
 			&& requestStatusCount == expectedRequestStatusCount
 			&& partyParticipantCount == expectedParticipantCount
-			&& completePartyGroupCount == expectedPartyCount
+			&& partyGroups.groupCount() == expectedPartyCount
+			&& partyGroups.matchesExpectedState()
 			&& currentStates.responseCount() == execution.physicalRequestCount()
-			&& (!requirePerProposalCurrentStateGroups
-				|| currentStates.matchedExpectedStateCount() == execution.physicalRequestCount())
-			&& (!requirePerProposalCurrentStateGroups || transitions.matchesExpectedDistribution())
+			&& currentStates.matchesExpectedState()
+			&& transitions.matchesExpectedDistribution()
 			&& materializedFacts.matchesExpectedState()
+			&& idempotencyRecords.matchesExpectedState()
 			&& duplicatePartyCount == 0L
 			&& partialSuccessCount == 0L;
 		return new FinalStateAssertion(passed, proposalCount, memberResponseCount, requestStatusCount,
 			partyCount, partyParticipantCount, currentStates.proposedCount(), currentStates.terminalCount(),
 			currentStates.otherCount(), currentStates.matchedExpectedStateCount(), transitions.nonterminalCount(),
-			transitions.terminalCount(), completePartyGroupCount, duplicatePartyCount, partialSuccessCount,
+			transitions.terminalCount(), partyGroups.groupCount(), duplicatePartyCount, partialSuccessCount,
 			materializedFacts.proposalMatchCount(), materializedFacts.proposalMismatchCount(),
 			materializedFacts.memberMatchCount(), materializedFacts.memberMismatchCount(),
 			materializedFacts.requestMatchCount(), materializedFacts.requestMismatchCount(),
-			materializedFacts.queueTimestampMatchCount(), materializedFacts.queueTimestampMismatchCount());
+			materializedFacts.queueTimestampMatchCount(), materializedFacts.queueTimestampMismatchCount(),
+			idempotencyRecords.recordCount(), idempotencyRecords.matchCount(), idempotencyRecords.mismatchCount());
 	}
 
 	private MaterializedStateFacts loadMaterializedStateFacts(Scenario scenario, MaterializedCommands materialized) {
@@ -790,6 +801,45 @@ class MatchResponseCompletionBaselinePostgresTest {
 			queueTimestampMismatchCount, matchesExpectedState);
 	}
 
+	private IdempotencyRecordFacts loadIdempotencyRecordFacts(List<ResponseCommand> commands) {
+		List<Map<String, Object>> records = jdbcTemplate.queryForList("""
+			select user_id, idempotency_key, operation, payload_fingerprint,
+				result_entity_type, result_entity_id, result_state
+			from match_idempotency_records
+			""");
+		Map<String, List<Map<String, Object>>> recordsByKey = new HashMap<>();
+		for (Map<String, Object> record : records) {
+			String key = idempotencyRecordKey(((Number)record.get("user_id")).longValue(),
+				(String)record.get("idempotency_key"));
+			recordsByKey.computeIfAbsent(key, ignored -> new ArrayList<>()).add(record);
+		}
+		long matchCount = 0L;
+		for (ResponseCommand command : commands) {
+			List<Map<String, Object>> matchingRecords = recordsByKey.getOrDefault(
+				idempotencyRecordKey(command.userId(), command.idempotencyKey()), List.of());
+			if (matchingRecords.size() == 1 && matchesExpectedIdempotencyRecord(command, matchingRecords.getFirst())) {
+				matchCount++;
+			}
+		}
+		long mismatchCount = Math.max(0L, records.size() - matchCount);
+		boolean matchesExpectedState = records.size() == commands.size() && matchCount == commands.size();
+		return new IdempotencyRecordFacts(records.size(), matchCount, mismatchCount, matchesExpectedState);
+	}
+
+	private boolean matchesExpectedIdempotencyRecord(ResponseCommand command, Map<String, Object> record) {
+		return ((Number)record.get("user_id")).longValue() == command.userId()
+			&& command.idempotencyKey().equals(record.get("idempotency_key"))
+			&& "MATCH_PROPOSAL_RESPONSE".equals(record.get("operation"))
+			&& (command.proposalId() + ":" + command.action().name()).equals(record.get("payload_fingerprint"))
+			&& "MATCH_PROPOSAL".equals(record.get("result_entity_type"))
+			&& String.valueOf(command.proposalId()).equals(String.valueOf(record.get("result_entity_id")))
+			&& "RESPONDED".equals(record.get("result_state"));
+	}
+
+	private String idempotencyRecordKey(long userId, String idempotencyKey) {
+		return userId + ":" + idempotencyKey;
+	}
+
 	private boolean matchesExpectedQueueTimestamps(Scenario scenario, PrivateManifestRow row,
 		Map<String, Object> actual) {
 		Instant actualQueuedAt = ((Timestamp)actual.get("queued_at")).toInstant();
@@ -805,7 +855,7 @@ class MatchResponseCompletionBaselinePostgresTest {
 		return true;
 	}
 
-	private long assertFinalPartyGroups() {
+	private PartyGroupDistribution loadFinalPartyGroups() {
 		List<Map<String, Object>> groups = jdbcTemplate.queryForList(
 			"""
 				select member.proposal_id, count(distinct participant.party_id) as party_count,
@@ -815,12 +865,13 @@ class MatchResponseCompletionBaselinePostgresTest {
 				left join match_party_participants participant on participant.user_id = member.user_id and participant.left_at is null
 				group by member.proposal_id
 				""");
-		assertEquals(500, groups.size());
+		boolean matchesExpectedState = groups.size() == 500;
 		for (Map<String, Object> group : groups) {
-			assertEquals(1L, ((Number)group.get("party_count")).longValue());
-			assertEquals(2L, ((Number)group.get("participant_count")).longValue());
+			matchesExpectedState = matchesExpectedState
+				&& ((Number)group.get("party_count")).longValue() == 1L
+				&& ((Number)group.get("participant_count")).longValue() == 2L;
 		}
-		return groups.size();
+		return new PartyGroupDistribution(groups.size(), matchesExpectedState);
 	}
 
 	private TransitionDistribution loadTransitionDistribution(
@@ -829,18 +880,23 @@ class MatchResponseCompletionBaselinePostgresTest {
 		Map<ResponseCommand, String> results = new LinkedHashMap<>();
 		long nonterminalCount = 0L;
 		long terminalCount = 0L;
+		boolean matchesExpectedState = true;
 		for (CommandExecution execution : commandExecutions) {
 			ResponseCommand command = execution.command();
 			if (results.containsKey(command)) {
 				continue;
 			}
-			Map<String, Object> row = jdbcTemplate.queryForMap("""
+			List<Map<String, Object>> rows = jdbcTemplate.queryForList("""
 				select member.responded_at, proposal.confirmed_at, proposal.status
 				from match_proposal_members member
 				join match_proposals proposal on proposal.id = member.proposal_id
 				where member.proposal_id = ? and member.user_id = ?
 				""", command.proposalId(), command.userId());
-			String result = transitionResult(scenario, row);
+			TransitionObservation observation = rows.isEmpty()
+				? new TransitionObservation(scenario.result(), false)
+				: transitionObservation(scenario, rows.getFirst());
+			String result = observation.result();
+			matchesExpectedState = matchesExpectedState && observation.matchesExpectedState();
 			results.put(command, result);
 			if (result.equals("NON_TERMINAL")) {
 				nonterminalCount++;
@@ -848,40 +904,42 @@ class MatchResponseCompletionBaselinePostgresTest {
 				terminalCount++;
 			}
 		}
-		boolean expected = scenario != Scenario.ACCEPT_FINAL || (nonterminalCount == 500L && terminalCount == 500L);
-		assertTrue(expected, "final ACCEPT transition fact가 500 nonterminal + 500 terminal이 아닙니다.");
-		return new TransitionDistribution(Map.copyOf(results), nonterminalCount, terminalCount, expected);
+		boolean expectedDistribution = scenario != Scenario.ACCEPT_FINAL
+			|| (nonterminalCount == 500L && terminalCount == 500L);
+		return new TransitionDistribution(Map.copyOf(results), nonterminalCount, terminalCount,
+			matchesExpectedState && expectedDistribution);
 	}
 
-	private String transitionResult(Scenario scenario, Map<String, Object> row) {
+	private TransitionObservation transitionObservation(Scenario scenario, Map<String, Object> row) {
 		String proposalStatus = (String)row.get("status");
 		if (scenario == Scenario.ACCEPT_FINAL) {
 			Timestamp respondedAt = (Timestamp)row.get("responded_at");
 			Timestamp confirmedAt = (Timestamp)row.get("confirmed_at");
 			if (respondedAt == null || confirmedAt == null) {
-				throw new AssertionError("final ACCEPT transition timestamp가 누락되었습니다.");
+				return new TransitionObservation(scenario.result(), false);
 			}
 			if (respondedAt.before(confirmedAt)) {
-				return "NON_TERMINAL";
+				return new TransitionObservation("NON_TERMINAL", true);
 			}
 			if (respondedAt.equals(confirmedAt)) {
-				return "TERMINAL";
+				return new TransitionObservation("TERMINAL", true);
 			}
-			throw new AssertionError("final ACCEPT transition timestamp 순서가 올바르지 않습니다.");
+			return new TransitionObservation(scenario.result(), false);
 		}
-		if (scenario == Scenario.ACCEPT_NON_TERMINAL && proposalStatus.equals("OPEN")) {
-			return "NON_TERMINAL";
+		if (scenario == Scenario.ACCEPT_NON_TERMINAL && "OPEN".equals(proposalStatus)) {
+			return new TransitionObservation("NON_TERMINAL", true);
 		}
-		if (scenario != Scenario.ACCEPT_NON_TERMINAL && proposalStatus.equals(scenario.expectedProposalStatus())) {
-			return "TERMINAL";
+		if (scenario != Scenario.ACCEPT_NON_TERMINAL && scenario.expectedProposalStatus().equals(proposalStatus)) {
+			return new TransitionObservation("TERMINAL", true);
 		}
-		throw new AssertionError("scenario transition fact가 실제 proposal 상태와 맞지 않습니다.");
+		return new TransitionObservation(scenario.result(), false);
 	}
 
-	private CurrentStateDistribution assertCurrentStateDistribution(
+	private CurrentStateDistribution inspectCurrentStateDistribution(
 		Scenario scenario,
 		ExecutionResult execution,
-		boolean requirePerProposalCurrentStateGroups) {
+		boolean requirePerProposalCurrentStateGroups,
+		TransitionDistribution transitions) {
 		long proposedCount = execution.currentStates().stream()
 			.filter(observation -> observation.state().equals("PROPOSED")).count();
 		long terminalCount = execution.currentStates().stream()
@@ -890,30 +948,36 @@ class MatchResponseCompletionBaselinePostgresTest {
 			.count();
 		long otherCount = execution.currentStates().size() - proposedCount - terminalCount;
 		if (!requirePerProposalCurrentStateGroups) {
-			return new CurrentStateDistribution(proposedCount, terminalCount, otherCount, 0L,
-				execution.currentStates().size());
+			long matchedExpectedStateCount = execution.currentStates().stream()
+				.filter(observation -> scenario.matchesExpectedCurrentState(observation.state())).count();
+			return new CurrentStateDistribution(proposedCount, terminalCount, otherCount, matchedExpectedStateCount,
+				execution.currentStates().size(), matchedExpectedStateCount == execution.currentStates().size());
 		}
 		if (scenario != Scenario.ACCEPT_FINAL) {
 			long expectedCount = execution.currentStates().stream()
 				.filter(observation -> scenario.matchesExpectedCurrentState(observation.state())).count();
-			assertEquals(execution.physicalRequestCount(), expectedCount);
 			return new CurrentStateDistribution(proposedCount, terminalCount, otherCount, expectedCount,
-				execution.currentStates().size());
+				execution.currentStates().size(), expectedCount == execution.currentStates().size());
 		}
-		Map<Long, List<String>> statesByProposal = new HashMap<>();
-		for (CurrentStateObservation observation : execution.currentStates()) {
-			statesByProposal.computeIfAbsent(observation.proposalId(), ignored -> new ArrayList<>())
-				.add(observation.state());
+		Map<Long, List<CommandStateObservation>> statesByProposal = new HashMap<>();
+		for (CommandExecution commandExecution : execution.commandExecutions()) {
+			ResponseCommand command = commandExecution.command();
+			statesByProposal.computeIfAbsent(command.proposalId(), ignored -> new ArrayList<>())
+				.add(new CommandStateObservation(command.proposalId(),
+					transitions.resultFor(command), commandExecution.currentState()));
 		}
-		assertEquals(500, statesByProposal.size());
-		for (List<String> states : statesByProposal.values()) {
-			assertEquals(2, states.size());
-			assertTrue(states.stream().allMatch(state -> state.equals("PROPOSED")
-				|| state.equals("PREPARING") || state.equals("ACTIVE")));
+		boolean matchesExpectedState = statesByProposal.size() == 500;
+		for (List<CommandStateObservation> states : statesByProposal.values()) {
+			matchesExpectedState = matchesExpectedState && states.size() == 2
+				&& states.stream().filter(state -> state.transitionResult().equals("NON_TERMINAL")
+					&& state.state().equals("PROPOSED")).count() == 1L
+				&& states.stream().filter(state -> state.transitionResult().equals("TERMINAL")
+					&& (state.state().equals("PREPARING") || state.state().equals("ACTIVE"))).count() == 1L;
 		}
-		assertEquals(0L, otherCount);
-		return new CurrentStateDistribution(proposedCount, terminalCount, otherCount, execution.currentStates().size(),
-			execution.currentStates().size());
+		long matchedExpectedStateCount = matchesExpectedState ? execution.currentStates().size() : 0L;
+		return new CurrentStateDistribution(proposedCount, terminalCount, otherCount, matchedExpectedStateCount,
+			execution.currentStates().size(), matchesExpectedState && otherCount == 0L
+				&& execution.currentStates().size() == 1_000);
 	}
 
 	private Path writeArtifact(List<RoundArtifact> rounds, List<PrivateManifestRow> privateManifestRows) {
@@ -934,9 +998,9 @@ class MatchResponseCompletionBaselinePostgresTest {
 			String materializedManifestSummary = rounds.stream()
 				.map(round -> round.scenario() + "," + round.round() + "," + round.warmUp() + ","
 					+ round.rawSamples().size() + "," + round.finalState().proposalCount() + ","
-					+ round.finalState().partyCount())
+					+ round.finalState().idempotencyRecordCount() + "," + round.finalState().partyCount())
 				.collect(java.util.stream.Collectors.joining("\n",
-					"scenario,round,warmUp,sampleCount,idempotencyCount,partyCount\n", "\n"));
+					"scenario,round,warmUp,sampleCount,proposalCount,idempotencyCount,partyCount\n", "\n"));
 			Path privateManifest = directory.resolve("response-completion-" + commit + "-private-sidecar.json");
 			String privateManifestBytes = objectMapper.writeValueAsString(privateSidecarRows(privateManifestRows));
 			Files.writeString(privateManifest, privateManifestBytes);
@@ -959,7 +1023,7 @@ class MatchResponseCompletionBaselinePostgresTest {
 				Map<String, Object> scenarioNode = new LinkedHashMap<>();
 				scenarioNode.put("scenario", scenario.name());
 				RoundArtifact warmUp = scenarioRounds.stream().filter(RoundArtifact::warmUp).findFirst().orElse(null);
-				scenarioNode.put("warmUp", Map.of("completed", warmUp != null && warmUp.accepted()));
+				scenarioNode.put("warmUp", Map.of("completed", warmUp != null && warmUp.invalidReason() == null));
 				List<Map<String, Object>> measured = new ArrayList<>();
 				for (RoundArtifact round : scenarioRounds.stream().filter(round -> !round.warmUp()).toList()) {
 					String raw = objectMapper.writeValueAsString(round.rawSamples());
@@ -989,6 +1053,9 @@ class MatchResponseCompletionBaselinePostgresTest {
 					assertionNode.put("requestFactMismatchCount", assertion.requestFactMismatchCount());
 					assertionNode.put("queueTimestampMatchCount", assertion.queueTimestampMatchCount());
 					assertionNode.put("queueTimestampMismatchCount", assertion.queueTimestampMismatchCount());
+					assertionNode.put("idempotencyRecordCount", assertion.idempotencyRecordCount());
+					assertionNode.put("idempotencyRecordMatchCount", assertion.idempotencyRecordMatchCount());
+					assertionNode.put("idempotencyRecordMismatchCount", assertion.idempotencyRecordMismatchCount());
 					Map<String, Object> roundNode = new LinkedHashMap<>();
 					roundNode.put("round", round.round());
 					roundNode.put("rawSamples", round.rawSamples());
@@ -1210,8 +1277,15 @@ class MatchResponseCompletionBaselinePostgresTest {
 	}
 	private record CurrentStateObservation(long proposalId, String state) {
 	}
+	private record CommandStateObservation(long proposalId, String transitionResult, String state) {
+	}
 	private record CurrentStateDistribution(long proposedCount, long terminalCount, long otherCount,
-		long matchedExpectedStateCount, long responseCount) {
+		long matchedExpectedStateCount, long responseCount, boolean matchesExpectedState) {
+	}
+	private record PartyGroupDistribution(long groupCount, boolean matchesExpectedState) {
+		static PartyGroupDistribution notApplicable() {
+			return new PartyGroupDistribution(0L, true);
+		}
 	}
 	private record MemberKey(long proposalId, long requestId) {
 	}
@@ -1228,6 +1302,11 @@ class MatchResponseCompletionBaselinePostgresTest {
 			}
 			return result;
 		}
+	}
+	private record TransitionObservation(String result, boolean matchesExpectedState) {
+	}
+	private record IdempotencyRecordFacts(long recordCount, long matchCount, long mismatchCount,
+		boolean matchesExpectedState) {
 	}
 	private record PrivateManifestRow(int proposalOrdinal, int memberOrdinal, long proposalId, long memberProposalId,
 		long memberRequestId, long requestId, String scenario, boolean commandTarget, String expectedProposalStatus,
@@ -1292,10 +1371,10 @@ class MatchResponseCompletionBaselinePostgresTest {
 	private record LockWaitPoll(Instant observedAt, long observedAtNanos, long waitingSessionCount) {
 	}
 
-	private record LockWaitObservation(boolean observed, long pollCount, long waitingSessionSampleCount,
-		long sampledWaitNanos, List<LockWaitPoll> polls) {
+	private record LockWaitObservation(boolean observed, long pollCount, long executionWindowPollCount,
+		long waitingSessionSampleCount, long sampledWaitNanos, List<LockWaitPoll> polls) {
 		static LockWaitObservation unobserved() {
-			return new LockWaitObservation(false, 0L, 0L, 0L, List.of());
+			return new LockWaitObservation(false, 0L, 0L, 0L, 0L, List.of());
 		}
 
 		List<Long> attributeWaitNanos(List<RawSampleDraft> drafts) {
@@ -1345,8 +1424,8 @@ class MatchResponseCompletionBaselinePostgresTest {
 		}
 
 		LockWaitObservation withSampledWaitNanos(long attributedWaitNanos) {
-			return new LockWaitObservation(observed, pollCount, waitingSessionSampleCount,
-				attributedWaitNanos, polls);
+			return new LockWaitObservation(observed, pollCount, executionWindowPollCount,
+				waitingSessionSampleCount, attributedWaitNanos, polls);
 		}
 
 		long sampleTotalNanos(List<RawSample> samples) {
@@ -1359,6 +1438,7 @@ class MatchResponseCompletionBaselinePostgresTest {
 
 		Map<String, Object> toArtifactNode(List<RawSample> samples) {
 			return Map.of("observed", observed, "pollCount", pollCount,
+				"executionWindowPollCount", executionWindowPollCount,
 				"waitingSessionSampleCount", waitingSessionSampleCount, "sampledWaitNanos", sampledWaitNanos,
 				"sampleTotalNanos", sampleTotalNanos(samples), "sampleMaxNanos", sampleMaxNanos(samples));
 		}
@@ -1426,6 +1506,8 @@ class MatchResponseCompletionBaselinePostgresTest {
 		private final AtomicLong lastPollNanos = new AtomicLong();
 		private final AtomicReference<String> observationFailure = new AtomicReference<>();
 		private final ConcurrentLinkedQueue<LockWaitPoll> polls = new ConcurrentLinkedQueue<>();
+		private final CountDownLatch firstPollCompleted = new CountDownLatch(1);
+		private final AtomicBoolean firstPollSucceeded = new AtomicBoolean();
 		private ExecutorService executor;
 
 		LockWaitMonitor(JdbcTemplate jdbcTemplate) {
@@ -1454,7 +1536,17 @@ class MatchResponseCompletionBaselinePostgresTest {
 			observe();
 		}
 
-		LockWaitObservation stop() {
+		boolean awaitFirstPoll(long timeout, TimeUnit unit) {
+			try {
+				return firstPollCompleted.await(timeout, unit) && firstPollSucceeded.get()
+					&& observationFailure.get() == null;
+			} catch (InterruptedException exception) {
+				Thread.currentThread().interrupt();
+				return false;
+			}
+		}
+
+		LockWaitObservation stop(Instant executionStartedAt, Instant executionEndedAt) {
 			running.set(false);
 			if (executor != null) {
 				executor.shutdownNow();
@@ -1467,11 +1559,16 @@ class MatchResponseCompletionBaselinePostgresTest {
 					observationFailure.compareAndSet(null, "shutdownInterrupted");
 				}
 			}
-			if (observationFailure.get() != null || pollCount.get() == 0L) {
-				return LockWaitObservation.unobserved();
-			}
-			return new LockWaitObservation(true, pollCount.get(), waitingSessionSampleCount.get(),
-				sampledWaitNanos.get(), List.copyOf(polls));
+			List<LockWaitPoll> observedPolls = List.copyOf(polls);
+			long executionWindowPollCount = observedPolls.stream()
+				.filter(poll -> executionStartedAt != null && executionEndedAt != null
+					&& !poll.observedAt().isBefore(executionStartedAt)
+					&& !poll.observedAt().isAfter(executionEndedAt))
+				.count();
+			boolean observed = observationFailure.get() == null && pollCount.get() > 0L
+				&& executionWindowPollCount >= 2L;
+			return new LockWaitObservation(observed, pollCount.get(), executionWindowPollCount,
+				waitingSessionSampleCount.get(), sampledWaitNanos.get(), observedPolls);
 		}
 
 		private void observe() {
@@ -1493,11 +1590,14 @@ class MatchResponseCompletionBaselinePostgresTest {
 				pollCount.incrementAndGet();
 				waitingSessionSampleCount.addAndGet(waitingSessions);
 				polls.add(new LockWaitPoll(observedAt, observedAtNanos, waitingSessions));
+				firstPollSucceeded.set(true);
+				firstPollCompleted.countDown();
 				if (waitingSessions > 0 && previousPollNanos > 0L) {
 					sampledWaitNanos.addAndGet((observedAtNanos - previousPollNanos) * waitingSessions);
 				}
 			} catch (Exception exception) {
 				observationFailure.compareAndSet(null, exception.getClass().getSimpleName());
+				firstPollCompleted.countDown();
 			}
 		}
 	}
@@ -1539,10 +1639,11 @@ class MatchResponseCompletionBaselinePostgresTest {
 		long duplicatePartyCount, long partialSuccessCount, long proposalFactMatchCount,
 		long proposalFactMismatchCount, long memberFactMatchCount, long memberFactMismatchCount,
 		long requestFactMatchCount, long requestFactMismatchCount, long queueTimestampMatchCount,
-		long queueTimestampMismatchCount) {
+		long queueTimestampMismatchCount, long idempotencyRecordCount, long idempotencyRecordMatchCount,
+		long idempotencyRecordMismatchCount) {
 		static FinalStateAssertion invalid() {
 			return new FinalStateAssertion(false, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L,
-				0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L);
+				0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L);
 		}
 	}
 	private record RawSampleDraft(Instant operationTime, Instant completedAt, Instant respondBy, String action,

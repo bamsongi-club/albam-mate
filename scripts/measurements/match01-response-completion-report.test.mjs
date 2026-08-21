@@ -70,7 +70,8 @@ function completeDatabaseStatistics() {
 function completeLockWait(rawSamples) {
   return {
     observed: true,
-    pollCount: 1,
+    pollCount: 2,
+    executionWindowPollCount: 2,
     waitingSessionSampleCount: 0,
     sampledWaitNanos: 0,
     sampleTotalNanos: rawSamples.reduce((total, sample) => total + sample.lockWaitNanos, 0),
@@ -175,6 +176,9 @@ function completeFinalStateAssertion(scenario) {
     requestFactMismatchCount: 0,
     queueTimestampMatchCount: requestCount,
     queueTimestampMismatchCount: 0,
+    idempotencyRecordCount: 1_000,
+    idempotencyRecordMatchCount: 1_000,
+    idempotencyRecordMismatchCount: 0,
   };
 }
 
@@ -186,6 +190,16 @@ test("T5 fixture 또는 관측 누락은 INVALID이고 완결 뒤 정합성 위�
   const failed = completeArtifact();
   failed.scenarios[1].measuredRounds[2].finalStateAssertion.duplicatePartyCount = 1;
   assert.equal(evaluateResponseArtifact(failed).outcome, "FAILED");
+
+  const failedIdempotency = completeArtifact();
+  failedIdempotency.scenarios[1].measuredRounds[2].finalStateAssertion.idempotencyRecordMatchCount = 999;
+  failedIdempotency.scenarios[1].measuredRounds[2].finalStateAssertion.idempotencyRecordMismatchCount = 1;
+  assert.equal(evaluateResponseArtifact(failedIdempotency).outcome, "FAILED");
+
+  const failedThenInvalid = completeArtifact();
+  failedThenInvalid.scenarios[0].measuredRounds[0].finalStateAssertion.duplicatePartyCount = 1;
+  failedThenInvalid.scenarios[3].measuredRounds[2].dbStatistics = null;
+  assert.equal(evaluateResponseArtifact(failedThenInvalid).outcome, "INVALID");
 
   assert.equal(evaluateResponseArtifact(completeArtifact()).outcome, "RESPONSE_BASELINE_ACCEPTED");
 
@@ -284,6 +298,14 @@ test("G3 sidecar duplicate, missing, observed mismatch, scalar disagreement는 I
     (sidecar) => sidecar.pop(),
     (sidecar) => { sidecar[0].proposalOrdinal = 1_001; },
     (sidecar) => { sidecar[0].observed.requestStatus = "CANCELED"; },
+    (sidecar) => {
+      sidecar[0].memberRequestId = 999;
+      sidecar[0].requestId = 999;
+    },
+    (sidecar) => {
+      sidecar[0].expected.requestStatus = "CANCELED";
+      sidecar[0].observed.requestStatus = "CANCELED";
+    },
     (_sidecar, artifact) => { artifact.scenarios[0].measuredRounds[0].finalStateAssertion.requestFactMatchCount = 1_999; },
   ];
 

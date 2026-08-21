@@ -29,6 +29,35 @@ function expectedAction(scenario) {
   return scenario === "REQUEUE" || scenario === "CANCEL" ? scenario : "ACCEPT";
 }
 
+function expectedSidecarFacts(scenario, _proposalOrdinal, memberOrdinal) {
+  const commandTarget = scenario === "ACCEPT_FINAL" || memberOrdinal === 1;
+  const proposalStatus = {
+    ACCEPT_NON_TERMINAL: "OPEN",
+    ACCEPT_FINAL: "CONFIRMED",
+    REQUEUE: "DECLINED",
+    CANCEL: "CANCELED",
+  }[scenario];
+  const memberResponseStatus = commandTarget
+    ? {
+      ACCEPT_NON_TERMINAL: "ACCEPTED",
+      ACCEPT_FINAL: "ACCEPTED",
+      REQUEUE: "REQUEUED",
+      CANCEL: "CANCELED",
+    }[scenario]
+    : "PENDING";
+  const requestStatus = commandTarget || scenario !== "CANCEL"
+    ? {
+      ACCEPT_NON_TERMINAL: "PROPOSED",
+      ACCEPT_FINAL: "MATCHED",
+      REQUEUE: "WAITING",
+      CANCEL: "CANCELED",
+    }[scenario]
+    : "WAITING";
+  const queueTimestamp = scenario === "REQUEUE" && commandTarget ? "CHANGED"
+    : ((scenario === "REQUEUE" || scenario === "CANCEL") && !commandTarget ? "UNCHANGED" : "NOT_APPLICABLE");
+  return { proposalStatus, memberResponseStatus, requestStatus, queueTimestamp };
+}
+
 function hasExpectedResultDistribution(scenario, rawSamples) {
   const nonterminalCount = rawSamples.filter((sample) => sample.result === "NON_TERMINAL").length;
   const terminalCount = rawSamples.filter((sample) => sample.result === "TERMINAL").length;
@@ -127,6 +156,8 @@ function hasRecalculableMetrics(round) {
 function hasObservedLockWait(round) {
   const lockWait = round.lockWait;
   if (lockWait?.observed !== true || !isNonNegativeInteger(lockWait.pollCount) || lockWait.pollCount === 0
+    || !isNonNegativeInteger(lockWait.executionWindowPollCount) || lockWait.executionWindowPollCount < 2
+    || lockWait.executionWindowPollCount > lockWait.pollCount
     || !isNonNegativeInteger(lockWait.waitingSessionSampleCount)
     || !isNonNegativeInteger(lockWait.sampledWaitNanos)
     || !isNonNegativeInteger(lockWait.sampleTotalNanos)
@@ -182,6 +213,9 @@ function roundIsComplete(round) {
       "completePartyGroupCount",
       "duplicatePartyCount",
       "partialSuccessCount",
+      "idempotencyRecordCount",
+      "idempotencyRecordMatchCount",
+      "idempotencyRecordMismatchCount",
       "proposalFactMatchCount",
       "proposalFactMismatchCount",
       "memberFactMatchCount",
@@ -191,6 +225,9 @@ function roundIsComplete(round) {
       "queueTimestampMatchCount",
       "queueTimestampMismatchCount",
     ].every((field) => Number.isInteger(assertion[field]) && assertion[field] >= 0)
+    && assertion.idempotencyRecordCount === 1_000
+    && assertion.idempotencyRecordCount === assertion.idempotencyRecordMatchCount
+      + assertion.idempotencyRecordMismatchCount
     && hasExactFactCoverage(round.scenario, assertion)
     && typeof round.rawDataSha256 === "string";
 }
@@ -199,6 +236,7 @@ export function evaluateResponseArtifact(artifact) {
   if (!artifact?.fixture || !hasExactlyExpectedScenarios(artifact)) {
     return invalid("fixture 또는 네 시나리오가 없습니다.");
   }
+  const failures = [];
   for (const scenario of artifact.scenarios) {
     if (scenario.warmUp?.completed !== true || scenario.measuredRounds?.length !== 3) {
       return invalid(`${scenario.scenario}의 warm-up 또는 measured round가 완전하지 않습니다.`);
@@ -217,20 +255,24 @@ export function evaluateResponseArtifact(artifact) {
       }
       const assertion = round.finalStateAssertion;
       if (assertion.passed !== true || assertion.duplicatePartyCount !== 0 || assertion.partialSuccessCount !== 0
+        || assertion.idempotencyRecordMismatchCount !== 0
         || assertion.proposalFactMismatchCount !== 0 || assertion.memberFactMismatchCount !== 0
         || assertion.requestFactMismatchCount !== 0 || assertion.queueTimestampMismatchCount !== 0) {
-        return { outcome: "FAILED", reason: `${scenario.scenario} 최종 상태 정합성이 어긋났습니다.` };
+        failures.push({ outcome: "FAILED", reason: `${scenario.scenario} 최종 상태 정합성이 어긋났습니다.` });
       }
       if (assertion.matchedExpectedCurrentStateCount !== 1_000) {
-        return { outcome: "FAILED", reason: `${scenario.scenario} current-state DTO 관측이 완결되지 않았습니다.` };
+        failures.push({ outcome: "FAILED", reason: `${scenario.scenario} current-state DTO 관측이 완결되지 않았습니다.` });
       }
       if (scenario.scenario === "ACCEPT_FINAL"
         && (assertion.nonterminalTransitionCount !== 500
           || assertion.terminalTransitionCount !== 500
           || assertion.completePartyGroupCount !== 500)) {
-        return { outcome: "FAILED", reason: "ACCEPT_FINAL transition fact의 500 nonterminal/500 terminal 분포가 어긋났습니다." };
+        failures.push({ outcome: "FAILED", reason: "ACCEPT_FINAL transition fact의 500 nonterminal/500 terminal 분포가 어긋났습니다." });
       }
     }
+  }
+  if (failures.length > 0) {
+    return failures[0];
   }
   return { outcome: "RESPONSE_BASELINE_ACCEPTED" };
 }
@@ -295,6 +337,15 @@ function validatePrivateSidecar(artifact, sidecar) {
       for (const row of rows) {
         if (!validSidecarRow(row)) {
           return `${scenario.scenario}/${round.round} sidecar row 형식이 올바르지 않습니다.`;
+        }
+        const expectedRequestId = (row.proposalOrdinal - 1) * 2 + row.memberOrdinal;
+        if (row.proposalId !== row.proposalOrdinal || row.memberProposalId !== row.proposalOrdinal
+          || row.memberRequestId !== expectedRequestId || row.requestId !== expectedRequestId) {
+          return `${scenario.scenario}/${round.round} sidecar identifier가 fixture ordinal과 다릅니다.`;
+        }
+        const expectedFacts = expectedSidecarFacts(scenario.scenario, row.proposalOrdinal, row.memberOrdinal);
+        if (Object.entries(expectedFacts).some(([field, value]) => row.expected[field] !== value)) {
+          return `${scenario.scenario}/${round.round} sidecar expected fact가 계약과 다릅니다.`;
         }
         const key = `${row.scenario}/${row.warmUp}/${row.round}/${row.proposalOrdinal}/${row.memberOrdinal}`;
         if (keys.has(key)) {
