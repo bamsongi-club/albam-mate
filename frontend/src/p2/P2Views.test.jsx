@@ -34,6 +34,10 @@ function stubApi({ authenticated = true } = {}) {
   vi.spyOn(api, 'getMyRooms').mockResolvedValue(page([]));
   vi.spyOn(api, 'getGameRankings').mockResolvedValue({ overall: [], pastWeek: [] });
   vi.spyOn(api, 'getGames').mockResolvedValue(page(GAMES));
+  vi.spyOn(api, 'getGame').mockResolvedValue({
+    id: 101, name: '카탄', supportedPlayerCount: '3-4인', estimatedPlayTime: '75분',
+    categories: [], themes: [], mechanisms: []
+  });
   vi.spyOn(api, 'getAssistantConsent').mockResolvedValue({
     status: 'GRANTED',
     provider: 'OPENAI',
@@ -123,6 +127,65 @@ describe('P2 시안은 서버가 할 일을 실행하지 않는다', () => {
 
     await waitFor(() => expect(screen.getByText('어떤 분위기나 게임 스타일을 원하는지 알려주세요.')).toBeTruthy());
     expect(api.recommendAssistant).toHaveBeenCalledWith('게임 추천해줘', null);
+  });
+
+  it('게임 상세를 다녀오면 추천을 다시 호출하지 않고 선택한 직접 입력 상태를 복원한다', async () => {
+    api.recommendAssistant.mockResolvedValue({
+      state: 'RECOMMENDED',
+      conditions: {
+        categories: ['COOPERATIVE'], mechanisms: [], themes: [], playerCount: null, startsAt: null,
+        region: '홍대', experienceLevel: 'BEGINNER_WELCOME'
+      },
+      missingFields: [],
+      candidates: [{ id: 101, name: '카탄', imageUrl: null, description: '정식 카탈로그 설명' }]
+    });
+
+    await renderApp('#/assistant');
+    await waitFor(() => expect(screen.getByLabelText('알밤봇에게 묻기')).toBeTruthy());
+    await act(async () => { fireEvent.change(screen.getByLabelText('알밤봇에게 묻기'), { target: { value: '협력 게임 추천해줘' } }); });
+    await press('전송');
+    await waitFor(() => expect(screen.getByRole('link', { name: '카탄 상세 보기' })).toBeTruthy());
+    await press('이 게임으로 모임 만들기');
+    await press('내가 직접 채우기');
+    fireEvent.change(screen.getByLabelText('소개 (선택)'), { target: { value: '복원할 소개' } });
+
+    await act(async () => { screen.getByRole('link', { name: '카탄 상세 보기' }).click(); });
+    await waitFor(() => expect(screen.getByRole('heading', { name: '카탄' })).toBeTruthy());
+    await act(async () => { window.location.hash = '#/assistant'; });
+
+    await waitFor(() => expect(screen.getByLabelText('소개 (선택)').value).toBe('복원할 소개'));
+    expect(api.recommendAssistant).toHaveBeenCalledTimes(1);
+  });
+
+  it('일반 경로를 거친 새 assistant 세션은 후보와 직접 입력 상태를 복원하지 않는다', async () => {
+    api.recommendAssistant.mockResolvedValue({
+      state: 'RECOMMENDED',
+      conditions: {
+        categories: ['COOPERATIVE'], mechanisms: [], themes: [], playerCount: null, startsAt: null,
+        region: '홍대', experienceLevel: 'BEGINNER_WELCOME'
+      },
+      missingFields: [],
+      candidates: [{ id: 101, name: '카탄', imageUrl: null, description: '정식 카탈로그 설명' }]
+    });
+
+    await renderApp('#/assistant');
+    await waitFor(() => expect(screen.getByLabelText('알밤봇에게 묻기')).toBeTruthy());
+    await act(async () => { fireEvent.change(screen.getByLabelText('알밤봇에게 묻기'), { target: { value: '협력 게임 추천해줘' } }); });
+    await press('전송');
+    await waitFor(() => expect(screen.getByRole('link', { name: '카탄 상세 보기' })).toBeTruthy());
+    await press('이 게임으로 모임 만들기');
+    await press('내가 직접 채우기');
+    fireEvent.change(screen.getByLabelText('소개 (선택)'), { target: { value: '버려야 할 소개' } });
+
+    await act(async () => { window.location.hash = '#/home'; });
+    await waitFor(() => expect(screen.getByRole('link', { name: '알밤봇 열기' })).toBeTruthy());
+    await act(async () => { window.location.hash = '#/assistant'; });
+
+    await waitFor(() => expect(screen.getByLabelText('알밤봇에게 묻기')).toBeTruthy());
+    expect(screen.queryByRole('link', { name: '카탄 상세 보기' })).toBeNull();
+    expect(screen.queryByRole('form', { name: 'AI 초안 만들기' })).toBeNull();
+    expect(screen.queryByDisplayValue('버려야 할 소개')).toBeNull();
+    expect(api.recommendAssistant).toHaveBeenCalledTimes(1);
   });
 
   it('온라인 방의 표는 참가자 수와 같고, 정하기와 아레나 열기는 준비 중임을 알린다', async () => {

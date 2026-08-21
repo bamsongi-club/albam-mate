@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ApiError, api } from '../api';
-import { ErrorBox, SendIcon, TopBar } from '../shared/ui';
+import { Cover, ErrorBox, SendIcon, TopBar } from '../shared/ui';
 
 const REGIONS = ['홍대', '강남', '건대', '잠실'];
 const EXPERIENCE_LABELS = {
@@ -67,6 +67,62 @@ function toSeoulInstant(value) {
   return value ? value + ':00+09:00' : null;
 }
 
+function candidateName(candidate) {
+  return candidate?.name || candidate?.title || '';
+}
+
+function isFutureInstant(value) {
+  const instant = Date.parse(value);
+  return Number.isFinite(instant) && instant > Date.now();
+}
+
+function automaticDraftInput(candidate, conditions) {
+  const playerCount = Number(conditions?.playerCount);
+  const gameName = candidateName(candidate).trim();
+  const title = gameName ? gameName + ' 모임' : '';
+  if (!title || title.length > 100 || !Number.isInteger(playerCount) || playerCount < 2 || playerCount > 11 || !isFutureInstant(conditions?.startsAt)) {
+    return null;
+  }
+  return {
+    roomType: 'GAME_FOCUSED',
+    gameId: candidate.id,
+    title,
+    description: null,
+    experienceLevel: conditions?.experienceLevel || 'BEGINNER_WELCOME',
+    isRulemasterLed: false,
+    startsAt: conditions.startsAt,
+    region: conditions?.region || '홍대',
+    place: null,
+    recruitmentCapacity: playerCount - 1
+  };
+}
+
+function initialManualDraftForm(candidate, conditions) {
+  const playerCount = Number(conditions?.playerCount);
+  const gameName = candidateName(candidate).trim();
+  return {
+    title: gameName ? gameName + ' 모임' : '',
+    description: '',
+    startsAt: localDateTimeValue(conditions?.startsAt),
+    region: conditions?.region || '',
+    playerCount: Number.isInteger(playerCount) && playerCount >= 2 && playerCount <= 11 ? String(playerCount) : '',
+    experienceLevel: conditions?.experienceLevel || '',
+    isRulemasterLed: false
+  };
+}
+
+function manualDraftError(form) {
+  const title = form.title.trim();
+  const playerCount = Number(form.playerCount);
+  if (!title) return '모임 제목을 입력해주세요.';
+  if (title.length > 100) return '모임 제목은 100자 이내로 입력해주세요.';
+  if (!form.startsAt || !isFutureInstant(toSeoulInstant(form.startsAt))) return '시작 시간은 현재 시각 이후여야 해요.';
+  if (!form.region) return '지역을 선택해주세요.';
+  if (!form.experienceLevel) return '참가 경험을 선택해주세요.';
+  if (!Number.isInteger(playerCount) || playerCount < 2 || playerCount > 11) return '총 인원은 2~11명으로 선택해주세요.';
+  return '';
+}
+
 function formatStartsAt(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '일시 미정';
@@ -102,7 +158,7 @@ function ConsentCard({ consent, pending, onGrant }) {
   );
 }
 
-function RecommendationResult({ result, selectedCandidate, onSelectCandidate }) {
+function RecommendationResult({ result, selectedCandidate, onSelectCandidate, onGameDetailOpen }) {
   if (!result || result.state !== 'RECOMMENDED') return null;
   return (
     <section className="assistant-card" aria-labelledby="assistant-recommendations-title">
@@ -112,16 +168,16 @@ function RecommendationResult({ result, selectedCandidate, onSelectCandidate }) 
         {(result.candidates || []).map((candidate) => {
           const selected = selectedCandidate?.id === candidate.id;
           return (
-            <button
-              className={'assistant-candidate' + (selected ? ' on' : '')}
-              type="button"
-              key={candidate.id}
-              aria-pressed={selected}
-              onClick={() => onSelectCandidate(candidate)}
-            >
-              <strong>{candidate.name || candidate.title}</strong>
-              <span>이 게임으로 모임 만들기</span>
-            </button>
+            <article className={'assistant-candidate' + (selected ? ' on' : '')} key={candidate.id}>
+              <a className="assistant-candidate-link" href={'#/game/' + candidate.id} aria-label={candidateName(candidate) + ' 상세 보기'} onClick={onGameDetailOpen}>
+                <Cover src={candidate.imageUrl} className="assistant-candidate-cover" />
+                <span className="assistant-candidate-copy">
+                  <strong>{candidateName(candidate)}</strong>
+                  {candidate.description && <span>{candidate.description}</span>}
+                </span>
+              </a>
+              <button className="assistant-candidate-cta" type="button" onClick={() => onSelectCandidate(candidate)}>이 게임으로 모임 만들기</button>
+            </article>
           );
         })}
       </div>
@@ -129,21 +185,22 @@ function RecommendationResult({ result, selectedCandidate, onSelectCandidate }) 
   );
 }
 
-function DraftCreationForm({ candidate, conditions, onCreate }) {
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [startsAt, setStartsAt] = useState(localDateTimeValue(conditions?.startsAt));
-  const [region, setRegion] = useState(conditions?.region || '홍대');
-  const [playerCount, setPlayerCount] = useState(String(conditions?.playerCount || 4));
-  const [experienceLevel, setExperienceLevel] = useState(conditions?.experienceLevel || 'BEGINNER_WELCOME');
-  const [isRulemasterLed, setIsRulemasterLed] = useState(false);
+function DraftCreationForm({ candidate, initialForm, onChange, onCreate }) {
+  const [form, setForm] = useState(() => initialForm || initialManualDraftForm(candidate));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
+  const updateForm = (changes) => {
+    const next = { ...form, ...changes };
+    setForm(next);
+    onChange(next);
+  };
+
   const submit = async (event) => {
     event.preventDefault();
-    if (!title.trim() || !startsAt) {
-      setError('모임 제목과 시작 시각을 입력해주세요.');
+    const validationError = manualDraftError(form);
+    if (validationError) {
+      setError(validationError);
       return;
     }
     setSaving(true);
@@ -151,15 +208,15 @@ function DraftCreationForm({ candidate, conditions, onCreate }) {
     try {
       await onCreate({
         roomType: 'GAME_FOCUSED',
-        title: title.trim(),
-        description: description.trim() || null,
+        title: form.title.trim(),
+        description: form.description.trim() || null,
         gameId: candidate.id,
-        experienceLevel,
-        isRulemasterLed,
-        startsAt: toSeoulInstant(startsAt),
-        region,
+        experienceLevel: form.experienceLevel,
+        isRulemasterLed: form.isRulemasterLed,
+        startsAt: toSeoulInstant(form.startsAt),
+        region: form.region,
         place: null,
-        recruitmentCapacity: Number(playerCount) - 1
+        recruitmentCapacity: Number(form.playerCount) - 1
       });
     } catch (requestError) {
       setError(assistantErrorMessage(requestError));
@@ -171,43 +228,123 @@ function DraftCreationForm({ candidate, conditions, onCreate }) {
   return (
     <form className="assistant-card assistant-draft-form" onSubmit={submit} aria-label="AI 초안 만들기">
       <p className="assistant-eyebrow">확인 전에는 모임이 만들어지지 않아요</p>
-      <h2>{candidate.name || candidate.title} 모임 정보</h2>
+      <h2>{candidateName(candidate)} 모임 정보</h2>
       <div className="field">
         <label className="field-label" htmlFor="assistant-draft-title">모임 제목</label>
-        <input id="assistant-draft-title" className="field-input" value={title} maxLength="100" onChange={(event) => setTitle(event.target.value)} />
+        <input id="assistant-draft-title" className="field-input" value={form.title} maxLength="100" onChange={(event) => updateForm({ title: event.target.value })} />
       </div>
       <div className="field">
         <label className="field-label" htmlFor="assistant-draft-starts-at">시작 시각</label>
-        <input id="assistant-draft-starts-at" className="field-input" type="datetime-local" value={startsAt} onChange={(event) => setStartsAt(event.target.value)} />
+        <input id="assistant-draft-starts-at" className="field-input" type="datetime-local" value={form.startsAt} onChange={(event) => updateForm({ startsAt: event.target.value })} />
       </div>
       <div className="assistant-form-grid">
         <div className="field">
           <label className="field-label" htmlFor="assistant-draft-region">지역</label>
-          <select id="assistant-draft-region" className="field-input" value={region} onChange={(event) => setRegion(event.target.value)}>
+          <select id="assistant-draft-region" className="field-input" value={form.region} onChange={(event) => updateForm({ region: event.target.value })}>
+            <option value="" disabled>지역을 선택해주세요</option>
             {REGIONS.map((value) => <option value={value} key={value}>{value}</option>)}
           </select>
         </div>
         <div className="field">
           <label className="field-label" htmlFor="assistant-draft-player-count">총 인원</label>
-          <select id="assistant-draft-player-count" className="field-input" value={playerCount} onChange={(event) => setPlayerCount(event.target.value)}>
+          <select id="assistant-draft-player-count" className="field-input" value={form.playerCount} onChange={(event) => updateForm({ playerCount: event.target.value })}>
+            <option value="" disabled>총 인원을 선택해주세요</option>
             {Array.from({ length: 10 }, (_, index) => index + 2).map((value) => <option value={value} key={value}>{value}명</option>)}
           </select>
         </div>
       </div>
       <div className="field">
         <label className="field-label" htmlFor="assistant-draft-experience">참가 경험</label>
-        <select id="assistant-draft-experience" className="field-input" value={experienceLevel} onChange={(event) => setExperienceLevel(event.target.value)}>
+        <select id="assistant-draft-experience" className="field-input" value={form.experienceLevel} onChange={(event) => updateForm({ experienceLevel: event.target.value })}>
+          <option value="" disabled>참가 경험을 선택해주세요</option>
           {Object.entries(EXPERIENCE_LABELS).map(([value, label]) => <option value={value} key={value}>{label}</option>)}
         </select>
       </div>
       <div className="field">
         <label className="field-label" htmlFor="assistant-draft-description">소개 (선택)</label>
-        <textarea id="assistant-draft-description" className="field-input" value={description} maxLength="255" onChange={(event) => setDescription(event.target.value)} />
+        <textarea id="assistant-draft-description" className="field-input" value={form.description} maxLength="255" onChange={(event) => updateForm({ description: event.target.value })} />
       </div>
-      <label className="assistant-checkbox"><input type="checkbox" checked={isRulemasterLed} onChange={(event) => setIsRulemasterLed(event.target.checked)} /> 룰 설명을 진행할게요</label>
+      <label className="assistant-checkbox"><input type="checkbox" checked={form.isRulemasterLed} onChange={(event) => updateForm({ isRulemasterLed: event.target.checked })} /> 룰 설명을 진행할게요</label>
       {error && <p className="field-hint warn" role="alert">{error}</p>}
       <button className="btn" type="submit" disabled={saving}>{saving ? '초안을 만드는 중…' : '확인 카드 만들기'}</button>
     </form>
+  );
+}
+
+function CandidateConfirmationModal({ candidate, conditions, onClose, onCreate, onManual }) {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const submitted = useRef(false);
+  const dialogRef = useRef(null);
+  const automaticInput = automaticDraftInput(candidate, conditions);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    const focusable = () => [...dialog.querySelectorAll('button, a[href], input, select, textarea')].filter((node) => !node.disabled);
+    const focusTimer = window.setTimeout(() => focusable()[0]?.focus(), 0);
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape' && !saving) onClose();
+      if (event.key !== 'Tab') return;
+      const nodes = focusable();
+      if (!nodes.length) return;
+      const first = nodes[0];
+      const last = nodes[nodes.length - 1];
+      const inside = dialog.contains(document.activeElement);
+      if (event.shiftKey ? (document.activeElement === first || !inside) : (document.activeElement === last || !inside)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+      }
+    };
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.clearTimeout(focusTimer);
+      window.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [onClose, saving]);
+
+  const confirm = async () => {
+    if (!automaticInput || submitted.current) return;
+    submitted.current = true;
+    setSaving(true);
+    setError('');
+    try {
+      await onCreate(automaticInput);
+      onClose();
+    } catch (requestError) {
+      setError(assistantErrorMessage(requestError));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const close = () => {
+    if (!saving) onClose();
+  };
+
+  return (
+    <div className="sheet-backdrop" role="presentation" onMouseDown={close}>
+      <section className="sheet assistant-create-modal" ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="assistant-create-title" onMouseDown={(event) => event.stopPropagation()}>
+        <div className="sheet-head">
+          <h2 id="assistant-create-title">이 게임으로 모임 만들기</h2>
+          <button type="button" className="sheet-reset" aria-label="모임 만들기 확인 닫기" disabled={saving} onClick={close}>닫기</button>
+        </div>
+        <p className="assistant-modal-game">{candidateName(candidate)}</p>
+        {automaticInput ? (
+          <p className="assistant-note">확인 카드를 만든 뒤 상세 장소를 입력하고 실제 방 생성을 확정할 수 있어요.</p>
+        ) : (
+          <p className="assistant-note">총 인원, 미래 시작 시각 또는 제목 조건이 아직 충분하지 않아 직접 채워야 해요.</p>
+        )}
+        {error && <p className="field-hint warn" role="alert">{error}</p>}
+        <div className="btn-row assistant-modal-actions">
+          {automaticInput && <button className="btn fill" type="button" disabled={saving} onClick={confirm}>{saving ? '확인 카드를 만드는 중…' : '이 조건으로 만들기'}</button>}
+          <button className="btn" type="button" disabled={saving} onClick={onManual}>내가 직접 채우기</button>
+          <button className="assistant-discard" type="button" disabled={saving} onClick={close}>취소</button>
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -306,11 +443,13 @@ function DraftCard({ draft, onSave, onDiscard, onConfirm }) {
   );
 }
 
-function AssistantStart({ onCreateDraft, onConsentRequired }) {
+function AssistantStart({ initialMemory, onMemoryChange, onCreateDraft, onConsentRequired, onGameDetailOpen }) {
   const [message, setMessage] = useState('');
   const [history, setHistory] = useState([]);
-  const [result, setResult] = useState(null);
-  const [selectedCandidate, setSelectedCandidate] = useState(null);
+  const [result, setResult] = useState(initialMemory?.result || null);
+  const [selectedCandidate, setSelectedCandidate] = useState(initialMemory?.selectedCandidate || null);
+  const [editState, setEditState] = useState(initialMemory?.editState || null);
+  const [modalCandidate, setModalCandidate] = useState(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   const logRef = useRef(null);
@@ -318,7 +457,23 @@ function AssistantStart({ onCreateDraft, onConsentRequired }) {
   useEffect(() => {
     const log = logRef.current;
     if (log) log.scrollTop = log.scrollHeight;
-  }, [history, result, selectedCandidate, error, pending]);
+  }, [history, result, selectedCandidate, editState, error, pending]);
+
+  const storeMemory = (nextResult, nextCandidate, nextEditState) => {
+    if (nextResult?.state !== 'RECOMMENDED') {
+      onMemoryChange(null);
+      return;
+    }
+    onMemoryChange({
+      result: {
+        state: 'RECOMMENDED',
+        conditions: nextResult.conditions,
+        candidates: nextResult.candidates
+      },
+      selectedCandidate: nextCandidate,
+      editState: nextEditState
+    });
+  };
 
   const send = async (text) => {
     const currentMessage = text.trim();
@@ -331,6 +486,9 @@ function AssistantStart({ onCreateDraft, onConsentRequired }) {
       const next = await api.recommendAssistant(currentMessage, result?.conditions || null);
       setResult(next);
       setSelectedCandidate(null);
+      setEditState(null);
+      setModalCandidate(null);
+      storeMemory(next, null, null);
       const reply = botReplyText(next);
       if (reply) setHistory((entries) => [...entries, { role: 'theirs', text: reply }]);
     } catch (requestError) {
@@ -344,6 +502,28 @@ function AssistantStart({ onCreateDraft, onConsentRequired }) {
   const submit = (event) => {
     event.preventDefault();
     send(message);
+  };
+
+  const openCandidateModal = (candidate) => {
+    const nextEditState = selectedCandidate?.id === candidate.id ? editState : null;
+    setSelectedCandidate(candidate);
+    setEditState(nextEditState);
+    setModalCandidate(candidate);
+    storeMemory(result, candidate, nextEditState);
+  };
+
+  const startManualDraft = () => {
+    const nextEditState = selectedCandidate?.id === modalCandidate?.id && editState
+      ? editState
+      : initialManualDraftForm(modalCandidate, result?.conditions);
+    setEditState(nextEditState);
+    setModalCandidate(null);
+    storeMemory(result, modalCandidate, nextEditState);
+  };
+
+  const updateEditState = (nextEditState) => {
+    setEditState(nextEditState);
+    storeMemory(result, selectedCandidate, nextEditState);
   };
 
   return (
@@ -362,8 +542,8 @@ function AssistantStart({ onCreateDraft, onConsentRequired }) {
             <span className="chat-line"><span className="chat-content">찾아보는 중…</span></span>
           </div>
         )}
-        <RecommendationResult result={result} selectedCandidate={selectedCandidate} onSelectCandidate={setSelectedCandidate} />
-        {selectedCandidate && <DraftCreationForm key={selectedCandidate.id} candidate={selectedCandidate} conditions={result?.conditions} onCreate={onCreateDraft} />}
+        <RecommendationResult result={result} selectedCandidate={selectedCandidate} onSelectCandidate={openCandidateModal} onGameDetailOpen={onGameDetailOpen} />
+        {selectedCandidate && editState && <DraftCreationForm key={selectedCandidate.id} candidate={selectedCandidate} initialForm={editState} onChange={updateEditState} onCreate={onCreateDraft} />}
         {error && <p className="assistant-error" role="alert">{error}</p>}
       </div>
       <div className="chiprow assistant-suggestions">
@@ -378,11 +558,12 @@ function AssistantStart({ onCreateDraft, onConsentRequired }) {
           <SendIcon />
         </button>
       </form>
+      {modalCandidate && <CandidateConfirmationModal candidate={modalCandidate} conditions={result?.conditions} onClose={() => setModalCandidate(null)} onCreate={onCreateDraft} onManual={startManualDraft} />}
     </>
   );
 }
 
-export function AssistantView({ onBack, onNavigate }) {
+export function AssistantView({ onBack, onNavigate, assistantMemory = null, onAssistantMemoryChange = () => {}, onGameDetailOpen = () => {} }) {
   const [consent, setConsent] = useState({ loading: true, data: null, error: '' });
   const [draftState, setDraftState] = useState({ loading: true, draft: null, expired: false, error: '' });
   const [reloadVersion, setReloadVersion] = useState(0);
@@ -413,7 +594,11 @@ export function AssistantView({ onBack, onNavigate }) {
       .then((data) => { if (active) setConsent({ loading: false, data, error: '' }); })
       .catch((error) => { if (active && error?.name !== 'AbortError') setConsent({ loading: false, data: null, error: assistantErrorMessage(error) }); });
     api.getActiveAssistantDraft(controller.signal)
-      .then((draft) => { if (active) setDraftState({ loading: false, draft, expired: false, error: '' }); })
+      .then((draft) => {
+        if (!active) return;
+        if (draft) onAssistantMemoryChange(null);
+        setDraftState({ loading: false, draft, expired: false, error: '' });
+      })
       .catch((error) => {
         if (!active || error?.name === 'AbortError') return;
         if (isExpiredDraftError(error)) setDraftState({ loading: false, draft: null, expired: true, error: '' });
@@ -444,7 +629,9 @@ export function AssistantView({ onBack, onNavigate }) {
     try {
       const draft = await api.createAssistantDraft(input);
       confirmKeys.current.clear();
+      onAssistantMemoryChange(null);
       setDraftState({ loading: false, draft, expired: false, error: '' });
+      return draft;
     } catch (error) {
       recoverConsentRequired(error);
     }
@@ -466,6 +653,7 @@ export function AssistantView({ onBack, onNavigate }) {
     try {
       await api.discardAssistantDraft(draftState.draft.draftId);
       confirmKeys.current.clear();
+      onAssistantMemoryChange(null);
       setDraftState({ loading: false, draft: null, expired: false, error: '' });
     } catch (error) {
       recoverActiveDraftError(error);
@@ -485,7 +673,10 @@ export function AssistantView({ onBack, onNavigate }) {
     }
   };
 
-  const startFresh = () => setDraftState({ loading: false, draft: null, expired: false, error: '' });
+  const startFresh = () => {
+    onAssistantMemoryChange(null);
+    setDraftState({ loading: false, draft: null, expired: false, error: '' });
+  };
 
   let content;
   let chatMode = false;
@@ -528,7 +719,7 @@ export function AssistantView({ onBack, onNavigate }) {
     content = <ErrorBox title="AI 사용 상태를 불러오지 못했어요" message={consent.error} onRetry={retryBootstrap} />;
   } else {
     chatMode = true;
-    content = <AssistantStart onCreateDraft={createDraft} onConsentRequired={retryBootstrap} />;
+    content = <AssistantStart initialMemory={assistantMemory} onMemoryChange={onAssistantMemoryChange} onCreateDraft={createDraft} onConsentRequired={retryBootstrap} onGameDetailOpen={onGameDetailOpen} />;
   }
 
   return (
