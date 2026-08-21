@@ -361,9 +361,10 @@ function validSidecarRow(row) {
 }
 
 function main() {
-  const [, , file] = process.argv;
+  const check = process.argv.includes("--check");
+  const file = process.argv.slice(2).find((argument) => argument !== "--check");
   if (!file) {
-    throw new Error("사용법: node scripts/measurements/match01-response-completion-report.mjs <artifact.json>");
+    throw new Error("사용법: node scripts/measurements/match01-response-completion-report.mjs [--check] <artifact.json>");
   }
   let result;
   try {
@@ -375,6 +376,9 @@ function main() {
     result = invalid(`artifact 또는 private sidecar를 읽을 수 없습니다: ${error.message}`);
   }
   process.stdout.write(`${JSON.stringify(result)}\n`);
+  if (check && result.outcome !== "RESPONSE_BASELINE_ACCEPTED") {
+    process.exitCode = 1;
+  }
 }
 
 if (process.argv[1] && import.meta.url.endsWith(process.argv[1].replaceAll("\\", "/"))) {

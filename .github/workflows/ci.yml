@@ -544,6 +544,12 @@ jobs:
       - name: Check ROOM-09d measurement report
         run: node scripts/measurements/room09-measurement-report.mjs --check
 
+      # MATCH-01 public artifact와 private sidecar의 digest·coverage·판정을 병합 전에 검증한다.
+      - name: Check MATCH-01 response-completion measurement report
+        run: >-
+          node scripts/measurements/match01-response-completion-report.mjs --check
+          docs/measurements/results/match-01/response-completion/response-completion-cb4e834dce11c3b11448a8289c2cdd4c18f323fb.json
+
       - name: Test game catalog contracts
         run: node --test scripts/game-catalog/*.test.mjs
 

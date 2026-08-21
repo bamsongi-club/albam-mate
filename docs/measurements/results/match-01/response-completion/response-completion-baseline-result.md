@@ -1,12 +1,32 @@
 # MATCH-01 응답 완료 baseline 결과
 
-- 측정 실행 SHA: `584949df371254367167934d24ba8cfb665116d7`
-- fixture seed: `MATCH-01-RESPONSE-COMPLETION-V2`
-- fixture input SHA-256: `aa24273b455d11d05e54547abc00efb32b0e072d3ec2c016c5ec4bf0bfe6231a`
-- materialized sidecar SHA-256: `81c6c3d9911c7d83b1f63665e525f9be0e2541380863c6c5716b17da43f1a462`
+- 측정 실행 SHA: `cb4e834dce11c3b11448a8289c2cdd4c18f323fb`
 - private sidecar: `response-completion-584949df371254367167934d24ba8cfb665116d7-private-sidecar.json`
-- artifact: `response-completion-584949df371254367167934d24ba8cfb665116d7.json`
-- artifact SHA-256: `a422308a04ed673521dd50f3a25b1bc3362f9c576112e4b9111f6c43b11c8a2f`
+- materialized sidecar SHA-256: `81c6c3d9911c7d83b1f63665e525f9be0e2541380863c6c5716b17da43f1a462`
+- artifact: `response-completion-cb4e834dce11c3b11448a8289c2cdd4c18f323fb.json`
+- artifact SHA-256: `4fb4cb2820b05a7711b8dc7734f4c11a98c644d7367dcb2e480250f45869eef9`
 - 판정: `RESPONSE_BASELINE_ACCEPTED`
 
-각 시나리오(`ACCEPT_NON_TERMINAL`, `ACCEPT_FINAL`, `REQUEUE`, `CANCEL`)는 warm-up 1회와 measured 3회를 실행했다. scheduler·notification relay·chat retention은 모두 `false`로 비활성화했고, artifact environment와 round별 UTC observation window에 이를 기록했다. measured round마다 1,000개의 비식별 raw sample, `operationTime`부터 coordinator의 DTO 조합 완료까지의 완료 시각과 `respondBy` window, PostgreSQL statement 관측, lock-wait 관측 필드와 sample별 final-state observation을 보존한다. fixture는 DB `transaction_timestamp()` 하나를 reference time으로 사용하고, 모든 Proposal의 `created_at`·`respond_by=reference+30초`, request `min/max party size=2/4`, party size 2를 고정한다. fixture input은 사용자 UUID 없이 fixture ordinal만 담은 CSV bytes다. private sidecar에는 `(scenario,warmUp,round,proposalOrdinal,memberOrdinal)` run key와 실제 Proposal·Member composite·request ID, expected/observed proposal·member·request·queue fact를 보존하며, 사용자 ID·nickname·body·idempotency key는 보존하지 않는다. Node reporter는 artifact-relative sidecar bytes를 해시한 뒤 row coverage·중복·expected/observed 불일치와 public final-state scalar 재계산값을 검증한다. `ACCEPT_FINAL`은 member transition 사실로 nonterminal(`responded_at < confirmed_at`) 500건과 terminal(`responded_at = confirmed_at`) 500건을 확인한다. DTO snapshot은 별도 관측값으로 `{PROPOSED, PREPARING, ACTIVE}`만 허용한다. Proposal·Member·request 식별자는 공개 artifact에 포함하지 않는다. 후보 baseline 또는 종합 gate artifact SHA는 이 결과의 입력이 아니다.
+| 시나리오 | round | p50 (ns) | p95 (ns) | p99 (ns) | 처리량 (req/s) | retry (total/max) | lock wait (sampled/raw ns) | 실패율 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| ACCEPT_NON_TERMINAL | 1 | 1752159500 | 2367511600 | 2513037300 | 352.680 | 0/0 | 0/0 | 0.000000 |
+| ACCEPT_NON_TERMINAL | 2 | 1470768800 | 1947775300 | 2050760700 | 435.924 | 0/0 | 0/0 | 0.000000 |
+| ACCEPT_NON_TERMINAL | 3 | 1296343400 | 1731675200 | 1803578700 | 491.966 | 0/0 | 0/0 | 0.000000 |
+| ACCEPT_FINAL | 1 | 1358536700 | 2041759700 | 2183352700 | 421.712 | 0/0 | 358773700/358773700 | 0.000000 |
+| ACCEPT_FINAL | 2 | 1574539600 | 2338415700 | 2609543800 | 362.619 | 0/0 | 425822800/425822800 | 0.000000 |
+| ACCEPT_FINAL | 3 | 1717560500 | 2519747000 | 2738717300 | 338.173 | 0/0 | 2572478600/2572478600 | 0.000000 |
+| REQUEUE | 1 | 983138500 | 1488643300 | 1652134000 | 544.141 | 0/0 | 0/0 | 0.000000 |
+| REQUEUE | 2 | 1050692100 | 1574184500 | 1781696900 | 509.030 | 0/0 | 0/0 | 0.000000 |
+| REQUEUE | 3 | 1072731100 | 1574309500 | 1746778700 | 507.769 | 0/0 | 0/0 | 0.000000 |
+| CANCEL | 1 | 975377700 | 1541080500 | 1742780200 | 508.752 | 0/0 | 0/0 | 0.000000 |
+| CANCEL | 2 | 1103845500 | 1703627100 | 1904393000 | 482.437 | 0/0 | 0/0 | 0.000000 |
+| CANCEL | 3 | 1179181400 | 1749076600 | 1942347700 | 465.565 | 0/0 | 0/0 | 0.000000 |
+
+| 시나리오 | 세 measured round p95 중앙값 (ns) | 세 measured round p95 최댓값 (ns) |
+| --- | ---: | ---: |
+| ACCEPT_NON_TERMINAL | 1947775300 | 2367511600 |
+| ACCEPT_FINAL | 2338415700 | 2519747000 |
+| REQUEUE | 1574184500 | 1574309500 |
+| CANCEL | 1703627100 | 1749076600 |
+
+각 measured round는 1,000개 비식별 raw sample과 fixture/DB 통계/lock-wait 관측을 보존한다. 이 결과는 운영 SLO 또는 후보 선점 baseline 통과를 의미하지 않는다.

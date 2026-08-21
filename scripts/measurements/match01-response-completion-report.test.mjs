@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import test from "node:test";
 import fs from "node:fs";
 import os from "node:os";
@@ -293,4 +294,23 @@ test("G3 sidecar duplicate, missing, observed mismatch, scalar disagreement는 I
     artifact.fixture.materializedManifestSha256 = sha256(JSON.stringify(sidecar));
     assert.equal(assertResponseArtifact(artifact, JSON.stringify(sidecar)).outcome, "INVALID");
   }
+});
+
+test("G4 --check는 INVALID artifact를 비정상 종료로 전달한다", () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "issue776-check-"));
+  const artifact = completeArtifact();
+  const artifactPath = path.join(directory, "artifact.json");
+  const sidecarPath = path.join(directory, artifact.fixture.privateCanonicalManifestFile);
+  fs.writeFileSync(artifactPath, JSON.stringify(artifact));
+  fs.writeFileSync(sidecarPath, JSON.stringify(completeSidecar()));
+
+  const reporterPath = path.resolve("scripts/measurements/match01-response-completion-report.mjs");
+  const accepted = spawnSync(process.execPath, [reporterPath, "--check", artifactPath], { encoding: "utf8" });
+  assert.equal(accepted.status, 0);
+
+  artifact.scenarios[0].measuredRounds[0].rawSamples[0].finalStatePassed = false;
+  fs.writeFileSync(artifactPath, JSON.stringify(artifact));
+  const invalid = spawnSync(process.execPath, [reporterPath, "--check", artifactPath], { encoding: "utf8" });
+  assert.equal(invalid.status, 1);
+  assert.match(invalid.stdout, /INVALID/u);
 });
