@@ -87,4 +87,23 @@ class AssistantExactGameNameQueryServiceTest {
 			org.mockito.ArgumentMatchers.anyLong());
 		verifyNoMoreInteractions(gameRepository);
 	}
+
+	@Test
+	void T4_공백_게임명과_게임명_앞뒤_경계가_없는_문장은_미매치다() {
+		GameRepository gameRepository = org.mockito.Mockito.mock(GameRepository.class);
+		when(gameRepository.findAssistantExactGameNameMatches()).thenReturn(
+			List.of(new AssistantExactGameNameMatch(1L, " ")),
+			List.of(new AssistantExactGameNameMatch(2L, "카탄")),
+			List.of(new AssistantExactGameNameMatch(2L, "카탄")));
+		var service = new AssistantExactGameNameQueryService(gameRepository);
+
+		assertTrue(service.findUniqueByNormalizedName("카탄").isEmpty());
+		assertTrue(service.findUniqueByNormalizedName("카탄!").isEmpty());
+		assertTrue(service.findUniqueByNormalizedName("X카탄").isEmpty());
+
+		verify(gameRepository, times(3)).findAssistantExactGameNameMatches();
+		verify(gameRepository, never()).findAssistantRecommendationCandidateById(
+			org.mockito.ArgumentMatchers.anyLong());
+		verifyNoMoreInteractions(gameRepository);
+	}
 }
