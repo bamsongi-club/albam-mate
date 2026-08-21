@@ -65,6 +65,65 @@ const PASSWORD_MAX_CODE_POINTS = 64;
 const PASSWORD_MAX_UTF8_BYTES = 72;
 const SOCIAL_PROVIDER_LABEL = { GOOGLE: 'Google', NAVER: 'Naver', KAKAO: 'Kakao' };
 
+function isAssistantRoute(route) {
+  return route === 'assistant' || route === 'bot';
+}
+
+function copiedStringList(value) {
+  return Array.isArray(value) ? value.filter((item) => typeof item === 'string') : [];
+}
+
+function safeAssistantConditions(conditions) {
+  if (!conditions || typeof conditions !== 'object') return null;
+  return {
+    categories: copiedStringList(conditions.categories),
+    mechanisms: copiedStringList(conditions.mechanisms),
+    themes: copiedStringList(conditions.themes),
+    complexityMax: typeof conditions.complexityMax === 'number' ? conditions.complexityMax : null,
+    playTimeMax: typeof conditions.playTimeMax === 'string' ? conditions.playTimeMax : null,
+    gameId: Number.isInteger(conditions.gameId) ? conditions.gameId : null,
+    playerCount: Number.isInteger(conditions.playerCount) ? conditions.playerCount : null,
+    startsAt: typeof conditions.startsAt === 'string' ? conditions.startsAt : null,
+    region: typeof conditions.region === 'string' ? conditions.region : null,
+    experienceLevel: typeof conditions.experienceLevel === 'string' ? conditions.experienceLevel : null
+  };
+}
+
+function safeAssistantCandidate(candidate) {
+  if (!candidate || !Number.isInteger(candidate.id) || typeof candidate.name !== 'string') return null;
+  return {
+    id: candidate.id,
+    name: candidate.name,
+    imageUrl: typeof candidate.imageUrl === 'string' ? candidate.imageUrl : null,
+    description: typeof candidate.description === 'string' ? candidate.description : ''
+  };
+}
+
+function safeAssistantEditState(editState) {
+  if (!editState || typeof editState !== 'object') return null;
+  return {
+    title: typeof editState.title === 'string' ? editState.title : '',
+    description: typeof editState.description === 'string' ? editState.description : '',
+    startsAt: typeof editState.startsAt === 'string' ? editState.startsAt : '',
+    region: typeof editState.region === 'string' ? editState.region : '',
+    playerCount: typeof editState.playerCount === 'string' ? editState.playerCount : '',
+    experienceLevel: typeof editState.experienceLevel === 'string' ? editState.experienceLevel : '',
+    isRulemasterLed: Boolean(editState.isRulemasterLed)
+  };
+}
+
+// 상세 왕복 중에도 provider 원문, 사용자의 자연어, draftId를 App 상태에 두지 않는다.
+function safeAssistantMemory(memory) {
+  if (!memory?.result || memory.result.state !== 'RECOMMENDED') return null;
+  const candidates = (memory.result.candidates || []).map(safeAssistantCandidate).filter(Boolean);
+  const selectedCandidate = candidates.find((candidate) => candidate.id === memory.selectedCandidate?.id) || null;
+  return {
+    result: { state: 'RECOMMENDED', conditions: safeAssistantConditions(memory.result.conditions), candidates },
+    selectedCandidate,
+    editState: selectedCandidate ? safeAssistantEditState(memory.editState) : null
+  };
+}
+
 function GoogleIcon() {
   return (
     <svg viewBox="0 0 20 20" width="24" height="24" aria-hidden="true">
@@ -2117,12 +2176,25 @@ export function App() {
   const [myTab, setMyTab] = useState('joined');
   const [createMode, setCreateMode] = useState('GAME_FOCUSED');
   const [createGame, setCreateGame] = useState(null);
+  const [assistantMemory, setAssistantMemory] = useState(null);
   const [dataVersion, setDataVersion] = useState(0);
   const [socialProviders, setSocialProviders] = useState([]);
   const [toast, setToast] = useState({ message: '', type: '' });
   const authenticated = Boolean(me);
   const toastTimer = useRef(null);
   const meRef = useRef(null);
+  const assistantDetailReturnRef = useRef(false);
+  const previousRouteRef = useRef(route);
+
+  const updateAssistantMemory = useCallback((memory) => {
+    setAssistantMemory(safeAssistantMemory(memory));
+  }, []);
+
+  const preserveAssistantForGameDetail = useCallback(() => {
+    assistantDetailReturnRef.current = true;
+  }, []);
+
+  const assistantMemoryForView = isAssistantRoute(route) && assistantDetailReturnRef.current ? assistantMemory : null;
 
   useEffect(() => {
     meRef.current = me;
@@ -2130,6 +2202,8 @@ export function App() {
 
   const expireAuthentication = useCallback(() => {
     clearCsrfToken();
+    assistantDetailReturnRef.current = false;
+    setAssistantMemory(null);
     if (!meRef.current) return;
     meRef.current = null;
     setMe(null);
@@ -2190,6 +2264,24 @@ export function App() {
   };
 
   useEffect(() => () => window.clearTimeout(toastTimer.current), []);
+  useEffect(() => {
+    const previousRoute = previousRouteRef.current;
+    const returningFromGameDetail = isAssistantRoute(route) && previousRoute === 'game' && assistantDetailReturnRef.current;
+    const movingToGameDetail = route === 'game' && isAssistantRoute(previousRoute) && assistantDetailReturnRef.current;
+    if (returningFromGameDetail) {
+      assistantDetailReturnRef.current = false;
+    } else if (!movingToGameDetail) {
+      assistantDetailReturnRef.current = false;
+      setAssistantMemory(null);
+    }
+    previousRouteRef.current = route;
+  }, [route, arg]);
+  useEffect(() => {
+    if (!authenticated) {
+      assistantDetailReturnRef.current = false;
+      setAssistantMemory(null);
+    }
+  }, [authenticated]);
   useEffect(() => {
     setUnauthenticatedHandler(expireAuthentication);
     return () => setUnauthenticatedHandler(undefined);
@@ -2276,6 +2368,8 @@ export function App() {
     try {
       const profile = await api.login(credentials);
       meRef.current = profile;
+      assistantDetailReturnRef.current = false;
+      setAssistantMemory(null);
       setMe(profile);
       refreshData();
       showToast('로그인했어요.');
@@ -2317,6 +2411,8 @@ export function App() {
     try {
       await api.logout();
       meRef.current = null;
+      assistantDetailReturnRef.current = false;
+      setAssistantMemory(null);
       setMe(null);
       refreshData();
       showToast('로그아웃했어요.');
@@ -2549,7 +2645,7 @@ export function App() {
       : <LoginRequiredView message="알림을 보려면 로그인해주세요." onBack={goBack} />;
   } else if (route === 'assistant' || route === 'bot') {
     content = me
-      ? <AssistantView onBack={goBack} onNavigate={navigate} />
+      ? <AssistantView onBack={goBack} onNavigate={navigate} assistantMemory={assistantMemoryForView} onAssistantMemoryChange={updateAssistantMemory} onGameDetailOpen={preserveAssistantForGameDetail} />
       : <LoginRequiredView message="알밤봇을 쓰려면 로그인해주세요." onBack={goBack} />;
   } else if (route === 'assistant-settings') {
     content = me

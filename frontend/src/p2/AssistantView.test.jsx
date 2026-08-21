@@ -39,6 +39,31 @@ function activeDraft(overrides = {}) {
   };
 }
 
+function recommendation(overrides = {}) {
+  return {
+    state: 'RECOMMENDED',
+    conditions: {
+      categories: ['COOPERATIVE'],
+      mechanisms: [],
+      themes: [],
+      playerCount: 4,
+      startsAt: '2099-08-23T19:00:00+09:00',
+      region: '홍대',
+      experienceLevel: 'BEGINNER_WELCOME'
+    },
+    missingFields: [],
+    candidates: [{ id: 101, name: '카탄', imageUrl: null, description: '정식 카탈로그 설명' }],
+    ...overrides
+  };
+}
+
+async function requestRecommendation() {
+  await waitFor(() => expect(screen.getByLabelText('알밤봇에게 묻기')).toBeTruthy());
+  fireEvent.change(screen.getByLabelText('알밤봇에게 묻기'), { target: { value: '주말 협력 게임 추천해줘' } });
+  await act(async () => { screen.getByRole('button', { name: '전송' }).click(); });
+  await waitFor(() => expect(screen.getByRole('link', { name: '카탄 상세 보기' })).toBeTruthy());
+}
+
 afterEach(() => {
   vi.restoreAllMocks();
   cleanup();
@@ -75,9 +100,14 @@ describe('AI 모임 도우미 화면', () => {
       .mockResolvedValueOnce({ roomId: 42, chatRoomId: 43 });
     const onNavigate = vi.fn();
 
-    render(<AssistantView onBack={vi.fn()} onNavigate={onNavigate} />);
+    render(<AssistantView onBack={vi.fn()} onNavigate={onNavigate} assistantMemory={{
+      result: recommendation(),
+      selectedCandidate: { id: 101, name: '카탄', imageUrl: null, description: '정식 카탈로그 설명' },
+      editState: { title: '카탄 모임', description: '복원하면 안 되는 카드', startsAt: '', region: '홍대', playerCount: '', experienceLevel: 'BEGINNER_WELCOME', isRulemasterLed: false }
+    }} />);
 
     await waitFor(() => expect(screen.getByRole('heading', { name: '주말 협력 게임 모임' })).toBeTruthy());
+    expect(screen.queryByRole('link', { name: '카탄 상세 보기' })).toBeNull();
 
     await act(async () => { screen.getByRole('button', { name: '방 만들기 확정' }).click(); });
     await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
@@ -91,43 +121,128 @@ describe('AI 모임 도우미 화면', () => {
     expect(confirm.mock.calls[0][2]).toBe(confirm.mock.calls[1][2]);
   });
 
-  it('추천 후보를 사용자가 선택하고 필요한 모임 정보를 채운 뒤에만 확인 초안을 만든다', async () => {
-    vi.spyOn(api, 'recommendAssistant').mockResolvedValue({
-      state: 'RECOMMENDED',
-      conditions: {
-        categories: ['COOPERATIVE'],
-        mechanisms: [],
-        themes: [],
-        playerCount: 4,
-        startsAt: '2026-08-23T19:00:00+09:00',
-        region: '홍대',
-        experienceLevel: 'BEGINNER_WELCOME'
-      },
-      missingFields: [],
-      candidates: [{ id: 101, name: '카탄' }]
-    });
+  it('후보 이미지와 게임명은 상세로만 이동하고 null 이미지는 fallback을 보인다', async () => {
+    vi.spyOn(api, 'recommendAssistant').mockResolvedValue(recommendation());
+    const createDraft = vi.spyOn(api, 'createAssistantDraft');
+    const createRoom = vi.spyOn(api, 'createRoom');
+    const confirmDraft = vi.spyOn(api, 'confirmAssistantDraft');
+    const activeDraftLookup = api.getActiveAssistantDraft;
+    const { container } = render(<AssistantView onBack={vi.fn()} onNavigate={vi.fn()} />);
+
+    await requestRecommendation();
+
+    const detailLink = screen.getByRole('link', { name: '카탄 상세 보기' });
+    expect(detailLink.getAttribute('href')).toBe('#/game/101');
+    expect(container.querySelector('.assistant-candidate img')?.getAttribute('src')).toContain('default-game-cover');
+    const lookupsBeforeDetail = activeDraftLookup.mock.calls.length;
+    await act(async () => { detailLink.click(); });
+    expect(activeDraftLookup).toHaveBeenCalledTimes(lookupsBeforeDetail);
+    expect(createDraft).not.toHaveBeenCalled();
+    expect(createRoom).not.toHaveBeenCalled();
+    expect(confirmDraft).not.toHaveBeenCalled();
+  });
+
+  it('CTA만 확인 모달을 열고 취소와 닫기는 draft·Room 부수효과가 없다', async () => {
+    vi.spyOn(api, 'recommendAssistant').mockResolvedValue(recommendation());
+    const createDraft = vi.spyOn(api, 'createAssistantDraft');
+    const createRoom = vi.spyOn(api, 'createRoom');
+    const confirmDraft = vi.spyOn(api, 'confirmAssistantDraft');
+    render(<AssistantView onBack={vi.fn()} onNavigate={vi.fn()} />);
+
+    await requestRecommendation();
+    await act(async () => { screen.getByRole('button', { name: '이 게임으로 모임 만들기' }).click(); });
+    expect(screen.getByRole('dialog', { name: '이 게임으로 모임 만들기' })).toBeTruthy();
+    await act(async () => { screen.getByRole('button', { name: '취소' }).click(); });
+    expect(screen.queryByRole('dialog')).toBeNull();
+
+    await act(async () => { screen.getByRole('button', { name: '이 게임으로 모임 만들기' }).click(); });
+    await act(async () => { screen.getByRole('button', { name: '모임 만들기 확인 닫기' }).click(); });
+    expect(createDraft).not.toHaveBeenCalled();
+    expect(createRoom).not.toHaveBeenCalled();
+    expect(confirmDraft).not.toHaveBeenCalled();
+  });
+
+  it('유효한 조건의 모달 확인은 기본 입력으로 초안을 정확히 한 번 만든다', async () => {
+    vi.spyOn(api, 'recommendAssistant').mockResolvedValue(recommendation());
     const createDraft = vi.spyOn(api, 'createAssistantDraft').mockResolvedValue(activeDraft());
 
     render(<AssistantView onBack={vi.fn()} onNavigate={vi.fn()} />);
 
-    await waitFor(() => expect(screen.getByLabelText('알밤봇에게 묻기')).toBeTruthy());
-    fireEvent.change(screen.getByLabelText('알밤봇에게 묻기'), { target: { value: '주말 협력 게임 추천해줘' } });
-    await act(async () => { screen.getByRole('button', { name: '전송' }).click(); });
-    await waitFor(() => expect(screen.getByRole('button', { name: /카탄/ })).toBeTruthy());
+    await requestRecommendation();
+    await act(async () => { screen.getByRole('button', { name: '이 게임으로 모임 만들기' }).click(); });
+    const confirm = screen.getByRole('button', { name: '이 조건으로 만들기' });
+    await act(async () => { confirm.click(); confirm.click(); });
 
-    await act(async () => { screen.getByRole('button', { name: /카탄/ }).click(); });
-    fireEvent.change(screen.getByLabelText('모임 제목'), { target: { value: '주말 카탄 모임' } });
-    await act(async () => { screen.getByRole('button', { name: '확인 카드 만들기' }).click(); });
-
-    await waitFor(() => expect(createDraft).toHaveBeenCalledWith(expect.objectContaining({
+    await waitFor(() => expect(createDraft).toHaveBeenCalledTimes(1));
+    expect(createDraft).toHaveBeenCalledWith({
       roomType: 'GAME_FOCUSED',
-      title: '주말 카탄 모임',
+      title: '카탄 모임',
+      description: null,
       gameId: 101,
+      experienceLevel: 'BEGINNER_WELCOME',
+      isRulemasterLed: false,
+      startsAt: '2099-08-23T19:00:00+09:00',
       region: '홍대',
       place: null,
       recruitmentCapacity: 3
-    })));
+    });
     expect(screen.getByRole('heading', { name: '주말 협력 게임 모임' })).toBeTruthy();
+  });
+
+  it('자동 초안 생성 실패 뒤에는 같은 모달에서 재시도할 수 있다', async () => {
+    vi.spyOn(api, 'recommendAssistant').mockResolvedValue(recommendation());
+    const createDraft = vi.spyOn(api, 'createAssistantDraft')
+      .mockRejectedValueOnce(new Error('network'))
+      .mockResolvedValueOnce(activeDraft());
+
+    render(<AssistantView onBack={vi.fn()} onNavigate={vi.fn()} />);
+
+    await requestRecommendation();
+    await act(async () => { screen.getByRole('button', { name: '이 게임으로 모임 만들기' }).click(); });
+    await act(async () => { screen.getByRole('button', { name: '이 조건으로 만들기' }).click(); });
+    await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+
+    await act(async () => { screen.getByRole('button', { name: '이 조건으로 만들기' }).click(); });
+
+    await waitFor(() => expect(createDraft).toHaveBeenCalledTimes(2));
+    expect(screen.getByRole('heading', { name: '주말 협력 게임 모임' })).toBeTruthy();
+  });
+
+  it('확인 모달을 닫으면 후보 CTA로 포커스가 돌아온다', async () => {
+    vi.spyOn(api, 'recommendAssistant').mockResolvedValue(recommendation());
+    render(<AssistantView onBack={vi.fn()} onNavigate={vi.fn()} />);
+
+    await requestRecommendation();
+    const cta = screen.getByRole('button', { name: '이 게임으로 모임 만들기' });
+    cta.focus();
+    await act(async () => { cta.click(); });
+    await act(async () => { screen.getByRole('button', { name: '취소' }).click(); });
+
+    expect(document.activeElement).toBe(cta);
+  });
+
+  it('자동 조건이 부족하면 직접 입력만 열고 제출 전에는 초안을 만들지 않는다', async () => {
+    vi.spyOn(api, 'recommendAssistant').mockResolvedValue(recommendation({
+      conditions: {
+        categories: ['COOPERATIVE'], mechanisms: [], themes: [], playerCount: null, startsAt: null,
+        region: '홍대', experienceLevel: 'BEGINNER_WELCOME'
+      }
+    }));
+    const createDraft = vi.spyOn(api, 'createAssistantDraft').mockResolvedValue(activeDraft());
+    render(<AssistantView onBack={vi.fn()} onNavigate={vi.fn()} />);
+
+    await requestRecommendation();
+    await act(async () => { screen.getByRole('button', { name: '이 게임으로 모임 만들기' }).click(); });
+    expect(screen.queryByRole('button', { name: '이 조건으로 만들기' })).toBeNull();
+    await act(async () => { screen.getByRole('button', { name: '내가 직접 채우기' }).click(); });
+    expect(screen.getByLabelText('모임 제목').value).toBe('카탄 모임');
+    expect(screen.getByLabelText('지역').value).toBe('홍대');
+    expect(createDraft).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText('시작 시각'), { target: { value: '2099-08-23T19:00' } });
+    fireEvent.change(screen.getByLabelText('총 인원'), { target: { value: '4' } });
+    await act(async () => { screen.getByRole('button', { name: '확인 카드 만들기' }).click(); });
+    await waitFor(() => expect(createDraft).toHaveBeenCalledTimes(1));
   });
 
   it('활성 초안 조회의 410은 만료 안내와 새 흐름 시작 행동으로 끝낸다', async () => {
