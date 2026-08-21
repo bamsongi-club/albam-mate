@@ -465,6 +465,7 @@ test('fixture SQL은 필수 users timestamp와 정확한 ID 기반 cleanup을 �
   assert.match(cleanupSql, /room_k6_cleanup_users/);
   assert.match(cleanupSql, /room_k6_cleanup_rooms/);
   assert.match(prepareSql, /ROOM k6 fixture a{32}/);
+  assert.match(prepareSql, /false,\s*'홍대',\s*\d+,\s*\d+,/);
   assert.match(resourceQuery, /description = 'ROOM k6 fixture a{32}'/);
   assert.match(cleanupSql, /description text NOT NULL/);
   assert.match(cleanupSql, /f\.description = r\.description/);
