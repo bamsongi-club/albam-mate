@@ -23,6 +23,7 @@ function completeTopology() {
 function completeRound(index, fixture = completeFixture(), topology = completeTopology()) {
   return {
     round: index,
+    measuredGitCommitSha: "a".repeat(40),
     fixtureEvidence: {
       generator: fixture.generator,
       fixtureInputSha256: fixture.fixtureInputSha256,
@@ -61,7 +62,7 @@ function completeRound(index, fixture = completeFixture(), topology = completeTo
       lockWaitSnapshotCount: 0,
       samplingFailure: null,
     },
-    queryPlan: "fixture candidate claim plan",
+    queryPlan: "anchorSql=select * from match_requests where status = 'WAITING' order by priority_since asc, id asc limit 1 for update skip locked\nanchorPlan=[{}]\ncandidatePageSql=select * from match_requests where status = 'WAITING' and (priority_since > timestamptz '2026-01-01T00:00:01Z' or (priority_since = timestamptz '2026-01-01T00:00:01Z' and id > 1)) order by priority_since asc, id asc limit 100 for update skip locked\ncandidatePagePlan=[{}]",
     correctnessInput: {
       proposalCount: 500,
       memberCount: 1_000,
@@ -121,6 +122,8 @@ test("warm-up을 제외하고 measured round 원자료와 nearest-rank 통계를
   });
 
   assert.equal(report.warmUp.countsTowardBaseline, false);
+  assert.equal(report.measuredGitCommitSha, "a".repeat(40));
+  assert.equal(report.warmUp.round.measuredGitCommitSha, "a".repeat(40));
   assert.equal(report.measuredRounds.length, 3);
   assert.equal(report.measuredRounds[0].logicalClaims.length, 1_000);
   assert.equal(report.warmUp.round.fixtureEvidence.fixtureInputSha256, report.fixture.fixtureInputSha256);
@@ -141,6 +144,37 @@ test("warm-up을 제외하고 measured round 원자료와 nearest-rank 통계를
   assert.deepEqual(report.measuredRounds[0].logicalClaims[0].retryRawDurationsNanos, []);
   assert.deepEqual(nearestRank([1, 2, 3, 4], 0.95), 4);
   assert.equal(JSON.stringify(report).includes("real-user"), false);
+});
+
+test("실행 SHA와 실제 candidate claim query plan 증거가 없거나 다르면 INVALID다", () => {
+  const valid = buildCandidateBaselineReport({
+    measuredGitCommitSha: "a".repeat(40),
+    fixture: completeFixture(),
+    warmUp: completeRound(0),
+    measured: [completeRound(1), completeRound(2), completeRound(3)],
+  });
+  assert.equal(evaluateCandidateBaseline(valid).outcome, "BASELINE_ACCEPTED");
+
+  const missingSha = structuredClone(valid);
+  delete missingSha.measuredGitCommitSha;
+  assert.equal(evaluateCandidateBaseline(missingSha).outcome, "INVALID");
+
+  const mismatchedRoundSha = structuredClone(valid);
+  mismatchedRoundSha.measuredRounds[1].measuredGitCommitSha = "b".repeat(40);
+  assert.equal(evaluateCandidateBaseline(mismatchedRoundSha).outcome, "INVALID");
+
+  const malformedSha = structuredClone(valid);
+  malformedSha.measuredGitCommitSha = "short";
+  assert.equal(evaluateCandidateBaseline(malformedSha).outcome, "INVALID");
+
+  const oldPlan = structuredClone(valid);
+  oldPlan.measuredRounds[0].queryPlan = "fixture candidate claim plan";
+  assert.equal(evaluateCandidateBaseline(oldPlan).outcome, "INVALID");
+
+  const missingCursorPredicate = structuredClone(valid);
+  missingCursorPredicate.measuredRounds[0].queryPlan =
+    "anchorSql=select * from match_requests where status = 'WAITING' order by priority_since asc, id asc limit 1 for update skip locked\nanchorPlan=[{}]\ncandidatePageSql=select * from match_requests where status = 'WAITING' order by priority_since asc, id asc limit 100 for update skip locked\ncandidatePagePlan=[{}]";
+  assert.equal(evaluateCandidateBaseline(missingCursorPredicate).outcome, "INVALID");
 });
 
 test("모든 round의 fixture와 topology 증거, matcher별 500회 원자료가 아니면 INVALID다", () => {

@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Tag;
@@ -236,6 +237,64 @@ class MatchCandidateClaimBaselinePostgresTest {
 	}
 
 	@Test
+	void Node_report_정리중_interrupt가_발생해도_자식과_diagnostic을_정리하고_interrupt를_보존한다() throws Exception {
+		Path diagnostic = Files.createTempFile("issue775-node-cleanup-", ".log");
+		Process process = new ProcessBuilder("node", "-e", "setTimeout(() => {}, 30000)")
+			.redirectErrorStream(true)
+			.redirectOutput(diagnostic.toFile())
+			.start();
+		try {
+			Thread.currentThread().interrupt();
+			cleanupNodeProcess(process, diagnostic);
+
+			assertTrue(Thread.currentThread().isInterrupted());
+			assertFalse(process.isAlive());
+			assertFalse(Files.exists(diagnostic));
+		} finally {
+			Thread.interrupted();
+			process.destroyForcibly();
+			process.waitFor(5, TimeUnit.SECONDS);
+			Files.deleteIfExists(diagnostic);
+		}
+	}
+
+	@Test
+	void Node_report_waitFor_자체가_interrupt되어도_상태를_복원하고_자식을_정리한다() throws Exception {
+		Path diagnostic = Files.createTempFile("issue775-node-wait-interrupt-", ".log");
+		Process process = new ProcessBuilder("node", "-e", "setTimeout(() => {}, 30000)")
+			.redirectErrorStream(true)
+			.redirectOutput(diagnostic.toFile())
+			.start();
+		AtomicBoolean interruptedAtCatch = new AtomicBoolean();
+		Thread waiter = new Thread(() -> {
+			try {
+				waitForNodeProcess(process, diagnostic, 30);
+			} catch (InterruptedException exception) {
+				interruptedAtCatch.set(Thread.currentThread().isInterrupted());
+			} finally {
+				cleanupNodeProcess(process, diagnostic);
+			}
+		});
+		try {
+			waiter.start();
+			Thread.sleep(100);
+			waiter.interrupt();
+			waiter.join(5_000);
+
+			assertFalse(waiter.isAlive());
+			assertTrue(interruptedAtCatch.get());
+			assertFalse(process.isAlive());
+			assertFalse(Files.exists(diagnostic));
+		} finally {
+			waiter.interrupt();
+			waiter.join(5_000);
+			process.destroyForcibly();
+			process.waitFor(5, TimeUnit.SECONDS);
+			Files.deleteIfExists(diagnostic);
+		}
+	}
+
+	@Test
 	void worker_시작이_실패하면_해당_호출의_argument와_output_임시_파일을_정리한다() throws Exception {
 		String temporaryFilePrefix = "issue775-start-failure-" + UUID.randomUUID() + "-";
 		Path temporaryDirectory = Path.of(System.getProperty("java.io.tmpdir"));
@@ -271,6 +330,8 @@ class MatchCandidateClaimBaselinePostgresTest {
 		assertEquals(fixtureReport.fixtureInputSha256(), report.reportInput().fixtureEvidence().fixtureInputSha256());
 		assertEquals(fixtureReport.materializedManifestSha256(),
 			report.reportInput().fixtureEvidence().materializedManifestSha256());
+		assertEquals(MatchCandidateClaimBaselineSupport.currentGitSha(),
+			report.reportInput().measuredGitCommitSha());
 		assertEquals(2, report.reportInput().topologyEvidence().matcherCount());
 		assertEquals(1, report.reportInput().topologyEvidence().claimAttempts());
 		assertTrue(report.reportInput().matcherProcesses().stream()
@@ -313,7 +374,11 @@ class MatchCandidateClaimBaselinePostgresTest {
 			.compareTo(Instant.parse(report.lockSamples().observationFinishedAtUtc())) <= 0);
 		assertTrue(report.lockSamples().snapshotCount() > 0);
 		assertEquals(null, report.lockSamples().samplingFailure());
-		assertFalse(report.queryPlan().isBlank());
+		assertTrue(report.queryPlan().contains("anchorSql="));
+		assertTrue(report.queryPlan().contains("candidatePageSql="));
+		assertTrue(report.queryPlan().toLowerCase().contains("limit 1"));
+		assertTrue(report.queryPlan().toLowerCase().contains("limit 100"));
+		assertTrue(report.queryPlan().toLowerCase().contains("for update skip locked"));
 		assertEquals(1, report.correctnessInput().proposalCount());
 		assertEquals(2, report.correctnessInput().memberCount());
 		assertEquals(2, report.correctnessInput().claimedRequestCount());
@@ -365,6 +430,11 @@ class MatchCandidateClaimBaselinePostgresTest {
 	}
 
 	@Test
+	void Node_판정기는_실행_SHA와_실제_candidate_claim_query_plan을_검증한다() throws Exception {
+		assertEquals(0, nodeContractTest("실행 SHA와 실제 candidate claim query plan 증거가 없거나 다르면 INVALID다"));
+	}
+
+	@Test
 	void 계약_크기_측정_실행은_Tag과_시스템_속성과_전용_task를_모두_요구한다() throws Exception {
 		Method heavyMethod = getClass().getDeclaredMethod("계약_크기_측정은_명시적_승인에서만_실행한다");
 		assertTrue(heavyMethod.isAnnotationPresent(Tag.class));
@@ -407,7 +477,8 @@ class MatchCandidateClaimBaselinePostgresTest {
 		Path inputPath = reportDirectory.resolve("match01-candidate-baseline-input.json");
 		Path outputPath = reportDirectory.resolve("match01-candidate-baseline-report.json");
 		new ObjectMapper().writerWithDefaultPrettyPrinter().writeValue(inputPath.toFile(),
-			Map.of("fixture", fixtureReport, "warmUp", warmUp, "measured", measuredRounds));
+			Map.of("fixture", fixtureReport, "measuredGitCommitSha", warmUp.measuredGitCommitSha(),
+				"warmUp", warmUp, "measured", measuredRounds));
 		runNodeReport(inputPath, outputPath);
 		boolean allTieOrdersMatch = measuredRounds.stream()
 			.allMatch(round -> round.correctnessInput().tieOrderMatches());
@@ -426,59 +497,102 @@ class MatchCandidateClaimBaselinePostgresTest {
 
 	private void runNodeReport(Path inputPath, Path outputPath) throws Exception {
 		Path diagnostic = Files.createTempFile("issue775-node-report-", ".log");
-		Process process = new ProcessBuilder(
-			"node", "scripts/measurements/match01-candidate-baseline-report.mjs",
-			"--input", inputPath.toString(), "--output", outputPath.toString())
-			.directory(new java.io.File(System.getProperty("user.dir")))
-			.redirectErrorStream(true)
-			.redirectOutput(diagnostic.toFile())
-			.start();
+		Process process = null;
 		try {
-			if (!process.waitFor(90, TimeUnit.SECONDS)) {
-				process.destroyForcibly();
-				assertTrue(process.waitFor(5, TimeUnit.SECONDS), "Node report child가 종료되지 않았습니다.");
-				throw new AssertionError("Node report timeout: " + Files.readString(diagnostic));
-			}
+			process = new ProcessBuilder(
+				"node", "scripts/measurements/match01-candidate-baseline-report.mjs",
+				"--input", inputPath.toString(), "--output", outputPath.toString())
+				.directory(new java.io.File(System.getProperty("user.dir")))
+				.redirectErrorStream(true)
+				.redirectOutput(diagnostic.toFile())
+				.start();
+			waitForNodeProcess(process, diagnostic, 90);
 			assertEquals(0, process.exitValue(), Files.readString(diagnostic));
 		} finally {
-			Files.deleteIfExists(diagnostic);
+			cleanupNodeProcess(process, diagnostic);
 		}
 	}
 
 	private int nodeContractTest(String testNamePattern) throws Exception {
 		Path outputFile = Files.createTempFile("issue775-node-contract-", ".log");
-		Process process = new ProcessBuilder(
-			"node",
-			"--test",
-			"--test-name-pattern",
-			testNamePattern,
-			"scripts/measurements/match01-candidate-baseline-report.test.mjs")
-			.directory(new java.io.File(System.getProperty("user.dir")))
-			.redirectErrorStream(true)
-			.redirectOutput(outputFile.toFile())
-			.start();
+		Process process = null;
 		try {
-			if (!process.waitFor(30, TimeUnit.SECONDS)) {
-				process.destroyForcibly();
-				assertTrue(process.waitFor(5, TimeUnit.SECONDS), "timeout Node child가 종료되지 않았습니다.");
-				throw new AssertionError("Node 판정기 테스트가 timeout되었습니다: " + Files.readString(outputFile));
-			}
+			process = new ProcessBuilder(
+				"node",
+				"--test",
+				"--test-name-pattern",
+				testNamePattern,
+				"scripts/measurements/match01-candidate-baseline-report.test.mjs")
+				.directory(new java.io.File(System.getProperty("user.dir")))
+				.redirectErrorStream(true)
+				.redirectOutput(outputFile.toFile())
+				.start();
+			waitForNodeProcess(process, outputFile, 30);
 			String output = Files.readString(outputFile, StandardCharsets.UTF_8);
 			assertEquals(0, process.exitValue(), output);
 			return process.exitValue();
 		} finally {
-			boolean deleted = false;
-			for (int attempt = 0; attempt < 3; attempt++) {
+			cleanupNodeProcess(process, outputFile);
+		}
+	}
+
+	static void cleanupNodeProcess(Process process, Path diagnostic) {
+		boolean interrupted = Thread.currentThread().isInterrupted();
+		if (interrupted) {
+			Thread.interrupted();
+		}
+		if (process != null && process.isAlive()) {
+			process.destroyForcibly();
+		}
+		if (process != null) {
+			while (process.isAlive()) {
 				try {
-					Files.deleteIfExists(outputFile);
-					deleted = true;
-					break;
-				} catch (java.io.IOException exception) {
-					Thread.sleep(50);
+					process.waitFor(5, TimeUnit.SECONDS);
+				} catch (InterruptedException exception) {
+					interrupted = true;
 				}
 			}
-			if (!deleted) {
-				outputFile.toFile().deleteOnExit();
+		}
+		boolean deleted = false;
+		for (int attempt = 0; attempt < 10; attempt++) {
+			try {
+				Files.deleteIfExists(diagnostic);
+				deleted = true;
+				break;
+			} catch (java.io.IOException exception) {
+				try {
+					Thread.sleep(50);
+				} catch (InterruptedException interruptedException) {
+					interrupted = true;
+				}
+			}
+		}
+		if (!deleted) {
+			diagnostic.toFile().deleteOnExit();
+		}
+		if (interrupted) {
+			Thread.currentThread().interrupt();
+		}
+	}
+
+	static void waitForNodeProcess(Process process, Path diagnostic, int timeoutSeconds) throws InterruptedException {
+		boolean interrupted = false;
+		try {
+			if (!process.waitFor(timeoutSeconds, TimeUnit.SECONDS)) {
+				String diagnosticText;
+				try {
+					diagnosticText = Files.readString(diagnostic);
+				} catch (java.io.IOException exception) {
+					diagnosticText = "diagnostic read failed: " + exception.getMessage();
+				}
+				throw new AssertionError("Node report timeout: " + diagnosticText);
+			}
+		} catch (InterruptedException exception) {
+			interrupted = true;
+			throw exception;
+		} finally {
+			if (interrupted) {
+				Thread.currentThread().interrupt();
 			}
 		}
 	}

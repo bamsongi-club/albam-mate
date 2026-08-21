@@ -417,10 +417,7 @@ public final class MatchCandidateClaimBaselineSupport {
 			""", (resultSet, rowNumber) -> new PgStatStatements(
 			resultSet.getLong(1), resultSet.getDouble(2), resultSet.getLong(3), resultSet.getLong(4),
 			resultSet.getLong(5), List.copyOf(candidateStatements)));
-		Object queryPlan = jdbcTemplate.queryForObject("""
-			explain (format json)
-			select id from match_requests where status = 'WAITING' order by priority_since, id
-			""", Object.class);
+		String queryPlan = collectCandidateClaimQueryPlan(jdbcTemplate, fixtureReport);
 		CorrectnessInput correctnessInput = readCorrectnessInput(jdbcTemplate, fixtureReport);
 		double throughputPerSecond = orchestration.logicalClaims().isEmpty()
 			? 0.0
@@ -429,6 +426,7 @@ public final class MatchCandidateClaimBaselineSupport {
 			fixtureReport.generator(), fixtureReport.fixtureInputSha256(), fixtureReport.materializedManifestSha256());
 		ReportRoundInput reportInput = new ReportRoundInput(
 			1,
+			orchestration.measuredGitCommitSha(),
 			fixtureEvidence,
 			orchestration.topologyEvidence(),
 			orchestration.matcherPids().stream().map(pid -> new MatcherProcess(pid, 0, true)).toList(),
@@ -436,7 +434,7 @@ public final class MatchCandidateClaimBaselineSupport {
 			throughputPerSecond,
 			pgStatStatements,
 			lockSampler.snapshot(),
-			String.valueOf(queryPlan),
+			queryPlan,
 			correctnessInput,
 			new Integrity(
 				correctnessInput.proposalCount(), correctnessInput.memberCount(),
@@ -449,15 +447,49 @@ public final class MatchCandidateClaimBaselineSupport {
 			throughputPerSecond,
 			pgStatStatements,
 			reportInput.lockSamples(),
-			String.valueOf(queryPlan),
+			queryPlan,
 			correctnessInput,
 			reportInput);
+	}
+
+	private static String collectCandidateClaimQueryPlan(
+		JdbcTemplate jdbcTemplate, FixtureReportInput fixtureReport) {
+		if (fixtureReport.manifest().isEmpty()) {
+			throw new IllegalArgumentException("query plan cursor에 사용할 fixture manifest가 없습니다.");
+		}
+		MaterializedManifestEntry anchor = fixtureReport.manifest().getFirst();
+		String prioritySince = anchor.prioritySince();
+		String anchorSql = """
+			select * from match_requests
+			where status = 'WAITING'
+			order by priority_since asc, id asc
+			limit 1
+			for update skip locked
+			""".stripIndent().strip();
+		String candidatePageSql = """
+			select * from match_requests
+			where status = 'WAITING'
+			  and (priority_since > timestamptz '%s'
+			    or (priority_since = timestamptz '%s' and id > %d))
+			order by priority_since asc, id asc
+			limit 100
+			for update skip locked
+			""".formatted(prioritySince, prioritySince, anchor.requestId()).stripIndent().strip();
+		String anchorPlan = String.valueOf(jdbcTemplate.queryForObject(
+			"explain (format json) " + anchorSql, Object.class));
+		String candidatePagePlan = String.valueOf(jdbcTemplate.queryForObject(
+			"explain (format json) " + candidatePageSql, Object.class));
+		return "anchorSql=" + anchorSql
+			+ "\nanchorPlan=" + anchorPlan
+			+ "\ncandidatePageSql=" + candidatePageSql
+			+ "\ncandidatePagePlan=" + candidatePagePlan;
 	}
 
 	static ReportRoundInput withRound(SmallRoundReport collected, int round) {
 		ReportRoundInput input = collected.reportInput();
 		return new ReportRoundInput(
-			round, input.fixtureEvidence(), input.topologyEvidence(), input.matcherProcesses(), input.logicalClaims(),
+			round, input.measuredGitCommitSha(), input.fixtureEvidence(), input.topologyEvidence(),
+			input.matcherProcesses(), input.logicalClaims(),
 			input.throughputPerSecond(),
 			input.pgStatStatements(), input.lockSamples(), input.queryPlan(), input.correctnessInput(),
 			input.integrity());
@@ -900,6 +932,7 @@ public final class MatchCandidateClaimBaselineSupport {
 	/** Node reportRound 입력과 같은 field 이름으로 직렬화할 수 있는 실제 PostgreSQL 수집 결과다. */
 	record ReportRoundInput(
 		int round,
+		String measuredGitCommitSha,
 		FixtureEvidence fixtureEvidence,
 		TopologyEvidence topologyEvidence,
 		List<MatcherProcess> matcherProcesses,

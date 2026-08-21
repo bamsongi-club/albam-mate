@@ -29,6 +29,7 @@ function reportRound(round) {
   const durations = logicalClaims.map((claim) => claim.durationNanos);
   return {
     round: round?.round,
+    measuredGitCommitSha: round?.measuredGitCommitSha,
     fixtureEvidence: {
       generator: round?.fixtureEvidence?.generator,
       fixtureInputSha256: round?.fixtureEvidence?.fixtureInputSha256,
@@ -84,11 +85,13 @@ function fixtureSummary(fixture) {
 export function buildCandidateBaselineReport(input) {
   const { fixture, warmUp, measured } = input ?? {};
   const measuredRounds = Array.isArray(measured) ? measured.map(reportRound) : [];
+  const measuredGitCommitSha = input?.measuredGitCommitSha ?? warmUp?.measuredGitCommitSha;
   const p95Values = measuredRounds.length === MEASURED_ROUND_COUNT
     ? measuredRounds.map((round) => round.statistics.p95Nanos).sort((left, right) => left - right)
     : [];
   return {
     schemaVersion: 1,
+    measuredGitCommitSha,
     fixture: fixtureSummary(fixture),
     warmUp: { countsTowardBaseline: false, round: reportRound(warmUp) },
     measuredRounds,
@@ -129,8 +132,7 @@ function hasCompleteObservations(round) {
     && Number.isInteger(round.lockSamples.lockWaitSnapshotCount)
     && round.lockSamples.lockWaitSnapshotCount >= 0
     && round.lockSamples.samplingFailure === null
-    && typeof round.queryPlan === "string"
-    && round.queryPlan.length > 0
+    && hasContractQueryPlan(round.queryPlan)
     && Number.isFinite(round.correctnessInput?.proposalCount)
     && Number.isFinite(round.correctnessInput?.memberCount)
     && Number.isFinite(round.correctnessInput?.claimedRequestCount)
@@ -154,7 +156,9 @@ function hasExpectedMatcherClaimDistribution(round) {
 
 function hasCompleteRoundEvidence(report) {
   const rounds = [report.warmUp?.round, ...report.measuredRounds];
-  if (rounds.some((round) => !hasRoundFixtureEvidence(round, report.fixture)
+  if (!isMeasuredGitCommitSha(report.measuredGitCommitSha)
+    || rounds.some((round) => !hasRoundFixtureEvidence(round, report.fixture)
+      || round?.measuredGitCommitSha !== report.measuredGitCommitSha
     || !hasContractTopology(round?.topology))) return false;
   const canonicalTopology = rounds[0]?.topology;
   return rounds.every((round) => round.topology.matcherCount === canonicalTopology.matcherCount
@@ -174,6 +178,40 @@ function hasContractTopology(topology) {
     && topology.claimAttempts === LOGICAL_CLAIM_COUNT / REQUIRED_PROCESS_COUNT
     && typeof topology.configurationSha === "string"
     && /^[a-f0-9]{64}$/.test(topology.configurationSha);
+}
+
+function isMeasuredGitCommitSha(value) {
+  return typeof value === "string" && /^[a-f0-9]{40}$/.test(value);
+}
+
+function hasContractQueryPlan(queryPlan) {
+  if (typeof queryPlan !== "string" || queryPlan.length === 0) return false;
+  const normalized = normalizeCandidateQuery(queryPlan);
+  const anchorStart = normalized.indexOf("anchorsql=");
+  const anchorPlanStart = normalized.indexOf("anchorplan=");
+  const candidateStart = normalized.indexOf("candidatepagesql=");
+  const candidatePlanStart = normalized.indexOf("candidatepageplan=");
+  if (anchorStart < 0 || anchorPlanStart <= anchorStart || candidateStart <= anchorPlanStart
+    || candidatePlanStart <= candidateStart) return false;
+  const anchorSql = normalized.slice(anchorStart, candidateStart);
+  const candidateSql = normalized.slice(candidateStart);
+  const anchorPlan = normalized.slice(anchorPlanStart, candidateStart);
+  const candidatePlan = normalized.slice(candidatePlanStart);
+  return anchorPlan.length > "anchorplan=".length
+    && candidatePlan.length > "candidatepageplan=".length
+    && anchorSql.includes("from match_requests")
+    && anchorSql.includes("status = 'waiting'")
+    && anchorSql.includes("order by priority_since asc, id asc")
+    && anchorSql.includes("limit 1")
+    && anchorSql.includes("for update skip locked")
+    && candidateSql.includes("from match_requests")
+    && candidateSql.includes("status = 'waiting'")
+    && candidateSql.includes("priority_since >")
+    && candidateSql.includes("priority_since =")
+    && candidateSql.includes("id >")
+    && candidateSql.includes("order by priority_since asc, id asc")
+    && candidateSql.includes("limit 100")
+    && candidateSql.includes("for update skip locked");
 }
 
 function isOrderedUtcWindow(startedAtUtc, finishedAtUtc) {
