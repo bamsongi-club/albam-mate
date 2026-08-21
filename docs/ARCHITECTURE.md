@@ -140,6 +140,22 @@ AI-01~AI-03 협력 계약은 책임을 소유한 모듈의 `contract`에 둔다.
 
 `AssistantIntentExtractor`는 버전이 지정된 `propose_game_room_intent` schema만 사용한다. `assistant`는 provider가 반환한 game ID·조건을 신뢰하지 않고 구조화 검증 뒤 `AssistantGameCandidateQuery`로 재조회한다. 유일한 정확 게임명은 `AssistantExactGameNameQuery`로 provider 전에 처리한다. provider는 게임 후보·BGG 원문·prompt hash·Room command 권한을 받지 않는다.
 
+### 자연어 추천·UI·provider 책임 분리
+
+자연어 추천은 “문장을 provider에 넘기고 provider가 게임을 검색한다”는 단일 책임이 아니다. 사용자의 표현은 서버가 카탈로그 공식 code로 정규화하고, 후보·인기 정렬·Room 쓰기와 화면 표현은 각각 소유 모듈의 계약으로 분리한다.
+
+| 경계 | 소유 책임 | 금지된 책임 |
+|---|---|---|
+| 클라이언트 `#/assistant` | 사용자 말풍선을 요청 직후 표시, `Enter` 전송·`Shift+Enter` 줄바꿈, 후보 카드 목록·정확 게임명 확인 모달·재시도/수동 생성 안내 | provider 응답 원문 해석, 확인 전 draft·Room·ChatRoom 쓰기 |
+| `assistant` | 현재 문장과 누적 `conditions` 검증·병합, `RECOMMEND`/`CREATE_ROOM` 분기, 상태·누락 필드 반환 | `game` repository 직접 조회, 사용자 확인 없는 Room 생성 |
+| `game.contract` | 공식 카테고리·테마 code 조건, 총 인원 범위, 정확 게임명 resolver, 후보 필터와 내부 `RANK-01`·상위 10건 정렬 | provider 호출, Room·ChatRoom 상태 변경 |
+| `infra.ai` | 허용된 현재 문장·schema를 provider adapter에 전달하고 구조화 결과 반환 | 의미 기반 게임 검색, 공개 인기 순위 결정, tool loop, Room command 호출 |
+| `room.contract` | 확인된 초안에 대해서만 Room·ChatRoom 원자성·멱등성 적용 | 자연어 추천 단계의 후보 조회 |
+
+예를 들어 `전략 게임 추천해 줘`는 카탈로그의 `categories=["STRATEGY"]`, `공포 테마 추천해 줘`는 `themes=["HORROR"]`로 정규화한다. `전략 테마로 4명이서 가볍게`는 전략 공식 분류·`playerCount=4`·승인된 난이도 상한을 함께 적용하며, 조건 종류 사이에는 `AND`를 사용한다. `playerCount`는 주최자를 포함하고 `min_players <= N <= max_players`로 판정하며, 내부 `RANK-01`은 후보 정렬에만 사용한다. 이는 공개 랭킹 endpoint나 provider의 게임 검색 tool을 호출하는 의미 기반 검색으로 대체하지 않는다. `가볍게`의 구체 난이도 상한은 별도 정책 승인 전까지 계약값으로 확정하지 않는다.
+
+후속 문장이 새 테마·카테고리로 “다시 추천”을 요청하면 해당 조건과 이전 정확 `gameId`·후보를 교체하고, 일부 조건만 정제하면 언급하지 않은 조건을 유지한다. `conditions` 생략 또는 `새 대화`는 이전 조건을 폐기한다. 정확 게임명 후보는 클라이언트가 카드 한 건과 확인 모달로 표현하고, 모달 확인 뒤에만 `room.contract`를 호출한다. 따라서 UI의 카드·모달 동작과 provider adapter의 내부 구조화 호출은 서로 대체하거나 공개 계약으로 섞지 않는다.
+
 ### AI 기능군 처리·잠금 흐름
 
 1. `AssistantController`가 세션·CSRF·동의·입력 형식을 확인한다. `assistant.service`는 먼저 `AssistantExactGameNameQuery`를 수행해 유일한 매치면 후보 한 건을 반환하며, 이 경로는 provider·quota ledger·비용 예약·usage event를 만들지 않는다.
