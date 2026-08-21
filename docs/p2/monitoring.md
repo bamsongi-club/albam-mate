@@ -2,15 +2,15 @@
 
 > **문서 상태: active · 정본 승격일: 2026-08-13**
 >
-> 이 문서는 P1에서 조건부 후속으로 예약한 운영 관측과 배포·복구 자동화를 P2의 `OPS-01`~`OPS-06`으로 구체화한 기능 정본이다. 문서 활성화와 메트릭·로그 전송 ADR·운영 계약 승인만으로 구현·배포·실측이 완료되지는 않으며, 기능별 상태표에서 그 축을 따로 판정한다.
+> 이 문서는 P1에서 조건부 후속으로 예약한 운영 관측을 P2의 `OPS-01`~`OPS-05`로 구체화한 기능 정본이다. 문서 활성화와 메트릭·로그 전송 ADR·운영 계약 승인만으로 구현·배포·실측이 완료되지는 않으며, 기능별 상태표에서 그 축을 따로 판정한다.
 
-이 문서는 `OPS-01`~`OPS-06`의 기능 규칙, 완료 기준과 제외 범위를 정의한다. 현재 계약 준비·생산 코드·자동 검증·운영 배포와 실측 상태는 [P2 기능 상태 정본](README.md#기능별-현재-상태)에서만 판정한다.
+이 문서는 `OPS-01`~`OPS-05`의 기능 규칙, 완료 기준과 제외 범위를 정의한다. 현재 계약 준비·생산 코드·자동 검증·운영 배포와 실측 상태는 [P2 기능 상태 정본](README.md#기능별-현재-상태)에서만 판정한다.
 
 P2 전체 범위와 공통 운영 흐름은 [P2 공통 명세](../P2-spec.md), 화면·경고·비용·배포 검증 정책은 [운영 대시보드 정책](dashboard.md)이 관리한다. 실제 metric·log 허용 목록, alarm matrix와 전체 스택 계획 종료·재기동 절차는 [P2 운영 관측 런북](../guides/MONITORING_OPERATIONS.md)이 소유한다. 메트릭 전송은 [ADR-0071](../adr/platform/0071-p2-application-metrics-otlp-host-cloudwatch-agent.md), 구조화 로그 전송·보존은 [ADR-0059](../adr/platform/0059-p2-structured-stdout-cloudwatch-logs.md)가 소유하며, 이 문서가 ADR이나 구현 증거를 대신하지 않는다.
 
 ## 목표와 지원 수준
 
-P2 운영은 인프라가 켜져 있다는 사실만 보여주지 않는다. 다음 여섯 질문에 실제 배포 데이터와 재현 가능한 검증 증거로 답해야 한다.
+P2 대시보드는 인프라가 켜져 있다는 사실만 보여주지 않는다. 다음 다섯 질문에 실제 배포 데이터와 재현 가능한 검증 증거로 답해야 한다.
 
 | 기능 ID | 운영 질문 | 최종 지원 범위 |
 | --- | --- | --- |
@@ -19,7 +19,6 @@ P2 운영은 인프라가 켜져 있다는 사실만 보여주지 않는다. 다
 | `OPS-03` | 실패하는가 | 5xx·timeout, scheduler·의존성 실패, AI·Tool Calling 오류 |
 | `OPS-04` | 돈을 많이 쓰는가 | AI 요청·token·provider·model별 사용량과 추정 비용, 관측 데이터 수집량 |
 | `OPS-05` | 기능이 실제로 동작하는가 | 알림, 채팅, 참가 대기열의 시도부터 최종 업무 결과까지 |
-| `OPS-06` | 검증된 변경을 안전하게 배포·복구할 수 있는가 | `develop` CI 성공 SHA, P2 전용 대상, one-shot Flyway, App2→App1, 앱 rollback과 증거 |
 
 화면 존재, Terraform 선언, Actuator endpoint와 테스트 metric 증가는 완료가 아니다. 같은 release의 정상·장애·복구 시나리오에서 지표·로그·경고·업무 결과를 확인해야 한다.
 
@@ -36,7 +35,7 @@ P2 운영은 인프라가 켜져 있다는 사실만 보여주지 않는다. 다
 
 ## P2 운영 관측 완료선과 조건부 연동
 
-`OPS-01`~`OPS-06`은 P2 운영 관측·배포 복구가 최종적으로 지원할 범위다. 각 기능의 배포 시점이 다르므로 모든 완료 기준을 한 번에 충족해야만 운영 기반을 전달할 수 있는 것은 아니다. 이번 단계에서는 아래 여섯 결과를 필수 완료선으로 삼는다.
+`OPS-01`~`OPS-05`는 P2 운영 관측이 최종적으로 지원할 범위다. 각 기능의 배포 시점이 다르므로 모든 완료 기준을 한 번에 충족해야만 운영 관측 기반을 전달할 수 있는 것은 아니다. 이번 단계에서는 아래 여섯 결과를 필수 완료선으로 삼는다.
 
 | 필수 결과 | 완료 판정 |
 | --- | --- |
@@ -47,7 +46,7 @@ P2 운영은 인프라가 켜져 있다는 사실만 보여주지 않는다. 다
 | 보존·보안 | 중앙 로그가 14일 뒤 자동 삭제되고 금지한 개인정보·비밀값·원문 payload가 지표와 로그에 포함되지 않음 |
 | 완료 증거 | release SHA, 실행 시각, fixture, 기대 결과, 실제 metric·log·alarm 변화와 판정을 재현 가능한 기록으로 남김 |
 
-위 완료선은 지원 범위를 줄이지 않는다. `OPS-01`~`OPS-06`의 세부 완료 기준은 해당 신호를 만드는 기능과 의존성이 배포되는 순서에 맞춰 이어서 충족한다.
+위 완료선은 지원 범위를 줄이지 않는다. `OPS-01`~`OPS-05`의 세부 완료 기준은 해당 신호를 만드는 기능과 의존성이 배포되는 순서에 맞춰 이어서 충족한다.
 
 이 표는 새 기능 ID나 완료 기준을 추가하지 않는다. 구현 Issue와 PR은 여섯 결과 가운데 맡은 부분을 기존 `OPS-*` 완료 기준과 연결하고, 완료한 AC 범위를 정확히 선언한다.
 
@@ -157,7 +156,7 @@ ROOM 상태 보정 또는 채팅 보존 실패·지연·상한 경고 수신
 
 ### 제외 범위
 
-- 장애 감지 뒤 자동 재시작·자동 확장·`OPS-06` 밖의 자동 rollback
+- 장애 감지 뒤 자동 재시작·자동 확장·자동 rollback
 - 관리 endpoint의 인터넷 공개와 일반 사용자용 상태 페이지
 - 계획 종료로 기록되지 않은 운영 중 수집 공백의 정상 처리
 
@@ -332,52 +331,6 @@ HTTP 2xx나 scheduler 실행 성공은 업무 기능 성공의 일부일 뿐이�
 
 ---
 
-## OPS-06 develop P2 연속 배포와 앱 복구
-
-### 구현 컨텍스트
-
-| 구분 | 참조 문서 |
-| --- | --- |
-| 기술 결정 | [ADR-0086](../adr/platform/0086-github-actions-develop-p2-continuous-deployment.md) |
-| 실행·실패 경계 | [develop P2 자동 CD 가이드](../guides/CD_DEPLOYMENT.md) |
-| P1 기준선과 분리 | [P1 AWS 저비용 4 EC2 인프라 실행안](../guides/AWS_MULTI_INSTANCE_INFRASTRUCTURE.md) |
-| 현재 상태 | [P2 기능 상태 정본](README.md#기능별-현재-상태) |
-
-### 핵심 흐름
-
-`develop`의 같은 40자리 SHA가 `CI Gate`를 성공한 뒤에만 P2 배포 후보가 된다. 최신 **성공** CI run보다 오래된 후보는 배포 전에 건너뛰되, 아직 성공하지 않았거나 실패한 뒤 커밋 때문에 마지막 성공 SHA를 건너뛰지 않는다. 실제 배포 job은 취소하지 않는 하나의 P2 직렬 실행으로 one-shot migrator → App2 → App1 → 인증 기능 smoke를 수행한다.
-
-P2 대상은 기존 P1 수동 기준선이나 성능 측정 `perf` stack을 재사용하지 않는다. GitHub role은 P2 대상의 고정 SSM 문서와 instance ID에만 명령을 보내며, 노드에 이미 있는 `/etc/albam-mate/app1.env`, `/etc/albam-mate/app2.env`, `/etc/albam-mate/deployment-verification.env`의 원문을 읽거나 출력하지 않는다. 마지막 파일은 App1 host에 root 소유·`0600`으로 사전 배치한 일반 사용자 기능 검증 계정만 담는다.
-
-### 기능 규칙
-
-- 배포 입력은 `workflow_run.head_sha` 하나와 그 SHA로 확인한 backend·web `linux/arm64` immutable digest다. PR head, default branch tip, 실행 중 다시 조회한 tag는 입력으로 쓰지 않는다.
-- P2 deploy role은 image-publish role과 분리하며, ECR read·고정 P2 SSM command·결과 조회·비밀이 아닌 P2 deployment contract/LKG Parameter만 허용한다. DB·애플리케이션 secret, Terraform/IAM, S3, SSH, 임의 shell command 권한은 허용하지 않는다.
-- backend image에는 같은 SHA의 Compose 배포 asset을 포함한다. P2 host의 고정 runner만 digest를 확인한 뒤 asset을 추출해 기존 host-local env를 조합한다.
-- `/albam-mate/p2/last-known-good`은 운영자가 정상 P2 release의 SHA·digest·health/upstream·기능 smoke를 확인한 뒤 수동으로 최초 기록한다. manifest가 없거나 현재 두 앱과 일치하지 않으면 migrator·앱 교체·상태 쓰기를 시작하지 않는다.
-- migrator는 App2에서 `validate` 뒤 `migrate`를 정확히 한 번 실행하고 종료한다. 일반 App1·App2 기동은 Flyway를 실행하지 않는다.
-- App2→App1 순서로 새 SHA를 적용하고 각 단계에서 container health, release SHA, App1에서 보이는 upstream을 확인한다. App1의 인증된 read-only smoke는 CSRF→login→`GET /api/users/me`으로 수행하며 credential·cookie·CSRF 값을 stdout, SSM, GitHub 로그나 manifest에 남기지 않는다.
-- migrator 실패는 기존 앱을 유지한다. App2 실패는 App2만 LKG로 복귀하고, App1 또는 최종 smoke 실패는 App1→App2 순서로 LKG 앱만 복귀한다. DB migration, backup/PITR은 자동 복구하지 않는다.
-
-### 완료 기준
-
-- `OPS-06-AC1` `develop`의 성공한 `CI Gate`와 정확히 같은 40자리 SHA만 배포 입력으로 사용하고, 최신 성공 CI 후보만 P2 직렬 deploy 대기열에 넣는다.
-- `OPS-06-AC2` backend·web을 같은 SHA·OCI revision의 `linux/arm64` immutable digest로 게시·재검증하고, OIDC image-publish/deploy role을 최소 권한으로 분리한다.
-- `OPS-06-AC3` P2 전용 대상·고정 SSM command·비밀이 아닌 deployment contract와 LKG Parameter를 선언하며, LKG 초기값은 Terraform이 만들지 않고 운영자 bootstrap 전 fail-closed 한다.
-- `OPS-06-AC4` App2에서만 one-shot Flyway `validate`→`migrate`를 한 번 실행하고 일반 App1·App2 Flyway를 끈 뒤, Compose asset이 같은 backend digest에서 왔음을 검증한다.
-- `OPS-06-AC5` App2→App1 rollout에서 health·release·upstream과 App1 host-local 일반 계정의 인증 read-only smoke를 확인하고, secret을 GitHub/SSM 출력에 남기지 않는다.
-- `OPS-06-AC6` migrator·App2·App1/smoke 실패를 구분해 DB rollback 없이 LKG 앱 rollback을 수행하고, rollback 후 두 앱 상태를 다시 확인한다.
-- `OPS-06-AC7` CI URL, source SHA, image digest, SSM 대상·명령 ID, 단계별 판정, LKG version과 실패 단계만 비식별 receipt로 남기며, 실제 P2 apply·bootstrap·배포·복구 실측은 별도 실행 증거로 판정한다.
-
-### 제외 범위
-
-- `main` 또는 다른 환경의 자동 배포, Terraform apply와 P2 target 최초 생성
-- 자동 DB rollback, backup/PITR 복구, 데이터 보정 rollback, k6 실행과 성능 측정 stack 제어
-- 무중단·blue/green·ALB cutover, 자동 확장, 24시간 on-call과 장기 SLO/SLA 확정
-- 실제 P2 AWS 입력값·verification 계정 원문·LKG manifest 원문을 Git이나 CI에 저장하는 것
-
----
-
 ## 공통 구조화 로그·대시보드·경고
 
 중앙 로그는 UTC `timestamp`, `level`, 배포 식별자, 서버 확정 `requestId`, 고정 `event`, 정규화 route와 허용된 `failureCode`·`outcome`을 사용한다. 정상 API 요청 수·지연·status 분포는 metric이 소유하며 정상 2xx·4xx access log 전체를 중앙 전송하지 않는다.
@@ -404,14 +357,14 @@ Agent·CloudWatch 장애는 사용자 요청과 업무 transaction을 실패시�
 - 사용자·ROOM·메시지·알림 단위 시계열과 요청·응답·프롬프트·채팅·알림 내용 수집
 - AI 제품 기능 자체와 AI 답변의 정확성·유용성·근거 품질 평가
 - 모든 P1 기능의 상시 쓰기형 합성 테스트, 24시간 on-call과 다단계 escalation
-- 자동 restart·scale, `OPS-06`이 명시한 앱 rollback 밖의 자동 rollback, Outbox 자동 재처리와 잠금·broker·저장 구조 자동 변경
+- 자동 restart·rollback·scale, Outbox 자동 재처리와 잠금·broker·저장 구조 자동 변경
 - AWS 계정 전체 FinOps와 실제 청구액 확정
-- backup/PITR 자동 복구, `SEC-01`, `RANK-01`
+- `OPS-06` 배포·rollback·backup·복구 자동화, `SEC-01`, `RANK-01`
 
 ## 결정 위치와 구현 경계
 
 사용자가 확인한 운영 정책은 [운영 대시보드 정책](dashboard.md)의 해당 절이 관리한다. 이 문서는 그 정책을 각 `OPS-*` 기능 규칙과 완료 기준으로만 연결하며 확정값 목록을 반복하지 않는다.
 
-메트릭 전송은 승인된 [ADR-0071](../adr/platform/0071-p2-application-metrics-otlp-host-cloudwatch-agent.md), 로그 전송·보존은 승인된 [ADR-0059](../adr/platform/0059-p2-structured-stdout-cloudwatch-logs.md)가 소유한다. 실제 metric·log 허용 목록, 경고별 query·런북, 배포 설정·IAM·상태 전이와 비용·장애 검증 계약은 [운영 관측 런북](../guides/MONITORING_OPERATIONS.md)에 반영했다. `OPS-06`의 앱·인프라 코드와 자동 계약 검증은 구현했지만, 남은 실제 P2 apply·bootstrap·배포·복구 실측을 문서·런북·ADR 승인이나 자동 검증만으로 완료로 판정하지 않는다.
+메트릭 전송은 승인된 [ADR-0071](../adr/platform/0071-p2-application-metrics-otlp-host-cloudwatch-agent.md), 로그 전송·보존은 승인된 [ADR-0059](../adr/platform/0059-p2-structured-stdout-cloudwatch-logs.md)가 소유한다. 실제 metric·log 허용 목록, 경고별 query·런북, 배포 설정·IAM·상태 전이와 비용·장애 검증 계약은 [운영 관측 런북](../guides/MONITORING_OPERATIONS.md)에 반영했다. 남은 작업은 애플리케이션·인프라 구현, 자동 검증, AWS 배포와 실측이며 이 문서·런북·ADR 승인만으로 그 상태가 끝났다고 판정하지 않는다.
 
 AI provider·model과 실제 이메일 주소처럼 다른 기능 명세나 배포 비밀이 소유하는 값은 이 문서에 임의로 만들지 않는다. 구현 시점의 현재 상태는 [P2 기능 상태 정본](README.md#기능별-현재-상태)만 갱신한다.

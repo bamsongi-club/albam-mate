@@ -1,6 +1,6 @@
 # develop P2 자동 CD 가이드
 
-이 가이드는 [ADR-0086](../adr/platform/0086-github-actions-develop-p2-continuous-deployment.md)에서 승인한 P2 자동 CD의 실행·확인 경계를 설명한다.
+이 가이드는 [#961](https://github.com/bamsongi-club/albam-mate/issues/961)에서 승인한 T1~T7을 구현 계약으로 삼는 P2 자동 CD의 실행·확인 경계를 설명한다.
 
 > - 문서 상태: **승인·코드 구현·자동 검증 완료, P2 AWS 실행 미검증**
 > - 적용 환경: **P2 전용 App1·App2·PostgreSQL·Redis 대상**
