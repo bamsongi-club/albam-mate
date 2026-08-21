@@ -1,6 +1,13 @@
 package cloud.bamsongi.albammate.infra.search;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
+import java.util.HexFormat;
+import java.util.List;
 import java.util.UUID;
 
 final class SemanticIndexProvisioner {
@@ -47,6 +54,31 @@ final class SemanticIndexProvisioner {
 				throw new IllegalArgumentException("approved semantic artifact contains invalid embeddings");
 			}
 		}
+		if (!expectedRelease.manifestSha256().equalsIgnoreCase(gameIdMembershipSha256(gameIds))) {
+			throw new IllegalArgumentException(
+				"approved semantic artifact game id membership does not match the approved manifest checksum");
+		}
+	}
+
+	/**
+	 * 승인 manifest가 고정한 게임 ID 구성원 checksum이다. 라벨만 일치하는 다른 1,000개 게임 집합이
+	 * 같은 release/provenance 라벨을 달고 READY로 승격되는 것을 막는다. embedding 값은 Cloudflare가
+	 * 매 호출마다 새로 계산하는 비결정적 출력이라 이 checksum에 포함하지 않는다.
+	 */
+	static String gameIdMembershipSha256(java.util.Set<Long> gameIds) {
+		List<Long> sorted = new ArrayList<>(gameIds);
+		sorted.sort(Comparator.naturalOrder());
+		MessageDigest digest;
+		try {
+			digest = MessageDigest.getInstance("SHA-256");
+		} catch (NoSuchAlgorithmException exception) {
+			throw new IllegalStateException(exception);
+		}
+		for (Long gameId : sorted) {
+			digest.update(Long.toString(gameId).getBytes(StandardCharsets.UTF_8));
+			digest.update((byte)',');
+		}
+		return HexFormat.of().formatHex(digest.digest());
 	}
 
 	private boolean validVector(double[] vector) {

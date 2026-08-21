@@ -3,6 +3,7 @@ package cloud.bamsongi.albammate.infra.search;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -50,8 +51,16 @@ class PgVectorSemanticIndexPostgresTest {
 		jdbcTemplate = new JdbcTemplate(new DriverManagerDataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(),
 			POSTGRES.getPassword()));
 		repository = new PgVectorSemanticIndexRepository(jdbcTemplate);
-		release = new ApprovedSearchRelease("release-1", "field-v1", SHA, SHA);
+		release = new ApprovedSearchRelease("release-1", "field-v1", approvedManifestSha256(), SHA);
 		provisioner = new SemanticIndexProvisioner(repository, release, EmbeddingProvenance.cloudflareBgeM3());
+	}
+
+	private static String approvedManifestSha256() {
+		java.util.Set<Long> approvedGameIds = new java.util.HashSet<>();
+		for (long gameId = 1; gameId <= 1000; gameId++) {
+			approvedGameIds.add(gameId);
+		}
+		return SemanticIndexProvisioner.gameIdMembershipSha256(approvedGameIds);
 	}
 
 	@BeforeEach
@@ -77,6 +86,14 @@ class PgVectorSemanticIndexPostgresTest {
 			"select id::text from semantic_search_index_versions where active", String.class));
 		assertEquals(1L, candidates.getFirst().gameId());
 		assertEquals(1.0, candidates.getFirst().relevance(), 0.000001);
+
+		AtomicBoolean readyProviderCalled = new AtomicBoolean();
+		List<DenseCandidateSource.Candidate> readyCandidates = denseCandidateSource(() -> readyProviderCalled.set(true))
+			.findCandidates("READY 성공 경로");
+		assertTrue(readyProviderCalled.get());
+		assertEquals(1L, readyCandidates.getFirst().gameId());
+		assertEquals(1.0, readyCandidates.getFirst().relevance(), 0.000001);
+
 		jdbcTemplate.update("delete from semantic_game_embeddings where index_version_id = ? and game_id = ?", ready,
 			1L);
 		assertThrows(SemanticSearchUnavailableException.class,
@@ -105,9 +122,9 @@ class PgVectorSemanticIndexPostgresTest {
 		assertThrows(SemanticSearchUnavailableException.class,
 			() -> denseCandidateSource().findCandidates("다른 embedding mode"));
 
-		UUID ready = provisioner.activate(artifact(release, EmbeddingProvenance.cloudflareBgeM3(), 1001));
+		UUID ready = provisioner.activate(artifact(release, EmbeddingProvenance.cloudflareBgeM3(), 1));
 		PgVectorDenseCandidateSource source = denseCandidateSource(() -> jdbcTemplate.update(
-			"delete from semantic_game_embeddings where index_version_id = ? and game_id = ?", ready, 1001L));
+			"delete from semantic_game_embeddings where index_version_id = ? and game_id = ?", ready, 1L));
 
 		assertThrows(SemanticSearchUnavailableException.class, () -> source.findCandidates("경합 부분 backfill"));
 	}
@@ -127,13 +144,13 @@ class PgVectorSemanticIndexPostgresTest {
 		assertEquals(1000, jdbcTemplate.queryForObject(
 			"select count(*) from semantic_game_embeddings where index_version_id = ?", Integer.class, first));
 		assertThrows(IllegalArgumentException.class,
-			() -> provisioner.activate(artifact(release, EmbeddingProvenance.cloudflareBgeM3(), 1001, 2, 0)));
+			() -> provisioner.activate(artifact(release, EmbeddingProvenance.cloudflareBgeM3(), 1, 2, 0)));
 		assertEquals(first.toString(), jdbcTemplate.queryForObject(
 			"select id::text from semantic_search_index_versions where active", String.class));
 		assertThrows(IllegalStateException.class, () -> repository.activate(UUID.randomUUID()));
 		assertEquals(first.toString(), jdbcTemplate.queryForObject(
 			"select id::text from semantic_search_index_versions where active", String.class));
-		UUID second = provisioner.activate(artifact(release, EmbeddingProvenance.cloudflareBgeM3(), 2001));
+		UUID second = provisioner.activate(artifact(release, EmbeddingProvenance.cloudflareBgeM3(), 1));
 		jdbcTemplate.execute("""
 			create function reject_semantic_rollback_target() returns trigger language plpgsql as $$
 			begin
@@ -160,6 +177,32 @@ class PgVectorSemanticIndexPostgresTest {
 			"select id::text from semantic_search_index_versions where active", String.class));
 		assertEquals(0, jdbcTemplate.queryForObject(
 			"select count(*) from semantic_search_index_versions where id = ? and active", Integer.class, second));
+	}
+
+	@Test
+	void T5_동시_cutover는_partial_unique_충돌로_정상_release를_FAILED_처리하지_않는다() throws Exception {
+		java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newFixedThreadPool(2);
+		try {
+			List<java.util.concurrent.Future<UUID>> futures = new ArrayList<>();
+			for (int index = 0; index < 2; index++) {
+				futures.add(executor.submit(() -> provisioner.activate(artifact(release,
+					EmbeddingProvenance.cloudflareBgeM3(), 1))));
+			}
+			List<UUID> activated = new ArrayList<>();
+			for (java.util.concurrent.Future<UUID> future : futures) {
+				activated.add(future.get(30, java.util.concurrent.TimeUnit.SECONDS));
+			}
+
+			assertEquals(0, jdbcTemplate.queryForObject(
+				"select count(*) from semantic_search_index_versions where status = 'FAILED'", Integer.class));
+			assertEquals(2, jdbcTemplate.queryForObject(
+				"select count(*) from semantic_search_index_versions where status = 'READY'", Integer.class));
+			String activeId = jdbcTemplate.queryForObject(
+				"select id::text from semantic_search_index_versions where active", String.class);
+			assertTrue(activated.stream().map(UUID::toString).anyMatch(activeId::equals));
+		} finally {
+			executor.shutdownNow();
+		}
 	}
 
 	private ApprovedEmbeddingArtifact artifact(ApprovedSearchRelease artifactRelease, EmbeddingProvenance provenance,

@@ -19,6 +19,7 @@ import cloud.bamsongi.albammate.game.contract.DenseCandidateSource;
 final class PgVectorSemanticIndexRepository {
 
 	private static final int INITIAL_ROW_COUNT = 1000;
+	private static final long CUTOVER_LOCK_KEY = 0x53454152434834L;
 
 	private final JdbcTemplate jdbcTemplate;
 	private final DataSource dataSource;
@@ -56,6 +57,7 @@ final class PgVectorSemanticIndexRepository {
 			boolean autoCommit = connection.getAutoCommit();
 			connection.setAutoCommit(false);
 			try {
+				lockCutover(connection);
 				if (update(connection,
 					"update semantic_search_index_versions set status = 'READY' where id = ? and status = 'BUILDING'",
 					versionId) != 1) {
@@ -116,6 +118,7 @@ final class PgVectorSemanticIndexRepository {
 			boolean autoCommit = connection.getAutoCommit();
 			connection.setAutoCommit(false);
 			try {
+				lockCutover(connection);
 				if (!isReady(connection, versionId)) {
 					throw new IllegalArgumentException("rollback target must be READY");
 				}
@@ -156,6 +159,18 @@ final class PgVectorSemanticIndexRepository {
 	private String vectorLiteral(double[] vector) {
 		return Arrays.stream(vector).mapToObj(value -> String.format(Locale.ROOT, "%.17g", value))
 			.collect(java.util.stream.Collectors.joining(",", "[", "]"));
+	}
+
+	/**
+	 * active pointer 전환(activate/rollback)을 하나씩만 진행하도록 직렬화한다. partial unique index
+	 * (active=true 1건 제한)에 동시에 두 트랜잭션이 부딪혀 정상 release가 constraint violation으로
+	 * FAILED 처리되는 경쟁을 막는다. 트랜잭션 종료 시 자동 해제된다.
+	 */
+	private void lockCutover(Connection connection) throws SQLException {
+		try (PreparedStatement statement = connection.prepareStatement("select pg_advisory_xact_lock(?)")) {
+			statement.setLong(1, CUTOVER_LOCK_KEY);
+			statement.execute();
+		}
 	}
 
 	private int update(Connection connection, String sql, Object... values) throws SQLException {

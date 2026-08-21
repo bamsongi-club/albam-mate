@@ -9,7 +9,12 @@ import cloud.bamsongi.albammate.game.contract.SemanticSearchUnavailableException
 
 final class PgVectorDenseCandidateSource implements DenseCandidateSource {
 
-	private static final int CANDIDATE_LIMIT = 100;
+	/**
+	 * 초기 corpus 전체(1,000건) 순서를 core에 넘긴다. hard filter·페이지 경계는
+	 * SemanticGameSearchService가 이 목록 위에서 적용하므로, 일부만 잘라 보내면 101위 밖의
+	 * 필터 통과 게임과 큰 페이지가 결과에서 사라진다.
+	 */
+	private static final int CANDIDATE_LIMIT = 1000;
 
 	private final CloudflareEmbeddingClient embeddingClient;
 	private final PgVectorSemanticIndexRepository repository;
