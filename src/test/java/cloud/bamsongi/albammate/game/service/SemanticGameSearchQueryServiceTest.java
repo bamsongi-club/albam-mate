@@ -147,6 +147,78 @@ class SemanticGameSearchQueryServiceTest {
 		assertEquals(List.of(fallbackGame.getId()), response.content().stream().map(item -> item.id()).toList());
 	}
 
+	@Test
+	void 인증된_사용자의_playedFilter_요청은_core를_호출하고_필터값으로_playedByMe를_표시한다() {
+		Game game = entityGame(50L, 1050L, "인증 사용자 게임");
+		SemanticGameSearchRequest request = request("협력 게임");
+		request.setPlayedFilter(List.of(PlayedFilter.PLAYED_ONLY));
+		when(semanticGameSearch.search(any(SemanticGameSearchQuery.class))).thenReturn(
+			new SemanticGameSearchResult(
+				SemanticGameSearchMode.SEMANTIC,
+				List.of(new GameSummary(game.getId(), game.getBggId(), game.getName())),
+				false));
+		when(gameRepository.findAllById(anyList())).thenReturn(List.of(game));
+		when(upcomingRoomCountQuery.findUpcomingRoomCounts(anyList(), any())).thenReturn(Map.of());
+
+		SemanticGameSearchResponse response = service.search(request, 7L);
+
+		assertTrue(response.content().get(0).playedByMe());
+		verifyNoInteractions(userPlayedGameRepository);
+	}
+
+	@Test
+	void 인증된_사용자의_해본게임_제외_playedFilter는_false로_표시한다() {
+		Game game = entityGame(55L, 1055L, "제외 필터 게임");
+		SemanticGameSearchRequest request = request("협력 게임");
+		request.setPlayedFilter(List.of(PlayedFilter.EXCLUDE_PLAYED));
+		when(semanticGameSearch.search(any(SemanticGameSearchQuery.class))).thenReturn(
+			new SemanticGameSearchResult(
+				SemanticGameSearchMode.SEMANTIC,
+				List.of(new GameSummary(game.getId(), game.getBggId(), game.getName())),
+				false));
+		when(gameRepository.findAllById(anyList())).thenReturn(List.of(game));
+		when(upcomingRoomCountQuery.findUpcomingRoomCounts(anyList(), any())).thenReturn(Map.of());
+
+		SemanticGameSearchResponse response = service.search(request, 7L);
+
+		assertFalse(response.content().get(0).playedByMe());
+	}
+
+	@Test
+	void 인증된_사용자가_playedFilter_없이_조회하면_실제_플레이_여부를_조회해_표시한다() {
+		Game game = entityGame(60L, 1060L, "실제 플레이 조회 게임");
+		SemanticGameSearchRequest request = request("협력 게임");
+		when(semanticGameSearch.search(any(SemanticGameSearchQuery.class))).thenReturn(
+			new SemanticGameSearchResult(
+				SemanticGameSearchMode.SEMANTIC,
+				List.of(new GameSummary(game.getId(), game.getBggId(), game.getName())),
+				false));
+		when(gameRepository.findAllById(anyList())).thenReturn(List.of(game));
+		when(upcomingRoomCountQuery.findUpcomingRoomCounts(anyList(), any())).thenReturn(Map.of());
+		when(userPlayedGameRepository.findGameIdsByUserIdAndGameIdIn(7L, List.of(game.getId())))
+			.thenReturn(List.of(game.getId()));
+
+		SemanticGameSearchResponse response = service.search(request, 7L);
+
+		assertTrue(response.content().get(0).playedByMe());
+		verify(userPlayedGameRepository).findGameIdsByUserIdAndGameIdIn(7L, List.of(game.getId()));
+	}
+
+	@Test
+	void 인증된_사용자여도_결과가_모두_존재하지_않는_게임이면_플레이_여부를_조회하지_않는다() {
+		SemanticGameSearchRequest request = request("협력 게임");
+		when(semanticGameSearch.search(any(SemanticGameSearchQuery.class))).thenReturn(
+			new SemanticGameSearchResult(
+				SemanticGameSearchMode.SEMANTIC, List.of(new GameSummary(999L, 1999L, "삭제된 게임")), false));
+		when(gameRepository.findAllById(anyList())).thenReturn(List.of());
+
+		SemanticGameSearchResponse response = service.search(request, 7L);
+
+		assertEquals(List.of(), response.content());
+		verifyNoInteractions(upcomingRoomCountQuery);
+		verifyNoInteractions(userPlayedGameRepository);
+	}
+
 	private SemanticGameSearchRequest request(String query) {
 		SemanticGameSearchRequest request = new SemanticGameSearchRequest();
 		request.setQuery(query);
