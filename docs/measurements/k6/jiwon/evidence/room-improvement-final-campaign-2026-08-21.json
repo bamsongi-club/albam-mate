@@ -1,0 +1,1890 @@
+{
+  "schema": "k6-campaign-manifest-v3",
+  "kind": "room-improvement-final-campaign",
+  "campaignId": "room-improvement-final-campaign-2026-08-21",
+  "issueNumber": 784,
+  "campaignStatus": "completed-with-limitations",
+  "documentStatus": "current",
+  "reportStatus": "INCONSISTENT",
+  "purpose": "Issue #784의 release-quality gate로 ROOM 공식 matrix를 검증하고, 승인된 Mixed·Soak profile의 실행 가능성과 필수 evidence 계약을 확인한다.",
+  "contract": {
+    "source": "Issue #784 latest approved Mixed/Soak and final-gate contract",
+    "matrix": {
+      "plannedCases": 25,
+      "cases": [
+        "T1 hot c2/c4/c8",
+        "T1 spread c2/c4/c8",
+        "T2 distinct hot c2/c4/c8",
+        "T2 distinct spread c2/c4/c8",
+        "T2 duplicate hot c2",
+        "T3 race/wait-first/cancel-first",
+        "T4 last-seat c2/c4/c8",
+        "T5 public/host/participant x ACTIVE 1/10"
+      ]
+    },
+    "mixed": {
+      "hotRoomCount": 2,
+      "spreadRoomCount": 16,
+      "hotRequestPercent": 50,
+      "spreadRequestPercent": 50,
+      "t1Percent": 50,
+      "t2Percent": 25,
+      "t5Percent": 25,
+      "arrivalRate": 16,
+      "arrivalTimeUnit": "1s",
+      "durationSeconds": 60,
+      "preAllocatedVUs": 32,
+      "maxVUs": 64,
+      "seed": 78401,
+      "plannedRepeats": 3,
+      "targetArrivalsPerRun": 960
+    },
+    "soak": {
+      "hotRoomCount": 1,
+      "spreadRoomCount": 10,
+      "hotRequestPercent": 50,
+      "spreadRequestPercent": 50,
+      "t1Percent": 50,
+      "t2Percent": 25,
+      "t5Percent": 25,
+      "arrivalRate": 10,
+      "arrivalTimeUnit": "1s",
+      "durationSeconds": 900,
+      "preAllocatedVUs": 20,
+      "maxVUs": 40,
+      "seed": 78402,
+      "plannedRuns": 1,
+      "targetArrivals": 9000
+    },
+    "gates": {
+      "matrix": "all 25 included runs PASS; before/after diagnosis PASS; unexpected 4xx/5xx and contract failures 0; dropped_iterations 0",
+      "mixed": "target/actual arrival, dropped_iterations, tier-operation-outcome aggregate, write/read isolation and after diagnosis must all be valid",
+      "soak": "same Mixed aggregate and correctness contract over the 900 second profile",
+      "interpretation": "not an absolute capacity or operational SLO; release-quality correctness and DB-cost evidence only"
+    }
+  },
+  "window": {
+    "startedAtUtc": "2026-08-21T11:53:26Z",
+    "endedAtUtc": "2026-08-21T14:05:57Z",
+    "matrixRuns": "2026-08-21T11:53:26Z/2026-08-21T13:46:57Z",
+    "mixedRuns": "2026-08-21T13:51:10Z/2026-08-21T14:04:54Z"
+  },
+  "provenance": {
+    "sourceShaValues": [
+      "d8c112a7ad11c4cae6ff5427fd40af4c7f4577ec"
+    ],
+    "deployedReleaseValues": [
+      "d8c112a7ad11c4cae6ff5427fd40af4c7f4577ec"
+    ],
+    "sameSourceAcrossIncludedMatrixRuns": true,
+    "targetEnvironment": "aws-room-k6",
+    "portableBundle": {
+      "kind": "albam-mate-room-k6-bundle",
+      "schemaVersion": 2,
+      "fixtureSchemaVersion": 2,
+      "staticMixedBundlesValidated": 3,
+      "staticSoakBundlesValidated": 1,
+      "k6Version": "k6 v1.3.0 (linux/arm64)"
+    },
+    "executionPath": "portable bundle -> albam-mate-infra/run.sh room-k6",
+    "appCommit": "d8c112a7ad11c4cae6ff5427fd40af4c7f4577ec",
+    "infraRunnerCommit": "5607cbb55ae902a8212d72e30716d67bf2ea4bb",
+    "infraRunnerWorkingTree": "dirty during campaign; local runner/aggregator fixes were not pushed",
+    "localRunnerChanges": [
+      "mixed scenario allowlist and K6_SETUP_TIMEOUT environment propagation",
+      "T3 empty-sample normalization",
+      "closed-read missing dropped_iterations normalization"
+    ],
+    "t3SignalProvenance": "three T3 signal artifacts were deterministically reaggregated after the local empty-sample normalization; no application source was changed"
+  },
+  "coverage": [
+    {
+      "scenario": "t1",
+      "plannedRuns": 6,
+      "actualRuns": 6,
+      "includedRuns": 6,
+      "status": "PASS"
+    },
+    {
+      "scenario": "t2",
+      "plannedRuns": 7,
+      "actualRuns": 7,
+      "includedRuns": 7,
+      "status": "PASS"
+    },
+    {
+      "scenario": "t3",
+      "plannedRuns": 3,
+      "actualRuns": 3,
+      "includedRuns": 3,
+      "status": "PASS"
+    },
+    {
+      "scenario": "t4",
+      "plannedRuns": 3,
+      "actualRuns": 3,
+      "includedRuns": 3,
+      "status": "PASS"
+    },
+    {
+      "scenario": "t5",
+      "plannedRuns": 6,
+      "actualRuns": 7,
+      "includedRuns": 6,
+      "status": "PASS",
+      "excludedReplacementHistory": 1
+    },
+    {
+      "scenario": "mixed",
+      "plannedRuns": 3,
+      "actualAttempts": 3,
+      "includedRuns": 0,
+      "status": "INVALID"
+    },
+    {
+      "scenario": "soak",
+      "plannedRuns": 1,
+      "actualRuns": 0,
+      "includedRuns": 0,
+      "status": "NOT_RUN"
+    }
+  ],
+  "selection": {
+    "matrix": {
+      "plannedRuns": 25,
+      "includedRuns": 25,
+      "excludedRuns": 1,
+      "excludedReason": "original T5 host ACTIVE 1 run was INVALID because after diagnosis was not produced after the closed-read resource gate; replacement run was included"
+    },
+    "mixed": {
+      "plannedRuns": 3,
+      "includedRuns": 0,
+      "excludedRuns": 3,
+      "reason": "one setup timeout, one unsupported CLI retry, one completed run with app-owned aggregate INVALID"
+    },
+    "soak": {
+      "plannedRuns": 1,
+      "includedRuns": 0,
+      "reason": "not started after Mixed contract INVALID"
+    },
+    "reportDispositionRule": "only reportDisposition=included contributes to conclusion"
+  },
+  "validity": {
+    "matrix": {
+      "includedRuns": 25,
+      "passRuns": 25,
+      "invalidRuns": 0,
+      "requestCount": 93714,
+      "failedRequestCount": 0,
+      "outcomes": {
+        "success": 93599,
+        "business": 59,
+        "concurrency": 56,
+        "unexpected": 0
+      },
+      "droppedIterations": {
+        "checkedRuns": 25,
+        "zeroRuns": 25,
+        "maximum": 0
+      },
+      "beforeDiagnosisPassRuns": 25,
+      "afterDiagnosisPassRuns": 25,
+      "resourceSignalPassRuns": 25,
+      "infraPhaseAllZeroRuns": 25,
+      "queryCalls": 880679,
+      "queryTimeMs": 25248.658,
+      "maxDatabaseCpuPercent": 49.64,
+      "maxDatabaseActiveConnections": 26,
+      "maxLockWaitCount": 2,
+      "maxHikariPendingThreads": 0,
+      "maxLoadGeneratorCpuPercent": 22,
+      "maxLoadGeneratorRssBytes": 59330560
+    },
+    "mixed": {
+      "executedRun": "room-improvement-final-mixed-r1-retry2-20260821",
+      "targetArrivals": 960,
+      "actualArrivals": 960,
+      "rawK6DroppedIterations": 0,
+      "genericResourceSignalStatus": "PASS",
+      "appAggregateStatus": "INVALID",
+      "taggedOutcomeCounts": {
+        "hot": {
+          "t1": 240,
+          "t2": 120,
+          "t5": 120
+        },
+        "spread": {
+          "t1": 240,
+          "t2": 120,
+          "t5": 120
+        }
+      },
+      "failedRequestCount": 0,
+      "queryCalls": 15753,
+      "queryTimeMs": 1489.832,
+      "lockWaitCount": 0,
+      "hikariPendingThreads": 0,
+      "loadGeneratorCpuPercent": 95,
+      "loadGeneratorRssBytes": 487620608,
+      "databaseCpuPercent": 13.53,
+      "invalidReasons": [
+        "mixed aggregate counted untagged base metrics as malformed tier-operation-outcome series",
+        "raw k6 summary omitted dropped_iterations when zero, so app aggregate recorded droppedIterations=null"
+      ]
+    },
+    "finalGate": {
+      "matrix": "PASS",
+      "mixed": "INVALID",
+      "soak": "NOT_RUN",
+      "overall": "NOT_RELEASE_GATE_PASS"
+    }
+  },
+  "aggregate": {
+    "matrixByScenario": [
+      {
+        "scenario": "t1",
+        "runs": 6,
+        "requestCount": 140,
+        "outcomes": {
+          "success": 112,
+          "business": 0,
+          "concurrency": 28,
+          "unexpected": 0
+        },
+        "queryCalls": 4278,
+        "queryTimeMs": 4690.729
+      },
+      {
+        "scenario": "t2",
+        "runs": 7,
+        "requestCount": 142,
+        "outcomes": {
+          "success": 114,
+          "business": 0,
+          "concurrency": 28,
+          "unexpected": 0
+        },
+        "queryCalls": 3043,
+        "queryTimeMs": 1562.859
+      },
+      {
+        "scenario": "t3",
+        "runs": 3,
+        "requestCount": 14,
+        "outcomes": {
+          "success": 10,
+          "business": 4,
+          "concurrency": 0,
+          "unexpected": 0
+        },
+        "queryCalls": 330,
+        "queryTimeMs": 124.495
+      },
+      {
+        "scenario": "t4",
+        "runs": 3,
+        "requestCount": 70,
+        "outcomes": {
+          "success": 15,
+          "business": 55,
+          "concurrency": 0,
+          "unexpected": 0
+        },
+        "queryCalls": 1345,
+        "queryTimeMs": 1227.095
+      },
+      {
+        "scenario": "t5",
+        "runs": 6,
+        "requestCount": 93348,
+        "outcomes": {
+          "success": 93348,
+          "business": 0,
+          "concurrency": 0,
+          "unexpected": 0
+        },
+        "queryCalls": 871683,
+        "queryTimeMs": 17643.479
+      }
+    ],
+    "t1AttemptDistribution": {
+      "requestCount": 140,
+      "success": 112,
+      "business": 0,
+      "concurrency": 28,
+      "unexpected": 0
+    },
+    "t2AttemptDistribution": {
+      "requestCount": 142,
+      "success": 114,
+      "business": 0,
+      "concurrency": 28,
+      "unexpected": 0
+    }
+  },
+  "teardown": {
+    "status": "destroyed-and-verified",
+    "terraformDestroyExitCode": 0,
+    "destroyedResourceCount": 94,
+    "terraformOutputsAfterDestroy": {},
+    "runShStatus": "올라온 스택이 없습니다. ./run.sh up 으로 만드세요.",
+    "perfEnvRestored": true,
+    "infraPush": false,
+    "infraPullRequest": false,
+    "sharedResourcesPreserved": [
+      "shared ECR",
+      "shared SSM"
+    ],
+    "residualScope": "Terraform-managed stack state and run.sh status verified; no independent broad AWS residual inventory was retained"
+  },
+  "artifactBoundary": {
+    "rawArtifactRetention": "local-only",
+    "repositoryRelativePathTemplate": "build/k6/room/<run-id>/<fixture-id>/",
+    "retainedInGit": [
+      "campaign metadata",
+      "condition coverage",
+      "aggregate metrics",
+      "non-secret artifact SHA-256"
+    ],
+    "prohibitedFromGit": [
+      "password",
+      "credential-derived hash",
+      "token",
+      "CSRF value",
+      "target URL",
+      "fixture/resource ID",
+      "raw SQL",
+      "raw log"
+    ],
+    "independentVerificationLimitation": "raw bundle은 local-only이므로 이 저장소만으로 원자료 내용을 독립 재검증할 수 없음"
+  },
+  "staticBundles": [
+    {
+      "runId": "room-improvement-final-mixed-r1",
+      "status": "VALIDATED_ONLY",
+      "selectionPlanDigest": "c46d9c592c729afbcb4e481ee11d21111a6f7c013fad42b43875e8079cb613a7"
+    },
+    {
+      "runId": "room-improvement-final-mixed-r2",
+      "status": "VALIDATED_ONLY",
+      "selectionPlanDigest": "c46d9c592c729afbcb4e481ee11d21111a6f7c013fad42b43875e8079cb613a7"
+    },
+    {
+      "runId": "room-improvement-final-mixed-r3",
+      "status": "VALIDATED_ONLY",
+      "selectionPlanDigest": "c46d9c592c729afbcb4e481ee11d21111a6f7c013fad42b43875e8079cb613a7"
+    },
+    {
+      "runId": "room-improvement-final-soak-r1",
+      "status": "VALIDATED_ONLY",
+      "selectionPlanDigest": "1102d74229a611a4b890f55bbec82577eb79456725d71645dc4a3578abc5b52d"
+    }
+  ],
+  "excludedRuns": [
+    {
+      "runId": "room-improvement-final-matrix-20260821",
+      "condition": "T5 host ACTIVE 1 original",
+      "reportDisposition": "excluded",
+      "status": "INVALID",
+      "reason": "closed-read resource gate did not produce after diagnosis; replaced by a new valid host ACTIVE 1 bundle"
+    },
+    {
+      "runId": "room-improvement-final-mixed-r1",
+      "reportDisposition": "excluded",
+      "status": "INVALID",
+      "k6ExitCode": 100,
+      "reason": "setup timeout before the approved profile completed"
+    },
+    {
+      "runId": "room-improvement-final-mixed-r1-retry-20260821",
+      "reportDisposition": "excluded",
+      "status": "INVALID",
+      "k6ExitCode": 255,
+      "reason": "unsupported --setup-timeout CLI flag; no campaign conclusion"
+    },
+    {
+      "runId": "room-improvement-final-mixed-r1-retry2-20260821",
+      "reportDisposition": "excluded",
+      "status": "INVALID",
+      "k6ExitCode": 0,
+      "reason": "completed 960 arrivals but app-owned mixed aggregate contract INVALID"
+    }
+  ],
+  "runs": [
+    {
+      "sequence": 1,
+      "scenario": "t1",
+      "condition": {
+        "profile": "stress",
+        "subcase": null,
+        "mode": "spread",
+        "concurrency": 4,
+        "t3Mode": null,
+        "t5Role": null,
+        "t5Scale": null
+      },
+      "runId": "room-improvement-final-matrix-20260821",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-21T11:59:28Z",
+        "endedAtUtc": "2026-08-21T12:01:09Z"
+      },
+      "provenance": {
+        "sourceSha": "d8c112a7ad11c4cae6ff5427fd40af4c7f4577ec",
+        "fixtureSha256": "5aad6a97d0e9924c4fc96c46f0e18001dad413b16c883566bcced4d8e49d0bd8",
+        "manifestSha256": "1f699802645a6813196818e8c7ad256e6ffb7cf14a6c7835414a3f5ef99525b9",
+        "summarySha256": "e8bb8585d0b4b7375f4a9c7a729bb26879d03ce7cdb3b68265379196d0dbcc31",
+        "resourceSignalsSha256": "171351cc930c12079ebfe93d80dfb910fc049fd163e7c14d7b2534843b8abd15"
+      },
+      "metrics": {
+        "requestCount": 20,
+        "failedRequestCount": 0,
+        "outcomes": {
+          "success": 20,
+          "business": 0,
+          "concurrency": 0,
+          "unexpected": 0
+        }
+      },
+      "t3": {
+        "resourceSignalsStatus": "PASS",
+        "queryCalls": 656,
+        "queryTimeMs": 133.746,
+        "lockWaitCount": 0,
+        "hikariPendingThreads": 0,
+        "generatorCpuPercent": 5,
+        "generatorRssBytes": 47554560,
+        "droppedIterations": 0
+      },
+      "correctness": {
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalStatus": "PASS",
+        "infraPhaseExitCodes": {
+          "prepare": 0,
+          "resourceQuery": 0,
+          "beforeSnapshot": 0,
+          "k6": 0,
+          "afterSnapshot": 0
+        }
+      }
+    },
+    {
+      "sequence": 2,
+      "scenario": "t1",
+      "condition": {
+        "profile": "stress",
+        "subcase": null,
+        "mode": "hot",
+        "concurrency": 2,
+        "t3Mode": null,
+        "t5Role": null,
+        "t5Scale": null
+      },
+      "runId": "room-improvement-final-matrix-20260821",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-21T11:53:26Z",
+        "endedAtUtc": "2026-08-21T11:55:08Z"
+      },
+      "provenance": {
+        "sourceSha": "d8c112a7ad11c4cae6ff5427fd40af4c7f4577ec",
+        "fixtureSha256": "31e94ccdb04cd488c8fda154c94a9f174c6e2ce007224621062603309aa95569",
+        "manifestSha256": "6318488065c358acb84f7aa55da79c202db52c75ff5fa38cb63e0078774c3489",
+        "summarySha256": "735c75bc4f35f7c5a0c8a637476f84dc710ac45c80f229fffcca3e62d508cfd8",
+        "resourceSignalsSha256": "1143b771dc01efdc8c6545ed853f7b9399eb5d402e2eee45e86fd04f82a1d9fa"
+      },
+      "metrics": {
+        "requestCount": 10,
+        "failedRequestCount": 0,
+        "outcomes": {
+          "success": 10,
+          "business": 0,
+          "concurrency": 0,
+          "unexpected": 0
+        }
+      },
+      "t3": {
+        "resourceSignalsStatus": "PASS",
+        "queryCalls": 475,
+        "queryTimeMs": 381.422,
+        "lockWaitCount": 1,
+        "hikariPendingThreads": 0,
+        "generatorCpuPercent": 5,
+        "generatorRssBytes": 45137920,
+        "droppedIterations": 0
+      },
+      "correctness": {
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalStatus": "PASS",
+        "infraPhaseExitCodes": {
+          "prepare": 0,
+          "resourceQuery": 0,
+          "beforeSnapshot": 0,
+          "k6": 0,
+          "afterSnapshot": 0
+        }
+      }
+    },
+    {
+      "sequence": 3,
+      "scenario": "t1",
+      "condition": {
+        "profile": "stress",
+        "subcase": null,
+        "mode": "spread",
+        "concurrency": 8,
+        "t3Mode": null,
+        "t5Role": null,
+        "t5Scale": null
+      },
+      "runId": "room-improvement-final-matrix-20260821",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-21T12:04:06Z",
+        "endedAtUtc": "2026-08-21T12:05:48Z"
+      },
+      "provenance": {
+        "sourceSha": "d8c112a7ad11c4cae6ff5427fd40af4c7f4577ec",
+        "fixtureSha256": "c2ded6668860fadde7bfeaff7e83f6d0e7b599e44b0d9e24e734e56cf1dceec8",
+        "manifestSha256": "db102adefbf072c5d7f50a77943e543914a81ff3cbee529c18ef56f26ab2c0c9",
+        "summarySha256": "ec4542a82dfbc4a0c3d8ab3870c790b3b7ca34e1f1f0ef3a5accdaecfcc55434",
+        "resourceSignalsSha256": "d5fb480ecc4cb63c77db3bc9485b4a47660ecd72e922848f963373e953ddcfa3"
+      },
+      "metrics": {
+        "requestCount": 40,
+        "failedRequestCount": 0,
+        "outcomes": {
+          "success": 40,
+          "business": 0,
+          "concurrency": 0,
+          "unexpected": 0
+        }
+      },
+      "t3": {
+        "resourceSignalsStatus": "PASS",
+        "queryCalls": 1097,
+        "queryTimeMs": 199.485,
+        "lockWaitCount": 0,
+        "hikariPendingThreads": 0,
+        "generatorCpuPercent": 8,
+        "generatorRssBytes": 53125120,
+        "droppedIterations": 0
+      },
+      "correctness": {
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalStatus": "PASS",
+        "infraPhaseExitCodes": {
+          "prepare": 0,
+          "resourceQuery": 0,
+          "beforeSnapshot": 0,
+          "k6": 0,
+          "afterSnapshot": 0
+        }
+      }
+    },
+    {
+      "sequence": 4,
+      "scenario": "t1",
+      "condition": {
+        "profile": "stress",
+        "subcase": null,
+        "mode": "hot",
+        "concurrency": 4,
+        "t3Mode": null,
+        "t5Role": null,
+        "t5Scale": null
+      },
+      "runId": "room-improvement-final-matrix-20260821",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-21T12:08:52Z",
+        "endedAtUtc": "2026-08-21T12:10:33Z"
+      },
+      "provenance": {
+        "sourceSha": "d8c112a7ad11c4cae6ff5427fd40af4c7f4577ec",
+        "fixtureSha256": "192396b627d02734f39b52d82683ac534d7d9ca5d9985b1906d03157e8762496",
+        "manifestSha256": "198c79051ebfd552f475ca4b4f4ba2ac8131be2553119a3fed484fbae6d21898",
+        "summarySha256": "337ee50afb7aaddae35b712498f123ddc356f783fc4bc78aa4ecde7610bda569",
+        "resourceSignalsSha256": "95598205c3408a7f83915f52936d15e319e990219bff77d51e5f03c1933b48a1"
+      },
+      "metrics": {
+        "requestCount": 20,
+        "failedRequestCount": 0,
+        "outcomes": {
+          "success": 16,
+          "business": 0,
+          "concurrency": 4,
+          "unexpected": 0
+        }
+      },
+      "t3": {
+        "resourceSignalsStatus": "PASS",
+        "queryCalls": 685,
+        "queryTimeMs": 983.605,
+        "lockWaitCount": 2,
+        "hikariPendingThreads": 0,
+        "generatorCpuPercent": 6,
+        "generatorRssBytes": 48513024,
+        "droppedIterations": 0
+      },
+      "correctness": {
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalStatus": "PASS",
+        "infraPhaseExitCodes": {
+          "prepare": 0,
+          "resourceQuery": 0,
+          "beforeSnapshot": 0,
+          "k6": 0,
+          "afterSnapshot": 0
+        }
+      }
+    },
+    {
+      "sequence": 5,
+      "scenario": "t1",
+      "condition": {
+        "profile": "stress",
+        "subcase": null,
+        "mode": "spread",
+        "concurrency": 2,
+        "t3Mode": null,
+        "t5Role": null,
+        "t5Scale": null
+      },
+      "runId": "room-improvement-final-matrix-20260821",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-21T12:13:33Z",
+        "endedAtUtc": "2026-08-21T12:15:14Z"
+      },
+      "provenance": {
+        "sourceSha": "d8c112a7ad11c4cae6ff5427fd40af4c7f4577ec",
+        "fixtureSha256": "6c03c092b2ee42a87b512ac678a06d400a2019d81dd110c844045ad375370121",
+        "manifestSha256": "a932c6ec7f3cbeb76a4ddbe66d7e328573c131d0ec02cadb2a8ee7ee84bce2f2",
+        "summarySha256": "926d3778218c5f15233dff9182a549a598fb4c0eee6048efc180ad34508dabdc",
+        "resourceSignalsSha256": "98eec5172e509de608bedf4f0efad186974a6a80f3fa8278538ecd02d73d12d6"
+      },
+      "metrics": {
+        "requestCount": 10,
+        "failedRequestCount": 0,
+        "outcomes": {
+          "success": 10,
+          "business": 0,
+          "concurrency": 0,
+          "unexpected": 0
+        }
+      },
+      "t3": {
+        "resourceSignalsStatus": "PASS",
+        "queryCalls": 432,
+        "queryTimeMs": 127.636,
+        "lockWaitCount": 0,
+        "hikariPendingThreads": 0,
+        "generatorCpuPercent": 4,
+        "generatorRssBytes": 45645824,
+        "droppedIterations": 0
+      },
+      "correctness": {
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalStatus": "PASS",
+        "infraPhaseExitCodes": {
+          "prepare": 0,
+          "resourceQuery": 0,
+          "beforeSnapshot": 0,
+          "k6": 0,
+          "afterSnapshot": 0
+        }
+      }
+    },
+    {
+      "sequence": 6,
+      "scenario": "t1",
+      "condition": {
+        "profile": "stress",
+        "subcase": null,
+        "mode": "hot",
+        "concurrency": 8,
+        "t3Mode": null,
+        "t5Role": null,
+        "t5Scale": null
+      },
+      "runId": "room-improvement-final-matrix-20260821",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-21T12:18:13Z",
+        "endedAtUtc": "2026-08-21T12:19:55Z"
+      },
+      "provenance": {
+        "sourceSha": "d8c112a7ad11c4cae6ff5427fd40af4c7f4577ec",
+        "fixtureSha256": "5c4a17a1ef1554d3e9c9b8999e379766de99c4b8985c5f54f45b54bc57087a64",
+        "manifestSha256": "f260b4c81c1476165af4a1cb2470a9edec35c1081711d5ff623ea982887ee9f2",
+        "summarySha256": "6afb26ba7becb34c95f8c3d08e394c2f94446ceecfca603e2c1c542bc40b810f",
+        "resourceSignalsSha256": "af8ce0e36d1446502308ab6de489f8e0420a14d9144847b75995dfc8e0c2d7eb"
+      },
+      "metrics": {
+        "requestCount": 40,
+        "failedRequestCount": 0,
+        "outcomes": {
+          "success": 16,
+          "business": 0,
+          "concurrency": 24,
+          "unexpected": 0
+        }
+      },
+      "t3": {
+        "resourceSignalsStatus": "PASS",
+        "queryCalls": 933,
+        "queryTimeMs": 2864.835,
+        "lockWaitCount": 0,
+        "hikariPendingThreads": 0,
+        "generatorCpuPercent": 7,
+        "generatorRssBytes": 51138560,
+        "droppedIterations": 0
+      },
+      "correctness": {
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalStatus": "PASS",
+        "infraPhaseExitCodes": {
+          "prepare": 0,
+          "resourceQuery": 0,
+          "beforeSnapshot": 0,
+          "k6": 0,
+          "afterSnapshot": 0
+        }
+      }
+    },
+    {
+      "sequence": 7,
+      "scenario": "t2",
+      "condition": {
+        "profile": "spike",
+        "subcase": "duplicate",
+        "mode": "hot",
+        "concurrency": 2,
+        "t3Mode": null,
+        "t5Role": null,
+        "t5Scale": null
+      },
+      "runId": "room-improvement-final-matrix-20260821",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-21T12:22:53Z",
+        "endedAtUtc": "2026-08-21T12:23:14Z"
+      },
+      "provenance": {
+        "sourceSha": "d8c112a7ad11c4cae6ff5427fd40af4c7f4577ec",
+        "fixtureSha256": "6326ebc7c5fda1e77bf7b5e33292e11e235c690b3cb88a2049ef8f1d7723dbc9",
+        "manifestSha256": "c4a951f003f230db3552bacaab291b8eee32eac50026c8c8c2ee7d68f4e6ace3",
+        "summarySha256": "23a1cb3baa42da95c1c83e4cacef40d4dc153c9fa569e0ae5edefaa8a3d249fd",
+        "resourceSignalsSha256": "a735d8a74d12bff9e0290923d18dea5b92b26f60ad5362d8e2342122730c8ef4"
+      },
+      "metrics": {
+        "requestCount": 2,
+        "failedRequestCount": 0,
+        "outcomes": {
+          "success": 2,
+          "business": 0,
+          "concurrency": 0,
+          "unexpected": 0
+        }
+      },
+      "t3": {
+        "resourceSignalsStatus": "PASS",
+        "queryCalls": 65,
+        "queryTimeMs": 19.068,
+        "lockWaitCount": 0,
+        "hikariPendingThreads": 0,
+        "generatorCpuPercent": 5,
+        "generatorRssBytes": 42344448,
+        "droppedIterations": 0
+      },
+      "correctness": {
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalStatus": "PASS",
+        "infraPhaseExitCodes": {
+          "prepare": 0,
+          "resourceQuery": 0,
+          "beforeSnapshot": 0,
+          "k6": 0,
+          "afterSnapshot": 0
+        }
+      }
+    },
+    {
+      "sequence": 8,
+      "scenario": "t2",
+      "condition": {
+        "profile": "stress",
+        "subcase": "distinct",
+        "mode": "spread",
+        "concurrency": 2,
+        "t3Mode": null,
+        "t5Role": null,
+        "t5Scale": null
+      },
+      "runId": "room-improvement-final-matrix-20260821",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-21T12:26:12Z",
+        "endedAtUtc": "2026-08-21T12:27:53Z"
+      },
+      "provenance": {
+        "sourceSha": "d8c112a7ad11c4cae6ff5427fd40af4c7f4577ec",
+        "fixtureSha256": "3a4e968935930a2f03751a91b7a7e46776afbad66bf50edd5ed0e0efbfd446d5",
+        "manifestSha256": "88fea988664d4455cef2cdc3366d092fefa7a8d37f6502a7e23a8712587bf04d",
+        "summarySha256": "f56fb7f38f9eaae80cd479f8be18564a3ebc98c9f79a59e029461c8c0132a51b",
+        "resourceSignalsSha256": "88285f843291ef7f467b13c91357cdbd1e759803ec0a4f8144e0055bce56bd87"
+      },
+      "metrics": {
+        "requestCount": 10,
+        "failedRequestCount": 0,
+        "outcomes": {
+          "success": 10,
+          "business": 0,
+          "concurrency": 0,
+          "unexpected": 0
+        }
+      },
+      "t3": {
+        "resourceSignalsStatus": "PASS",
+        "queryCalls": 299,
+        "queryTimeMs": 113.889,
+        "lockWaitCount": 0,
+        "hikariPendingThreads": 0,
+        "generatorCpuPercent": 5,
+        "generatorRssBytes": 45232128,
+        "droppedIterations": 0
+      },
+      "correctness": {
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalStatus": "PASS",
+        "infraPhaseExitCodes": {
+          "prepare": 0,
+          "resourceQuery": 0,
+          "beforeSnapshot": 0,
+          "k6": 0,
+          "afterSnapshot": 0
+        }
+      }
+    },
+    {
+      "sequence": 9,
+      "scenario": "t2",
+      "condition": {
+        "profile": "stress",
+        "subcase": "distinct",
+        "mode": "hot",
+        "concurrency": 2,
+        "t3Mode": null,
+        "t5Role": null,
+        "t5Scale": null
+      },
+      "runId": "room-improvement-final-matrix-20260821",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-21T12:30:51Z",
+        "endedAtUtc": "2026-08-21T12:32:32Z"
+      },
+      "provenance": {
+        "sourceSha": "d8c112a7ad11c4cae6ff5427fd40af4c7f4577ec",
+        "fixtureSha256": "3218c488b437522a530bbe696ef8fe8429034e0ed70e5e6040d576d87eb41eb1",
+        "manifestSha256": "6519339261b19b7849630279716e466609b25bd0d98599cbba0405aefca14915",
+        "summarySha256": "fcf9489f15483721de8e5d8c13bb12929df40bcd2043c52fa95bd2bfb3a3e7a2",
+        "resourceSignalsSha256": "806e95a211d60f517cad823a0c10d4867065245e3136987c62cb77efef306330"
+      },
+      "metrics": {
+        "requestCount": 10,
+        "failedRequestCount": 0,
+        "outcomes": {
+          "success": 10,
+          "business": 0,
+          "concurrency": 0,
+          "unexpected": 0
+        }
+      },
+      "t3": {
+        "resourceSignalsStatus": "PASS",
+        "queryCalls": 332,
+        "queryTimeMs": 137.966,
+        "lockWaitCount": 0,
+        "hikariPendingThreads": 0,
+        "generatorCpuPercent": 6,
+        "generatorRssBytes": 44216320,
+        "droppedIterations": 0
+      },
+      "correctness": {
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalStatus": "PASS",
+        "infraPhaseExitCodes": {
+          "prepare": 0,
+          "resourceQuery": 0,
+          "beforeSnapshot": 0,
+          "k6": 0,
+          "afterSnapshot": 0
+        }
+      }
+    },
+    {
+      "sequence": 10,
+      "scenario": "t2",
+      "condition": {
+        "profile": "stress",
+        "subcase": "distinct",
+        "mode": "spread",
+        "concurrency": 8,
+        "t3Mode": null,
+        "t5Role": null,
+        "t5Scale": null
+      },
+      "runId": "room-improvement-final-matrix-20260821",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-21T12:35:29Z",
+        "endedAtUtc": "2026-08-21T12:37:11Z"
+      },
+      "provenance": {
+        "sourceSha": "d8c112a7ad11c4cae6ff5427fd40af4c7f4577ec",
+        "fixtureSha256": "e652c98f9214b1482f2ac19a1d2482c796731e69aa052e2a60fd53517c627382",
+        "manifestSha256": "2d9564f49f3f676abae70e3af0e32611e8fa9d2d73abf9f6500e9fd73ced8c88",
+        "summarySha256": "37738e78391b7a326aba35a8652cb4d45fa2d49bede5fcaa15f43d53af9fb73b",
+        "resourceSignalsSha256": "ef20d3563c6c00ba4ac2f9bdad527cbfa358b9c42f1220a77ced58a235713396"
+      },
+      "metrics": {
+        "requestCount": 40,
+        "failedRequestCount": 0,
+        "outcomes": {
+          "success": 40,
+          "business": 0,
+          "concurrency": 0,
+          "unexpected": 0
+        }
+      },
+      "t3": {
+        "resourceSignalsStatus": "PASS",
+        "queryCalls": 612,
+        "queryTimeMs": 137.05,
+        "lockWaitCount": 0,
+        "hikariPendingThreads": 0,
+        "generatorCpuPercent": 7,
+        "generatorRssBytes": 55484416,
+        "droppedIterations": 0
+      },
+      "correctness": {
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalStatus": "PASS",
+        "infraPhaseExitCodes": {
+          "prepare": 0,
+          "resourceQuery": 0,
+          "beforeSnapshot": 0,
+          "k6": 0,
+          "afterSnapshot": 0
+        }
+      }
+    },
+    {
+      "sequence": 11,
+      "scenario": "t2",
+      "condition": {
+        "profile": "stress",
+        "subcase": "distinct",
+        "mode": "hot",
+        "concurrency": 4,
+        "t3Mode": null,
+        "t5Role": null,
+        "t5Scale": null
+      },
+      "runId": "room-improvement-final-matrix-20260821",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-21T12:40:10Z",
+        "endedAtUtc": "2026-08-21T12:41:52Z"
+      },
+      "provenance": {
+        "sourceSha": "d8c112a7ad11c4cae6ff5427fd40af4c7f4577ec",
+        "fixtureSha256": "eaac8d0e76bba25a60b72db9b0f54c599bb4ced7783578e25cebce8fbf353ced",
+        "manifestSha256": "721f71dfdb353b2d7d2c614c4c07d331f8cfca1c3d34b734527d2a74edc19bab",
+        "summarySha256": "28ececcffc39388544eb5734b75c2fc4c4656cc60df6750d7d4adfc0512530d0",
+        "resourceSignalsSha256": "c1e6f1f33ffaa745fe544f98ee8c1986d69bf3ab129913ce01d9b161fa757887"
+      },
+      "metrics": {
+        "requestCount": 20,
+        "failedRequestCount": 0,
+        "outcomes": {
+          "success": 15,
+          "business": 0,
+          "concurrency": 5,
+          "unexpected": 0
+        }
+      },
+      "t3": {
+        "resourceSignalsStatus": "PASS",
+        "queryCalls": 504,
+        "queryTimeMs": 298.961,
+        "lockWaitCount": 0,
+        "hikariPendingThreads": 0,
+        "generatorCpuPercent": 7,
+        "generatorRssBytes": 47243264,
+        "droppedIterations": 0
+      },
+      "correctness": {
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalStatus": "PASS",
+        "infraPhaseExitCodes": {
+          "prepare": 0,
+          "resourceQuery": 0,
+          "beforeSnapshot": 0,
+          "k6": 0,
+          "afterSnapshot": 0
+        }
+      }
+    },
+    {
+      "sequence": 12,
+      "scenario": "t2",
+      "condition": {
+        "profile": "stress",
+        "subcase": "distinct",
+        "mode": "hot",
+        "concurrency": 8,
+        "t3Mode": null,
+        "t5Role": null,
+        "t5Scale": null
+      },
+      "runId": "room-improvement-final-matrix-20260821",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-21T12:44:49Z",
+        "endedAtUtc": "2026-08-21T12:46:30Z"
+      },
+      "provenance": {
+        "sourceSha": "d8c112a7ad11c4cae6ff5427fd40af4c7f4577ec",
+        "fixtureSha256": "bccb88bbd01986318c5a76fc95d0ac2ff876b9f7698ef67fc93a9bc0917e4377",
+        "manifestSha256": "930180c30c138d408dfdfc5eb95ff673d77bf6c46051bb99eebd4aab7bba1fbb",
+        "summarySha256": "8f442785a3dc28fcec7071561ce9a0178e06ca9322d72123b240fdff2e08eac4",
+        "resourceSignalsSha256": "74820b6b14d12ab5a61e24d7b05649556e7b160d40927c43c63fff3fc6e01eff"
+      },
+      "metrics": {
+        "requestCount": 40,
+        "failedRequestCount": 0,
+        "outcomes": {
+          "success": 17,
+          "business": 0,
+          "concurrency": 23,
+          "unexpected": 0
+        }
+      },
+      "t3": {
+        "resourceSignalsStatus": "PASS",
+        "queryCalls": 825,
+        "queryTimeMs": 728.999,
+        "lockWaitCount": 0,
+        "hikariPendingThreads": 0,
+        "generatorCpuPercent": 6,
+        "generatorRssBytes": 51761152,
+        "droppedIterations": 0
+      },
+      "correctness": {
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalStatus": "PASS",
+        "infraPhaseExitCodes": {
+          "prepare": 0,
+          "resourceQuery": 0,
+          "beforeSnapshot": 0,
+          "k6": 0,
+          "afterSnapshot": 0
+        }
+      }
+    },
+    {
+      "sequence": 13,
+      "scenario": "t2",
+      "condition": {
+        "profile": "stress",
+        "subcase": "distinct",
+        "mode": "spread",
+        "concurrency": 4,
+        "t3Mode": null,
+        "t5Role": null,
+        "t5Scale": null
+      },
+      "runId": "room-improvement-final-matrix-20260821",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-21T12:49:30Z",
+        "endedAtUtc": "2026-08-21T12:51:11Z"
+      },
+      "provenance": {
+        "sourceSha": "d8c112a7ad11c4cae6ff5427fd40af4c7f4577ec",
+        "fixtureSha256": "c307cb1c3b2eabc885d3015934dfd7eef6a7da5d4f97dd75bb50d7f85ddad390",
+        "manifestSha256": "e53be87a642c319eac09309da1b6d4f4c3fb0436ea51812a97eebdc978644288",
+        "summarySha256": "2efc9fc6788b9b6e6c3d8972a50413f017165853fbe9fa340783c97517698278",
+        "resourceSignalsSha256": "8d1792a7fe8a678d66fa064a61edac0cf3af8888d5d7f0a3ee2befbd8f3ebbdd"
+      },
+      "metrics": {
+        "requestCount": 20,
+        "failedRequestCount": 0,
+        "outcomes": {
+          "success": 20,
+          "business": 0,
+          "concurrency": 0,
+          "unexpected": 0
+        }
+      },
+      "t3": {
+        "resourceSignalsStatus": "PASS",
+        "queryCalls": 406,
+        "queryTimeMs": 126.926,
+        "lockWaitCount": 0,
+        "hikariPendingThreads": 0,
+        "generatorCpuPercent": 6,
+        "generatorRssBytes": 48046080,
+        "droppedIterations": 0
+      },
+      "correctness": {
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalStatus": "PASS",
+        "infraPhaseExitCodes": {
+          "prepare": 0,
+          "resourceQuery": 0,
+          "beforeSnapshot": 0,
+          "k6": 0,
+          "afterSnapshot": 0
+        }
+      }
+    },
+    {
+      "sequence": 14,
+      "scenario": "t3",
+      "condition": {
+        "profile": "stress",
+        "subcase": null,
+        "mode": null,
+        "concurrency": null,
+        "t3Mode": "race",
+        "t5Role": null,
+        "t5Scale": null
+      },
+      "runId": "room-improvement-final-matrix-20260821",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-21T12:54:11Z",
+        "endedAtUtc": "2026-08-21T12:54:31Z"
+      },
+      "provenance": {
+        "sourceSha": "d8c112a7ad11c4cae6ff5427fd40af4c7f4577ec",
+        "fixtureSha256": "6582998e3cb6fb1fa90575644ffd70b3cf5bbcac8fa0f3a8c7b36e6e89bb2ef7",
+        "manifestSha256": "87b23899f12bb408cdddd906fe896fd806fdb2a89d296b9dd1cc7fee1da7f7ac",
+        "summarySha256": "5bda5076c9468417511bf918629c50326d5bf920adb7617a38303d23ce9e4b00",
+        "resourceSignalsSha256": "98e9cbac757ed589b21090627b17598e8c39599fbb6c105623d06d44175fbde8"
+      },
+      "metrics": {
+        "requestCount": 10,
+        "failedRequestCount": 0,
+        "outcomes": {
+          "success": 7,
+          "business": 3,
+          "concurrency": 0,
+          "unexpected": 0
+        }
+      },
+      "t3": {
+        "resourceSignalsStatus": "PASS",
+        "queryCalls": 177,
+        "queryTimeMs": 72.443,
+        "lockWaitCount": 0,
+        "hikariPendingThreads": 0,
+        "generatorCpuPercent": 6,
+        "generatorRssBytes": 51064832,
+        "droppedIterations": 0
+      },
+      "correctness": {
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalStatus": "PASS",
+        "infraPhaseExitCodes": {
+          "prepare": 0,
+          "resourceQuery": 0,
+          "beforeSnapshot": 0,
+          "k6": 0,
+          "afterSnapshot": 0
+        }
+      }
+    },
+    {
+      "sequence": 15,
+      "scenario": "t3",
+      "condition": {
+        "profile": "spike",
+        "subcase": null,
+        "mode": null,
+        "concurrency": null,
+        "t3Mode": "cancel-first",
+        "t5Role": null,
+        "t5Scale": null
+      },
+      "runId": "room-improvement-final-matrix-20260821",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-21T12:57:29Z",
+        "endedAtUtc": "2026-08-21T12:57:49Z"
+      },
+      "provenance": {
+        "sourceSha": "d8c112a7ad11c4cae6ff5427fd40af4c7f4577ec",
+        "fixtureSha256": "af0c33a32d7060ed122edd63aaff2b161374c348e08ca170652aa6fa09d8ed2e",
+        "manifestSha256": "1b24633e736110a4a2b237386b549c6196aa2fe93ea869a547043e2b52950493",
+        "summarySha256": "42a3c2c998d839e151e3df918e3a597e3868ce3dd7224ede4a0d486087de2ab4",
+        "resourceSignalsSha256": "b481c7c3024785bd6e4418eeec5fe60a2d346f09a6c0aca0878aceeaac30d06d"
+      },
+      "metrics": {
+        "requestCount": 2,
+        "failedRequestCount": 0,
+        "outcomes": {
+          "success": 1,
+          "business": 1,
+          "concurrency": 0,
+          "unexpected": 0
+        }
+      },
+      "t3": {
+        "resourceSignalsStatus": "PASS",
+        "queryCalls": 69,
+        "queryTimeMs": 21.931,
+        "lockWaitCount": 0,
+        "hikariPendingThreads": 0,
+        "generatorCpuPercent": 5,
+        "generatorRssBytes": 44331008,
+        "droppedIterations": 0
+      },
+      "correctness": {
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalStatus": "PASS",
+        "infraPhaseExitCodes": {
+          "prepare": 0,
+          "resourceQuery": 0,
+          "beforeSnapshot": 0,
+          "k6": 0,
+          "afterSnapshot": 0
+        }
+      }
+    },
+    {
+      "sequence": 16,
+      "scenario": "t3",
+      "condition": {
+        "profile": "spike",
+        "subcase": null,
+        "mode": null,
+        "concurrency": null,
+        "t3Mode": "wait-first",
+        "t5Role": null,
+        "t5Scale": null
+      },
+      "runId": "room-improvement-final-matrix-20260821",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-21T13:00:48Z",
+        "endedAtUtc": "2026-08-21T13:01:09Z"
+      },
+      "provenance": {
+        "sourceSha": "d8c112a7ad11c4cae6ff5427fd40af4c7f4577ec",
+        "fixtureSha256": "8cdc225fe1fa2eced93b4fb1f994e284be41412a68ce4025d0bbeff92627dcba",
+        "manifestSha256": "4402a598baa9cbc6886382e7b00438aaf49a2fc19fe4b6eff630c725fd1d2693",
+        "summarySha256": "4e35fef327bc2cf935991877904c4c09f24e3232687ccaba1002ec47cbe640b4",
+        "resourceSignalsSha256": "2454b1bc62ae2298e2aedffb902493a90cb5870d158dbcae55981ef30c7eaae1"
+      },
+      "metrics": {
+        "requestCount": 2,
+        "failedRequestCount": 0,
+        "outcomes": {
+          "success": 2,
+          "business": 0,
+          "concurrency": 0,
+          "unexpected": 0
+        }
+      },
+      "t3": {
+        "resourceSignalsStatus": "PASS",
+        "queryCalls": 84,
+        "queryTimeMs": 30.121,
+        "lockWaitCount": 0,
+        "hikariPendingThreads": 0,
+        "generatorCpuPercent": 5,
+        "generatorRssBytes": 44150784,
+        "droppedIterations": 0
+      },
+      "correctness": {
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalStatus": "PASS",
+        "infraPhaseExitCodes": {
+          "prepare": 0,
+          "resourceQuery": 0,
+          "beforeSnapshot": 0,
+          "k6": 0,
+          "afterSnapshot": 0
+        }
+      }
+    },
+    {
+      "sequence": 17,
+      "scenario": "t4",
+      "condition": {
+        "profile": "stress",
+        "subcase": null,
+        "mode": null,
+        "concurrency": 2,
+        "t3Mode": null,
+        "t5Role": null,
+        "t5Scale": null
+      },
+      "runId": "room-improvement-final-matrix-20260821",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-21T13:04:08Z",
+        "endedAtUtc": "2026-08-21T13:05:49Z"
+      },
+      "provenance": {
+        "sourceSha": "d8c112a7ad11c4cae6ff5427fd40af4c7f4577ec",
+        "fixtureSha256": "dd302841332fdc62ae0896e00b30ea534247ecc1c3ebcebf978d7db6a12648d5",
+        "manifestSha256": "d9cbe92f035591d6f9915447a53806a8583e9b2c9888aec26e9bd43057b7be77",
+        "summarySha256": "d7c01a609025c722ef3036e05eef918764bd2fbecd2ef09a4fd8cb5d13382713",
+        "resourceSignalsSha256": "827c13d9e2525da234d384654b2d0bb53dda75c5af4a21af12a3fc2c003c136f"
+      },
+      "metrics": {
+        "requestCount": 10,
+        "failedRequestCount": 0,
+        "outcomes": {
+          "success": 5,
+          "business": 5,
+          "concurrency": 0,
+          "unexpected": 0
+        }
+      },
+      "t3": {
+        "resourceSignalsStatus": "PASS",
+        "queryCalls": 346,
+        "queryTimeMs": 183.154,
+        "lockWaitCount": 1,
+        "hikariPendingThreads": 0,
+        "generatorCpuPercent": 4,
+        "generatorRssBytes": 44871680,
+        "droppedIterations": 0
+      },
+      "correctness": {
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalStatus": "PASS",
+        "infraPhaseExitCodes": {
+          "prepare": 0,
+          "resourceQuery": 0,
+          "beforeSnapshot": 0,
+          "k6": 0,
+          "afterSnapshot": 0
+        }
+      }
+    },
+    {
+      "sequence": 18,
+      "scenario": "t4",
+      "condition": {
+        "profile": "stress",
+        "subcase": null,
+        "mode": null,
+        "concurrency": 8,
+        "t3Mode": null,
+        "t5Role": null,
+        "t5Scale": null
+      },
+      "runId": "room-improvement-final-matrix-20260821",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-21T13:08:50Z",
+        "endedAtUtc": "2026-08-21T13:10:32Z"
+      },
+      "provenance": {
+        "sourceSha": "d8c112a7ad11c4cae6ff5427fd40af4c7f4577ec",
+        "fixtureSha256": "681743bdd5b0ee7f095be7797fce11c4d2072909b20aabcd1c3e15b75920e1e1",
+        "manifestSha256": "89699ac4041e9adad1a90c42ba6fe8950ab27acf39b391e504e13a0e1cfe64a2",
+        "summarySha256": "ef176db398d72f6a207bd386af54be5d73f196bb65187c6f14147017c76e0b0f",
+        "resourceSignalsSha256": "11c08ab5af8a1373f48a4bd738e83971fe0ce39e10305672bf0a9b3440b35418"
+      },
+      "metrics": {
+        "requestCount": 40,
+        "failedRequestCount": 0,
+        "outcomes": {
+          "success": 5,
+          "business": 35,
+          "concurrency": 0,
+          "unexpected": 0
+        }
+      },
+      "t3": {
+        "resourceSignalsStatus": "PASS",
+        "queryCalls": 565,
+        "queryTimeMs": 672.215,
+        "lockWaitCount": 0,
+        "hikariPendingThreads": 0,
+        "generatorCpuPercent": 6,
+        "generatorRssBytes": 51027968,
+        "droppedIterations": 0
+      },
+      "correctness": {
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalStatus": "PASS",
+        "infraPhaseExitCodes": {
+          "prepare": 0,
+          "resourceQuery": 0,
+          "beforeSnapshot": 0,
+          "k6": 0,
+          "afterSnapshot": 0
+        }
+      }
+    },
+    {
+      "sequence": 19,
+      "scenario": "t4",
+      "condition": {
+        "profile": "stress",
+        "subcase": null,
+        "mode": null,
+        "concurrency": 4,
+        "t3Mode": null,
+        "t5Role": null,
+        "t5Scale": null
+      },
+      "runId": "room-improvement-final-matrix-20260821",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-21T13:13:30Z",
+        "endedAtUtc": "2026-08-21T13:15:11Z"
+      },
+      "provenance": {
+        "sourceSha": "d8c112a7ad11c4cae6ff5427fd40af4c7f4577ec",
+        "fixtureSha256": "98d09b64740cf7cdac74ac73d72545caf555326762ec564ff419f9df2d407be3",
+        "manifestSha256": "1b07a1b1fd09e2350bb311fd933f0c031e8880d408c128375baf6c48dea4f19f",
+        "summarySha256": "5362df4fbceacd9b12ea36ef4d767818734f58f726975b27d9fb52c39c83ae5e",
+        "resourceSignalsSha256": "eb31748e2de8c0e98eef3f89eddc259d43af00b18a0f2922f59e7adf0f3de92b"
+      },
+      "metrics": {
+        "requestCount": 20,
+        "failedRequestCount": 0,
+        "outcomes": {
+          "success": 5,
+          "business": 15,
+          "concurrency": 0,
+          "unexpected": 0
+        }
+      },
+      "t3": {
+        "resourceSignalsStatus": "PASS",
+        "queryCalls": 434,
+        "queryTimeMs": 371.727,
+        "lockWaitCount": 0,
+        "hikariPendingThreads": 0,
+        "generatorCpuPercent": 6,
+        "generatorRssBytes": 48001024,
+        "droppedIterations": 0
+      },
+      "correctness": {
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalStatus": "PASS",
+        "infraPhaseExitCodes": {
+          "prepare": 0,
+          "resourceQuery": 0,
+          "beforeSnapshot": 0,
+          "k6": 0,
+          "afterSnapshot": 0
+        }
+      }
+    },
+    {
+      "sequence": 20,
+      "scenario": "t5",
+      "condition": {
+        "profile": "stress",
+        "subcase": null,
+        "mode": null,
+        "concurrency": null,
+        "t3Mode": null,
+        "t5Role": "participant",
+        "t5Scale": 10
+      },
+      "runId": "room-improvement-final-matrix-20260821",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-21T13:22:32Z",
+        "endedAtUtc": "2026-08-21T13:23:53Z"
+      },
+      "provenance": {
+        "sourceSha": "d8c112a7ad11c4cae6ff5427fd40af4c7f4577ec",
+        "fixtureSha256": "c45dcad3335378f6e6c9d6d15f6ae1924dd3f0045fb141e254319c725bf380db",
+        "manifestSha256": "3e5f1f1ba6b5c83281751dc3e4c1fa08bbd3899d077c6fd15c2a52dd3f966e46",
+        "summarySha256": "a921078600f105988fde6dc4bbf7c2c2cb349a3f668e2114ee2962f460e28f19",
+        "resourceSignalsSha256": "0619b8f169849a2a15d1362aa1664c3aff111042ecea962b4c20286fce7b3993"
+      },
+      "metrics": {
+        "requestCount": 22627,
+        "failedRequestCount": 0,
+        "outcomes": {
+          "success": 22627,
+          "business": 0,
+          "concurrency": 0,
+          "unexpected": 0
+        }
+      },
+      "t3": {
+        "resourceSignalsStatus": "PASS",
+        "queryCalls": 226560,
+        "queryTimeMs": 3873.693,
+        "lockWaitCount": 0,
+        "hikariPendingThreads": 0,
+        "generatorCpuPercent": 22,
+        "generatorRssBytes": 59330560,
+        "droppedIterations": 0
+      },
+      "correctness": {
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalStatus": "PASS",
+        "infraPhaseExitCodes": {
+          "prepare": 0,
+          "resourceQuery": 0,
+          "beforeSnapshot": 0,
+          "k6": 0,
+          "afterSnapshot": 0
+        }
+      }
+    },
+    {
+      "sequence": 21,
+      "scenario": "t5",
+      "condition": {
+        "profile": "stress",
+        "subcase": null,
+        "mode": null,
+        "concurrency": null,
+        "t3Mode": null,
+        "t5Role": "participant",
+        "t5Scale": 1
+      },
+      "runId": "room-improvement-final-matrix-20260821",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-21T13:26:51Z",
+        "endedAtUtc": "2026-08-21T13:28:11Z"
+      },
+      "provenance": {
+        "sourceSha": "d8c112a7ad11c4cae6ff5427fd40af4c7f4577ec",
+        "fixtureSha256": "05f70c5b8d32e9453456748692f0db8984f3a1d614dde9ed0f51b19231be758c",
+        "manifestSha256": "90836c9f052224bc24f7c12b6ff3d619c7ea02eb48491043c220fc366d7a06f5",
+        "summarySha256": "ac2063100d6a6cff67fb97ee727841a9f4915e3740f54668f5b51bb175b807a5",
+        "resourceSignalsSha256": "1b14a6ab583ecb37d4c647b0310fce97c5aeb32d9f059e20f5cf2fe00cc84d55"
+      },
+      "metrics": {
+        "requestCount": 23834,
+        "failedRequestCount": 0,
+        "outcomes": {
+          "success": 23834,
+          "business": 0,
+          "concurrency": 0,
+          "unexpected": 0
+        }
+      },
+      "t3": {
+        "resourceSignalsStatus": "PASS",
+        "queryCalls": 238540,
+        "queryTimeMs": 3553.676,
+        "lockWaitCount": 0,
+        "hikariPendingThreads": 0,
+        "generatorCpuPercent": 19,
+        "generatorRssBytes": 58998784,
+        "droppedIterations": 0
+      },
+      "correctness": {
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalStatus": "PASS",
+        "infraPhaseExitCodes": {
+          "prepare": 0,
+          "resourceQuery": 0,
+          "beforeSnapshot": 0,
+          "k6": 0,
+          "afterSnapshot": 0
+        }
+      }
+    },
+    {
+      "sequence": 22,
+      "scenario": "t5",
+      "condition": {
+        "profile": "stress",
+        "subcase": null,
+        "mode": null,
+        "concurrency": null,
+        "t3Mode": null,
+        "t5Role": "host",
+        "t5Scale": 10
+      },
+      "runId": "room-improvement-final-matrix-20260821",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-21T13:31:10Z",
+        "endedAtUtc": "2026-08-21T13:32:30Z"
+      },
+      "provenance": {
+        "sourceSha": "d8c112a7ad11c4cae6ff5427fd40af4c7f4577ec",
+        "fixtureSha256": "e48ca6937ec5fa22713af8f779171bd1dd7d018b7ae65642835a58f10f2a12a9",
+        "manifestSha256": "d9bc8271321a9370a46d2ae793bb7f0a46ed5abf5d44514c28dca0c7806f283f",
+        "summarySha256": "38c8fb2733a1218bd616de58a0fcbd18ea5f7ca6b70165d6464c6184e43271f4",
+        "resourceSignalsSha256": "0d6dc176b3627268ded1e51e1491d308402c006eca08bbbad935166bb20b1655"
+      },
+      "metrics": {
+        "requestCount": 21598,
+        "failedRequestCount": 0,
+        "outcomes": {
+          "success": 21598,
+          "business": 0,
+          "concurrency": 0,
+          "unexpected": 0
+        }
+      },
+      "t3": {
+        "resourceSignalsStatus": "PASS",
+        "queryCalls": 194551,
+        "queryTimeMs": 3287.11,
+        "lockWaitCount": 0,
+        "hikariPendingThreads": 0,
+        "generatorCpuPercent": 22,
+        "generatorRssBytes": 58425344,
+        "droppedIterations": 0
+      },
+      "correctness": {
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalStatus": "PASS",
+        "infraPhaseExitCodes": {
+          "prepare": 0,
+          "resourceQuery": 0,
+          "beforeSnapshot": 0,
+          "k6": 0,
+          "afterSnapshot": 0
+        }
+      }
+    },
+    {
+      "sequence": 23,
+      "scenario": "t5",
+      "condition": {
+        "profile": "stress",
+        "subcase": null,
+        "mode": null,
+        "concurrency": null,
+        "t3Mode": null,
+        "t5Role": "public",
+        "t5Scale": 10
+      },
+      "runId": "room-improvement-final-matrix-20260821",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-21T13:35:53Z",
+        "endedAtUtc": "2026-08-21T13:37:14Z"
+      },
+      "provenance": {
+        "sourceSha": "d8c112a7ad11c4cae6ff5427fd40af4c7f4577ec",
+        "fixtureSha256": "47d637ea916b11f36e23b669f42b71d0548e43e14190e85aa4c77caf900c0786",
+        "manifestSha256": "c8b1f2565c1d682461c0cd97d2e30cf116c3ec01df1cf5bd7fd5dca951a892fb",
+        "summarySha256": "646c5e3c7aea413493d95f6d4456401fc9afbc3246c1a58bc8ac51f3362658bd",
+        "resourceSignalsSha256": "b38b30717274de3952be601f1fbc6ecb7f57b90077fe2d01de386184ef41952a"
+      },
+      "metrics": {
+        "requestCount": 8184,
+        "failedRequestCount": 0,
+        "outcomes": {
+          "success": 8184,
+          "business": 0,
+          "concurrency": 0,
+          "unexpected": 0
+        }
+      },
+      "t3": {
+        "resourceSignalsStatus": "PASS",
+        "queryCalls": 65768,
+        "queryTimeMs": 2009.096,
+        "lockWaitCount": 0,
+        "hikariPendingThreads": 0,
+        "generatorCpuPercent": 7,
+        "generatorRssBytes": 54050816,
+        "droppedIterations": 0
+      },
+      "correctness": {
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalStatus": "PASS",
+        "infraPhaseExitCodes": {
+          "prepare": 0,
+          "resourceQuery": 0,
+          "beforeSnapshot": 0,
+          "k6": 0,
+          "afterSnapshot": 0
+        }
+      }
+    },
+    {
+      "sequence": 24,
+      "scenario": "t5",
+      "condition": {
+        "profile": "stress",
+        "subcase": null,
+        "mode": null,
+        "concurrency": null,
+        "t3Mode": null,
+        "t5Role": "public",
+        "t5Scale": 1
+      },
+      "runId": "room-improvement-final-matrix-20260821",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-21T13:40:31Z",
+        "endedAtUtc": "2026-08-21T13:41:52Z"
+      },
+      "provenance": {
+        "sourceSha": "d8c112a7ad11c4cae6ff5427fd40af4c7f4577ec",
+        "fixtureSha256": "3e3dd32845ab1149bbe489ed62ca52ed35d599f1390a88f3a7b95b2c84879eb4",
+        "manifestSha256": "a018c1fc7389e02a6c17483c26ddf2cb02983f55e3b851551fd725dd97ff0d05",
+        "summarySha256": "62324020ea22ed0067f6bf58b3ed3ec4ebd838d4d2b62ea8a826f989ff63e257",
+        "resourceSignalsSha256": "d6b0e4a932d664ee8f335ffa91e44854f2b5fd894625e644554411e0dfba609b"
+      },
+      "metrics": {
+        "requestCount": 8215,
+        "failedRequestCount": 0,
+        "outcomes": {
+          "success": 8215,
+          "business": 0,
+          "concurrency": 0,
+          "unexpected": 0
+        }
+      },
+      "t3": {
+        "resourceSignalsStatus": "PASS",
+        "queryCalls": 65976,
+        "queryTimeMs": 1716.769,
+        "lockWaitCount": 0,
+        "hikariPendingThreads": 0,
+        "generatorCpuPercent": 7,
+        "generatorRssBytes": 54259712,
+        "droppedIterations": 0
+      },
+      "correctness": {
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalStatus": "PASS",
+        "infraPhaseExitCodes": {
+          "prepare": 0,
+          "resourceQuery": 0,
+          "beforeSnapshot": 0,
+          "k6": 0,
+          "afterSnapshot": 0
+        }
+      }
+    },
+    {
+      "sequence": 25,
+      "scenario": "t5",
+      "condition": {
+        "profile": "stress",
+        "subcase": null,
+        "mode": null,
+        "concurrency": null,
+        "t3Mode": null,
+        "t5Role": "host",
+        "t5Scale": 1
+      },
+      "runId": "room-improvement-final-matrix-replacement-20260821",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-21T13:45:37Z",
+        "endedAtUtc": "2026-08-21T13:46:57Z"
+      },
+      "provenance": {
+        "sourceSha": "d8c112a7ad11c4cae6ff5427fd40af4c7f4577ec",
+        "fixtureSha256": "afd8ad4f63cbe9d51cb8a672f5133fc78817a1c6c2432e4917ddc3281dc2245c",
+        "manifestSha256": "e5a8d2f3056ac12b942ed758fffa6643e1cce91e7cb879c26feb430f9801c0f7",
+        "summarySha256": "7c158e0a86f03399a3eb5e86fcca9c4b4194cbff09b73b4a672bae87c190cc0e",
+        "resourceSignalsSha256": "a7b299a7bedd2033a10463310ca37a01a79ae4b70f61749885db7888b2dc2d7e"
+      },
+      "metrics": {
+        "requestCount": 8890,
+        "failedRequestCount": 0,
+        "outcomes": {
+          "success": 8890,
+          "business": 0,
+          "concurrency": 0,
+          "unexpected": 0
+        }
+      },
+      "t3": {
+        "resourceSignalsStatus": "PASS",
+        "queryCalls": 80288,
+        "queryTimeMs": 3203.135,
+        "lockWaitCount": 0,
+        "hikariPendingThreads": 0,
+        "generatorCpuPercent": 11,
+        "generatorRssBytes": 55685120,
+        "droppedIterations": 0
+      },
+      "correctness": {
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalStatus": "PASS",
+        "infraPhaseExitCodes": {
+          "prepare": 0,
+          "resourceQuery": 0,
+          "beforeSnapshot": 0,
+          "k6": 0,
+          "afterSnapshot": 0
+        }
+      }
+    }
+  ]
+}
