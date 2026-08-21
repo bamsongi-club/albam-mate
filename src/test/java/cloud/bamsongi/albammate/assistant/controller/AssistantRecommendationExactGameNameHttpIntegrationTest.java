@@ -1,6 +1,8 @@
 package cloud.bamsongi.albammate.assistant.controller;
 
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -20,7 +22,10 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import cloud.bamsongi.albammate.assistant.contract.AssistantIntentExtraction;
 import cloud.bamsongi.albammate.assistant.contract.AssistantIntentExtractor;
+import cloud.bamsongi.albammate.assistant.contract.AssistantIntentProposal;
+import cloud.bamsongi.albammate.assistant.contract.AssistantIntentStatus;
 import cloud.bamsongi.albammate.global.security.currentuser.CurrentUserPrincipal;
 import cloud.bamsongi.albammate.user.entity.User;
 import cloud.bamsongi.albammate.user.repository.UserRepository;
@@ -61,13 +66,13 @@ class AssistantRecommendationExactGameNameHttpIntegrationTest {
 			jdbcTemplate.update("delete from participations where user_id = ?", userId);
 			jdbcTemplate.update("delete from users where id = ?", userId);
 		}
-		jdbcTemplate.update("delete from games where bgg_id = ?", TEST_BGG_ID);
+		jdbcTemplate.update("delete from games where bgg_id between ? and ?", TEST_BGG_ID, TEST_BGG_ID + 1);
 	}
 
 	@Test
 	void T1_인증_CSRF_동의_뒤_유일_정식명은_provider와_초안없이_후보DTO를_반환한다() throws Exception {
 		User user = userRepository.saveAndFlush(User.create(TEST_EMAIL, "{bcrypt}hash", "정확 게임 사용자"));
-		long gameId = insertGame("카 탄", null, "공개 설명", "상세 설명");
+		long gameId = insertGame(TEST_BGG_ID, "카 탄", null, "공개 설명", "상세 설명");
 		grant(user);
 
 		mockMvc.perform(post("/api/assistant/recommendations")
@@ -96,14 +101,42 @@ class AssistantRecommendationExactGameNameHttpIntegrationTest {
 				user.getId()));
 	}
 
-	private long insertGame(String name, String imageUrl, String description, String detailDescription) {
+	@Test
+	void T2_인증_CSRF_동의_뒤_복수_정규화_매치는_provider로_한번만_fallback하고_direct_후보를_만들지_않는다()
+		throws Exception {
+		User user = userRepository.saveAndFlush(User.create(TEST_EMAIL, "{bcrypt}hash", "정확 게임 사용자"));
+		insertGame(TEST_BGG_ID, "카 탄", null, "공개 설명", "상세 설명");
+		insertGame(TEST_BGG_ID + 1, "카\u3000탄", null, "다른 공개 설명", "다른 상세 설명");
+		grant(user);
+		when(assistantIntentExtractor.extract(org.mockito.ArgumentMatchers.any()))
+			.thenReturn(new AssistantIntentExtraction(
+				AssistantIntentStatus.SUCCESS, new AssistantIntentProposal("RECOMMEND", java.util.List.of()), null,
+				false));
+
+		mockMvc.perform(post("/api/assistant/recommendations")
+			.contentType("application/json")
+			.content("{\"message\":\"  카\\u3000탄  \"}")
+			.with(authenticationFor(user.getId())).with(csrf()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.state").value("NEEDS_INPUT"))
+			.andExpect(jsonPath("$.data.conditions.gameId").isEmpty())
+			.andExpect(jsonPath("$.data.candidates").isEmpty());
+
+		org.mockito.Mockito.verify(assistantIntentExtractor).extract(org.mockito.ArgumentMatchers.any());
+		verifyNoMoreInteractions(assistantIntentExtractor);
+		org.junit.jupiter.api.Assertions.assertEquals(0,
+			jdbcTemplate.queryForObject("select count(*) from assistant_drafts where user_id = ?", Integer.class,
+				user.getId()));
+	}
+
+	private long insertGame(long bggId, String name, String imageUrl, String description, String detailDescription) {
 		jdbcTemplate.update(
 			"""
 				insert into games (bgg_id, name, english_name, image_url, supported_player_count, tag, estimated_play_time, description, detail_description, created_at, updated_at)
 				values (?, ?, 'Catan', ?, '3~4명', '전략', '60분', ?, ?, current_timestamp, current_timestamp)
 				""",
-			TEST_BGG_ID, name, imageUrl, description, detailDescription);
-		return jdbcTemplate.queryForObject("select id from games where bgg_id = ?", Long.class, TEST_BGG_ID);
+			bggId, name, imageUrl, description, detailDescription);
+		return jdbcTemplate.queryForObject("select id from games where bgg_id = ?", Long.class, bggId);
 	}
 
 	private void grant(User user) throws Exception {

@@ -14,6 +14,7 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import cloud.bamsongi.albammate.game.contract.AssistantExactGameNameMatch;
 import cloud.bamsongi.albammate.game.contract.AssistantRecommendationCandidate;
 import cloud.bamsongi.albammate.game.contract.GameSummary;
 import cloud.bamsongi.albammate.game.entity.Game;
@@ -44,11 +45,19 @@ public interface GameRepository extends JpaRepository<Game, Long>, JpaSpecificat
 	}
 
 	@Query("""
+		select new cloud.bamsongi.albammate.game.contract.AssistantExactGameNameMatch(g.id, g.name)
+		from Game g
+		""")
+	List<AssistantExactGameNameMatch> findAssistantExactGameNameMatches();
+
+	@Query("""
 		select new cloud.bamsongi.albammate.game.contract.AssistantRecommendationCandidate(
 			g.id, g.name, g.imageUrl, g.description)
 		from Game g
+		where g.id = :gameId
 		""")
-	List<AssistantRecommendationCandidate> findAssistantRecommendationCandidates();
+	Optional<AssistantRecommendationCandidate> findAssistantRecommendationCandidateById(@Param("gameId")
+	Long gameId);
 
 	@Query("""
 		select new cloud.bamsongi.albammate.game.contract.GameSummary(g.id, g.bggId, g.name)

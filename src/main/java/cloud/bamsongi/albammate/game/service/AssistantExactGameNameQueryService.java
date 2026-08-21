@@ -26,10 +26,13 @@ public class AssistantExactGameNameQueryService implements AssistantExactGameNam
 			return Optional.empty();
 		}
 		String normalizedMessage = normalize(message);
-		var matches = gameRepository.findAssistantRecommendationCandidates().stream()
-			.filter(candidate -> normalize(candidate.name()).equals(normalizedMessage))
+		var matches = gameRepository.findAssistantExactGameNameMatches().stream()
+			.filter(match -> normalize(match.name()).equals(normalizedMessage))
 			.toList();
-		return matches.size() == 1 ? Optional.of(matches.getFirst()) : Optional.empty();
+		if (matches.size() != 1) {
+			return Optional.empty();
+		}
+		return gameRepository.findAssistantRecommendationCandidateById(matches.getFirst().id());
 	}
 
 	private String normalize(String value) {

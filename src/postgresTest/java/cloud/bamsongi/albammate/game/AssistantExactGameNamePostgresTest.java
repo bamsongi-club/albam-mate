@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -17,7 +18,9 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
+import cloud.bamsongi.albammate.game.contract.AssistantExactGameNameMatch;
 import cloud.bamsongi.albammate.game.contract.AssistantExactGameNameQuery;
+import cloud.bamsongi.albammate.game.repository.GameRepository;
 
 @Testcontainers
 @SpringBootTest
@@ -33,6 +36,8 @@ class AssistantExactGameNamePostgresTest {
 	private AssistantExactGameNameQuery exactGameNameQuery;
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
+	@Autowired
+	private GameRepository gameRepository;
 
 	@AfterEach
 	void tearDown() {
@@ -40,15 +45,28 @@ class AssistantExactGameNamePostgresTest {
 	}
 
 	@Test
-	void T1_T2_PostgreSQL_projection에서_NFKC_유일매치와_복수미매치를_판정한다() {
+	void T1_PostgreSQL_id_name_projection_후_유일_ID의_상세_후보를_조회한다() {
 		long id = insertGame("카 탄", null, "공개 설명");
+
+		assertEquals(List.of(new AssistantExactGameNameMatch(id, "카 탄")),
+			gameRepository.findAssistantExactGameNameMatches());
+		var candidate = gameRepository.findAssistantRecommendationCandidateById(id).orElseThrow();
+		assertEquals(id, candidate.id());
+		assertEquals(null, candidate.imageUrl());
+		assertEquals("공개 설명", candidate.description());
 
 		var unique = exactGameNameQuery.findUniqueByNormalizedName("  카\u3000탄  ");
 		assertEquals(id, unique.orElseThrow().id());
 		assertEquals(null, unique.orElseThrow().imageUrl());
 		assertEquals("공개 설명", unique.orElseThrow().description());
+	}
 
+	@Test
+	void T2_PostgreSQL_복수_정규화_매치는_상세_후보를_조회하지_않는다() {
+		insertGame("카 탄", null, "공개 설명");
 		insertGame("카\u3000탄", "https://example.com/catan.png", "다른 공개 설명");
+
+		assertEquals(2, gameRepository.findAssistantExactGameNameMatches().size());
 		assertTrue(exactGameNameQuery.findUniqueByNormalizedName("카 탄").isEmpty());
 		assertTrue(exactGameNameQuery.findUniqueByNormalizedName("카탄!").isEmpty());
 	}
