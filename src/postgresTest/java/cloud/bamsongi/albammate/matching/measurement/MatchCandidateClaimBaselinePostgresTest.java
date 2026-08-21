@@ -1,0 +1,615 @@
+package cloud.bamsongi.albammate.matching.measurement;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.postgresql.PostgreSQLContainer;
+
+import cloud.bamsongi.albammate.AlbamMateApplication;
+import tools.jackson.databind.ObjectMapper;
+
+@Testcontainers
+@SpringBootTest(classes = AlbamMateApplication.class)
+class MatchCandidateClaimBaselinePostgresTest {
+
+	@Container
+	@ServiceConnection
+	static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:18.4")
+		.withCommand("postgres", "-c", "shared_preload_libraries=pg_stat_statements")
+		.withDatabaseName("albam_mate_match_candidate_baseline");
+
+	@Autowired
+	private JdbcTemplate jdbcTemplate;
+
+	@AfterEach
+	void tearDown() {
+		jdbcTemplate.execute("""
+			truncate table match_idempotency_records, match_proposal_members, match_proposals,
+			match_party_participants, match_parties, match_requests, match_blocks, users restart identity cascade
+			""");
+	}
+
+	@Test
+	void fixture_read_back은_queuedAt과_prioritySince가_다른_입력을_각각_보존한다() {
+		MatchCandidateClaimBaselineSupport.CandidateFixture fixture = MatchCandidateClaimBaselineSupport
+			.createDistinctQueuedAtFixture();
+		MatchCandidateClaimBaselineSupport.MaterializedFixture materialized = MatchCandidateClaimBaselineSupport
+			.materialize(jdbcTemplate, fixture);
+		MatchCandidateClaimBaselineSupport.FixtureReportInput report = MatchCandidateClaimBaselineSupport
+			.reportFixture(jdbcTemplate, fixture, materialized);
+		assertTrue(report.inputCsv().contains("2026-01-01T00:00:00Z,2026-01-01T00:00:01Z"));
+		assertEquals("2026-01-01T00:00:00Z", report.manifest().getFirst().queuedAt());
+		assertEquals("2026-01-01T00:00:01Z", report.manifest().getFirst().prioritySince());
+	}
+
+	@Test
+	void fixture_generator는_동일한_입력_CSV와_manifest를_결정적으로_만들고_변조를_거절한다() {
+		MatchCandidateClaimBaselineSupport.CandidateFixture first = MatchCandidateClaimBaselineSupport
+			.createContractFixture();
+		MatchCandidateClaimBaselineSupport.CandidateFixture second = MatchCandidateClaimBaselineSupport
+			.createContractFixture();
+
+		assertEquals(1_000, first.requests().size());
+		assertEquals(100, first.tiePairs().size());
+		assertEquals(first.fixtureInputSha256(), second.fixtureInputSha256());
+		assertEquals(first.inputCsv(), second.inputCsv());
+		assertEquals(first.fixtureInputSha256(), sha256(first.inputCsv()));
+		MatchCandidateClaimBaselineSupport.MaterializedFixture materialized = MatchCandidateClaimBaselineSupport
+			.materialize(jdbcTemplate, first);
+		assertEquals(1_000, materialized.requests().size());
+		assertEquals(1_000, jdbcTemplate.queryForObject("""
+			select count(*) from match_requests
+			where status = 'WAITING' and min_party_size = 2 and max_party_size = 4
+				and queued_at = priority_since
+			""", Integer.class));
+		for (MatchCandidateClaimBaselineSupport.TiePair tiePair : first.tiePairs()) {
+			long firstRequestId = materialized.requests().get(tiePair.firstOrdinal() - 1).requestId();
+			long secondRequestId = materialized.requests().get(tiePair.secondOrdinal() - 1).requestId();
+			assertTrue(firstRequestId < secondRequestId);
+		}
+		assertEquals(1_000,
+			materialized.requests().stream().map(MatchCandidateClaimBaselineSupport.MaterializedRequest::userId)
+				.distinct().count());
+		assertEquals(1_000,
+			materialized.requests().stream().map(MatchCandidateClaimBaselineSupport.MaterializedRequest::requestId)
+				.distinct().count());
+		assertTrue(
+			materialized.requests().stream().allMatch(request -> request.userId() > 0 && request.requestId() > 0));
+		MatchCandidateClaimBaselineSupport.FixtureReportInput reportFixture = MatchCandidateClaimBaselineSupport
+			.reportFixture(jdbcTemplate, first, materialized);
+		assertEquals(first.inputCsv(), reportFixture.inputCsv());
+		assertEquals("MATCH-01-CANDIDATE-BASELINE-V2", reportFixture.generator());
+		assertEquals(first.fixtureInputSha256(), reportFixture.fixtureInputSha256());
+		assertEquals(1_000, reportFixture.manifest().size());
+		assertEquals(2, reportFixture.manifest().getFirst().minPartySize());
+		assertEquals(4, reportFixture.manifest().getFirst().maxPartySize());
+		assertTrue(reportFixture.manifest().stream().allMatch(entry -> entry.userId() > 0 && entry.requestId() > 0));
+		List<MatchCandidateClaimBaselineSupport.MaterializedRequest> substituted = new java.util.ArrayList<>(
+			materialized.requests());
+		MatchCandidateClaimBaselineSupport.MaterializedRequest firstRequest = substituted.getFirst();
+		MatchCandidateClaimBaselineSupport.MaterializedRequest secondRequest = substituted.get(1);
+		substituted.set(0, new MatchCandidateClaimBaselineSupport.MaterializedRequest(
+			firstRequest.fixtureOrdinal(), firstRequest.label(), secondRequest.userId(), secondRequest.requestId()));
+		substituted.set(1, new MatchCandidateClaimBaselineSupport.MaterializedRequest(
+			secondRequest.fixtureOrdinal(), secondRequest.label(), firstRequest.userId(), firstRequest.requestId()));
+		assertThrows(IllegalArgumentException.class, () -> MatchCandidateClaimBaselineSupport
+			.reportFixture(jdbcTemplate, first, new MatchCandidateClaimBaselineSupport.MaterializedFixture(
+				first.fixtureInputSha256(), List.copyOf(substituted))));
+		assertThrows(IllegalArgumentException.class,
+			() -> MatchCandidateClaimBaselineSupport.verifyWorkerInput(first, materialized, "tampered"));
+		assertThrows(IllegalArgumentException.class,
+			() -> MatchCandidateClaimBaselineSupport.verifyWorkerInput(first,
+				materialized.withFixtureInputSha256("tampered"), first.fixtureInputSha256()));
+	}
+
+	@Test
+	void worker_entry는_실제_coordinator_claim_경로로_혼합_범위_smoke를_수행한다() throws Exception {
+		MatchCandidateClaimBaselineSupport.CandidateFixture fixture = MatchCandidateClaimBaselineSupport
+			.createMixedRangeSmokeFixture();
+		MatchCandidateClaimBaselineSupport.MaterializedFixture materialized = MatchCandidateClaimBaselineSupport
+			.materialize(jdbcTemplate, fixture);
+
+		MatchCandidateClaimBaselineSupport.WorkerEntryExecution worker = MatchCandidateClaimBaselineSupport
+			.runSingleMatcherProcess(
+				POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword(), fixture, materialized);
+
+		assertTrue(worker.workerPid() > 0);
+		assertTrue(worker.completed());
+		assertEquals(1, worker.logicalClaims().size());
+		assertTrue(worker.logicalClaims().getFirst().durationNanos() > 0);
+		assertEquals(MatchCandidateClaimBaselineSupport.currentGitSha(), worker.measuredGitCommitSha());
+		assertEquals(1, jdbcTemplate.queryForObject("select count(*) from match_proposals", Integer.class));
+		assertEquals(2, jdbcTemplate.queryForObject("select party_size from match_proposals", Integer.class));
+		assertEquals(List.of("R1", "R3"), jdbcTemplate.queryForList("""
+			select u.nickname
+			from match_proposal_members member
+			join users u on u.id = member.user_id
+			order by u.nickname
+			""", String.class));
+		assertEquals(3, jdbcTemplate.queryForObject("select count(*) from match_requests where status = 'WAITING'",
+			Integer.class));
+	}
+
+	@Test
+	void 두_matcher는_서로_다른_OS_process로_같은_barrier를_통과해야_유효하다() throws Exception {
+		MatchCandidateClaimBaselineSupport.CandidateFixture fixture = MatchCandidateClaimBaselineSupport
+			.createSmallProcessFixture();
+		MatchCandidateClaimBaselineSupport.MaterializedFixture materialized = MatchCandidateClaimBaselineSupport
+			.materialize(jdbcTemplate, fixture);
+
+		MatchCandidateClaimBaselineSupport.ProcessOrchestration orchestration = MatchCandidateClaimBaselineSupport
+			.runMatcherProcesses(
+				POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword(), fixture, materialized, 1);
+
+		assertEquals(2, orchestration.matcherPids().stream().distinct().count());
+		assertTrue(orchestration.sameBarrierReleased());
+		assertTrue(orchestration.completed());
+		assertThrows(IllegalArgumentException.class,
+			() -> MatchCandidateClaimBaselineSupport.validateProcessEvidence(
+				new MatchCandidateClaimBaselineSupport.ProcessOrchestration(
+					List.of(10L, 10L), true, true, orchestration.measuredGitCommitSha(), false,
+					new MatchCandidateClaimBaselineSupport.TopologyEvidence(2, 1, "config"), List.of())));
+		assertThrows(IllegalArgumentException.class,
+			() -> MatchCandidateClaimBaselineSupport.validateProcessEvidence(
+				new MatchCandidateClaimBaselineSupport.ProcessOrchestration(
+					List.of(10L, 20L), false, true, orchestration.measuredGitCommitSha(), false,
+					new MatchCandidateClaimBaselineSupport.TopologyEvidence(2, 1, "config"), List.of())));
+		assertThrows(IllegalArgumentException.class,
+			() -> MatchCandidateClaimBaselineSupport.validateProcessEvidence(
+				new MatchCandidateClaimBaselineSupport.ProcessOrchestration(
+					List.of(10L, 20L), true, false, orchestration.measuredGitCommitSha(), false,
+					new MatchCandidateClaimBaselineSupport.TopologyEvidence(2, 1, "config"), List.of())));
+		assertThrows(IllegalArgumentException.class,
+			() -> MatchCandidateClaimBaselineSupport.validateProcessEvidence(
+				new MatchCandidateClaimBaselineSupport.ProcessOrchestration(
+					List.of(10L, 20L), true, true, "", false,
+					new MatchCandidateClaimBaselineSupport.TopologyEvidence(2, 1, "config"), List.of())));
+		assertThrows(IllegalArgumentException.class,
+			() -> MatchCandidateClaimBaselineSupport.validateProcessEvidence(
+				new MatchCandidateClaimBaselineSupport.ProcessOrchestration(
+					List.of(10L), true, true, orchestration.measuredGitCommitSha(), false,
+					new MatchCandidateClaimBaselineSupport.TopologyEvidence(2, 1, "config"),
+					List.of(new MatchCandidateClaimBaselineSupport.LogicalClaim(10L, 1L, 0, List.of())))));
+		assertThrows(IllegalArgumentException.class,
+			() -> MatchCandidateClaimBaselineSupport.validateReadyMessage(
+				"READY|11|fixture|git|config", "fixture", "git", "different-config"));
+		assertThrows(IllegalArgumentException.class,
+			() -> MatchCandidateClaimBaselineSupport.validateReadyMessage(
+				"READY|11|fixture|different-git|config", "fixture", "git", "config"));
+		assertThrows(IllegalArgumentException.class,
+			() -> MatchCandidateClaimBaselineSupport.validateReadyMessage(
+				"READY|11||git|config", "fixture", "git", "config"));
+	}
+
+	@Test
+	void matcher_정리중_interrupt가_발생해도_모든_임시_파일을_삭제하고_interrupt를_보존한다() throws Exception {
+		Path firstArgumentFile = Files.createTempFile("issue775-cleanup-", ".args");
+		Path firstOutputFile = Files.createTempFile("issue775-cleanup-", ".log");
+		Path secondArgumentFile = Files.createTempFile("issue775-cleanup-", ".args");
+		Path secondOutputFile = Files.createTempFile("issue775-cleanup-", ".log");
+		Process firstProcess = startCleanupProbeProcess();
+		Process secondProcess = startCleanupProbeProcess();
+		try {
+			Thread.currentThread().interrupt();
+			MatchCandidateClaimBaselineSupport.cleanupWorkers(List.of(
+				new MatchCandidateClaimBaselineSupport.WorkerProcess(firstProcess, firstArgumentFile, firstOutputFile),
+				new MatchCandidateClaimBaselineSupport.WorkerProcess(secondProcess, secondArgumentFile,
+					secondOutputFile)));
+
+			assertTrue(Thread.currentThread().isInterrupted());
+			assertFalse(Files.exists(firstArgumentFile));
+			assertFalse(Files.exists(firstOutputFile));
+			assertFalse(Files.exists(secondArgumentFile));
+			assertFalse(Files.exists(secondOutputFile));
+		} finally {
+			Thread.interrupted();
+			firstProcess.destroyForcibly();
+			secondProcess.destroyForcibly();
+			firstProcess.waitFor(5, TimeUnit.SECONDS);
+			secondProcess.waitFor(5, TimeUnit.SECONDS);
+			Files.deleteIfExists(firstArgumentFile);
+			Files.deleteIfExists(firstOutputFile);
+			Files.deleteIfExists(secondArgumentFile);
+			Files.deleteIfExists(secondOutputFile);
+		}
+	}
+
+	@Test
+	void Node_report_정리중_interrupt가_발생해도_자식과_diagnostic을_정리하고_interrupt를_보존한다() throws Exception {
+		Path diagnostic = Files.createTempFile("issue775-node-cleanup-", ".log");
+		Process process = new ProcessBuilder("node", "-e", "setTimeout(() => {}, 30000)")
+			.redirectErrorStream(true)
+			.redirectOutput(diagnostic.toFile())
+			.start();
+		try {
+			Thread.currentThread().interrupt();
+			cleanupNodeProcess(process, diagnostic);
+
+			assertTrue(Thread.currentThread().isInterrupted());
+			assertFalse(process.isAlive());
+			assertFalse(Files.exists(diagnostic));
+		} finally {
+			Thread.interrupted();
+			process.destroyForcibly();
+			process.waitFor(5, TimeUnit.SECONDS);
+			Files.deleteIfExists(diagnostic);
+		}
+	}
+
+	@Test
+	void Node_report_waitFor_자체가_interrupt되어도_상태를_복원하고_자식을_정리한다() throws Exception {
+		Path diagnostic = Files.createTempFile("issue775-node-wait-interrupt-", ".log");
+		Process process = new ProcessBuilder("node", "-e", "setTimeout(() => {}, 30000)")
+			.redirectErrorStream(true)
+			.redirectOutput(diagnostic.toFile())
+			.start();
+		AtomicBoolean interruptedAtCatch = new AtomicBoolean();
+		Thread waiter = new Thread(() -> {
+			try {
+				waitForNodeProcess(process, diagnostic, 30);
+			} catch (InterruptedException exception) {
+				interruptedAtCatch.set(Thread.currentThread().isInterrupted());
+			} finally {
+				cleanupNodeProcess(process, diagnostic);
+			}
+		});
+		try {
+			waiter.start();
+			Thread.sleep(100);
+			waiter.interrupt();
+			waiter.join(5_000);
+
+			assertFalse(waiter.isAlive());
+			assertTrue(interruptedAtCatch.get());
+			assertFalse(process.isAlive());
+			assertFalse(Files.exists(diagnostic));
+		} finally {
+			waiter.interrupt();
+			waiter.join(5_000);
+			process.destroyForcibly();
+			process.waitFor(5, TimeUnit.SECONDS);
+			Files.deleteIfExists(diagnostic);
+		}
+	}
+
+	@Test
+	void worker_시작이_실패하면_해당_호출의_argument와_output_임시_파일을_정리한다() throws Exception {
+		String temporaryFilePrefix = "issue775-start-failure-" + UUID.randomUUID() + "-";
+		Path temporaryDirectory = Path.of(System.getProperty("java.io.tmpdir"));
+		Path missingExecutable = temporaryDirectory.resolve("issue775-missing-executable-" + UUID.randomUUID());
+		MatchCandidateClaimBaselineSupport.CandidateFixture fixture = MatchCandidateClaimBaselineSupport
+			.createSmallProcessFixture();
+
+		assertThrows(java.io.IOException.class, () -> MatchCandidateClaimBaselineSupport.startWorker(
+			"jdbc:postgresql://unused", "unused", "unused", 1, fixture, "a".repeat(40), "b".repeat(64), 1,
+			missingExecutable.toString(), temporaryFilePrefix));
+
+		try (var files = Files.list(temporaryDirectory)) {
+			assertFalse(files.anyMatch(path -> path.getFileName().toString().startsWith(temporaryFilePrefix)));
+		}
+	}
+
+	@Test
+	void small_round는_실제_coordinator_경로의_관측_원자료를_report_schema_입력으로_수집한다() throws Exception {
+		MatchCandidateClaimBaselineSupport.CandidateFixture fixture = MatchCandidateClaimBaselineSupport
+			.createSmallProcessFixture();
+		MatchCandidateClaimBaselineSupport.MaterializedFixture materialized = MatchCandidateClaimBaselineSupport
+			.materialize(jdbcTemplate, fixture);
+		MatchCandidateClaimBaselineSupport.FixtureReportInput fixtureReport = MatchCandidateClaimBaselineSupport
+			.reportFixture(jdbcTemplate, fixture, materialized);
+
+		MatchCandidateClaimBaselineSupport.SmallRoundReport report = MatchCandidateClaimBaselineSupport
+			.collectSmallRound(
+				POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword(), jdbcTemplate,
+				fixture, materialized, fixtureReport, 1);
+
+		assertEquals(2, report.logicalClaims().size());
+		assertEquals(2, report.reportInput().matcherProcesses().size());
+		assertEquals(fixtureReport.fixtureInputSha256(), report.reportInput().fixtureEvidence().fixtureInputSha256());
+		assertEquals(fixtureReport.materializedManifestSha256(),
+			report.reportInput().fixtureEvidence().materializedManifestSha256());
+		assertEquals(MatchCandidateClaimBaselineSupport.currentGitSha(),
+			report.reportInput().measuredGitCommitSha());
+		assertEquals(2, report.reportInput().topologyEvidence().matcherCount());
+		assertEquals(1, report.reportInput().topologyEvidence().claimAttempts());
+		assertTrue(report.reportInput().matcherProcesses().stream()
+			.allMatch(process -> process.exitCode() == 0 && process.completed()));
+		assertEquals(report.logicalClaims(), report.reportInput().logicalClaims());
+		assertEquals(report.throughputPerSecond(), report.reportInput().throughputPerSecond());
+		assertEquals(report.pgStatStatements(), report.reportInput().pgStatStatements());
+		assertEquals(report.lockSamples(), report.reportInput().lockSamples());
+		assertEquals(report.queryPlan(), report.reportInput().queryPlan());
+		assertEquals(report.correctnessInput(), report.reportInput().correctnessInput());
+		assertTrue(report.logicalClaims().stream().allMatch(claim -> claim.durationNanos() > 0
+			&& claim.retryCount() == 0 && claim.retryRawDurationsNanos().isEmpty()));
+		assertEquals(2, report.logicalClaims().stream().map(MatchCandidateClaimBaselineSupport.LogicalClaim::matcherPid)
+			.distinct().count());
+		assertTrue(report.throughputPerSecond() > 0);
+		assertTrue(report.pgStatStatements().calls() > 0);
+		assertTrue(report.pgStatStatements().totalExecutionTimeMs() >= 0);
+		assertTrue(report.pgStatStatements().rows() >= 0);
+		assertTrue(report.pgStatStatements().sharedBlockHits() >= 0);
+		assertTrue(report.pgStatStatements().sharedBlockReads() >= 0);
+		assertFalse(report.pgStatStatements().candidateStatements().isEmpty());
+		assertTrue(report.pgStatStatements().candidateStatements().stream()
+			.allMatch(statement -> statement.calls() > 0
+				&& statement.query().toLowerCase().contains("order by priority_since")
+				&& statement.query().toLowerCase().contains("for update skip locked")));
+		assertEquals(10, report.lockSamples().intervalMs());
+		assertTrue(report.orchestration().barrierReleasedAtUtc() != null);
+		assertTrue(report.orchestration().matcherFinishedAtUtc() != null);
+		assertTrue(Instant.parse(report.lockSamples().observationStartedAtUtc())
+			.compareTo(Instant.parse(report.orchestration().barrierReleasedAtUtc())) <= 0);
+		assertTrue(Instant.parse(report.lockSamples().observationFinishedAtUtc())
+			.compareTo(Instant.parse(report.orchestration().matcherFinishedAtUtc())) >= 0);
+		assertEquals(
+			report.logicalClaims().size() / (report.orchestration().measurementDurationNanos() / 1_000_000_000.0),
+			report.throughputPerSecond());
+		assertTrue(report.orchestration().measurementDurationNanos() > 0);
+		assertTrue(report.lockSamples().observationStartedAtUtc() != null);
+		assertTrue(report.lockSamples().observationFinishedAtUtc() != null);
+		assertTrue(Instant.parse(report.lockSamples().observationStartedAtUtc())
+			.compareTo(Instant.parse(report.lockSamples().observationFinishedAtUtc())) <= 0);
+		assertTrue(report.lockSamples().snapshotCount() > 0);
+		assertEquals(null, report.lockSamples().samplingFailure());
+		assertTrue(report.queryPlan().contains("anchorSql="));
+		assertTrue(report.queryPlan().contains("candidatePageSql="));
+		assertTrue(report.queryPlan().toLowerCase().contains("limit 1"));
+		assertTrue(report.queryPlan().toLowerCase().contains("limit 100"));
+		assertTrue(report.queryPlan().toLowerCase().contains("for update skip locked"));
+		assertEquals(1, report.correctnessInput().proposalCount());
+		assertEquals(2, report.correctnessInput().memberCount());
+		assertEquals(2, report.correctnessInput().claimedRequestCount());
+		assertEquals(2, report.correctnessInput().waitingRequestCount());
+		assertEquals(0, report.correctnessInput().duplicateClaimCount());
+		assertEquals(0, report.correctnessInput().partialClaimCount());
+		assertTrue(report.correctnessInput().tieOrderMatches());
+		assertTrue(report.correctnessInput().tiePairResults().isEmpty());
+	}
+
+	@Test
+	void warm_up과_measured_round_원자료와_nearest_rank_산식이_Node_report에_보존된다() throws Exception {
+		assertEquals(0, nodeContractTest("warm-up을 제외하고 measured round 원자료와 nearest-rank 통계를 보존한다"));
+	}
+
+	@Test
+	void Node_판정기는_관측_누락을_INVALID로_완결_정합성_위반을_FAILED로_분리한다() throws Exception {
+		assertEquals(0, nodeContractTest("관측과 process 누락은 INVALID, 완료 뒤 정합성 위반은 FAILED로 판정한다"));
+	}
+
+	@Test
+	void Node_판정기는_고정_fixture_generator와_ordinal_계약을_검증한다() throws Exception {
+		assertEquals(0, nodeContractTest("고정 fixture generator와 모든 ordinal 규칙이 아니면 INVALID로 거절한다"));
+	}
+
+	@Test
+	void Node_판정기는_raw_배열_누락을_INVALID_decision으로_보존한다() throws Exception {
+		assertEquals(0, nodeContractTest("raw 배열 누락 CLI 입력도 INVALID decision JSON으로 보존한다"));
+	}
+
+	@Test
+	void Node_판정기는_lock_관측_창과_실제_fixture_tie_결과를_검증한다() throws Exception {
+		assertEquals(0, nodeContractTest("lock 관측 창과 실제 fixture의 100개 tie 결과가 없으면 INVALID다"));
+	}
+
+	@Test
+	void Node_판정기는_lock_wait_snapshot_수의_형식을_검증한다() throws Exception {
+		assertEquals(0, nodeContractTest("lock wait snapshot 수가 없거나 0 이상의 정수가 아니면 INVALID다"));
+	}
+
+	@Test
+	void Node_판정기는_round_materialized_manifest_증거를_canonical_fixture와_대조한다() throws Exception {
+		assertEquals(0, nodeContractTest("round materialized manifest 증거가 canonical fixture와 다르면 INVALID다"));
+	}
+
+	@Test
+	void Node_판정기는_round_fixture와_topology_증거를_검증한다() throws Exception {
+		assertEquals(0, nodeContractTest("모든 round의 fixture와 topology 증거, matcher별 500회 원자료가 아니면 INVALID다"));
+	}
+
+	@Test
+	void Node_판정기는_실행_SHA와_실제_candidate_claim_query_plan을_검증한다() throws Exception {
+		assertEquals(0, nodeContractTest("실행 SHA와 실제 candidate claim query plan 증거가 없거나 다르면 INVALID다"));
+	}
+
+	@Test
+	void 계약_크기_측정_실행은_Tag과_시스템_속성과_전용_task를_모두_요구한다() throws Exception {
+		Method heavyMethod = getClass().getDeclaredMethod("계약_크기_측정은_명시적_승인에서만_실행한다");
+		assertTrue(heavyMethod.isAnnotationPresent(Tag.class));
+		assertThrows(IllegalStateException.class, MatchCandidateClaimBaselineSupport::requireMeasurementEnabled);
+	}
+
+	@Test
+	@Tag("measurement")
+	void 계약_크기_측정은_명시적_승인에서만_실행한다() throws Exception {
+		MatchCandidateClaimBaselineSupport.requireMeasurementEnabled();
+		List<MatchCandidateClaimBaselineSupport.ReportRoundInput> measuredRounds = new java.util.ArrayList<>();
+		MatchCandidateClaimBaselineSupport.ReportRoundInput warmUp = null;
+		MatchCandidateClaimBaselineSupport.FixtureReportInput fixtureReport = null;
+		for (int round = 0; round < 4; round++) {
+			truncateMeasurementTables();
+			MatchCandidateClaimBaselineSupport.CandidateFixture fixture = MatchCandidateClaimBaselineSupport
+				.createContractFixture();
+			MatchCandidateClaimBaselineSupport.MaterializedFixture materialized = MatchCandidateClaimBaselineSupport
+				.materialize(jdbcTemplate, fixture);
+			// 결과 report는 claim 전 WAITING DB mapping으로 고정한다. 마지막 measured round의 snapshot을 사용한다.
+			fixtureReport = MatchCandidateClaimBaselineSupport.reportFixture(jdbcTemplate, fixture, materialized);
+			MatchCandidateClaimBaselineSupport.SmallRoundReport collected = MatchCandidateClaimBaselineSupport
+				.collectSmallRound(
+					POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword(), jdbcTemplate,
+					fixture, materialized, fixtureReport, 500);
+			assertEquals(1_000, collected.logicalClaims().size());
+			assertTrue(collected.logicalClaims().stream()
+				.allMatch(claim -> claim.retryCount() == 0 && claim.retryRawDurationsNanos().isEmpty()));
+			assertEquals(100, collected.correctnessInput().tiePairResults().size());
+			MatchCandidateClaimBaselineSupport.ReportRoundInput reportRound = MatchCandidateClaimBaselineSupport
+				.withRound(collected, round);
+			if (round == 0) {
+				warmUp = reportRound;
+			} else {
+				measuredRounds.add(reportRound);
+			}
+		}
+		Path reportDirectory = Path.of("build", "reports", "measurements");
+		Files.createDirectories(reportDirectory);
+		Path inputPath = reportDirectory.resolve("match01-candidate-baseline-input.json");
+		Path outputPath = reportDirectory.resolve("match01-candidate-baseline-report.json");
+		new ObjectMapper().writerWithDefaultPrettyPrinter().writeValue(inputPath.toFile(),
+			Map.of("fixture", fixtureReport, "measuredGitCommitSha", warmUp.measuredGitCommitSha(),
+				"warmUp", warmUp, "measured", measuredRounds));
+		runNodeReport(inputPath, outputPath);
+		boolean allTieOrdersMatch = measuredRounds.stream()
+			.allMatch(round -> round.correctnessInput().tieOrderMatches());
+		String expectedOutcome = allTieOrdersMatch ? "BASELINE_ACCEPTED" : "FAILED";
+		String output = Files.readString(outputPath);
+		assertTrue(output.contains("\"outcome\": \"" + expectedOutcome + "\""));
+		assertFalse(output.contains("\"outcome\": \"INVALID\""));
+	}
+
+	private void truncateMeasurementTables() {
+		jdbcTemplate.execute("""
+			truncate table match_idempotency_records, match_proposal_members, match_proposals,
+			match_party_participants, match_parties, match_requests, match_blocks, users restart identity cascade
+			""");
+	}
+
+	private void runNodeReport(Path inputPath, Path outputPath) throws Exception {
+		Path diagnostic = Files.createTempFile("issue775-node-report-", ".log");
+		Process process = null;
+		try {
+			process = new ProcessBuilder(
+				"node", "scripts/measurements/match01-candidate-baseline-report.mjs",
+				"--input", inputPath.toString(), "--output", outputPath.toString())
+				.directory(new java.io.File(System.getProperty("user.dir")))
+				.redirectErrorStream(true)
+				.redirectOutput(diagnostic.toFile())
+				.start();
+			waitForNodeProcess(process, diagnostic, 90);
+			assertEquals(0, process.exitValue(), Files.readString(diagnostic));
+		} finally {
+			cleanupNodeProcess(process, diagnostic);
+		}
+	}
+
+	private int nodeContractTest(String testNamePattern) throws Exception {
+		Path outputFile = Files.createTempFile("issue775-node-contract-", ".log");
+		Process process = null;
+		try {
+			process = new ProcessBuilder(
+				"node",
+				"--test",
+				"--test-name-pattern",
+				testNamePattern,
+				"scripts/measurements/match01-candidate-baseline-report.test.mjs")
+				.directory(new java.io.File(System.getProperty("user.dir")))
+				.redirectErrorStream(true)
+				.redirectOutput(outputFile.toFile())
+				.start();
+			waitForNodeProcess(process, outputFile, 30);
+			String output = Files.readString(outputFile, StandardCharsets.UTF_8);
+			assertEquals(0, process.exitValue(), output);
+			return process.exitValue();
+		} finally {
+			cleanupNodeProcess(process, outputFile);
+		}
+	}
+
+	static void cleanupNodeProcess(Process process, Path diagnostic) {
+		boolean interrupted = Thread.currentThread().isInterrupted();
+		if (interrupted) {
+			Thread.interrupted();
+		}
+		if (process != null && process.isAlive()) {
+			process.destroyForcibly();
+		}
+		if (process != null) {
+			while (process.isAlive()) {
+				try {
+					process.waitFor(5, TimeUnit.SECONDS);
+				} catch (InterruptedException exception) {
+					interrupted = true;
+				}
+			}
+		}
+		boolean deleted = false;
+		for (int attempt = 0; attempt < 10; attempt++) {
+			try {
+				Files.deleteIfExists(diagnostic);
+				deleted = true;
+				break;
+			} catch (java.io.IOException exception) {
+				try {
+					Thread.sleep(50);
+				} catch (InterruptedException interruptedException) {
+					interrupted = true;
+				}
+			}
+		}
+		if (!deleted) {
+			diagnostic.toFile().deleteOnExit();
+		}
+		if (interrupted) {
+			Thread.currentThread().interrupt();
+		}
+	}
+
+	static void waitForNodeProcess(Process process, Path diagnostic, int timeoutSeconds) throws InterruptedException {
+		boolean interrupted = false;
+		try {
+			if (!process.waitFor(timeoutSeconds, TimeUnit.SECONDS)) {
+				String diagnosticText;
+				try {
+					diagnosticText = Files.readString(diagnostic);
+				} catch (java.io.IOException exception) {
+					diagnosticText = "diagnostic read failed: " + exception.getMessage();
+				}
+				throw new AssertionError("Node report timeout: " + diagnosticText);
+			}
+		} catch (InterruptedException exception) {
+			interrupted = true;
+			throw exception;
+		} finally {
+			if (interrupted) {
+				Thread.currentThread().interrupt();
+			}
+		}
+	}
+
+	private String sha256(String value) {
+		try {
+			return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+				.digest(value.getBytes(StandardCharsets.UTF_8)));
+		} catch (java.security.NoSuchAlgorithmException exception) {
+			throw new IllegalStateException(exception);
+		}
+	}
+
+	private Process startCleanupProbeProcess() throws java.io.IOException {
+		if (System.getProperty("os.name").toLowerCase().contains("win")) {
+			return new ProcessBuilder("cmd.exe", "/c", "ping -n 30 127.0.0.1 > nul").start();
+		}
+		return new ProcessBuilder("sh", "-c", "sleep 30").start();
+	}
+}

@@ -108,6 +108,7 @@ tasks.register('postgresMeasurementTest', Test) {
     classpath = sourceSets.postgresTest.runtimeClasspath
     dependsOn tasks.named('postgresTestClasses')
     shouldRunAfter tasks.named('postgresTest')
+    systemProperty 'issue775.measurement', System.getProperty('issue775.measurement', 'false')
     useJUnitPlatform {
         includeTags 'measurement'
     }
