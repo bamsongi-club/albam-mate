@@ -54,6 +54,7 @@ import cloud.bamsongi.albammate.matching.dto.CurrentMatchStateResponse;
 import cloud.bamsongi.albammate.matching.service.command.MatchProposalResponseCompletionProbe;
 import cloud.bamsongi.albammate.matching.service.command.MatchProposalResponseCoordinator;
 import cloud.bamsongi.albammate.matching.service.command.MatchProposalScheduler;
+import cloud.bamsongi.albammate.testsupport.PgVectorPostgresImages;
 import tools.jackson.databind.ObjectMapper;
 
 @Testcontainers
@@ -66,7 +67,7 @@ class MatchResponseCompletionBaselinePostgresTest {
 
 	@Container
 	@ServiceConnection
-	static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:18.4")
+	static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(PgVectorPostgresImages.postgres18())
 		.withCommand("postgres", "-c", "shared_preload_libraries=pg_stat_statements");
 
 	@Autowired
