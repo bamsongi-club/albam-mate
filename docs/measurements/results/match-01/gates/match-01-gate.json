@@ -35,9 +35,9 @@
   ],
   "responseCompletionConsumer": {
     "id": "MATCH-01-RESPONSE-COMPLETION",
-    "path": "docs/measurements/results/match-01/response-completion/response-completion-consumer-91d0fd9c8ccf51e073223e069aee5f98571ce228.json",
-    "gitCanonicalBlobSha256": "8eba493956f91529f468f2f3894914f913449b95cda3e736cb4f41d6f1d8bb4f",
-    "artifactSha256": "8eba493956f91529f468f2f3894914f913449b95cda3e736cb4f41d6f1d8bb4f"
+    "path": "docs/measurements/results/match-01/response-completion/response-completion-consumer-c017d2f52f6548dc85ab86fed0f0d668397a3fe3.json",
+    "gitCanonicalBlobSha256": "5789278b028525617489617b2c57c71d5a841f64a9510558a02d30dec1bb8792",
+    "artifactSha256": "5789278b028525617489617b2c57c71d5a841f64a9510558a02d30dec1bb8792"
   },
   "currentStateConsumer": {
     "id": "MATCH-01-T12",

@@ -8,7 +8,7 @@
     "issue": 776,
     "artifactPath": "docs/measurements/results/match-01/response-completion/response-completion-91d0fd9c8ccf51e073223e069aee5f98571ce228.json",
     "artifactSha256": "fd464d2b77c776afd23b7e4f4e1fd0d9ebc7c693893d941121d7ee940817ecf2",
-    "resultPath": "docs/measurements/results/match-01/response-completion/response-completion-baseline-result.md",
+    "resultPath": "docs/measurements/results/match-01/response-completion/response-completion-baseline-result-91d0fd9c8ccf51e073223e069aee5f98571ce228.md",
     "resultSha256": "8f47218a073cdd3aab05fd9c8af96106c0ccee6d592f3a8a9ecfa5fd89627712",
     "sourceMeasuredGitCommitSha": "91d0fd9c8ccf51e073223e069aee5f98571ce228"
   }

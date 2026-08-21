@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "measuredGitCommitSha": "c017d2f52f6548dc85ab86fed0f0d668397a3fe3",
+  "decision": {
+    "outcome": "RESPONSE_BASELINE_ACCEPTED"
+  },
+  "sourceEvidence": {
+    "issue": 776,
+    "artifactPath": "docs/measurements/results/match-01/response-completion/response-completion-c017d2f52f6548dc85ab86fed0f0d668397a3fe3.json",
+    "artifactSha256": "0db88d3dba0e54a9a7048b5b3022c5cb3b3053c98162356e74f4a688f746d4f2",
+    "resultPath": "docs/measurements/results/match-01/response-completion/response-completion-baseline-result.md",
+    "resultSha256": "d38acc86d432d0a0b0254ea3723d66e3c415342cfaacf64a91a01d76a4c49a33",
+    "sourceMeasuredGitCommitSha": "c017d2f52f6548dc85ab86fed0f0d668397a3fe3"
+  }
+}
