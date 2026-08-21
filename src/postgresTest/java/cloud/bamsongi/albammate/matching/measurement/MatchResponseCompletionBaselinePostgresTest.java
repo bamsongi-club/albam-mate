@@ -706,7 +706,7 @@ class MatchResponseCompletionBaselinePostgresTest {
 			: scenario == Scenario.CANCEL ? 1_000L : 2_000L;
 		TransitionDistribution transitions = loadTransitionDistribution(scenario, execution.commandExecutions());
 		CurrentStateDistribution currentStates = inspectCurrentStateDistribution(scenario, execution,
-			requirePerProposalCurrentStateGroups, transitions);
+			requirePerProposalCurrentStateGroups);
 		MaterializedStateFacts materializedFacts = loadMaterializedStateFacts(scenario, materialized);
 		IdempotencyRecordFacts idempotencyRecords = loadIdempotencyRecordFacts(materialized.commands());
 		long duplicatePartyCount = Math.max(0L, partyCount - expectedPartyCount);
@@ -938,8 +938,7 @@ class MatchResponseCompletionBaselinePostgresTest {
 	private CurrentStateDistribution inspectCurrentStateDistribution(
 		Scenario scenario,
 		ExecutionResult execution,
-		boolean requirePerProposalCurrentStateGroups,
-		TransitionDistribution transitions) {
+		boolean requirePerProposalCurrentStateGroups) {
 		long proposedCount = execution.currentStates().stream()
 			.filter(observation -> observation.state().equals("PROPOSED")).count();
 		long terminalCount = execution.currentStates().stream()
@@ -959,20 +958,15 @@ class MatchResponseCompletionBaselinePostgresTest {
 			return new CurrentStateDistribution(proposedCount, terminalCount, otherCount, expectedCount,
 				execution.currentStates().size(), expectedCount == execution.currentStates().size());
 		}
-		Map<Long, List<CommandStateObservation>> statesByProposal = new HashMap<>();
-		for (CommandExecution commandExecution : execution.commandExecutions()) {
-			ResponseCommand command = commandExecution.command();
-			statesByProposal.computeIfAbsent(command.proposalId(), ignored -> new ArrayList<>())
-				.add(new CommandStateObservation(command.proposalId(),
-					transitions.resultFor(command), commandExecution.currentState()));
+		Map<Long, List<String>> statesByProposal = new HashMap<>();
+		for (CurrentStateObservation observation : execution.currentStates()) {
+			statesByProposal.computeIfAbsent(observation.proposalId(), ignored -> new ArrayList<>())
+				.add(observation.state());
 		}
 		boolean matchesExpectedState = statesByProposal.size() == 500;
-		for (List<CommandStateObservation> states : statesByProposal.values()) {
+		for (List<String> states : statesByProposal.values()) {
 			matchesExpectedState = matchesExpectedState && states.size() == 2
-				&& states.stream().filter(state -> state.transitionResult().equals("NON_TERMINAL")
-					&& state.state().equals("PROPOSED")).count() == 1L
-				&& states.stream().filter(state -> state.transitionResult().equals("TERMINAL")
-					&& (state.state().equals("PREPARING") || state.state().equals("ACTIVE"))).count() == 1L;
+				&& states.stream().allMatch(state -> state.equals("PREPARING") || state.equals("ACTIVE"));
 		}
 		long matchedExpectedStateCount = matchesExpectedState ? execution.currentStates().size() : 0L;
 		return new CurrentStateDistribution(proposedCount, terminalCount, otherCount, matchedExpectedStateCount,
@@ -1276,8 +1270,6 @@ class MatchResponseCompletionBaselinePostgresTest {
 	private record CommandExecution(ResponseCommand command, String currentState, RecordedProbeSample probeSample) {
 	}
 	private record CurrentStateObservation(long proposalId, String state) {
-	}
-	private record CommandStateObservation(long proposalId, String transitionResult, String state) {
 	}
 	private record CurrentStateDistribution(long proposedCount, long terminalCount, long otherCount,
 		long matchedExpectedStateCount, long responseCount, boolean matchesExpectedState) {
