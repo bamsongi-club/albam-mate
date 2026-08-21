@@ -40,6 +40,7 @@ jobs:
         env:
           EVENT_NAME: ${{ github.event_name }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PUSH_BEFORE_SHA: ${{ github.event.before }}
         run: |
           if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
@@ -49,8 +50,10 @@ jobs:
 
           if [[ "$EVENT_NAME" == "pull_request" ]]; then
             base_sha="$PR_BASE_SHA"
+            target_sha="$PR_HEAD_SHA"
           else
             base_sha="$PUSH_BEFORE_SHA"
+            target_sha="$GITHUB_SHA"
           fi
 
           if [[ -z "$base_sha" || "$base_sha" =~ ^0+$ ]]; then
@@ -64,7 +67,7 @@ jobs:
           fi
 
           echo "base_sha=$base_sha" >> "$GITHUB_OUTPUT"
-          git diff --name-only --no-renames -z "$base_sha" "$GITHUB_SHA" \
+          git diff --name-only --no-renames -z "$base_sha" "$target_sha" \
             > "$RUNNER_TEMP/changed-paths.txt"
           node scripts/ci/classify-ci-paths.mjs \
             --paths-file "$RUNNER_TEMP/changed-paths.txt" \
