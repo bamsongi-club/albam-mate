@@ -1,0 +1,243 @@
+name: P2 CD
+
+on:
+  workflow_call:
+    inputs:
+      source_sha:
+        description: Successful develop CI's exact 40-character source SHA.
+        required: true
+        type: string
+      ci_url:
+        description: Successful CI run URL retained in the deployment receipt.
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  publish-images:
+    if: vars.P2_CD_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: p2-image-${{ inputs.source_sha }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      backend_digest: ${{ steps.publish.outputs.backend_digest }}
+      web_digest: ${{ steps.publish.outputs.web_digest }}
+      backend_repository: ${{ steps.publish.outputs.backend_repository }}
+      web_repository: ${{ steps.publish.outputs.web_repository }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ inputs.source_sha }}
+          persist-credentials: false
+
+      - name: Verify immutable source checkout
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
+        with:
+          role-to-assume: ${{ vars.P2_IMAGE_PUBLISH_ROLE_ARN }}
+          aws-region: ${{ vars.P2_AWS_REGION }}
+
+      - uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
+        id: login-ecr
+
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+      - id: publish
+        name: Publish or verify immutable ARM64 images
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          set -euo pipefail
+          readonly BACKEND_REPOSITORY="${ECR_REGISTRY}/albam-mate/backend"
+          readonly WEB_REPOSITORY="${ECR_REGISTRY}/albam-mate/web"
+
+          verify_image() {
+            local repository="$1"
+            local digest="$2"
+            local expected_entrypoint="$3"
+            local reference="${repository}@${digest}"
+            [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo 'invalid ECR digest' >&2; return 1; }
+            docker buildx imagetools inspect "$reference" | grep -Fq 'Platform: linux/arm64'
+            docker pull --platform linux/arm64 "$reference" >/dev/null
+            test "$(docker image inspect "$reference" --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')" = "$SOURCE_SHA"
+            test "$(docker image inspect "$reference" --format '{{ index .Config.Entrypoint 0 }}')" = "$expected_entrypoint"
+          }
+
+          resolve_or_publish() {
+            local repository="$1"
+            local context_directory="$2"
+            local dockerfile="$3"
+            local expected_entrypoint="$4"
+            local error_file digest status
+            error_file="$(mktemp)"
+            if digest="$(aws ecr describe-images --repository-name "${repository#${ECR_REGISTRY}/}" --image-ids "imageTag=${SOURCE_SHA}" --query 'imageDetails[0].imageDigest' --output text 2>"$error_file")"; then
+              rm -f -- "$error_file"
+              test "$digest" != 'None'
+              echo 'immutable tag already exists; verifying digest, platform, and revision.' >&2
+              verify_image "$repository" "$digest" "$expected_entrypoint"
+              printf '%s\n' "$digest"
+              return
+            fi
+            status="$?"
+            if ! grep -Fq 'ImageNotFoundException' "$error_file"; then
+              cat "$error_file" >&2
+              rm -f -- "$error_file"
+              return "$status"
+            fi
+            rm -f -- "$error_file"
+            docker buildx build --platform linux/arm64 --build-arg "ALBAM_MATE_REVISION=${SOURCE_SHA}" --label "org.opencontainers.image.revision=${SOURCE_SHA}" --file "$dockerfile" --tag "${repository}:${SOURCE_SHA}" --push "$context_directory" >&2
+            digest="$(aws ecr describe-images --repository-name "${repository#${ECR_REGISTRY}/}" --image-ids "imageTag=${SOURCE_SHA}" --query 'imageDetails[0].imageDigest' --output text)"
+            verify_image "$repository" "$digest" "$expected_entrypoint"
+            printf '%s\n' "$digest"
+          }
+
+          backend_digest="$(resolve_or_publish "$BACKEND_REPOSITORY" . Dockerfile /app/backend-entrypoint.sh)"
+          web_digest="$(resolve_or_publish "$WEB_REPOSITORY" frontend frontend/Dockerfile.production /usr/local/bin/albam-mate-entrypoint)"
+          {
+            echo "backend_digest=$backend_digest"
+            echo "web_digest=$web_digest"
+            echo "backend_repository=$BACKEND_REPOSITORY"
+            echo "web_repository=$WEB_REPOSITORY"
+          } >> "$GITHUB_OUTPUT"
+
+  deploy-p2:
+    needs: publish-images
+    if: vars.P2_CD_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: p2-deploy
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
+        with:
+          role-to-assume: ${{ vars.P2_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.P2_AWS_REGION }}
+
+      - name: Execute fail-closed P2 rollout through the custom SSM document
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          CI_URL: ${{ inputs.ci_url }}
+          BACKEND_DIGEST: ${{ needs.publish-images.outputs.backend_digest }}
+          WEB_DIGEST: ${{ needs.publish-images.outputs.web_digest }}
+          BACKEND_REPOSITORY: ${{ needs.publish-images.outputs.backend_repository }}
+          WEB_REPOSITORY: ${{ needs.publish-images.outputs.web_repository }}
+        run: |
+          set -euo pipefail
+          readonly DEPLOYMENT_CONTRACT_PARAMETER='/albam-mate/p2/deployment-contract'
+          readonly LKG_PARAMETER='/albam-mate/p2/last-known-good'
+          readonly SSM_DOCUMENT='AlbamMateP2Cd'
+
+          receipt() {
+            printf '%s\n' "$1" >> "$GITHUB_STEP_SUMMARY"
+          }
+
+          require_sha() {
+            [[ "$1" =~ ^[0-9a-f]{40}$ ]] || { echo 'invalid source SHA' >&2; exit 1; }
+          }
+
+          require_digest() {
+            [[ "$1" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo 'invalid image digest' >&2; exit 1; }
+          }
+
+          wait_for_command() {
+            local command_id="$1"
+            local instance_id="$2"
+            local status attempt
+            for attempt in $(seq 1 60); do
+              status="$(aws ssm get-command-invocation --command-id "$command_id" --instance-id "$instance_id" --query Status --output text 2>/dev/null || true)"
+              case "$status" in
+                Success) return 0 ;;
+                Failed|Cancelled|TimedOut|Cancelling) return 1 ;;
+                *) sleep 10 ;;
+              esac
+            done
+            return 1
+          }
+
+          invoke() {
+            local label="$1"
+            local operation="$2"
+            local instance_id="$3"
+            local release_sha="$4"
+            local backend_digest="$5"
+            local web_digest="$6"
+            local command_id
+            command_id="$(aws ssm send-command --document-name "$SSM_DOCUMENT" --instance-ids "$instance_id" --parameters "operation=${operation},source_sha=${release_sha},backend_digest=${backend_digest},web_digest=${web_digest}" --comment "P2 CD ${label} ${release_sha}" --query 'Command.CommandId' --output text)"
+            receipt "phase=${label} source_sha=${release_sha} target=${instance_id} command_id=${command_id} status=started"
+            if wait_for_command "$command_id" "$instance_id"; then
+              receipt "phase=${label} source_sha=${release_sha} target=${instance_id} command_id=${command_id} status=success"
+              return 0
+            fi
+            receipt "phase=${label} source_sha=${release_sha} target=${instance_id} command_id=${command_id} status=failed"
+            return 1
+          }
+
+          rollback_app2() {
+            receipt 'phase=rollback-app2 status=started'
+            invoke rollback-app2 rollback-app2 "$APP2_INSTANCE_ID" "$LKG_SHA" "$LKG_BACKEND_DIGEST" "$LKG_WEB_DIGEST" || true
+            invoke rollback-app2-verify verify-app2 "$APP2_INSTANCE_ID" "$LKG_SHA" "$LKG_BACKEND_DIGEST" "$LKG_WEB_DIGEST" || true
+            receipt 'phase=rollback-app2 status=finished'
+          }
+
+          rollback_app1_app2() {
+            receipt 'phase=rollback-app1-app2 status=started'
+            invoke rollback-app1 rollback-app1 "$APP1_INSTANCE_ID" "$LKG_SHA" "$LKG_BACKEND_DIGEST" "$LKG_WEB_DIGEST" || true
+            invoke rollback-app1-verify verify-app1 "$APP1_INSTANCE_ID" "$LKG_SHA" "$LKG_BACKEND_DIGEST" "$LKG_WEB_DIGEST" || true
+            rollback_app2
+            receipt 'phase=rollback-app1-app2 status=finished'
+          }
+
+          require_sha "$SOURCE_SHA"
+          require_digest "$BACKEND_DIGEST"
+          require_digest "$WEB_DIGEST"
+          [[ "$CI_URL" == https://github.com/* ]] || { echo 'invalid CI URL' >&2; exit 1; }
+
+          contract="$(aws ssm get-parameter --name "$DEPLOYMENT_CONTRACT_PARAMETER" --query 'Parameter.Value' --output text)"
+          APP1_INSTANCE_ID="$(jq -er '.app1InstanceId | select(type == "string" and test("^i-[0-9a-f]+$"))' <<< "$contract")"
+          APP2_INSTANCE_ID="$(jq -er '.app2InstanceId | select(type == "string" and test("^i-[0-9a-f]+$"))' <<< "$contract")"
+          jq -e --arg document "$SSM_DOCUMENT" --arg lkg "$LKG_PARAMETER" --arg backend "$BACKEND_REPOSITORY" --arg web "$WEB_REPOSITORY" '
+            .environment == "p2" and
+            .documentName == $document and
+            .lastKnownGoodParameter == $lkg and
+            .backendRepository == $backend and
+            .webRepository == $web and
+            .databaseRollbackSupported == false
+          ' <<< "$contract" >/dev/null
+
+          lkg="$(aws ssm get-parameter --name "$LKG_PARAMETER" --query 'Parameter.Value' --output text)"
+          LKG_SHA="$(jq -er '.sourceSha | select(type == "string" and test("^[0-9a-f]{40}$"))' <<< "$lkg")"
+          LKG_BACKEND_DIGEST="$(jq -er '.backendDigest | select(type == "string" and test("^sha256:[0-9a-f]{64}$"))' <<< "$lkg")"
+          LKG_WEB_DIGEST="$(jq -er '.webDigest | select(type == "string" and test("^sha256:[0-9a-f]{64}$"))' <<< "$lkg")"
+          receipt "phase=preflight source_sha=${SOURCE_SHA} ci_url=${CI_URL} backend_digest=${BACKEND_DIGEST} web_digest=${WEB_DIGEST} lkg_status=loaded"
+
+          # LKG preflight completes before any candidate mutation. The host-only read-only smoke interface reads deployment-verification.env itself.
+          invoke preflight-app2-current current "$APP2_INSTANCE_ID" "$LKG_SHA" "$LKG_BACKEND_DIGEST" "$LKG_WEB_DIGEST" || { receipt 'phase=preflight status=failed'; exit 1; }
+          invoke preflight-app1-current current "$APP1_INSTANCE_ID" "$LKG_SHA" "$LKG_BACKEND_DIGEST" "$LKG_WEB_DIGEST" || { receipt 'phase=preflight status=failed'; exit 1; }
+
+          invoke migrate-app2-candidate migrate "$APP2_INSTANCE_ID" "$SOURCE_SHA" "$BACKEND_DIGEST" "$WEB_DIGEST" || { receipt 'phase=migrate-app2-candidate status=failed'; exit 1; }
+          invoke deploy-app2-candidate deploy-app2 "$APP2_INSTANCE_ID" "$SOURCE_SHA" "$BACKEND_DIGEST" "$WEB_DIGEST" || { rollback_app2; exit 1; }
+          invoke verify-app2-candidate verify-app2 "$APP2_INSTANCE_ID" "$SOURCE_SHA" "$BACKEND_DIGEST" "$WEB_DIGEST" || { rollback_app2; exit 1; }
+          invoke deploy-app1-candidate deploy-app1 "$APP1_INSTANCE_ID" "$SOURCE_SHA" "$BACKEND_DIGEST" "$WEB_DIGEST" || { rollback_app1_app2; exit 1; }
+          invoke verify-app1-candidate verify-app1 "$APP1_INSTANCE_ID" "$SOURCE_SHA" "$BACKEND_DIGEST" "$WEB_DIGEST" || { rollback_app1_app2; exit 1; }
+          invoke smoke-app1-candidate smoke "$APP1_INSTANCE_ID" "$SOURCE_SHA" "$BACKEND_DIGEST" "$WEB_DIGEST" || { rollback_app1_app2; exit 1; }
+
+          new_lkg="$(jq -nc --arg source_sha "$SOURCE_SHA" --arg backend_digest "$BACKEND_DIGEST" --arg web_digest "$WEB_DIGEST" '{sourceSha: $source_sha, backendDigest: $backend_digest, webDigest: $web_digest}')"
+          lkg_version="$(aws ssm put-parameter --name "$LKG_PARAMETER" --type String --value "$new_lkg" --overwrite --query Version --output text)"
+          receipt "phase=complete source_sha=${SOURCE_SHA} ci_url=${CI_URL} backend_digest=${BACKEND_DIGEST} web_digest=${WEB_DIGEST} lkg_version=${lkg_version} status=success"
+          # receipt allowlist: SHA, CI URL, digest, role/target/command identifier, phase, LKG version/status

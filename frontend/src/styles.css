@@ -713,10 +713,15 @@ textarea.field-input { height: 112px; line-height: 1.6; padding: 14px 16px; resi
 .assistant-policy-summary dd, .assistant-draft-summary dd { font-size: 14px; font-weight: 700; text-align: right; }
 .assistant-policy-link { color: var(--ink); display: inline-block; font-size: 13.5px; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
 .assistant-candidates { display: flex; flex-direction: column; gap: 9px; margin-top: 16px; }
-.assistant-candidate { background: #fff; border: 1px solid var(--line); border-radius: 13px; padding: 14px; text-align: left; width: 100%; }
+.assistant-candidate { background: #fff; border: 1px solid var(--line); border-radius: 13px; overflow: hidden; }
 .assistant-candidate.on { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
+.assistant-candidate-link { align-items: center; color: inherit; display: flex; gap: 12px; padding: 14px 14px 10px; text-align: left; }
+.assistant-candidate-link:focus-visible, .assistant-candidate-cta:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
+.assistant-candidate-cover { flex: none; height: 58px; width: 46px; }
+.assistant-candidate-copy { min-width: 0; }
 .assistant-candidate strong { display: block; font-size: 15.5px; font-weight: 800; letter-spacing: -0.04em; }
-.assistant-candidate span { color: var(--sub); display: block; font-size: 13px; margin-top: 5px; }
+.assistant-candidate-copy > span { color: var(--sub); display: -webkit-box; font-size: 13px; line-height: 1.45; margin-top: 5px; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.assistant-candidate-cta { color: var(--ink); display: block; font-size: 13.5px; font-weight: 800; min-height: 42px; padding: 8px 14px 13px; text-align: left; text-decoration: underline; text-underline-offset: 3px; width: 100%; }
 .assistant-draft-form { display: flex; flex-direction: column; }
 .assistant-draft-form .field, .assistant-confirmation .field { margin-top: 15px; }
 .assistant-form-grid { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
@@ -729,6 +734,10 @@ textarea.field-input { height: 112px; line-height: 1.6; padding: 14px 16px; resi
 .assistant-discard { color: var(--mid); display: block; font-size: 13.5px; font-weight: 700; margin: 15px auto 0; min-height: 38px; }
 .assistant-loading { color: var(--mid); font-size: 14.5px; padding: 22px 2px; }
 .assistant-error { color: var(--red); font-size: 14px; line-height: 1.6; }
+.assistant-create-modal { gap: 12px; }
+.assistant-modal-game { font-size: 18px; font-weight: 800; letter-spacing: -0.04em; margin-top: 10px; }
+.assistant-modal-actions { flex-wrap: wrap; margin-top: 8px; }
+.assistant-modal-actions .assistant-discard { margin: 0; }
 
 .screen-note { color: var(--muted); font-size: 12.5px; line-height: 1.6; margin-top: 12px; }
 .section-label-note { color: var(--muted); font-weight: 600; }

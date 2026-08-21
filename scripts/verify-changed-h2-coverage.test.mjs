@@ -100,6 +100,17 @@ test('실제로 변경한 패키지의 H2 최소선 미달은 실패한다', () 
     assert.match(result.problems[0], /example\.database.*10\.00%.*90\.00%/u);
 });
 
+test('변경된 프로덕션 패키지가 없으면 전체 최소선 미달도 통과시킨다', () => {
+    const result = verifyChangedH2Coverage({
+        buildFileText: buildFile,
+        reportXml: reportXml({ globalBranch: [30, 70], globalLine: [10, 90] }),
+        changedPackages: [],
+    });
+
+    assert.deepEqual(result.problems, []);
+    assert.equal(result.globalChecked, false);
+});
+
 test('전체 branch 또는 line 최소선 미달은 변경 패키지와 무관하게 실패한다', () => {
     const result = verifyChangedH2Coverage({
         buildFileText: buildFile,

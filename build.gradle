@@ -108,6 +108,7 @@ tasks.register('postgresMeasurementTest', Test) {
     classpath = sourceSets.postgresTest.runtimeClasspath
     dependsOn tasks.named('postgresTestClasses')
     shouldRunAfter tasks.named('postgresTest')
+    systemProperty 'issue775.measurement', System.getProperty('issue775.measurement', 'false')
     useJUnitPlatform {
         includeTags 'measurement'
     }
@@ -244,6 +245,7 @@ def gatedBranchCoverage = [
     'cloud.bamsongi.albammate.matching.entity'               : 0.43,
     'cloud.bamsongi.albammate.matching.recovery'            : 0.55,
     'cloud.bamsongi.albammate.matching.service.command'     : 0.75,
+	'cloud.bamsongi.albammate.migration'                      : 0.64,
     'cloud.bamsongi.albammate.monitoring'                   : 0.75,
     'cloud.bamsongi.albammate.matching.service.query'       : 0.36,
     'cloud.bamsongi.albammate.notification.cleanup'        : 1.00,

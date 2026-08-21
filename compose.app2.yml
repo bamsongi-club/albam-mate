@@ -11,6 +11,7 @@ services:
     init: true
     environment:
       SPRING_PROFILES_ACTIVE: production
+      SPRING_FLYWAY_ENABLED: false
       JDK_JAVA_OPTIONS: -Xmx256m
       ALBAM_MATE_RELEASE: ${ALBAM_MATE_RELEASE:?ALBAM_MATE_RELEASE must be set}
       ALBAM_MATE_DB_HOST: ${ALBAM_MATE_DB_HOST:?ALBAM_MATE_DB_HOST must be set}

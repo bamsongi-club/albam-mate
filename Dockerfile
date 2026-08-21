@@ -32,6 +32,7 @@ WORKDIR /app
 
 COPY --from=builder --chown=10001:10001 /workspace/app.jar /app/app.jar
 COPY --chown=10001:10001 --chmod=0555 docker/backend-entrypoint.sh /app/backend-entrypoint.sh
+COPY --chown=10001:10001 compose.production.yml compose.app2.yml compose.migrator.yml /app/deployment/
 
 ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError -Duser.timezone=UTC -Dfile.encoding=UTF-8"
 
