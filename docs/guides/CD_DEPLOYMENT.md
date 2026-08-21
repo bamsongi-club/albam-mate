@@ -2,12 +2,12 @@
 
 이 가이드는 [#961](https://github.com/bamsongi-club/albam-mate/issues/961)에서 승인한 T1~T7을 구현 계약으로 삼는 P2 자동 CD의 실행·확인 경계를 설명한다.
 
-> - 문서 상태: **승인·코드 구현·자동 검증 완료, P2 AWS 실행 미검증**
-> - 적용 환경: **P2 전용 App1·App2·PostgreSQL·Redis 대상**
+> - 문서 상태: **T1~T7 승인·앱 코드/자동 검증 완료, target binding·AWS 실행 보류**
+> - 적용 환경: **운영자가 stable CD lifecycle을 승인한 기존 4노드 App1·App2·PostgreSQL·Redis 대상**
 > - 트리거: **`develop` push의 같은 SHA가 `CI Gate`를 성공한 뒤 최신 성공 후보로 선택됨**
-> - 구현 상태: **GitHub Actions workflow, P2 OIDC/SSM runner, migrator, 앱 rollback 코드를 구현·자동 검증했으며 실제 P2 apply·bootstrap·실행 receipt는 아직 없음**
+> - 구현 상태: **GitHub Actions workflow·migrator·앱 설정은 자동 검증했으며, deploy role·고정 SSM runner·host bootstrap은 target 결정 뒤에 구현한다. 실제 AWS execution receipt는 없음**
 
-이 가이드는 P1 수동 기준선이나 성능 측정 `perf` stack을 자동화하지 않는다. P2 CD 대상은 별도의 Terraform state·instance selector·`/albam-mate/p2/` Parameter namespace를 사용한다. Terraform plan/apply, P2 최초 생성, DNS/TLS 입력, LKG 최초 기록은 운영자 수동 절차이고 workflow가 실행하지 않는다. P1 기준선과 수동 절차는 [P1 AWS 저비용 4 EC2 인프라 실행안](AWS_MULTI_INSTANCE_INFRASTRUCTURE.md)에 보존한다.
+이 가이드는 별도 P2 Terraform 환경을 만들지 않는다. 기존 4노드 Terraform root는 후보이지만, 현재 `perf` state·`run.sh down` 수명주기를 CD 대상으로 암묵적으로 재사용하지 않는다. CD를 enable하기 전에 운영자는 stable target의 state/key, instance selector, runtime namespace와 teardown 제외를 확정한다. Terraform plan/apply, DNS/TLS 입력, LKG 최초 기록은 운영자 수동 절차이고 workflow가 실행하지 않는다. P1 기준선과 수동 절차는 [P1 AWS 저비용 4 EC2 인프라 실행안](AWS_MULTI_INSTANCE_INFRASTRUCTURE.md)에 보존한다.
 
 ## 한눈에 보는 흐름
 
@@ -39,7 +39,7 @@ flowchart LR
 | source 선택 | 더 높은 run number의 성공 CI가 있을 때만 이전 성공 후보를 건너뜀 | source-gate 조회 결과와 선택 SHA |
 | 이미지 | backend·web 모두 `linux/arm64`, 같은 SHA tag·OCI revision·immutable digest | ECR manifest/digest, OCI label, pull 후 RepoDigest |
 | 실행 권한 | GitHub Actions OIDC의 짧은 수명 image-publish role과 deploy role | trust policy, workflow permission, ECR/SSM 실행 결과 |
-| 배포 대상 | perf와 분리한 고정 P2 App2 뒤 App1 | P2 deployment contract의 instance ID와 대상별 release SHA |
+| 배포 대상 | 운영자가 승인한 기존 4노드의 고정 App2 뒤 App1 | deployment contract의 instance ID와 대상별 release SHA |
 | 직렬화 | 한 P2 deploy만 실행하고 실행 중 run은 취소하지 않음 | 겹치지 않는 deployment sequence와 최신 성공 pending |
 | last-known-good | `/albam-mate/p2/last-known-good`의 비밀이 아닌 단일 release manifest | Parameter version, source SHA, 두 앱 SHA·digest, health/smoke 성공 기록 |
 
@@ -133,6 +133,6 @@ P2는 traffic drain, standby slot, ALB health cutover를 제공하지 않는다.
 - 자동 DB rollback, backup/PITR 복원, 고가용성·무중단 배포를 보장하지 않는다.
 - P2 실제 AWS 배포·복구 검증을 구현 PR의 정적·자동 검증으로 대체하지 않는다.
 
-구현이 끝난 뒤에는 workflow, Dockerfile asset, OIDC trust/IAM, P2 SSM runner, migrator·앱 설정, 실제 P2 execution receipt를 근거로 이 문서의 상태와 검증 항목을 갱신한다.
+target lifecycle이 승인된 뒤에는 workflow, Dockerfile asset, OIDC trust/IAM, 고정 SSM runner, migrator·앱 설정, 실제 P2 execution receipt를 근거로 이 문서의 상태와 검증 항목을 갱신한다.
 
 > 문서 관리: 소유자 `밤송이클럽 개발·운영 팀` · 최종 검증일 `2026-08-21` · 폐기 조건 `P2 CD가 승인된 다른 환경별 배포 표준으로 대체될 때`
