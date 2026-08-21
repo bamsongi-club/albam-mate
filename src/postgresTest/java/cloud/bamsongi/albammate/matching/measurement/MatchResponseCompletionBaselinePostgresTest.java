@@ -276,18 +276,16 @@ class MatchResponseCompletionBaselinePostgresTest {
 
 		Path artifact = writeArtifact(artifacts, privateManifestRows,
 			Files.createTempDirectory("issue776-observation-artifact-"));
-		@SuppressWarnings("unchecked")
-		Map<String, Object> root = objectMapper.readValue(Files.readString(artifact), Map.class);
-		@SuppressWarnings("unchecked")
-		Map<String, Object> scenario = ((List<Map<String, Object>>)root.get("scenarios")).getFirst();
-		@SuppressWarnings("unchecked")
-		Map<String, Object> round = ((List<Map<String, Object>>)scenario.get("measuredRounds")).getFirst();
-		@SuppressWarnings("unchecked")
-		Map<String, Object> dbStatistics = (Map<String, Object>)round.get("dbStatistics");
-		@SuppressWarnings("unchecked")
-		Map<String, Object> lockWait = (Map<String, Object>)round.get("lockWait");
-		@SuppressWarnings("unchecked")
-		Map<String, Object> metrics = (Map<String, Object>)round.get("metrics");
+		@SuppressWarnings("unchecked") Map<String, Object> root = objectMapper.readValue(Files.readString(artifact),
+			Map.class);
+		@SuppressWarnings("unchecked") Map<String, Object> scenario = ((List<Map<String, Object>>)root.get("scenarios"))
+			.getFirst();
+		@SuppressWarnings("unchecked") Map<String, Object> round = ((List<Map<String, Object>>)scenario
+			.get("measuredRounds")).getFirst();
+		@SuppressWarnings("unchecked") Map<String, Object> dbStatistics = (Map<String, Object>)round
+			.get("dbStatistics");
+		@SuppressWarnings("unchecked") Map<String, Object> lockWait = (Map<String, Object>)round.get("lockWait");
+		@SuppressWarnings("unchecked") Map<String, Object> metrics = (Map<String, Object>)round.get("metrics");
 
 		assertEquals(true, dbStatistics.get("observed"));
 		assertTrue(((List<?>)dbStatistics.get("statements")).size() > 0);
@@ -586,7 +584,8 @@ class MatchResponseCompletionBaselinePostgresTest {
 				attributedWaitNanos.stream().mapToLong(Long::longValue).sum());
 			String invalidReason = invalidReasons.isEmpty() ? null : String.join(",", invalidReasons);
 			artifacts.add(new RoundArtifact(scenario.name(), round, warmUp, List.copyOf(samples), finalState,
-				databaseStatistics, attributedLockWait, RoundMetrics.from(samples, observationStartedAt, observationEndedAt),
+				databaseStatistics, attributedLockWait,
+				RoundMetrics.from(samples, observationStartedAt, observationEndedAt),
 				invalidReason, observationStartedAt, observationEndedAt));
 			clearFixture();
 		}
@@ -1035,7 +1034,8 @@ class MatchResponseCompletionBaselinePostgresTest {
 		document.append("- artifact: `").append(artifact.getFileName()).append("`\n");
 		document.append("- artifact SHA-256: `").append(sha256(publicArtifactBytes)).append("`\n");
 		document.append("- 판정: `").append(measurementOutcome(rounds)).append("`\n\n");
-		document.append("| 시나리오 | round | p50 (ns) | p95 (ns) | p99 (ns) | 처리량 (req/s) | retry (total/max) | lock wait (sampled/raw ns) | 실패율 |\n");
+		document.append(
+			"| 시나리오 | round | p50 (ns) | p95 (ns) | p99 (ns) | 처리량 (req/s) | retry (total/max) | lock wait (sampled/raw ns) | 실패율 |\n");
 		document.append("| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |\n");
 		for (Scenario scenario : Scenario.values()) {
 			List<RoundArtifact> measuredRounds = rounds.stream()
@@ -1331,7 +1331,8 @@ class MatchResponseCompletionBaselinePostgresTest {
 				if (candidateIndexes.isEmpty()) {
 					continue;
 				}
-				long observedWaitNanos = java.time.Duration.between(previous.observedAt(), current.observedAt()).toNanos()
+				long observedWaitNanos = java.time.Duration.between(previous.observedAt(), current.observedAt())
+					.toNanos()
 					* previous.waitingSessionCount();
 				long perSampleNanos = observedWaitNanos / candidateIndexes.size();
 				long remainder = observedWaitNanos % candidateIndexes.size();
@@ -1393,7 +1394,8 @@ class MatchResponseCompletionBaselinePostgresTest {
 			List<Long> latencies = samples.stream().map(RawSample::latencyNanos).sorted().toList();
 			long retryTotal = samples.stream().mapToLong(RawSample::retryCount).sum();
 			long retryMax = samples.stream().mapToLong(RawSample::retryCount).max().orElse(0L);
-			long failureCount = samples.stream().filter(sample -> sample.errorCode() != null || sample.httpStatus() >= 400)
+			long failureCount = samples.stream()
+				.filter(sample -> sample.errorCode() != null || sample.httpStatus() >= 400)
 				.count();
 			return new RoundMetrics(samples.size(), durationNanos,
 				new LatencyPercentiles(nearestRank(latencies, 0.50D), nearestRank(latencies, 0.95D),
@@ -1513,11 +1515,11 @@ class MatchResponseCompletionBaselinePostgresTest {
 
 		ContractMeasurementInvalidException(Path artifact, List<RoundArtifact> roundArtifacts) {
 			super("artifact 기록 뒤 INVALID 또는 FAILED round가 남았습니다: "
-			+ roundArtifacts.stream()
-				.map(round -> round.scenario() + "/" + round.round() + "/warmUp=" + round.warmUp()
-					+ " accepted=" + round.accepted() + " samples=" + round.rawSamples().size()
-					+ " invalidReason=" + round.invalidReason())
-				.collect(java.util.stream.Collectors.joining("; ")));
+				+ roundArtifacts.stream()
+					.map(round -> round.scenario() + "/" + round.round() + "/warmUp=" + round.warmUp()
+						+ " accepted=" + round.accepted() + " samples=" + round.rawSamples().size()
+						+ " invalidReason=" + round.invalidReason())
+					.collect(java.util.stream.Collectors.joining("; ")));
 			this.artifact = artifact;
 			this.roundArtifacts = roundArtifacts;
 		}
