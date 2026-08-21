@@ -185,6 +185,7 @@ public final class ApiEndpointPolicyRegistry {
 			policy(HttpMethod.PUT, "/api/users/me/played-games/{gameId}", AUTHENTICATED, true),
 			policy(HttpMethod.DELETE, "/api/users/me/played-games/{gameId}", AUTHENTICATED, true),
 			policy(HttpMethod.GET, "/api/games", OPTIONAL_AUTHENTICATION, false),
+			policy(HttpMethod.GET, "/api/games/semantic-search", OPTIONAL_AUTHENTICATION, false),
 			policy(HttpMethod.GET, "/api/games/{gameId}", OPTIONAL_AUTHENTICATION, false),
 			policy(HttpMethod.GET, "/api/game-mechanisms", OPTIONAL_AUTHENTICATION, false),
 			policy(HttpMethod.GET, "/api/game-categories", OPTIONAL_AUTHENTICATION, false),
