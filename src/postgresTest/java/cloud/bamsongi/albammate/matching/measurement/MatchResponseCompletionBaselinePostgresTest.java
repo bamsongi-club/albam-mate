@@ -529,9 +529,6 @@ class MatchResponseCompletionBaselinePostgresTest {
 			if (!lockWait.observed()) {
 				invalidReasons.add("lockWaitObservationMissing");
 			}
-			if (lockWait.waitingSessionSampleCount() > 0) {
-				invalidReasons.add("lockWaitPerSampleAttributionMissing");
-			}
 			databaseStatistics = readDatabaseStatistics();
 			if (!databaseStatistics.observed()) {
 				invalidReasons.add("dbStatisticsMissing");
@@ -579,13 +576,17 @@ class MatchResponseCompletionBaselinePostgresTest {
 				observationEndedAt = observationStartedAt;
 			}
 			boolean finalStatePassed = finalState.passed();
-			long perSampleWaitNanos = lockWait.perSampleWaitNanos();
-			List<RawSample> samples = sampleDrafts.stream()
-				.map(draft -> draft.toRawSample(finalStatePassed, perSampleWaitNanos))
-				.toList();
+			LockWaitObservation observedLockWait = lockWait;
+			List<Long> attributedWaitNanos = observedLockWait.attributeWaitNanos(sampleDrafts);
+			List<RawSample> samples = new ArrayList<>();
+			for (int index = 0; index < sampleDrafts.size(); index++) {
+				samples.add(sampleDrafts.get(index).toRawSample(finalStatePassed, attributedWaitNanos.get(index)));
+			}
+			LockWaitObservation attributedLockWait = observedLockWait.withSampledWaitNanos(
+				attributedWaitNanos.stream().mapToLong(Long::longValue).sum());
 			String invalidReason = invalidReasons.isEmpty() ? null : String.join(",", invalidReasons);
 			artifacts.add(new RoundArtifact(scenario.name(), round, warmUp, List.copyOf(samples), finalState,
-				databaseStatistics, lockWait, RoundMetrics.from(samples, observationStartedAt, observationEndedAt),
+				databaseStatistics, attributedLockWait, RoundMetrics.from(samples, observationStartedAt, observationEndedAt),
 				invalidReason, observationStartedAt, observationEndedAt));
 			clearFixture();
 		}
@@ -1288,14 +1289,63 @@ class MatchResponseCompletionBaselinePostgresTest {
 		}
 	}
 
+	private record LockWaitPoll(Instant observedAt, long observedAtNanos, long waitingSessionCount) {
+	}
+
 	private record LockWaitObservation(boolean observed, long pollCount, long waitingSessionSampleCount,
-		long sampledWaitNanos) {
+		long sampledWaitNanos, List<LockWaitPoll> polls) {
 		static LockWaitObservation unobserved() {
-			return new LockWaitObservation(false, 0L, 0L, 0L);
+			return new LockWaitObservation(false, 0L, 0L, 0L, List.of());
 		}
 
-		long perSampleWaitNanos() {
-			return observed && waitingSessionSampleCount == 0L ? 0L : -1L;
+		List<Long> attributeWaitNanos(List<RawSampleDraft> drafts) {
+			long[] attributed = new long[drafts.size()];
+			if (!observed || polls.size() < 2) {
+				return java.util.Arrays.stream(attributed).boxed().toList();
+			}
+			List<LockWaitPoll> orderedPolls = polls.stream()
+				.sorted(java.util.Comparator.comparing(LockWaitPoll::observedAtNanos)).toList();
+			for (int index = 1; index < orderedPolls.size(); index++) {
+				LockWaitPoll previous = orderedPolls.get(index - 1);
+				LockWaitPoll current = orderedPolls.get(index);
+				if (previous.waitingSessionCount() == 0L) {
+					continue;
+				}
+				if (!previous.observedAt().isBefore(current.observedAt())) {
+					continue;
+				}
+				List<Integer> candidateIndexes = new ArrayList<>();
+				for (int draftIndex = 0; draftIndex < drafts.size(); draftIndex++) {
+					RawSampleDraft draft = drafts.get(draftIndex);
+					if (draft.operationTime() == null || draft.completedAt() == null) {
+						continue;
+					}
+					Instant overlapStart = previous.observedAt().isAfter(draft.operationTime())
+						? previous.observedAt() : draft.operationTime();
+					Instant overlapEnd = current.observedAt().isBefore(draft.completedAt())
+						? current.observedAt() : draft.completedAt();
+					if (overlapStart.isBefore(overlapEnd)) {
+						candidateIndexes.add(draftIndex);
+					}
+				}
+				if (candidateIndexes.isEmpty()) {
+					continue;
+				}
+				long observedWaitNanos = java.time.Duration.between(previous.observedAt(), current.observedAt()).toNanos()
+					* previous.waitingSessionCount();
+				long perSampleNanos = observedWaitNanos / candidateIndexes.size();
+				long remainder = observedWaitNanos % candidateIndexes.size();
+				for (int candidateIndex = 0; candidateIndex < candidateIndexes.size(); candidateIndex++) {
+					int draftIndex = candidateIndexes.get(candidateIndex);
+					attributed[draftIndex] += perSampleNanos + (candidateIndex < remainder ? 1L : 0L);
+				}
+			}
+			return java.util.Arrays.stream(attributed).boxed().toList();
+		}
+
+		LockWaitObservation withSampledWaitNanos(long attributedWaitNanos) {
+			return new LockWaitObservation(observed, pollCount, waitingSessionSampleCount,
+				attributedWaitNanos, polls);
 		}
 
 		long sampleTotalNanos(List<RawSample> samples) {
@@ -1373,6 +1423,7 @@ class MatchResponseCompletionBaselinePostgresTest {
 		private final AtomicLong sampledWaitNanos = new AtomicLong();
 		private final AtomicLong lastPollNanos = new AtomicLong();
 		private final AtomicReference<String> observationFailure = new AtomicReference<>();
+		private final ConcurrentLinkedQueue<LockWaitPoll> polls = new ConcurrentLinkedQueue<>();
 		private ExecutorService executor;
 
 		LockWaitMonitor(JdbcTemplate jdbcTemplate) {
@@ -1418,7 +1469,7 @@ class MatchResponseCompletionBaselinePostgresTest {
 				return LockWaitObservation.unobserved();
 			}
 			return new LockWaitObservation(true, pollCount.get(), waitingSessionSampleCount.get(),
-				sampledWaitNanos.get());
+				sampledWaitNanos.get(), List.copyOf(polls));
 		}
 
 		private void observe() {
@@ -1435,9 +1486,11 @@ class MatchResponseCompletionBaselinePostgresTest {
 					throw new IllegalStateException("lock-wait observer count가 null입니다.");
 				}
 				long observedAtNanos = System.nanoTime();
+				Instant observedAt = Instant.now();
 				long previousPollNanos = lastPollNanos.getAndSet(observedAtNanos);
 				pollCount.incrementAndGet();
 				waitingSessionSampleCount.addAndGet(waitingSessions);
+				polls.add(new LockWaitPoll(observedAt, observedAtNanos, waitingSessions));
 				if (waitingSessions > 0 && previousPollNanos > 0L) {
 					sampledWaitNanos.addAndGet((observedAtNanos - previousPollNanos) * waitingSessions);
 				}
@@ -1459,7 +1512,12 @@ class MatchResponseCompletionBaselinePostgresTest {
 		private final List<RoundArtifact> roundArtifacts;
 
 		ContractMeasurementInvalidException(Path artifact, List<RoundArtifact> roundArtifacts) {
-			super("artifact 기록 뒤 INVALID 또는 FAILED round가 남았습니다.");
+			super("artifact 기록 뒤 INVALID 또는 FAILED round가 남았습니다: "
+			+ roundArtifacts.stream()
+				.map(round -> round.scenario() + "/" + round.round() + "/warmUp=" + round.warmUp()
+					+ " accepted=" + round.accepted() + " samples=" + round.rawSamples().size()
+					+ " invalidReason=" + round.invalidReason())
+				.collect(java.util.stream.Collectors.joining("; ")));
 			this.artifact = artifact;
 			this.roundArtifacts = roundArtifacts;
 		}
