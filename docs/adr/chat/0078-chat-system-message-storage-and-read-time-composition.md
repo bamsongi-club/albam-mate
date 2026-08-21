@@ -3,7 +3,7 @@
 - 상태: 승인됨
 - 작성일: 2026-08-19
 - 결정일: 2026-08-19
-- 관련: [CHAT-06 문서 이슈 #752](https://github.com/bamsongi-club/albam-mate/issues/752), [CHAT-06 명세](../../p2/chat.md#chat-06-입장퇴장-시스템-메시지), [API 명세](../../API.md#채팅-공통-계약), [ERD](../../ERD.md#chat-06-입장퇴장-시스템-메시지-저장-계약), [아키텍처](../../ARCHITECTURE.md#p2-chat-06-입장퇴장-시스템-메시지-흐름-계획미구현), [ADR-0031](0031-chat-history-cursor-pagination.md), [ADR-0032](0032-http-send-websocket-receive.md), [ADR-0033](0033-postgresql-source-after-commit-delivery.md), [ADR-0049](0049-chat-message-retention-lock-section-boundary.md)
+- 관련: [CHAT-06 문서 이슈 #752](https://github.com/bamsongi-club/albam-mate/issues/752), [CHAT-06 명세](../../p2/chat.md#chat-06-입장퇴장-시스템-메시지), [API 명세](../../API.md#채팅-공통-계약), [ERD](../../ERD.md#chat-06-입장퇴장-시스템-메시지-저장-계약), [아키텍처](../../ARCHITECTURE.md#p2-chat-06-입장퇴장-시스템-메시지-흐름), [ADR-0031](0031-chat-history-cursor-pagination.md), [ADR-0032](0032-http-send-websocket-receive.md), [ADR-0033](0033-postgresql-source-after-commit-delivery.md), [ADR-0049](0049-chat-message-retention-lock-section-boundary.md)
 - 대체 대상: 없음
 - 후속 ADR: 없음
 
@@ -36,7 +36,7 @@ ROOM 채팅방에는 누가 들어오고 나갔는지 알리는 안내가 없다
 3. 안내 문구는 서버가 읽기 시점에 사건 키와 대상 사용자의 현재 공개 닉네임으로 조립해 기존 `content` 필드로 내려준다. 문구 문자열의 정본은 [API 명세](../../API.md#채팅-공통-계약)이며 프런트엔드는 문구를 조립하지 않는다.
 4. 시스템 메시지는 사용자 메시지와 같은 `id` 순서를 사용한다. `beforeMessageId` 이력 커서, `afterMessageId` 재연결 catch-up, 30일 보존과 만료 물리 삭제, 방 상태·관계 기반 접근 판정을 그대로 적용한다.
 5. 시스템 메시지를 남기는 사건은 참가 확정과 참가 취소 확정뿐이다. 대기열 자동 승격, 방 취소, 방 종료는 이번 결정의 대상이 아니다.
-6. 시스템 메시지는 원인이 되는 `room`의 참가·참가 취소 업무 트랜잭션 안에서 저장한다. 참가 상태 전이가 커밋되면 안내도 함께 커밋되고, 안내 저장이 실패하면 참가 상태 전이도 함께 롤백한다. 모듈 간 호출 방향과 잠금 순서의 정본은 [아키텍처](../../ARCHITECTURE.md#p2-chat-06-입장퇴장-시스템-메시지-흐름-계획미구현)다.
+6. 시스템 메시지는 원인이 되는 `room`의 참가·참가 취소 업무 트랜잭션 안에서 저장한다. 참가 상태 전이가 커밋되면 안내도 함께 커밋되고, 안내 저장이 실패하면 참가 상태 전이도 함께 롤백한다. 모듈 간 호출 방향과 잠금 순서의 정본은 [아키텍처](../../ARCHITECTURE.md#p2-chat-06-입장퇴장-시스템-메시지-흐름)다.
 7. 이 결정은 P1 ROOM 채팅에만 적용한다. MATCH 전용 `MATCH_CHAT_MESSAGES`와는 행·제약·멱등성 키를 공유하지 않으며, [ADR-0064](../matching/0064-match-chat-url-text-storage.md)가 정한 MATCH SYSTEM lifecycle 알림 계약도 바꾸지 않는다.
 8. 이 계약이 적용되기 전에 만들어진 채팅방에는 시스템 메시지를 소급 생성하지 않는다.
 9. schema 확장과 `SYSTEM` 쓰기 활성화를 한 배포로 묶지 않는다. 컬럼 추가·NOT NULL 완화·CHECK 추가, `SYSTEM` 행을 읽을 수 있는 신버전 전 인스턴스 배포, `SYSTEM` 쓰기 활성화를 이 순서로 분리하고 각 단계는 앞 단계 반영을 확인한 뒤 진행한다. `message_type`은 DEFAULT `'USER'`로 추가해 구버전 writer의 INSERT를 깨지 않는다. 쓰기 활성화는 인스턴스별 설정이 아니라 원인 참가 트랜잭션에서 읽는 PostgreSQL 전역 gate 행이며 기본값은 비활성이다. 순차 배포로 신·구 버전이 섞인 구간에도 한 사건의 안내 저장 여부가 라우팅된 인스턴스에 따라 갈리지 않게 하려는 것이고, `AC1`은 그 전역 활성화 시각 이후의 사건에만 적용한다. 단계·조건·rollback 순서의 정본은 [ERD](../../ERD.md#chat-06-혼합-버전-배포활성화rollback-순서)다.
@@ -81,10 +81,10 @@ ROOM 채팅방에는 누가 들어오고 나갔는지 알리는 안내가 없다
 
 ## 검증
 
-- 상태: 미검증
+- 상태: 검증됨
 - 근거:
-    - 계약: [CHAT-06 명세](../../p2/chat.md#chat-06-입장퇴장-시스템-메시지)와 API·ERD·아키텍처가 각 책임 범위에서 이 결정의 저장·응답·모듈 계약을 정의한다.
-- 미검증:
-    - 전진 migration, `room`·`chat` 생산 코드, 이력·실시간 응답과 PostgreSQL 통합 테스트 증거가 아직 없다.
+    - 구현: `CHAT_MESSAGES` 전진 migration, `room.contract.RoomParticipantChanged` 동기 writer, 전역 activation gate, SYSTEM 이력·실시간 문장 조립·접근 제어·가드가 구현돼 있다.
+    - H2 테스트: `ChatSystemMessageWriterTest`가 통과했다.
+    - PostgreSQL 테스트: `ChatMessageHistoryAssemblyPostgresTest`, `ChatMessageDeliveryAssemblyPostgresTest`, `ChatSystemMessageSchemaPostgresTest`, `ChatSystemMessageActivationGatePostgresTest`, `ChatSystemMessageAtomicityPostgresTest`, `ChatSystemMessageConcurrencyPostgresTest`, `ChatSystemMessageAccessControlPostgresTest`, `ChatSystemMessageGuardPostgresTest`, `ChatSystemMessageWriterLifecyclePostgresTest`, `ChatSystemMessageRetentionPostgresTest`가 통과했다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.

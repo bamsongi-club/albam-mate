@@ -283,7 +283,7 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 | 48 | P2 | [MATCH-01](#match-01-신고-접수) · [정본](p2/matching.md#match-01-실시간-파티-매칭) · API 계약 준비 완료·구현 예정 | POST | `/api/matches/parties/{partyId}/reports` | Y | Y | 201·200 |
 | 49 | P2 | [MATCH-01](#match-01-성공-파티-나가기) · [정본](p2/matching.md#match-01-실시간-파티-매칭) · API 계약 준비 완료·구현 예정 | DELETE | `/api/matches/parties/{partyId}/participants/me` | Y | Y | 200 |
 | 50 | P2 | [CHAT-07](#chat-07-채팅방-읽음-처리) · [정본](p2/chat.md#chat-07-채팅-목록-마지막-메시지방별-미읽음-상태) · API 계약 준비 완료·제공 | POST | `/api/rooms/{roomId}/chat/read` | Y | Y | 200 |
-| 51 | P2 | [CHAT-07](#chat-07-내-미읽음-채팅방-요약) · [정본](p2/chat.md#chat-07-채팅-목록-마지막-메시지방별-미읽음-상태) · API 계약 준비 완료·구현 예정 | GET | `/api/users/me/chat/unread-summary` | Y | N | 200 |
+| 51 | P2 | [CHAT-07](#chat-07-내-미읽음-채팅방-요약) · [정본](p2/chat.md#chat-07-채팅-목록-마지막-메시지방별-미읽음-상태) · API 계약 준비 완료·제공 | GET | `/api/users/me/chat/unread-summary` | Y | N | 200 |
 
 `GET /api/games`, `GET /api/games/{gameId}`, `GET /api/rooms`, `GET /api/rooms/{roomId}`와 `GET /api/auth/social/providers`의 인증은 "선택"이다. 비로그인도 호출할 수 있고, 유효한 세션이 있으면 요청자 기준 값을 계산한다. 단, `GET /api/games`의 유효한 `playedFilter`는 로그인을 요구한다.
 
@@ -474,7 +474,7 @@ AI-03 초안 요청에서 `region`을 생략하면 호환 기간 동안 `홍대`
 
 ### ChatMessageType
 
-> **도입 단계: P2** · **기능: CHAT-06** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+> **도입 단계: P2** · **기능: CHAT-06** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 제공**
 
 | 값 | 의미 |
 |---|---|
@@ -485,7 +485,7 @@ AI-03 초안 요청에서 `region`을 생략하면 호환 기간 동안 `홍대`
 
 ### ChatSystemEventKey
 
-> **도입 단계: P2** · **기능: CHAT-06** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+> **도입 단계: P2** · **기능: CHAT-06** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 제공**
 
 | 값 | 의미 |
 |---|---|
@@ -775,16 +775,16 @@ P0 프로필은 닉네임만 제공·수정한다. P1부터 프로필 이미지 
 |---|---|:---:|:---:|:---:|:---:|---|
 | `messageId` | integer | Y | N | P1 | 제공 | 서버가 저장 순서에 사용하는 메시지 ID |
 | `roomId` | integer | Y | N | P1 | 제공 | 채팅 대상 방 ID |
-| `messageType` | ChatMessageType | Y | N | P2 `CHAT-06` | 구현 예정 | 사용자 메시지와 입장·퇴장 안내를 구분하는 종류 |
+| `messageType` | ChatMessageType | Y | N | P2 `CHAT-06` | 제공 | 사용자 메시지와 입장·퇴장 안내를 구분하는 종류 |
 | `clientMessageId` | string | Y | Y | P1 | 제공 | 클라이언트가 재시도 멱등성에 사용하는 1~100자 식별자. `messageType = SYSTEM`이면 `null` |
 | `sender` | NicknameSummary | Y | Y | P1 | 제공 | 작성자 표시명. `messageType = SYSTEM`이면 `null` |
 | `isMine` | boolean | Y | N | P1 | 제공 | 서버가 현재 요청자와 발신자가 같은지 계산한 값. 사용자 ID는 노출하지 않으며 `messageType = SYSTEM`이면 항상 `false` |
-| `systemEvent` | ChatSystemEventKey | Y | Y | P2 `CHAT-06` | 구현 예정 | 안내를 만든 사건. `messageType = USER`이면 `null` |
-| `subject` | NicknameSummary | Y | Y | P2 `CHAT-06` | 구현 예정 | 안내 대상 사용자의 현재 표시명. `messageType = USER`이면 `null` |
+| `systemEvent` | ChatSystemEventKey | Y | Y | P2 `CHAT-06` | 제공 | 안내를 만든 사건. `messageType = USER`이면 `null` |
+| `subject` | NicknameSummary | Y | Y | P2 `CHAT-06` | 제공 | 안내 대상 사용자의 현재 표시명. `messageType = USER`이면 `null` |
 | `content` | string | Y | N | P1 | 제공 | `USER`는 앞뒤 공백 제거 후 1~500자의 일반 텍스트, `SYSTEM`은 서버가 읽기 시점에 조립한 안내 문장 |
 | `createdAt` | string(date-time) | Y | N | P1 | 제공 | 서버가 저장한 시각 |
 
-`messageType`·`systemEvent`·`subject`는 `CHAT-06`의 목표 계약이며 현재 제공 필드가 아니다. `clientMessageId`·`sender`의 `null` 허용도 `SYSTEM` 메시지에만 해당하므로, `CHAT-06` 구현 전까지 모든 메시지는 `USER`이고 두 필드는 `null`이 되지 않는다. `SYSTEM` 메시지의 `content`는 저장된 값이 아니라 서버가 사건 키와 대상 사용자의 현재 공개 닉네임으로 조립한 문장이며, 문구와 대체 표시명의 정본은 [입장·퇴장 시스템 메시지 계약](#chat-06-입장퇴장-시스템-메시지-계약)이다. 저장 계층에는 완성 문장과 닉네임 사본을 두지 않는다([ADR-0078](adr/chat/0078-chat-system-message-storage-and-read-time-composition.md)).
+`messageType`·`systemEvent`·`subject`는 `CHAT-06`이 제공하는 필드다. `clientMessageId`·`sender`의 `null` 허용은 `SYSTEM` 메시지에만 해당한다. `SYSTEM` 메시지의 `content`는 저장된 값이 아니라 서버가 사건 키와 대상 사용자의 현재 공개 닉네임으로 조립한 문장이며, 문구와 대체 표시명의 정본은 [입장·퇴장 시스템 메시지 계약](#chat-06-입장퇴장-시스템-메시지-계약)이다. 저장 계층에는 완성 문장과 닉네임 사본을 두지 않는다([ADR-0078](adr/chat/0078-chat-system-message-storage-and-read-time-composition.md)).
 
 ### 4.16 ChatMessagePage
 
@@ -2551,9 +2551,9 @@ Path variable·query parameter·body는 없다. `unreadCount`는 미확인 개�
 
 ### CHAT-06 입장·퇴장 시스템 메시지 계약
 
-> **도입 단계: P2** · **기능: CHAT-06** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+> **도입 단계: P2** · **기능: CHAT-06** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 제공**
 >
-> 이 절의 필드·enum·문구는 승인된 목표 계약이며 현재 제공 기능이 아니다. 제품 상태는 [P2 기능 상태의 `CHAT-06`](p2/README.md#기능별-현재-상태)에서만 판정한다.
+> 이 절의 필드·enum·문구는 현재 제공 계약이다. 제품 상태는 [P2 기능 상태의 `CHAT-06`](p2/README.md#기능별-현재-상태)에서만 판정한다.
 
 `CHAT-06`은 새 엔드포인트를 추가하지 않는다. 기존 이력 조회와 실시간 구독이 사용자 메시지와 함께 입장·퇴장 안내를 반환하도록 [ChatMessage](#415-chatmessage)와 [ChatMessageEvent](#417-chatmessageevent)를 확장한다. 안내를 남기는 사건 경계와 소급 생성 제외는 [CHAT-06 명세](p2/chat.md#chat-06-입장퇴장-시스템-메시지), 저장 모델·문구 소유의 선택 이유는 [ADR-0078](adr/chat/0078-chat-system-message-storage-and-read-time-composition.md)을 따른다.
 
@@ -2578,9 +2578,9 @@ Path variable·query parameter·body는 없다. `unreadCount`는 미확인 개�
 
 ### CHAT-07 채팅 목록 마지막 메시지·방별 미읽음 상태 계약
 
-> **도입 단계: P2** · **기능: CHAT-07** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+> **도입 단계: P2** · **기능: CHAT-07** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 제공**
 >
-> 이 절의 필드·엔드포인트는 승인된 목표 계약이며 현재 제공 기능이 아니다. 제품 상태는 [P2 기능 상태의 `CHAT-07`](p2/README.md#기능별-현재-상태)에서만 판정한다.
+> 이 절의 필드·엔드포인트는 현재 제공 계약이다. 제품 상태는 [P2 기능 상태의 `CHAT-07`](p2/README.md#기능별-현재-상태)에서만 판정한다.
 
 제품 규칙은 [CHAT-07 명세](p2/chat.md#chat-07-채팅-목록-마지막-메시지방별-미읽음-상태), 저장·집계 방식의 선택 이유는 [ADR-0079](adr/chat/0079-chat-room-read-cursor-and-derived-unread-count.md)를 따른다.
 
@@ -2763,7 +2763,7 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 
 ### CHAT-07 내 미읽음 채팅방 요약
 
-> **도입 단계: P2** · **기능: CHAT-07** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+> **도입 단계: P2** · **기능: CHAT-07** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 제공**
 
 | 항목 | 값 |
 |---|---|

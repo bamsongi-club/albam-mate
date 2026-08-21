@@ -62,7 +62,10 @@
 ## 검증
 
 - 상태: 미검증
-- 근거: 없음
+- 근거:
+  - 구현: `Region` enum, 초안 region 기본값·입력 검증과 Room/draft `CHECK` 제약이 구현돼 있다.
+  - H2 테스트: `AssistantDraftHttpIntegrationTest`가 유효 지역 입력과 누락 시 `홍대` 기본값 경계를 통과했다.
+  - PostgreSQL 테스트: `AssistantDraftPostgresTest`가 region을 포함한 draft schema·confirm 경계를 통과했다.
 - 미검증:
   - 운영 Room region 값 확인과 `CHECK` migration rollback 검증
-  - API·DTO·enum·기존 client 호환 및 지역 입력 회귀 테스트
+  - 기존 client 호환성과 운영 migration rollback 검증

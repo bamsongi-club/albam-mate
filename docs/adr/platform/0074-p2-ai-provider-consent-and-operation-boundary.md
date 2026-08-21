@@ -86,8 +86,9 @@
 
 - 상태: 미검증
 - 근거:
-  - 구현: `assistant`·`infra.ai`의 fake/OpenAI adapter, Redis quota·비용 예약과 Redis fail-closed 경계가 존재한다.
-  - 테스트: `AiQuotaPolicyTest`, `AiQuotaRedisPostgresTest`가 기존 일 5회·월 150회·비용 예약 경계를 다룬다. 이 ADR 갱신에서 재실행한 근거는 아니다.
+  - 구현: `assistant`·`infra.ai`의 fake/OpenAI adapter, provider runtime gate, Redis quota·비용 예약과 Redis fail-closed 경계가 구현돼 있다.
+  - H2 테스트: `AiProviderRuntimeConfigurationTest`, `OpenAiAssistantProviderTest`, `AiQuotaPolicyTest`, `AiQuotaRuntimeConfigurationTest`, `AiUsageRuntimeConfigurationTest`, `AssistantIntentExtractorTest`, `AssistantUsageEventMetricsTest`가 통과했다.
+  - PostgreSQL 테스트: `AssistantConsentPostgresTest`, `AiProviderRuntimePostgresTest`, `AiQuotaRedisPostgresTest`가 동의·runtime·quota/Redis 경계를 통과했다.
 - 미검증:
-  - provider model ID·정책 URL·실제 비용 알림 경로 확인
-  - ADR-0085의 일 10회, 고정 예약 정산, 정확 게임명 providerless 조회 구현과 테스트
+  - 외부 provider가 실제 지정 모델·정책 URL·no-retention/no-training 조건을 적용한다는 provider-side 증거와 실제 smoke 호출
+  - 실제 청구 가격 snapshot·운영 비용 알림 경로·배포 후 관측(OPS-04)

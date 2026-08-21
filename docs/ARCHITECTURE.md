@@ -212,9 +212,9 @@ Recovery/Cleanup Executor는 Party별 `REQUIRES_NEW`를 시작할 때 대상 `MA
 
 MATCH 사용자 메시지 쓰기는 chat Command가 연 트랜잭션에서 `MatchPartyChatWriteGuard`를 먼저 호출해 Party를 잠근 뒤 `MATCH_CHAT_ROOMS`를 잠그고 저장한다. MATCH의 쓰기 잠금 순서는 항상 `MATCH_PARTIES → MATCH_CHAT_ROOMS`다. 마지막 나가기·`closesAt` 예약 종료도 같은 Party 잠금을 먼저 얻으므로, close가 먼저 커밋되면 이후 쓰기는 거절되고 write가 먼저 커밋되면 URL 텍스트를 포함한 메시지는 close 전 상태에만 남는다. SYSTEM lifecycle 알림은 matching Executor가 Party 잠금과 `ACTIVE` 조건을 유지한 채 `MatchChatSystemMessagePort`를 호출해 같은 순서로 저장한다. 예약 종료 제품 규칙은 [MATCH-01 성공 파티 채팅](p2/matching.md#성공-파티-채팅)을 따른다.
 
-### P2 CHAT-06 입장·퇴장 시스템 메시지 흐름 (계획·미구현)
+### P2 CHAT-06 입장·퇴장 시스템 메시지 흐름
 
-> 이 절은 P2 `CHAT-06`의 승인된 목표 구조다. `room.contract.RoomParticipantChanged`·동기 listener·`CHAT_SYSTEM_MESSAGE_ACTIVATION` gate는 #869가 구현했다. `ChatMessageHistoryQueryService`·`ChatMessageDeliveryService`의 SYSTEM 조회·문장 조립·전송 가드는 아직 존재하지 않으며 #870이 소유한다. 현재 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)로만 판정한다. 제품 규칙은 [CHAT-06 명세](p2/chat.md#chat-06-입장퇴장-시스템-메시지), 저장 계약은 [ERD](ERD.md#chat-06-입장퇴장-시스템-메시지-저장-계약), 선택 이유는 [ADR-0078](adr/chat/0078-chat-system-message-storage-and-read-time-composition.md)이 소유한다.
+> 이 절은 P2 `CHAT-06`의 승인된 구조와 현재 구현 경계를 설명한다. `room.contract.RoomParticipantChanged`·동기 listener·`CHAT_SYSTEM_MESSAGE_ACTIVATION` gate는 #869가 구현했고, `ChatMessageHistoryQueryService`·`ChatMessageDeliveryService`의 SYSTEM 조회·문장 조립·전송 가드는 #870이 구현·PostgreSQL 검증까지 완료했다. 현재 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)로만 판정한다. 제품 규칙은 [CHAT-06 명세](p2/chat.md#chat-06-입장퇴장-시스템-메시지), 저장 계약은 [ERD](ERD.md#chat-06-입장퇴장-시스템-메시지-저장-계약), 선택 이유는 [ADR-0078](adr/chat/0078-chat-system-message-storage-and-read-time-composition.md)이 소유한다.
 
 `room`은 참가·참가 취소가 참가 관계를 실제로 전이시킨 사실만 발행하고 안내 문구·메시지 저장을 알지 않는다. `chat`은 그 사실을 `CHAT_MESSAGES`의 `SYSTEM` 행으로 저장하고 조회 시점에 문장을 조립한다. 컴파일 의존은 기존과 같은 `chat → room.contract`만 생기며 `room → chat` 직접 의존은 만들지 않는다.
 
@@ -253,9 +253,9 @@ flowchart LR
 
 한 응답 안의 같은 대상 사용자 ID는 한 번만 조회한다. 공개 프로필 조회 실패나 미존재는 이력 조회를 실패시키지 않고 대체 표시명으로 수렴한다. 안내 문장·닉네임·사용자 ID는 로그와 metric label에 남기지 않는다.
 
-### P2 CHAT-07 채팅 목록 미읽음 집계 흐름 (계획·미구현)
+### P2 CHAT-07 채팅 목록 미읽음 집계 흐름
 
-> 이 절은 P2 `CHAT-07`의 승인된 목표 구조다. 아래 공개 계약은 아직 존재하지 않으며, 현재 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)로만 판정한다. 제품 규칙은 [CHAT-07 명세](p2/chat.md#chat-07-채팅-목록-마지막-메시지방별-미읽음-상태), 저장 계약은 [ERD](ERD.md#chat-07-읽음-커서-저장-계약), 선택 이유는 [ADR-0079](adr/chat/0079-chat-room-read-cursor-and-derived-unread-count.md)가 소유한다.
+> 이 절은 P2 `CHAT-07`의 승인된 구조와 현재 구현 경계를 설명한다. 읽음 cursor·채팅 목록 preview·unread batch 조회·읽음 처리 공개 계약은 #862가 구현·자동 검증까지 완료했고, 상단 unread summary는 #903이 구현·자동 검증까지 완료했다. 현재 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)로만 판정한다. 제품 규칙은 [CHAT-07 명세](p2/chat.md#chat-07-채팅-목록-마지막-메시지방별-미읽음-상태), 저장 계약은 [ERD](ERD.md#chat-07-읽음-커서-저장-계약), 선택 이유는 [ADR-0079](adr/chat/0079-chat-room-read-cursor-and-derived-unread-count.md)가 소유한다.
 
 `CHAT-07`은 새 트랜잭션 이벤트 흐름을 만들지 않는다. `CHAT-06`처럼 참가·참가 취소를 계기로 안내를 저장하는 계약과 달리, 읽음 커서는 사용자 요청(채팅 목록 조회, 읽음 처리 API 호출)에만 반응하는 조회·갱신 계약이다.
 
@@ -286,11 +286,11 @@ flowchart LR
     accessCheck --> upsert["CHAT_ROOM_READ_STATES<br/>GREATEST UPSERT"]
 ```
 
-### P2 CHAT-08 채팅 목록 실시간 갱신 흐름 (계획·미구현)
+### P2 CHAT-08 채팅 목록 실시간 갱신 흐름 (백엔드 구현·프런트 진행)
 
 > 이 절은 P2 `CHAT-08`의 승인된 목표 구조다. 사용자 단위 WebSocket handshake·연결 레지스트리·참가자 팬아웃(`ChatUserWebSocketHandshakeController`·`ChatUserConnectionRegistry`·`RedisChatRoomUpdatedSubscriber`)은 `#918`이 구현·자동 검증까지 완료했다. 클라이언트 구독·재조회·재정렬은 아직 존재하지 않으며 `#919`가 소유한다. 현재 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)로만 판정한다. 제품 규칙은 [CHAT-08 명세](p2/chat.md#chat-08-채팅-목록-실시간-갱신), 채널 구조 선택 이유는 [ADR-0082](adr/chat/0082-chat-list-per-user-realtime-channel.md)가 소유한다.
 
-`CHAT-08`은 기존 방별 실시간 경로(`ChatWebSocketHandler`, 방 단위 `ChatConnectionRegistry`)를 바꾸지 않고, 사용자 단위 연결과 레지스트리를 병렬로 추가한다. 메시지 커밋 뒤 `AFTER_COMMIT` 신호 발행 지점은 [CHAT-06/07 흐름](#p2-chat-06-입장퇴장-시스템-메시지-흐름-계획미구현)과 같은 `ChatMessageCommittedListener`이며, 이 listener가 기존 방 단위 팬아웃과 별개로 사용자 단위 팬아웃을 함께 트리거한다.
+`CHAT-08`은 기존 방별 실시간 경로(`ChatWebSocketHandler`, 방 단위 `ChatConnectionRegistry`)를 바꾸지 않고, 사용자 단위 연결과 레지스트리를 병렬로 추가한다. 메시지 커밋 뒤 `AFTER_COMMIT` 신호 발행 지점은 [CHAT-06/07 흐름](#p2-chat-06-입장퇴장-시스템-메시지-흐름)과 같은 `ChatMessageCommittedListener`이며, 이 listener가 기존 방 단위 팬아웃과 별개로 사용자 단위 팬아웃을 함께 트리거한다.
 
 | 계약 | 방향 | 책임 |
 | --- | --- | --- |

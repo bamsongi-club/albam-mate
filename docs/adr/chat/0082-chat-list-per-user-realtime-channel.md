@@ -63,8 +63,11 @@ CHAT-07([ADR-0079](0079-chat-room-read-cursor-and-derived-unread-count.md))은 �
 ## 검증
 
 - 상태: 미검증
-- 근거: 없음
+- 근거:
+    - 구현: userId `ConnectionRegistry`, handshake, 참가자 fan-out과 Redis subscriber 백엔드가 구현돼 있다.
+    - H2 테스트: `ChatUserWebSocketHandlerTest`, `ChatUserWebSocketHandshakeIntegrationTest`가 최소 payload·인증·참가자 전달·비참가자 차단을 통과했다.
+    - PostgreSQL 테스트: `ChatUserWebSocketCrossInstanceDeliveryPostgresTest`가 멀티 인스턴스 사용자 채널 전달과 기존 방 WebSocket 회귀를 통과했다.
 - 미검증:
-    - `CHAT-08` 명세·API·아키텍처 계약 반영, userId `ConnectionRegistry`·handshake·fan-out 구현과 PostgreSQL·멀티 인스턴스 통합 검증
+    - 프런트엔드 구독·재조회·재정렬과 화면 수준 통합 검증(`#919`)
 
 > 상태 값과 번호·대체 규칙은 [README](../README.md)를 따른다.
