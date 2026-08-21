@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "measuredGitCommitSha": "c017d2f52f6548dc85ab86fed0f0d668397a3fe3",
+  "outcome": "PASSED",
+  "id": "MATCH-01-T5",
+  "task": "postgresTest",
+  "selectors": [
+    "cloud.bamsongi.albammate.matching.integration.MatchLifecycleConcurrencyPostgresTest.서로_다른_두_matcher_인스턴스가_후보를_한번만_claim하고_전원_ACCEPT를_하나의_PREPARING_Party로_확정한다"
+  ],
+  "purpose": "독립 matcher 두 개의 후보 점유와 동시 전원 수락의 최종 정합성을 검증한다."
+}

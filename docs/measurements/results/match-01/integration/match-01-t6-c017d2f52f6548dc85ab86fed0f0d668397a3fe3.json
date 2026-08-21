@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "measuredGitCommitSha": "c017d2f52f6548dc85ab86fed0f0d668397a3fe3",
+  "outcome": "PASSED",
+  "id": "MATCH-01-T6",
+  "task": "postgresTest",
+  "selectors": [
+    "cloud.bamsongi.albammate.matching.integration.MatchLifecycleRecoveryPostgresTest.재시작한_인스턴스를_포함한_PREPARING_복구는_채팅을_한번만_열고_기한_초과_Party는_우선순위를_보존해_정리한다",
+    "cloud.bamsongi.albammate.matching.integration.MatchLifecycleRecoveryPostgresTest.재시작과_중복_scheduler_복구가_종료_한시간_안내를_한번만_저장하고_종료된_Party에는_만들지_않는다"
+  ],
+  "purpose": "PREPARING 복구·cleanup·ACTIVE lifecycle·종료 한 시간 안내의 재시도 정합성을 검증한다."
+}

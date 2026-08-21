@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "measuredGitCommitSha": "c017d2f52f6548dc85ab86fed0f0d668397a3fe3",
+  "outcome": "PASSED",
+  "id": "MATCH-01-T7",
+  "task": "postgresTest",
+  "selectors": [
+    "cloud.bamsongi.albammate.matching.integration.MatchLifecycleRecoveryPostgresTest.서버_재시작_뒤_재연결_현재상태는_영속된_MATCH_채팅_handoff와_공개_프로필을_복구하고_연결종료를_나가기로_처리하지_않는다"
+  ],
+  "purpose": "독립 서버 재시작·재접속 뒤 MATCH 채팅 handoff와 현재 상태 복구를 검증한다."
+}
