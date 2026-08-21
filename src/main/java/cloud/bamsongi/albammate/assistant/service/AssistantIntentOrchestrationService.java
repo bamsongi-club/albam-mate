@@ -59,7 +59,9 @@ public class AssistantIntentOrchestrationService {
 				AssistantConditionSummary.empty(), java.util.List.of());
 		}
 		AssistantConditionSummary extractedConditions = new AssistantConditionSummary(
-			extraction.proposal().gameStyles());
+			extraction.proposal().categories(), extraction.proposal().mechanisms(), extraction.proposal().themes(),
+			extraction.proposal().complexityMax(), extraction.proposal().playTimeMax(), null,
+			extraction.proposal().playerCount(), null, null, null);
 		AssistantConditionSummary conditions = request.conditions() == null
 			? extractedConditions
 			: request.conditions().merge(extractedConditions);

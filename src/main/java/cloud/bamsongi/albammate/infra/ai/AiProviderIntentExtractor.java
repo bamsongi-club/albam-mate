@@ -115,7 +115,11 @@ public final class AiProviderIntentExtractor implements AssistantIntentExtractor
 	private AssistantIntentExtraction success(AiProviderResponse response, Instant startedAt) {
 		AssistantUsageEvent usage = usage(response, "SUCCESS", startedAt, response.costUsd());
 		return new AssistantIntentExtraction(AssistantIntentStatus.SUCCESS,
-			new AssistantIntentProposal(response.action(), response.gameStyles()), usage, false);
+			new AssistantIntentProposal(
+				response.action(), response.categories(), response.mechanisms(), response.themes(),
+				response.complexityMax(),
+				response.playTimeMax(), response.playerCount()),
+			usage, false);
 	}
 
 	private AssistantIntentExtraction failure(AssistantIntentStatus status) {

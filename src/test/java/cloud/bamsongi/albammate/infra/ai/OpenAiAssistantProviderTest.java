@@ -44,7 +44,9 @@ class OpenAiAssistantProviderTest {
 		assertEquals("propose_game_room_intent",
 			options.getToolCallbacks().getFirst().getToolDefinition().name());
 		String inputSchema = options.getToolCallbacks().getFirst().getToolDefinition().inputSchema();
-		assertTrue(inputSchema.contains("gameStyles"));
+		assertTrue(inputSchema.contains("categories"));
+		assertTrue(inputSchema.contains("mechanisms"));
+		assertTrue(inputSchema.contains("themes"));
 		assertFalse(inputSchema.contains("uniqueItems"));
 		assertThrows(UnsupportedOperationException.class,
 			() -> options.getToolCallbacks().getFirst().call("{}"));
@@ -63,7 +65,9 @@ class OpenAiAssistantProviderTest {
 			.content("")
 			.toolCalls(List.of(new AssistantMessage.ToolCall(
 				"call-1", "function", "propose_game_room_intent",
-				"{\"action\":\"RECOMMEND\",\"gameStyles\":[\"STRATEGY\"]}")))
+				"{\"action\":\"RECOMMEND\",\"categories\":[\"STRATEGY\"],"
+					+ "\"mechanisms\":[\"WORKER_PLACEMENT\"],\"themes\":[\"HORROR\"],"
+					+ "\"complexityMax\":3.0,\"playTimeMax\":\"OVER_20_TO_30\",\"playerCount\":4}")))
 			.build();
 		when(chatModel.call(any(Prompt.class))).thenReturn(
 			new ChatResponse(List.of(new Generation(output))));
@@ -73,25 +77,36 @@ class OpenAiAssistantProviderTest {
 
 		assertTrue(response.succeeded());
 		assertEquals("RECOMMEND", response.action());
-		assertEquals(List.of("STRATEGY"), response.gameStyles());
+		assertEquals(List.of("STRATEGY"), response.categories());
+		assertEquals(List.of("WORKER_PLACEMENT"), response.mechanisms());
+		assertEquals(List.of("HORROR"), response.themes());
+		assertEquals(4, response.playerCount());
 	}
 
 	@Test
-	void T2_action별_gameStyles_cardinality와_허용된_code를_검증한다() {
-		assertTrue(responseFor("{\"action\":\"NEEDS_INPUT\",\"gameStyles\":[]}").succeeded());
-		assertEquals("NEEDS_INPUT", responseFor("{\"action\":\"NEEDS_INPUT\",\"gameStyles\":[]}").action());
-		assertTrue(responseFor("{\"action\":\"UNSUPPORTED\",\"gameStyles\":[]}").succeeded());
-		assertEquals("UNSUPPORTED", responseFor("{\"action\":\"UNSUPPORTED\",\"gameStyles\":[]}").action());
+	void T2_action별_구조화_조건의_형식과_범위를_검증한다() {
+		String emptyConditions = "\"categories\":[],\"mechanisms\":[],\"themes\":[],"
+			+ "\"complexityMax\":null,\"playTimeMax\":null,\"playerCount\":null";
+		assertTrue(responseFor("{\"action\":\"NEEDS_INPUT\"," + emptyConditions + "}").succeeded());
+		assertEquals("NEEDS_INPUT", responseFor("{\"action\":\"NEEDS_INPUT\"," + emptyConditions + "}").action());
+		assertTrue(responseFor("{\"action\":\"UNSUPPORTED\"," + emptyConditions + "}").succeeded());
+		assertEquals("UNSUPPORTED", responseFor("{\"action\":\"UNSUPPORTED\"," + emptyConditions + "}").action());
 		assertEquals(AiProviderFailure.INVALID_SCHEMA,
-			responseFor("{\"action\":\"NEEDS_INPUT\",\"gameStyles\":[\"STRATEGY\"]}").failure());
+			responseFor("{\"action\":\"NEEDS_INPUT\",\"categories\":[\"STRATEGY\"],\"mechanisms\":[],\"themes\":[],"
+				+ "\"complexityMax\":null,\"playTimeMax\":null,\"playerCount\":null}").failure());
 		assertEquals(AiProviderFailure.INVALID_SCHEMA,
-			responseFor("{\"action\":\"RECOMMEND\",\"gameStyles\":[\"UNKNOWN\"]}").failure());
+			responseFor("{\"action\":\"RECOMMEND\",\"categories\":[\"invalid\"],\"mechanisms\":[],\"themes\":[],"
+				+ "\"complexityMax\":null,\"playTimeMax\":null,\"playerCount\":null}").failure());
 		assertEquals(AiProviderFailure.INVALID_SCHEMA,
-			responseFor("{\"action\":\"RECOMMEND\",\"gameStyles\":[]}").failure());
+			responseFor("{\"action\":\"RECOMMEND\"," + emptyConditions + "}").failure());
 		assertEquals(AiProviderFailure.INVALID_SCHEMA,
-			responseFor("{\"action\":\"RECOMMEND\",\"gameStyles\":[\"\"]}").failure());
+			responseFor("{\"action\":\"RECOMMEND\",\"categories\":[\"STRATEGY\"],\"mechanisms\":[],\"themes\":[],"
+				+ "\"complexityMax\":5.1,\"playTimeMax\":null,\"playerCount\":null}").failure());
 		assertEquals(AiProviderFailure.INVALID_SCHEMA,
-			responseFor("{\"action\":\"RECOMMEND\",\"gameStyles\":[\"STRATEGY\",\"STRATEGY\"]}").failure());
+			responseFor(
+				"{\"action\":\"RECOMMEND\",\"categories\":[\"STRATEGY\",\"STRATEGY\"],\"mechanisms\":[],\"themes\":[],"
+					+ "\"complexityMax\":null,\"playTimeMax\":null,\"playerCount\":null}")
+				.failure());
 	}
 
 	@Test

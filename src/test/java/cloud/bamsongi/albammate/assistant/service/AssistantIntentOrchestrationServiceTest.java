@@ -153,7 +153,7 @@ class AssistantIntentOrchestrationServiceTest {
 	}
 
 	@Test
-	void NEEDS_INPUT_후속_요청은_기존_조건을_보존해_후보_조회한다() {
+	void T2_provider_구조화_조건을_후속_조건과_병합해_모든_후보_필터로_전달한다() {
 		AssistantConsentGate grantedGate = grantedGate();
 		AssistantIntentExtractor extractor = mock(AssistantIntentExtractor.class);
 		AssistantExactGameNameQuery exactGameNameQuery = mock(AssistantExactGameNameQuery.class);
@@ -161,7 +161,8 @@ class AssistantIntentOrchestrationServiceTest {
 		when(exactGameNameQuery.findUniqueByNormalizedName("다른 조건")).thenReturn(java.util.Optional.empty());
 		when(extractor.extract(any())).thenReturn(new AssistantIntentExtraction(
 			AssistantIntentStatus.SUCCESS,
-			new AssistantIntentProposal("RECOMMEND", List.of()),
+			new AssistantIntentProposal(
+				"RECOMMEND", List.of("STRATEGY"), List.of(), List.of("HORROR"), null, null, 4),
 			null,
 			false));
 		when(candidateQuery.findCandidates(any())).thenReturn(
@@ -184,11 +185,18 @@ class AssistantIntentOrchestrationServiceTest {
 		var response = service.recommend(1L, new AssistantRecommendationRequest("다른 조건", previous));
 
 		assertEquals(AssistantRecommendationState.RECOMMENDED, response.state());
-		assertEquals(previous, response.conditions());
+		assertEquals(List.of("STRATEGY"), response.conditions().categories());
+		assertEquals(List.of("DRAFTING"), response.conditions().mechanisms());
+		assertEquals(List.of("HORROR"), response.conditions().themes());
+		assertEquals(new BigDecimal("3.00"), response.conditions().complexityMax());
+		assertEquals("UP_TO_10", response.conditions().playTimeMax());
+		assertEquals(4, response.conditions().playerCount());
 		verify(candidateQuery).findCandidates(new AssistantGameCandidateQuery.Criteria(
-			List.of(), List.of("DRAFTING"), List.of(), new BigDecimal("3.00"), "UP_TO_10", null, 4));
+			List.of("STRATEGY"), List.of("DRAFTING"), List.of("HORROR"), new BigDecimal("3.00"), "UP_TO_10", null,
+			4));
 		verify(candidateQuery).validateCriteria(new AssistantGameCandidateQuery.Criteria(
-			List.of(), List.of("DRAFTING"), List.of(), new BigDecimal("3.00"), "UP_TO_10", null, 4));
+			List.of("STRATEGY"), List.of("DRAFTING"), List.of("HORROR"), new BigDecimal("3.00"), "UP_TO_10", null,
+			4));
 		verifyNoMoreInteractions(candidateQuery);
 	}
 
