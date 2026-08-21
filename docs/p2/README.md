@@ -38,7 +38,7 @@ P2 구현은 [API](../API.md), [ERD](../ERD.md), [아키텍처](../ARCHITECTURE.
 | AI 초안·확인형 Room | [`AI-03`](assistant.md#ai-03-ai-초안확인형-room-생성) | T1~T6 승인 완료 | 15분 초안 CRUD·region·멱등 confirm·Room/ChatRoom 동기 handoff 구현 | H2·PostgreSQL T1~T6 자동 검증 완료 | 미배포 | 미측정 |
 | AI 운영 배포·실측 | [`AI-04`](assistant.md#ai-04-ai-운영-배포실측) | T-ID 승인 필요 | 미구현 | 미검증 | 미배포 | 미측정 |
 | 게임 탐색 도우미 | [`DISCOVERY-01`](game-discovery-assistant.md#discovery-01) | 선행 계약 필요 | 미구현 | 미검증 | 미배포 | 미측정 |
-| 게임 의미 기반 검색 | [`SEARCH-04`](search.md#search-04) | `#836` T1~T6 및 Cloudflare `#942` T1~T5 승인 완료; ERD는 별도 범위 | `#836` internal semantic serving core와 `#942` Cloudflare index delivery 구현 완료; `#871`이 `GET /api/games/semantic-search` public read contract를 core 재사용으로 구현 완료. UI·ERD·승인 artifact backfill·운영 배포는 보류 | `#836` H2·PostgreSQL T1~T6, `#942` H2 T1/T2/T5·PostgreSQL T3/T4, `#871` H2 T1~T5·PostgreSQL 자동 검증 완료 | 미배포 | 미측정 |
+| 게임 의미 기반 검색 | [`SEARCH-04`](search.md#search-04) | `#836` T1~T6 및 Cloudflare `#942` T1~T5 승인 완료; ERD는 별도 범위 | `#836` internal semantic serving core와 `#942` Cloudflare index delivery 구현 완료; `#871`이 `GET /api/games/semantic-search` public read contract와 게임 찾기 화면의 프런트엔드 검색 UI를 구현 완료. ERD·승인 artifact backfill·운영 배포는 보류 | `#836` H2·PostgreSQL T1~T6, `#942` H2 T1/T2/T5·PostgreSQL T3/T4, `#871` H2 T1~T5·PostgreSQL 자동 검증 완료 | 미배포 | 미측정 |
 | 게임 인기순 정렬 | [`RANK-02`](game-popularity.md#rank-02) | 계약 준비 완료 | 구현 완료 | 자동 검증 완료 | 미배포 | 미측정 |
 | 실시간 파티 매칭 | [`MATCH-01`](matching.md#match-01-실시간-파티-매칭) | 계약 준비 완료 | 부분 구현 | 미검증 | 미배포 | 미측정 |
 | 채팅 시스템 메시지 | [`CHAT-06`](chat.md#chat-06-입장퇴장-시스템-메시지) | 계약 준비 완료 | 저장·트랜잭션·활성화 gate 구현 완료(`#869`), 이력·실시간 조회·전달·접근제어·가드 구현 완료(`#870`) | 저장·gate PostgreSQL 검증 완료(`#869` T1~T6), 이력·전달·접근제어·가드 PostgreSQL 검증 완료(`#870` T1~T7) | 미배포 | 미측정 |
