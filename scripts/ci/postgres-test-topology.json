@@ -93,6 +93,7 @@
     "cloud.bamsongi.albammate.infra.ai.AiQuotaRedisPostgresTest": "Redis-only runtime contract",
     "cloud.bamsongi.albammate.infra.redis.RedisAuthenticationRequestLimiterPostgresTest": "Redis-only runtime contract",
     "cloud.bamsongi.albammate.local.LocalRoomSeedPostgresTest": "local Flyway callbacks and Redis",
+    "cloud.bamsongi.albammate.matching.measurement.MatchResponseCompletionBaselinePostgresTest": "pg_stat_statements and opt-in response completion wall-clock measurement",
     "cloud.bamsongi.albammate.matching.MatchSchemaPostgresTest": "isolated Flyway schema",
     "cloud.bamsongi.albammate.monitoring.LatencySaturationProductionPostgresTest": "production OTLP receiver",
     "cloud.bamsongi.albammate.monitoring.MonitoringProductionPostgresTest": "production monitoring and Redis process control",
