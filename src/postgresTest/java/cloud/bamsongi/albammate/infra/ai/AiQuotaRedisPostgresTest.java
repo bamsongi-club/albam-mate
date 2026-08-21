@@ -5,8 +5,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.YearMonth;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
@@ -25,10 +28,14 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import cloud.bamsongi.albammate.assistant.contract.AssistantIntentRequest;
+import cloud.bamsongi.albammate.assistant.contract.AssistantIntentStatus;
+
 @Testcontainers
 class AiQuotaRedisPostgresTest {
 
 	private static final Instant JANUARY_31_KST = Instant.parse("2026-01-31T14:59:00Z");
+	private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
 	@Container
 	static final GenericContainer<?> REDIS = new GenericContainer<>("redis:7.4-alpine").withExposedPorts(6379);
@@ -157,6 +164,48 @@ class AiQuotaRedisPostgresTest {
 		assertEquals(AiQuotaCompletionStatus.COMPLETED, afterRestart.complete(reservation, new BigDecimal("0.20")));
 		assertEquals(AiQuotaReservationStatus.COST_CAP_REACHED,
 			afterRestart.reserve("user-b", JANUARY_31_KST, new BigDecimal("4.91")).status());
+	}
+
+	@Test
+	void T4_실제_Redis_ledger에서_KST_월_150회_완료_뒤_151번째_AI_의도는_provider_호출_없이_quota를_초과한다() {
+		YearMonth quotaMonth = nextThirtyDayMonth();
+		java.util.concurrent.atomic.AtomicInteger providerCalls = new java.util.concurrent.atomic.AtomicInteger();
+		AiProviderClient provider = request -> {
+			providerCalls.incrementAndGet();
+			return AiProviderResponse.success("RECOMMEND", List.of("STRATEGY"), 1, 1, BigDecimal.ZERO);
+		};
+		AiProviderSettings settings = zeroCostFakeSettings();
+		AssistantIntentRequest request = AssistantIntentRequest.forUser(
+			"monthly-quota-user", "전략 게임 추천", List.of());
+		for (int index = 0; index < 150; index++) {
+			Instant callTime = quotaMonth.atDay(index / 5 + 1).atTime(12, 0).atZone(KST).toInstant();
+			AiProviderIntentExtractor extractor = new AiProviderIntentExtractor(
+				provider, ledger, event -> {}, settings, Clock.fixed(callTime, KST));
+			assertEquals(AssistantIntentStatus.SUCCESS, extractor.extract(request).status());
+		}
+
+		int callsBeforeRejectedIntent = providerCalls.get();
+		Instant rejectedCallTime = quotaMonth.atDay(30).atTime(12, 0).atZone(KST).toInstant();
+		AiProviderIntentExtractor rejectedExtractor = new AiProviderIntentExtractor(
+			provider, ledger, event -> {}, settings, Clock.fixed(rejectedCallTime, KST));
+
+		assertEquals(AssistantIntentStatus.QUOTA_EXCEEDED, rejectedExtractor.extract(request).status());
+		assertEquals(150, callsBeforeRejectedIntent);
+		assertEquals(callsBeforeRejectedIntent, providerCalls.get());
+	}
+
+	private YearMonth nextThirtyDayMonth() {
+		YearMonth quotaMonth = YearMonth.now(KST).plusMonths(1);
+		while (quotaMonth.lengthOfMonth() < 30) {
+			quotaMonth = quotaMonth.plusMonths(1);
+		}
+		return quotaMonth;
+	}
+
+	private AiProviderSettings zeroCostFakeSettings() {
+		return new AiProviderSettings(
+			"fake", true, true, true, true, "", "", "gpt-5.6-luna", Duration.ofSeconds(10), 0, false,
+			"TEST-PRICING-V1", BigDecimal.ONE, BigDecimal.ONE, 4096, 256, BigDecimal.ZERO);
 	}
 
 	private AiQuotaReservation reserveWhenStarted(

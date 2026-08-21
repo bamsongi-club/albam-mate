@@ -52,6 +52,8 @@ class LocalMultiProxyRuntimePostgresTest {
 	private static final String PASSWORD = "123456789012345";
 	private static final String UPSTREAM_HEADER = "x-albam-mate-upstream";
 	private static final String WEBSOCKET_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+	private static final String CHAT_REALTIME_CHANNEL = "albam-mate:local:chat:events";
+	private static final int EXPECTED_CHAT_REALTIME_SUBSCRIBERS = 2;
 	/**
 	 * 프록시는 upstream 블록 없이 Docker DNS가 돌려주는 두 주소를 라운드로빈한다
 	 * (frontend/nginx.local.conf의 resolver + 변수 proxy_pass). 한 캐시 창 안에서는 순차적이지만
@@ -148,6 +150,7 @@ class LocalMultiProxyRuntimePostgresTest {
 			.build();
 		String sessionId = signupAndLogin(client, proxyUri, "proxy-ws-cross-" + UUID.randomUUID() + "@example.com");
 		long roomId = createRoom(client, proxyUri);
+		awaitChatRealtimeSubscriptions();
 
 		try (ProxyWebSocket webSocket = connectProxyWebSocket(proxyUri, roomId, sessionId, null)) {
 			assertEquals(101, webSocket.statusCode);
@@ -196,6 +199,7 @@ class LocalMultiProxyRuntimePostgresTest {
 			.build();
 		String sessionId = signupAndLogin(client, proxyUri, "proxy-ws-restart-" + UUID.randomUUID() + "@example.com");
 		long roomId = createRoom(client, proxyUri);
+		awaitChatRealtimeSubscriptions();
 
 		String firstInstanceUpstream;
 		long firstMessageId;
@@ -292,6 +296,33 @@ class LocalMultiProxyRuntimePostgresTest {
 		command[5] = "compose.local.yml";
 		System.arraycopy(arguments, 0, command, 6, arguments.length);
 		return runCommand(command);
+	}
+
+	/**
+	 * Compose의 HTTP healthcheck는 Redis Pub/Sub 구독 완료를 보장하지 않는다. 첫 메시지가 구독 전 발행되면
+	 * 이 테스트의 live-frame 검증이 실제 전달 경로가 아니라 기동 순서에 의존하게 되므로, 두 Spring 인스턴스의
+	 * 구독이 확인된 뒤에만 메시지를 발행한다.
+	 */
+	private void awaitChatRealtimeSubscriptions() throws Exception {
+		long deadline = System.currentTimeMillis() + CROSS_INSTANCE_TIMEOUT_MILLIS;
+		int subscriberCount = 0;
+		while (System.currentTimeMillis() < deadline) {
+			subscriberCount = chatRealtimeSubscriberCount();
+			if (subscriberCount == EXPECTED_CHAT_REALTIME_SUBSCRIBERS) {
+				return;
+			}
+			Thread.sleep(PROXY_UPSTREAM_RETRY_INTERVAL_MILLIS);
+		}
+		assertEquals(
+			EXPECTED_CHAT_REALTIME_SUBSCRIBERS,
+			subscriberCount,
+			"Redis chat realtime channel subscription이 두 Spring 인스턴스에서 준비되지 않았습니다.");
+	}
+
+	private int chatRealtimeSubscriberCount() throws Exception {
+		String response = dockerCompose(
+			"exec", "-T", "redis", "redis-cli", "--raw", "PUBSUB", "NUMSUB", CHAT_REALTIME_CHANNEL);
+		return Integer.parseInt(response.lines().skip(1).findFirst().orElseThrow());
 	}
 
 	private String dockerInspect(String containerId, String format) throws Exception {
