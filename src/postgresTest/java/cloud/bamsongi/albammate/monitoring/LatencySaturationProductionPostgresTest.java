@@ -86,7 +86,8 @@ import io.opentelemetry.proto.metrics.v1.NumberDataPoint;
 })
 class LatencySaturationProductionPostgresTest {
 
-	private static final String POSTGRES_IMAGE = "postgres:18.4";
+	private static final org.testcontainers.utility.DockerImageName POSTGRES_IMAGE = cloud.bamsongi.albammate.testsupport.PgVectorPostgresImages
+		.postgres18();
 	private static final Map<String, String> DEPLOYMENT_TAGS = Map.of(
 		"environment", "test",
 		"stackId", "issue-732",

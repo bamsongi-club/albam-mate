@@ -51,7 +51,8 @@ class RoomStatusCorrectionProgressLocalMultiPostgresTest {
 	private static final long ADVISORY_LOCK_KEY = 382009L;
 
 	@Container
-	static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:18.4")
+	static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(
+		cloud.bamsongi.albammate.testsupport.PgVectorPostgresImages.postgres18())
 		.withDatabaseName("room_status_correction_local_multi_test");
 
 	@Test

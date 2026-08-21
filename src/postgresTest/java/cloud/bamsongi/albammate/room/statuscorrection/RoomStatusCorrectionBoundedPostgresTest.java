@@ -40,7 +40,8 @@ import cloud.bamsongi.albammate.room.repository.RoomWaitlistRepository;
 @SpringBootTest
 class RoomStatusCorrectionBoundedPostgresTest {
 
-	private static final String POSTGRES_IMAGE = "postgres:18.4";
+	private static final org.testcontainers.utility.DockerImageName POSTGRES_IMAGE = cloud.bamsongi.albammate.testsupport.PgVectorPostgresImages
+		.postgres18();
 	private static final Instant REQUEST_TIME = Instant.parse("2026-08-06T00:00:00Z");
 	private static final int MAX_BATCHES_FOR_TEST = 1001;
 

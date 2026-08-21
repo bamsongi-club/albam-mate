@@ -20,7 +20,8 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 	"spring.flyway.ignore-migration-patterns=*:pending"})
 class FlywayMigratorPostgresTest {
 
-	private static final String POSTGRES_IMAGE = "postgres:18.4";
+	private static final org.testcontainers.utility.DockerImageName POSTGRES_IMAGE = cloud.bamsongi.albammate.testsupport.PgVectorPostgresImages
+		.postgres18();
 
 	@Container
 	@ServiceConnection

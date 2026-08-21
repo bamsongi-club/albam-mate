@@ -51,7 +51,8 @@ import cloud.bamsongi.albammate.AlbamMateApplication;
 @Import(NotificationCleanupPostgresTest.AheadApplicationClockConfiguration.class)
 class NotificationCleanupPostgresTest {
 
-	private static final String POSTGRES_IMAGE = "postgres:18.4";
+	private static final org.testcontainers.utility.DockerImageName POSTGRES_IMAGE = cloud.bamsongi.albammate.testsupport.PgVectorPostgresImages
+		.postgres18();
 	private static final int CLEANUP_TEST_ADVISORY_LOCK_CLASS = 268;
 
 	@Container

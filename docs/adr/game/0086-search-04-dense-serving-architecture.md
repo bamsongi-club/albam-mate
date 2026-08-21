@@ -1,11 +1,11 @@
 # ADR-0086: SEARCH-04 dense semantic serving core와 index delivery를 분리한다
 
-- 상태: 승인됨
+- 상태: 대체됨
 - 작성일: 2026-08-20
 - 결정일: 2026-08-20
 - 관련: [SEARCH-04 검색 명세](../../p2/search.md#search-04), [#897 semantic-30 implementation selection](https://github.com/bamsongi-club/albam-mate/issues/897), [#836 core 승인·T1~T6](https://github.com/bamsongi-club/albam-mate/issues/836#issuecomment-5357413078), [#871 API·화면 연결](https://github.com/bamsongi-club/albam-mate/issues/871), [#942 index delivery](https://github.com/bamsongi-club/albam-mate/issues/942), [ADR-0060](0060-approved-catalog-ai-embedding-scope.md), [ADR-0072](0072-search-quality-corpus-membership-and-versioning.md)
 - 대체 대상: 없음
-- 후속 ADR: 없음
+- 후속 ADR: [ADR-0087](0087-search-04-cloudflare-managed-bge-m3-serving.md) — Python BGE-M3 service 결정을 Cloudflare managed BGE-M3 direct REST serving으로 대체
 
 ## 맥락
 

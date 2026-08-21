@@ -5,7 +5,7 @@
 
 services:
   postgres:
-    image: postgres:18.4
+    image: pgvector/pgvector:pg18
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${ALBAM_MATE_DB_NAME:?ALBAM_MATE_DB_NAME must be set}

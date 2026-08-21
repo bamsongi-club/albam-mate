@@ -35,7 +35,8 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 @SpringBootTest
 class GameCatalogImportPostgresTest {
 
-	private static final String POSTGRES_IMAGE = "postgres:18.4";
+	private static final org.testcontainers.utility.DockerImageName POSTGRES_IMAGE = cloud.bamsongi.albammate.testsupport.PgVectorPostgresImages
+		.postgres18();
 
 	@Container
 	@ServiceConnection

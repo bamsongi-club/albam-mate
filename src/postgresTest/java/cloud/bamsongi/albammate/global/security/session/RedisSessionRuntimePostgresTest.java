@@ -55,7 +55,8 @@ import cloud.bamsongi.albammate.user.contract.UserNickname;
 })
 class RedisSessionRuntimePostgresTest {
 
-	private static final String POSTGRES_IMAGE = "postgres:18.4";
+	private static final org.testcontainers.utility.DockerImageName POSTGRES_IMAGE = cloud.bamsongi.albammate.testsupport.PgVectorPostgresImages
+		.postgres18();
 	private static final String REDIS_IMAGE = "redis:8.4-alpine";
 	private static final String SESSION_KEY_PREFIX = "albam-mate:local:session:sessions:";
 	private static final long SESSION_TTL_SECONDS = 30 * 60;

@@ -44,7 +44,8 @@ class ChatMessageRetentionPostgresTest {
 
 	@Container
 	@ServiceConnection
-	static final PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:18.4")
+	static final PostgreSQLContainer postgres = new PostgreSQLContainer(
+		cloud.bamsongi.albammate.testsupport.PgVectorPostgresImages.postgres18())
 		.withDatabaseName("albam_mate_chat_retention_test");
 
 	@Autowired

@@ -30,7 +30,8 @@ class AssistantExactGameNamePostgresTest {
 	private static final OffsetDateTime NOW_UTC = NOW.atOffset(ZoneOffset.UTC);
 	@Container
 	@ServiceConnection
-	static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:18.4")
+	static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(
+		cloud.bamsongi.albammate.testsupport.PgVectorPostgresImages.postgres18())
 		.withDatabaseName("assistant_exact_game_name_test");
 	@Autowired
 	private AssistantExactGameNameQuery exactGameNameQuery;

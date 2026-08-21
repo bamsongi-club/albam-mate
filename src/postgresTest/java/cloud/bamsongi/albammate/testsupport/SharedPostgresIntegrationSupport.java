@@ -30,7 +30,8 @@ public abstract class SharedPostgresIntegrationSupport {
 
 	private static final class SharedPostgresContainer extends PostgreSQLContainer {
 
-		private static final String POSTGRES_IMAGE = "postgres:18.4";
+		private static final org.testcontainers.utility.DockerImageName POSTGRES_IMAGE = cloud.bamsongi.albammate.testsupport.PgVectorPostgresImages
+			.postgres18();
 		private static final SharedPostgresContainer INSTANCE = new SharedPostgresContainer();
 
 		private SharedPostgresContainer() {
