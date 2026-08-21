@@ -32,7 +32,9 @@ import cloud.bamsongi.albammate.matching.service.command.MatchProposalCoordinato
 import cloud.bamsongi.albammate.testsupport.SharedPostgresIntegrationSupport;
 
 @Testcontainers
-@SpringBootTest(classes = {AlbamMateApplication.class, MatchProposalClaimPostgresTest.ClockSkewConfiguration.class})
+@SpringBootTest(
+	classes = {AlbamMateApplication.class, MatchProposalClaimPostgresTest.ClockSkewConfiguration.class},
+	properties = "spring.task.scheduling.enabled=false")
 class MatchProposalClaimPostgresTest extends SharedPostgresIntegrationSupport {
 
 	@Autowired
