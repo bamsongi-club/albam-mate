@@ -552,7 +552,7 @@ jobs:
       - name: Check MATCH-01 response-completion measurement report
         run: >-
           node scripts/measurements/match01-response-completion-report.mjs --check
-          docs/measurements/results/match-01/response-completion/response-completion-cb4e834dce11c3b11448a8289c2cdd4c18f323fb.json
+          docs/measurements/results/match-01/response-completion/response-completion-91d0fd9c8ccf51e073223e069aee5f98571ce228.json
 
       - name: Test game catalog contracts
         run: node --test scripts/game-catalog/*.test.mjs
