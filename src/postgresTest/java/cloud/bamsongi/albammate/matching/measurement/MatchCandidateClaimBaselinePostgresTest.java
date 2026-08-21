@@ -12,6 +12,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.AfterEach;
@@ -167,24 +168,29 @@ class MatchCandidateClaimBaselinePostgresTest {
 		assertThrows(IllegalArgumentException.class,
 			() -> MatchCandidateClaimBaselineSupport.validateProcessEvidence(
 				new MatchCandidateClaimBaselineSupport.ProcessOrchestration(
-					List.of(10L, 10L), true, true, orchestration.measuredGitCommitSha(), false, List.of())));
+					List.of(10L, 10L), true, true, orchestration.measuredGitCommitSha(), false,
+					new MatchCandidateClaimBaselineSupport.TopologyEvidence(2, 1, "config"), List.of())));
 		assertThrows(IllegalArgumentException.class,
 			() -> MatchCandidateClaimBaselineSupport.validateProcessEvidence(
 				new MatchCandidateClaimBaselineSupport.ProcessOrchestration(
-					List.of(10L, 20L), false, true, orchestration.measuredGitCommitSha(), false, List.of())));
+					List.of(10L, 20L), false, true, orchestration.measuredGitCommitSha(), false,
+					new MatchCandidateClaimBaselineSupport.TopologyEvidence(2, 1, "config"), List.of())));
 		assertThrows(IllegalArgumentException.class,
 			() -> MatchCandidateClaimBaselineSupport.validateProcessEvidence(
 				new MatchCandidateClaimBaselineSupport.ProcessOrchestration(
-					List.of(10L, 20L), true, false, orchestration.measuredGitCommitSha(), false, List.of())));
+					List.of(10L, 20L), true, false, orchestration.measuredGitCommitSha(), false,
+					new MatchCandidateClaimBaselineSupport.TopologyEvidence(2, 1, "config"), List.of())));
 		assertThrows(IllegalArgumentException.class,
 			() -> MatchCandidateClaimBaselineSupport.validateProcessEvidence(
 				new MatchCandidateClaimBaselineSupport.ProcessOrchestration(
-					List.of(10L, 20L), true, true, "", false, List.of())));
+					List.of(10L, 20L), true, true, "", false,
+					new MatchCandidateClaimBaselineSupport.TopologyEvidence(2, 1, "config"), List.of())));
 		assertThrows(IllegalArgumentException.class,
 			() -> MatchCandidateClaimBaselineSupport.validateProcessEvidence(
 				new MatchCandidateClaimBaselineSupport.ProcessOrchestration(
 					List.of(10L), true, true, orchestration.measuredGitCommitSha(), false,
-					List.of(new MatchCandidateClaimBaselineSupport.LogicalClaim(1L, 0, List.of())))));
+					new MatchCandidateClaimBaselineSupport.TopologyEvidence(2, 1, "config"),
+					List.of(new MatchCandidateClaimBaselineSupport.LogicalClaim(10L, 1L, 0, List.of())))));
 		assertThrows(IllegalArgumentException.class,
 			() -> MatchCandidateClaimBaselineSupport.validateReadyMessage(
 				"READY|11|fixture|git|config", "fixture", "git", "different-config"));
@@ -194,6 +200,56 @@ class MatchCandidateClaimBaselinePostgresTest {
 		assertThrows(IllegalArgumentException.class,
 			() -> MatchCandidateClaimBaselineSupport.validateReadyMessage(
 				"READY|11||git|config", "fixture", "git", "config"));
+	}
+
+	@Test
+	void matcher_정리중_interrupt가_발생해도_모든_임시_파일을_삭제하고_interrupt를_보존한다() throws Exception {
+		Path firstArgumentFile = Files.createTempFile("issue775-cleanup-", ".args");
+		Path firstOutputFile = Files.createTempFile("issue775-cleanup-", ".log");
+		Path secondArgumentFile = Files.createTempFile("issue775-cleanup-", ".args");
+		Path secondOutputFile = Files.createTempFile("issue775-cleanup-", ".log");
+		Process firstProcess = new ProcessBuilder("cmd.exe", "/c", "ping -n 30 127.0.0.1 > nul").start();
+		Process secondProcess = new ProcessBuilder("cmd.exe", "/c", "ping -n 30 127.0.0.1 > nul").start();
+		try {
+			Thread.currentThread().interrupt();
+			MatchCandidateClaimBaselineSupport.cleanupWorkers(List.of(
+				new MatchCandidateClaimBaselineSupport.WorkerProcess(firstProcess, firstArgumentFile, firstOutputFile),
+				new MatchCandidateClaimBaselineSupport.WorkerProcess(secondProcess, secondArgumentFile,
+					secondOutputFile)));
+
+			assertTrue(Thread.currentThread().isInterrupted());
+			assertFalse(Files.exists(firstArgumentFile));
+			assertFalse(Files.exists(firstOutputFile));
+			assertFalse(Files.exists(secondArgumentFile));
+			assertFalse(Files.exists(secondOutputFile));
+		} finally {
+			Thread.interrupted();
+			firstProcess.destroyForcibly();
+			secondProcess.destroyForcibly();
+			firstProcess.waitFor(5, TimeUnit.SECONDS);
+			secondProcess.waitFor(5, TimeUnit.SECONDS);
+			Files.deleteIfExists(firstArgumentFile);
+			Files.deleteIfExists(firstOutputFile);
+			Files.deleteIfExists(secondArgumentFile);
+			Files.deleteIfExists(secondOutputFile);
+		}
+	}
+
+	@Test
+	void worker_시작이_실패하면_해당_호출의_argument와_output_임시_파일을_정리한다() throws Exception {
+		String temporaryFilePrefix = "issue775-start-failure-" + UUID.randomUUID() + "-";
+		Path temporaryDirectory = Path.of(System.getProperty("java.io.tmpdir"));
+		Path missingExecutable = temporaryDirectory.resolve("issue775-missing-executable-" + UUID.randomUUID());
+		MatchCandidateClaimBaselineSupport.CandidateFixture fixture = MatchCandidateClaimBaselineSupport
+			.createSmallProcessFixture();
+
+		assertThrows(java.io.IOException.class, () -> MatchCandidateClaimBaselineSupport.startWorker(
+			"jdbc:postgresql://unused", "unused", "unused", 1, fixture, "a".repeat(40), "b".repeat(64), 1,
+			missingExecutable.toString(), temporaryFilePrefix));
+
+		try (var files = Files.list(temporaryDirectory)) {
+			assertFalse(files.anyMatch(path -> path.getFileName().toString().startsWith(temporaryFilePrefix)));
+		}
 	}
 
 	@Test
@@ -212,6 +268,11 @@ class MatchCandidateClaimBaselinePostgresTest {
 
 		assertEquals(2, report.logicalClaims().size());
 		assertEquals(2, report.reportInput().matcherProcesses().size());
+		assertEquals(fixtureReport.fixtureInputSha256(), report.reportInput().fixtureEvidence().fixtureInputSha256());
+		assertEquals(fixtureReport.materializedManifestSha256(),
+			report.reportInput().fixtureEvidence().materializedManifestSha256());
+		assertEquals(2, report.reportInput().topologyEvidence().matcherCount());
+		assertEquals(1, report.reportInput().topologyEvidence().claimAttempts());
 		assertTrue(report.reportInput().matcherProcesses().stream()
 			.allMatch(process -> process.exitCode() == 0 && process.completed()));
 		assertEquals(report.logicalClaims(), report.reportInput().logicalClaims());
@@ -222,6 +283,8 @@ class MatchCandidateClaimBaselinePostgresTest {
 		assertEquals(report.correctnessInput(), report.reportInput().correctnessInput());
 		assertTrue(report.logicalClaims().stream().allMatch(claim -> claim.durationNanos() > 0
 			&& claim.retryCount() == 0 && claim.retryRawDurationsNanos().isEmpty()));
+		assertEquals(2, report.logicalClaims().stream().map(MatchCandidateClaimBaselineSupport.LogicalClaim::matcherPid)
+			.distinct().count());
 		assertTrue(report.throughputPerSecond() > 0);
 		assertTrue(report.pgStatStatements().calls() > 0);
 		assertTrue(report.pgStatStatements().totalExecutionTimeMs() >= 0);
@@ -234,6 +297,16 @@ class MatchCandidateClaimBaselinePostgresTest {
 				&& statement.query().toLowerCase().contains("order by priority_since")
 				&& statement.query().toLowerCase().contains("for update skip locked")));
 		assertEquals(10, report.lockSamples().intervalMs());
+		assertTrue(report.orchestration().barrierReleasedAtUtc() != null);
+		assertTrue(report.orchestration().matcherFinishedAtUtc() != null);
+		assertTrue(Instant.parse(report.lockSamples().observationStartedAtUtc())
+			.compareTo(Instant.parse(report.orchestration().barrierReleasedAtUtc())) <= 0);
+		assertTrue(Instant.parse(report.lockSamples().observationFinishedAtUtc())
+			.compareTo(Instant.parse(report.orchestration().matcherFinishedAtUtc())) >= 0);
+		assertEquals(
+			report.logicalClaims().size() / (report.orchestration().measurementDurationNanos() / 1_000_000_000.0),
+			report.throughputPerSecond());
+		assertTrue(report.orchestration().measurementDurationNanos() > 0);
 		assertTrue(report.lockSamples().observationStartedAtUtc() != null);
 		assertTrue(report.lockSamples().observationFinishedAtUtc() != null);
 		assertTrue(Instant.parse(report.lockSamples().observationStartedAtUtc())
@@ -274,6 +347,21 @@ class MatchCandidateClaimBaselinePostgresTest {
 	@Test
 	void Node_판정기는_lock_관측_창과_실제_fixture_tie_결과를_검증한다() throws Exception {
 		assertEquals(0, nodeContractTest("lock 관측 창과 실제 fixture의 100개 tie 결과가 없으면 INVALID다"));
+	}
+
+	@Test
+	void Node_판정기는_lock_wait_snapshot_수의_형식을_검증한다() throws Exception {
+		assertEquals(0, nodeContractTest("lock wait snapshot 수가 없거나 0 이상의 정수가 아니면 INVALID다"));
+	}
+
+	@Test
+	void Node_판정기는_round_materialized_manifest_증거를_canonical_fixture와_대조한다() throws Exception {
+		assertEquals(0, nodeContractTest("round materialized manifest 증거가 canonical fixture와 다르면 INVALID다"));
+	}
+
+	@Test
+	void Node_판정기는_round_fixture와_topology_증거를_검증한다() throws Exception {
+		assertEquals(0, nodeContractTest("모든 round의 fixture와 topology 증거, matcher별 500회 원자료가 아니면 INVALID다"));
 	}
 
 	@Test

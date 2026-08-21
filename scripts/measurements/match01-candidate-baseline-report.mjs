@@ -25,15 +25,27 @@ export function nearestRank(values, percentile) {
 function reportRound(round) {
   const matcherProcesses = Array.isArray(round?.matcherProcesses) ? round.matcherProcesses : [];
   const logicalClaims = Array.isArray(round?.logicalClaims) ? round.logicalClaims : [];
+  const topology = round?.topology ?? round?.topologyEvidence;
   const durations = logicalClaims.map((claim) => claim.durationNanos);
   return {
     round: round?.round,
+    fixtureEvidence: {
+      generator: round?.fixtureEvidence?.generator,
+      fixtureInputSha256: round?.fixtureEvidence?.fixtureInputSha256,
+      materializedManifestSha256: round?.fixtureEvidence?.materializedManifestSha256,
+    },
+    topology: {
+      matcherCount: topology?.matcherCount,
+      claimAttempts: topology?.claimAttempts,
+      configurationSha: topology?.configurationSha,
+    },
     matcherProcesses: matcherProcesses.map((process) => ({
       pid: process?.pid,
       exitCode: process?.exitCode,
       completed: process?.completed,
     })),
     logicalClaims: logicalClaims.map((claim) => ({
+      matcherPid: claim?.matcherPid,
       durationNanos: claim?.durationNanos,
       retryCount: claim?.retryCount,
       retryRawDurationsNanos: Array.isArray(claim?.retryRawDurationsNanos)
@@ -95,12 +107,14 @@ function hasCompleteObservations(round) {
       && process.exitCode === 0 && process.completed === true)
     && Array.isArray(round.logicalClaims)
     && round.logicalClaims.length === LOGICAL_CLAIM_COUNT
-    && round.logicalClaims.every((claim) => Number.isFinite(claim.durationNanos)
+    && round.logicalClaims.every((claim) => Number.isInteger(claim.matcherPid) && claim.matcherPid > 0
+      && Number.isFinite(claim.durationNanos)
       && Number.isInteger(claim.retryCount)
       && claim.retryCount >= 0
       && Array.isArray(claim.retryRawDurationsNanos)
       && claim.retryRawDurationsNanos.length === claim.retryCount
       && claim.retryRawDurationsNanos.every(Number.isFinite))
+    && hasExpectedMatcherClaimDistribution(round)
     && Number.isFinite(round.throughputPerSecond)
     && Number.isFinite(round.pgStatStatements?.calls)
     && Number.isFinite(round.pgStatStatements?.totalExecutionTimeMs)
@@ -112,6 +126,8 @@ function hasCompleteObservations(round) {
     && isOrderedUtcWindow(round.lockSamples.observationStartedAtUtc, round.lockSamples.observationFinishedAtUtc)
     && Number.isInteger(round.lockSamples.snapshotCount)
     && round.lockSamples.snapshotCount > 0
+    && Number.isInteger(round.lockSamples.lockWaitSnapshotCount)
+    && round.lockSamples.lockWaitSnapshotCount >= 0
     && round.lockSamples.samplingFailure === null
     && typeof round.queryPlan === "string"
     && round.queryPlan.length > 0
@@ -123,6 +139,41 @@ function hasCompleteObservations(round) {
     && Number.isFinite(round.correctnessInput?.partialClaimCount)
     && typeof round.correctnessInput?.tieOrderMatches === "boolean"
     && hasCompleteTiePairResults(round.correctnessInput?.tiePairResults);
+}
+
+function hasExpectedMatcherClaimDistribution(round) {
+  const processPids = new Set(round.matcherProcesses.map((process) => process.pid));
+  if (processPids.size !== round.topology.matcherCount
+    || round.logicalClaims.some((claim) => !processPids.has(claim.matcherPid))) return false;
+  const attemptsByMatcher = new Map(round.matcherProcesses.map((process) => [process.pid, 0]));
+  for (const claim of round.logicalClaims) {
+    attemptsByMatcher.set(claim.matcherPid, attemptsByMatcher.get(claim.matcherPid) + 1);
+  }
+  return [...attemptsByMatcher.values()].every((attempts) => attempts === round.topology.claimAttempts);
+}
+
+function hasCompleteRoundEvidence(report) {
+  const rounds = [report.warmUp?.round, ...report.measuredRounds];
+  if (rounds.some((round) => !hasRoundFixtureEvidence(round, report.fixture)
+    || !hasContractTopology(round?.topology))) return false;
+  const canonicalTopology = rounds[0]?.topology;
+  return rounds.every((round) => round.topology.matcherCount === canonicalTopology.matcherCount
+    && round.topology.claimAttempts === canonicalTopology.claimAttempts
+    && round.topology.configurationSha === canonicalTopology.configurationSha);
+}
+
+function hasRoundFixtureEvidence(round, fixture) {
+  const evidence = round?.fixtureEvidence;
+  return evidence?.generator === fixture.generator
+    && evidence.fixtureInputSha256 === fixture.fixtureInputSha256
+    && evidence.materializedManifestSha256 === fixture.materializedManifestSha256;
+}
+
+function hasContractTopology(topology) {
+  return topology?.matcherCount === REQUIRED_PROCESS_COUNT
+    && topology.claimAttempts === LOGICAL_CLAIM_COUNT / REQUIRED_PROCESS_COUNT
+    && typeof topology.configurationSha === "string"
+    && /^[a-f0-9]{64}$/.test(topology.configurationSha);
 }
 
 function isOrderedUtcWindow(startedAtUtc, finishedAtUtc) {
@@ -208,6 +259,9 @@ export function evaluateCandidateBaseline(report) {
   }
   if (!Array.isArray(report.measuredRounds) || report.measuredRounds.length !== MEASURED_ROUND_COUNT) {
     return { outcome: "INVALID", reason: "measured round가 3회가 아닙니다." };
+  }
+  if (report.warmUp?.countsTowardBaseline !== false || !hasCompleteRoundEvidence(report)) {
+    return { outcome: "INVALID", reason: "warm-up 또는 round fixture/topology 증거가 완결되지 않았습니다." };
   }
   if (report.measuredRounds.some((round) => !hasCompleteObservations(round))) {
     return { outcome: "INVALID", reason: "실행 또는 관측 원자료가 완결되지 않았습니다." };

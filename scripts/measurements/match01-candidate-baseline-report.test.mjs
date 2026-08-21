@@ -12,14 +12,29 @@ import {
   nearestRank,
 } from "./match01-candidate-baseline-report.mjs";
 
-function completeRound(index) {
+function completeTopology() {
+  return {
+    matcherCount: 2,
+    claimAttempts: 500,
+    configurationSha: "a".repeat(64),
+  };
+}
+
+function completeRound(index, fixture = completeFixture(), topology = completeTopology()) {
   return {
     round: index,
+    fixtureEvidence: {
+      generator: fixture.generator,
+      fixtureInputSha256: fixture.fixtureInputSha256,
+      materializedManifestSha256: fixture.materializedManifestSha256,
+    },
+    topology,
     matcherProcesses: [
       { pid: 101, exitCode: 0, completed: true },
       { pid: 202, exitCode: 0, completed: true },
     ],
     logicalClaims: Array.from({ length: 1_000 }, (_, claim) => ({
+      matcherPid: claim < 500 ? 101 : 202,
       durationNanos: (claim + 1) * 1_000,
       retryCount: 0,
       retryRawDurationsNanos: [],
@@ -97,15 +112,20 @@ function completeFixture() {
 }
 
 test("warm-up을 제외하고 measured round 원자료와 nearest-rank 통계를 보존한다", () => {
+  const fixture = completeFixture();
+  const topology = completeTopology();
   const report = buildCandidateBaselineReport({
-    fixture: completeFixture(),
-    warmUp: completeRound(0),
-    measured: [completeRound(1), completeRound(2), completeRound(3)],
+    fixture,
+    warmUp: completeRound(0, fixture, topology),
+    measured: [completeRound(1, fixture, topology), completeRound(2, fixture, topology), completeRound(3, fixture, topology)],
   });
 
   assert.equal(report.warmUp.countsTowardBaseline, false);
   assert.equal(report.measuredRounds.length, 3);
   assert.equal(report.measuredRounds[0].logicalClaims.length, 1_000);
+  assert.equal(report.warmUp.round.fixtureEvidence.fixtureInputSha256, report.fixture.fixtureInputSha256);
+  assert.equal(report.measuredRounds[0].topology.claimAttempts, 500);
+  assert.equal(report.measuredRounds[0].logicalClaims[0].matcherPid, 101);
   assert.equal(report.measuredRounds[0].statistics.p95Nanos, 950_000);
   assert.equal(report.series.p95MedianNanos, 950_000);
   assert.equal(report.series.p95MaximumNanos, 950_000);
@@ -121,6 +141,51 @@ test("warm-up을 제외하고 measured round 원자료와 nearest-rank 통계를
   assert.deepEqual(report.measuredRounds[0].logicalClaims[0].retryRawDurationsNanos, []);
   assert.deepEqual(nearestRank([1, 2, 3, 4], 0.95), 4);
   assert.equal(JSON.stringify(report).includes("real-user"), false);
+});
+
+test("모든 round의 fixture와 topology 증거, matcher별 500회 원자료가 아니면 INVALID다", () => {
+  const fixture = completeFixture();
+  const topology = completeTopology();
+  const valid = buildCandidateBaselineReport({
+    fixture,
+    warmUp: completeRound(0, fixture, topology),
+    measured: [completeRound(1, fixture, topology), completeRound(2, fixture, topology), completeRound(3, fixture, topology)],
+  });
+  assert.equal(evaluateCandidateBaseline(valid).outcome, "BASELINE_ACCEPTED");
+
+  const missingWarmUp = structuredClone(valid);
+  delete missingWarmUp.warmUp.round;
+  assert.equal(evaluateCandidateBaseline(missingWarmUp).outcome, "INVALID");
+
+  const mismatchedFixture = structuredClone(valid);
+  mismatchedFixture.measuredRounds[1].fixtureEvidence.fixtureInputSha256 = "b".repeat(64);
+  assert.equal(evaluateCandidateBaseline(mismatchedFixture).outcome, "INVALID");
+
+  const mismatchedTopology = structuredClone(valid);
+  mismatchedTopology.measuredRounds[2].topology.configurationSha = "b".repeat(64);
+  assert.equal(evaluateCandidateBaseline(mismatchedTopology).outcome, "INVALID");
+
+  const noClaimsFromSecondMatcher = structuredClone(valid);
+  noClaimsFromSecondMatcher.measuredRounds[0].logicalClaims.forEach((claim) => { claim.matcherPid = 101; });
+  assert.equal(evaluateCandidateBaseline(noClaimsFromSecondMatcher).outcome, "INVALID");
+
+  const unevenClaims = structuredClone(valid);
+  unevenClaims.measuredRounds[0].logicalClaims[499].matcherPid = 202;
+  assert.equal(evaluateCandidateBaseline(unevenClaims).outcome, "INVALID");
+});
+
+test("round materialized manifest 증거가 canonical fixture와 다르면 INVALID다", () => {
+  const fixture = completeFixture();
+  const topology = completeTopology();
+  const valid = buildCandidateBaselineReport({
+    fixture,
+    warmUp: completeRound(0, fixture, topology),
+    measured: [completeRound(1, fixture, topology), completeRound(2, fixture, topology), completeRound(3, fixture, topology)],
+  });
+
+  valid.measuredRounds[1].fixtureEvidence.materializedManifestSha256 = "b".repeat(64);
+
+  assert.equal(evaluateCandidateBaseline(valid).outcome, "INVALID");
 });
 
 test("고정 fixture generator와 모든 ordinal 규칙이 아니면 INVALID로 거절한다", () => {
@@ -196,6 +261,24 @@ test("lock 관측 창과 실제 fixture의 100개 tie 결과가 없으면 INVALI
   reversedCandidateSql.measuredRounds[0].pgStatStatements.candidateStatements[0].query =
     "select * from match_requests where status = 'WAITING' order by priority_since desc, id asc limit $1 for update skip locked";
   assert.equal(evaluateCandidateBaseline(reversedCandidateSql).outcome, "INVALID");
+});
+
+test("lock wait snapshot 수가 없거나 0 이상의 정수가 아니면 INVALID다", () => {
+  const valid = buildCandidateBaselineReport({
+    fixture: completeFixture(),
+    warmUp: completeRound(0),
+    measured: [completeRound(1), completeRound(2), completeRound(3)],
+  });
+
+  for (const invalidValue of [undefined, -1, 0.5]) {
+    const incomplete = structuredClone(valid);
+    if (invalidValue === undefined) {
+      delete incomplete.measuredRounds[0].lockSamples.lockWaitSnapshotCount;
+    } else {
+      incomplete.measuredRounds[0].lockSamples.lockWaitSnapshotCount = invalidValue;
+    }
+    assert.equal(evaluateCandidateBaseline(incomplete).outcome, "INVALID");
+  }
 });
 
 test("관측과 process 누락은 INVALID, 완료 뒤 정합성 위반은 FAILED로 판정한다", () => {

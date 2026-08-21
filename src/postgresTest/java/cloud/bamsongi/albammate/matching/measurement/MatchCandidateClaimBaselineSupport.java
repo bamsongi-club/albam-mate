@@ -19,6 +19,7 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -258,6 +259,8 @@ public final class MatchCandidateClaimBaselineSupport {
 		String gitSha = currentGitSha();
 		String configurationSha = sha256("matcherCount=" + MATCHER_COUNT + ";claimAttempts=" + claimAttempts);
 		List<WorkerProcess> workers = new ArrayList<>();
+		long measurementStartedAtNanos = 0L;
+		String barrierReleasedAtUtc = null;
 		try (ServerSocket barrier = new ServerSocket(0)) {
 			barrier.setSoTimeout(PROCESS_TIMEOUT_SECONDS * 1_000);
 			for (int index = 0; index < MATCHER_COUNT; index++) {
@@ -265,26 +268,31 @@ public final class MatchCandidateClaimBaselineSupport {
 					gitSha, configurationSha, claimAttempts));
 			}
 			List<BarrierClient> clients = new ArrayList<>();
+			Map<BarrierClient, Long> matcherPidsByClient = new HashMap<>();
 			List<LogicalClaim> logicalClaims = new ArrayList<>();
 			try {
 				for (int index = 0; index < MATCHER_COUNT; index++) {
 					clients.add(awaitConnected(barrier));
 				}
 				for (BarrierClient client : clients) {
-					awaitReady(client, fixture.fixtureInputSha256(), gitSha, configurationSha);
+					matcherPidsByClient.put(client,
+						awaitReady(client, fixture.fixtureInputSha256(), gitSha, configurationSha));
 				}
+				barrierReleased.run();
+				measurementStartedAtNanos = System.nanoTime();
+				barrierReleasedAtUtc = Instant.now().toString();
 				for (BarrierClient client : clients) {
 					client.writer().write("GO\n");
 					client.writer().flush();
 				}
-				barrierReleased.run();
 				for (BarrierClient client : clients) {
 					String done = client.reader().readLine();
 					if (done == null || !done.startsWith("DONE|")) {
 						throw new IllegalArgumentException("matcher가 barrier 이후 완료를 보고하지 않았습니다.");
 					}
+					long matcherPid = matcherPidsByClient.get(client);
 					for (String duration : done.substring("DONE|".length()).split(",", -1)) {
-						logicalClaims.add(new LogicalClaim(Long.parseLong(duration), 0, List.of()));
+						logicalClaims.add(new LogicalClaim(matcherPid, Long.parseLong(duration), 0, List.of()));
 					}
 				}
 			} finally {
@@ -299,9 +307,13 @@ public final class MatchCandidateClaimBaselineSupport {
 						+ workerDiagnostic(worker));
 				}
 			}
+			String matcherFinishedAtUtc = Instant.now().toString();
+			long measurementDurationNanos = System.nanoTime() - measurementStartedAtNanos;
+			TopologyEvidence topologyEvidence = new TopologyEvidence(MATCHER_COUNT, claimAttempts, configurationSha);
 			ProcessOrchestration orchestration = new ProcessOrchestration(
 				workers.stream().map(worker -> worker.process().pid()).toList(), true, true, gitSha, false,
-				List.copyOf(logicalClaims));
+				topologyEvidence, List.copyOf(logicalClaims), barrierReleasedAtUtc, matcherFinishedAtUtc,
+				measurementDurationNanos);
 			validateProcessEvidence(orchestration);
 			return orchestration;
 		} catch (IOException exception) {
@@ -310,15 +322,7 @@ public final class MatchCandidateClaimBaselineSupport {
 					.collect(java.util.stream.Collectors.joining("; ")),
 				exception);
 		} finally {
-			for (WorkerProcess worker : workers) {
-				Process process = worker.process();
-				if (process.isAlive()) {
-					process.destroyForcibly();
-					process.waitFor(5, TimeUnit.SECONDS);
-				}
-				deleteTemporaryFile(worker.argumentFile());
-				deleteTemporaryFile(worker.outputFile());
-			}
+			cleanupWorkers(workers);
 		}
 	}
 
@@ -342,7 +346,8 @@ public final class MatchCandidateClaimBaselineSupport {
 				awaitReady(client, fixture.fixtureInputSha256(), gitSha, configurationSha);
 				client.writer().write("GO\n");
 				client.writer().flush();
-				List<LogicalClaim> logicalClaims = logicalClaimsFromDone(client.reader().readLine());
+				List<LogicalClaim> logicalClaims = logicalClaimsFromDone(client.reader().readLine(),
+					worker.process().pid());
 				if (!worker.process().waitFor(PROCESS_TIMEOUT_SECONDS, TimeUnit.SECONDS)
 					|| worker.process().exitValue() != 0) {
 					throw new IllegalArgumentException("single matcher worker가 timeout 또는 실패했습니다: "
@@ -354,23 +359,18 @@ public final class MatchCandidateClaimBaselineSupport {
 			}
 		} finally {
 			if (worker != null) {
-				if (worker.process().isAlive()) {
-					worker.process().destroyForcibly();
-					worker.process().waitFor(5, TimeUnit.SECONDS);
-				}
-				deleteTemporaryFile(worker.argumentFile());
-				deleteTemporaryFile(worker.outputFile());
+				cleanupWorkers(List.of(worker));
 			}
 		}
 	}
 
-	private static List<LogicalClaim> logicalClaimsFromDone(String done) {
+	private static List<LogicalClaim> logicalClaimsFromDone(String done, long matcherPid) {
 		if (done == null || !done.startsWith("DONE|")) {
 			throw new IllegalArgumentException("matcher가 barrier 이후 완료를 보고하지 않았습니다.");
 		}
 		List<LogicalClaim> logicalClaims = new ArrayList<>();
 		for (String duration : done.substring("DONE|".length()).split(",", -1)) {
-			logicalClaims.add(new LogicalClaim(Long.parseLong(duration), 0, List.of()));
+			logicalClaims.add(new LogicalClaim(matcherPid, Long.parseLong(duration), 0, List.of()));
 		}
 		return List.copyOf(logicalClaims);
 	}
@@ -392,7 +392,6 @@ public final class MatchCandidateClaimBaselineSupport {
 		jdbcTemplate.execute("create extension if not exists pg_stat_statements");
 		jdbcTemplate.execute("select pg_stat_statements_reset()");
 		LockSampler lockSampler = new LockSampler(jdbcTemplate);
-		long roundStartedAt = System.nanoTime();
 		ProcessOrchestration orchestration;
 		try {
 			orchestration = runMatcherProcesses(
@@ -400,7 +399,6 @@ public final class MatchCandidateClaimBaselineSupport {
 		} finally {
 			lockSampler.stop();
 		}
-		long roundDurationNanos = System.nanoTime() - roundStartedAt;
 		List<CandidateClaimStatement> candidateStatements = jdbcTemplate.query("""
 			select query, calls
 			from pg_stat_statements
@@ -426,9 +424,13 @@ public final class MatchCandidateClaimBaselineSupport {
 		CorrectnessInput correctnessInput = readCorrectnessInput(jdbcTemplate, fixtureReport);
 		double throughputPerSecond = orchestration.logicalClaims().isEmpty()
 			? 0.0
-			: orchestration.logicalClaims().size() / (roundDurationNanos / 1_000_000_000.0);
+			: orchestration.logicalClaims().size() / (orchestration.measurementDurationNanos() / 1_000_000_000.0);
+		FixtureEvidence fixtureEvidence = new FixtureEvidence(
+			fixtureReport.generator(), fixtureReport.fixtureInputSha256(), fixtureReport.materializedManifestSha256());
 		ReportRoundInput reportInput = new ReportRoundInput(
 			1,
+			fixtureEvidence,
+			orchestration.topologyEvidence(),
 			orchestration.matcherPids().stream().map(pid -> new MatcherProcess(pid, 0, true)).toList(),
 			orchestration.logicalClaims(),
 			throughputPerSecond,
@@ -455,7 +457,8 @@ public final class MatchCandidateClaimBaselineSupport {
 	static ReportRoundInput withRound(SmallRoundReport collected, int round) {
 		ReportRoundInput input = collected.reportInput();
 		return new ReportRoundInput(
-			round, input.matcherProcesses(), input.logicalClaims(), input.throughputPerSecond(),
+			round, input.fixtureEvidence(), input.topologyEvidence(), input.matcherProcesses(), input.logicalClaims(),
+			input.throughputPerSecond(),
 			input.pgStatStatements(), input.lockSamples(), input.queryPlan(), input.correctnessInput(),
 			input.integrity());
 	}
@@ -519,6 +522,22 @@ public final class MatchCandidateClaimBaselineSupport {
 		int claimAttempts) throws IOException {
 		String javaExecutable = System.getProperty("java.home") + System.getProperty("file.separator") + "bin"
 			+ System.getProperty("file.separator") + "java";
+		return startWorker(
+			jdbcUrl, jdbcUsername, jdbcPassword, barrierPort, fixture, gitSha, configurationSha, claimAttempts,
+			javaExecutable, "issue775-matcher-");
+	}
+
+	static WorkerProcess startWorker(
+		String jdbcUrl,
+		String jdbcUsername,
+		String jdbcPassword,
+		int barrierPort,
+		CandidateFixture fixture,
+		String gitSha,
+		String configurationSha,
+		int claimAttempts,
+		String javaExecutable,
+		String temporaryFilePrefix) throws IOException {
 		List<String> arguments = List.of(
 			"-cp",
 			System.getProperty("java.class.path"),
@@ -531,16 +550,28 @@ public final class MatchCandidateClaimBaselineSupport {
 			"--git-sha", gitSha,
 			"--configuration-sha", configurationSha,
 			"--claim-attempts", String.valueOf(claimAttempts));
-		Path argumentFile = Files.createTempFile("issue775-matcher-", ".args");
-		Files.writeString(argumentFile, arguments.stream()
-			.map(MatchCandidateClaimBaselineSupport::argumentFileLine)
-			.collect(java.util.stream.Collectors.joining("\n")), StandardCharsets.UTF_8);
-		Path outputFile = Files.createTempFile("issue775-matcher-", ".log");
-		ProcessBuilder processBuilder = new ProcessBuilder(javaExecutable, "@" + argumentFile);
-		processBuilder.redirectErrorStream(true);
-		processBuilder.redirectOutput(outputFile.toFile());
-		processBuilder.environment().put("ISSUE775_JDBC_PASSWORD", jdbcPassword);
-		return new WorkerProcess(processBuilder.start(), argumentFile, outputFile);
+		Path argumentFile = null;
+		Path outputFile = null;
+		try {
+			argumentFile = Files.createTempFile(temporaryFilePrefix, ".args");
+			Files.writeString(argumentFile, arguments.stream()
+				.map(MatchCandidateClaimBaselineSupport::argumentFileLine)
+				.collect(java.util.stream.Collectors.joining("\n")), StandardCharsets.UTF_8);
+			outputFile = Files.createTempFile(temporaryFilePrefix, ".log");
+			ProcessBuilder processBuilder = new ProcessBuilder(javaExecutable, "@" + argumentFile);
+			processBuilder.redirectErrorStream(true);
+			processBuilder.redirectOutput(outputFile.toFile());
+			processBuilder.environment().put("ISSUE775_JDBC_PASSWORD", jdbcPassword);
+			return new WorkerProcess(processBuilder.start(), argumentFile, outputFile);
+		} catch (IOException exception) {
+			if (argumentFile != null) {
+				deleteTemporaryFile(argumentFile);
+			}
+			if (outputFile != null) {
+				deleteTemporaryFile(outputFile);
+			}
+			throw exception;
+		}
 	}
 
 	private static String workerDiagnostic(WorkerProcess worker) {
@@ -554,6 +585,26 @@ public final class MatchCandidateClaimBaselineSupport {
 			String state = worker.process().isAlive() ? "상태=running" : "exit=" + worker.process().exitValue();
 			return "pid=" + worker.process().pid() + ", " + state
 				+ ", output-read-failed";
+		}
+	}
+
+	static void cleanupWorkers(List<WorkerProcess> workers) {
+		boolean interrupted = false;
+		for (WorkerProcess worker : workers) {
+			Process process = worker.process();
+			if (process.isAlive()) {
+				process.destroyForcibly();
+			}
+			try {
+				process.waitFor(5, TimeUnit.SECONDS);
+			} catch (InterruptedException exception) {
+				interrupted = true;
+			}
+			deleteTemporaryFile(worker.argumentFile());
+			deleteTemporaryFile(worker.outputFile());
+		}
+		if (interrupted) {
+			Thread.currentThread().interrupt();
 		}
 	}
 
@@ -593,7 +644,7 @@ public final class MatchCandidateClaimBaselineSupport {
 		return new BarrierClient(socket, reader, writer);
 	}
 
-	private static void awaitReady(
+	private static long awaitReady(
 		BarrierClient client,
 		String expectedFixtureSha,
 		String expectedGitSha,
@@ -603,6 +654,7 @@ public final class MatchCandidateClaimBaselineSupport {
 			throw new IOException("matcher가 READY 전에 연결을 닫았습니다.");
 		}
 		validateReadyMessage(readyLine, expectedFixtureSha, expectedGitSha, expectedConfigurationSha);
+		return Long.parseLong(readyLine.split("\\|", -1)[1]);
 	}
 
 	static void validateReadyMessage(
@@ -625,10 +677,24 @@ public final class MatchCandidateClaimBaselineSupport {
 			|| !orchestration.sameBarrierReleased()
 			|| !orchestration.completed()
 			|| orchestration.measuredGitCommitSha().isBlank()
+			|| orchestration.topologyEvidence().matcherCount() != MATCHER_COUNT
+			|| orchestration.topologyEvidence().claimAttempts() <= 0
+			|| orchestration.topologyEvidence().configurationSha().isBlank()
 			|| orchestration.logicalClaims().isEmpty()
+			|| !hasExpectedClaimAttempts(orchestration)
 			|| orchestration.countsTowardBaseline()) {
 			throw new IllegalArgumentException("독립 matcher process 실행 증거가 유효하지 않습니다.");
 		}
+	}
+
+	private static boolean hasExpectedClaimAttempts(ProcessOrchestration orchestration) {
+		Map<Long, Long> attemptsByMatcher = orchestration.logicalClaims().stream()
+			.collect(java.util.stream.Collectors.groupingBy(LogicalClaim::matcherPid,
+				java.util.stream.Collectors.counting()));
+		return attemptsByMatcher.keySet().containsAll(orchestration.matcherPids())
+			&& attemptsByMatcher.size() == MATCHER_COUNT
+			&& attemptsByMatcher.values().stream()
+				.allMatch(attempts -> attempts == orchestration.topologyEvidence().claimAttempts());
 	}
 
 	static String currentGitSha() {
@@ -788,14 +854,36 @@ public final class MatchCandidateClaimBaselineSupport {
 		boolean completed,
 		String measuredGitCommitSha,
 		boolean countsTowardBaseline,
-		List<LogicalClaim> logicalClaims) {
+		TopologyEvidence topologyEvidence,
+		List<LogicalClaim> logicalClaims,
+		String barrierReleasedAtUtc,
+		String matcherFinishedAtUtc,
+		long measurementDurationNanos) {
+
+		ProcessOrchestration(
+			List<Long> matcherPids,
+			boolean sameBarrierReleased,
+			boolean completed,
+			String measuredGitCommitSha,
+			boolean countsTowardBaseline,
+			TopologyEvidence topologyEvidence,
+			List<LogicalClaim> logicalClaims) {
+			this(matcherPids, sameBarrierReleased, completed, measuredGitCommitSha, countsTowardBaseline,
+				topologyEvidence, logicalClaims, null, null, 0L);
+		}
 	}
 
 	record WorkerEntryExecution(long workerPid, String measuredGitCommitSha, boolean completed,
 		List<LogicalClaim> logicalClaims) {
 	}
 
-	record LogicalClaim(long durationNanos, int retryCount, List<Long> retryRawDurationsNanos) {
+	record LogicalClaim(long matcherPid, long durationNanos, int retryCount, List<Long> retryRawDurationsNanos) {
+	}
+
+	record FixtureEvidence(String generator, String fixtureInputSha256, String materializedManifestSha256) {
+	}
+
+	record TopologyEvidence(int matcherCount, int claimAttempts, String configurationSha) {
 	}
 
 	record SmallRoundReport(
@@ -812,6 +900,8 @@ public final class MatchCandidateClaimBaselineSupport {
 	/** Node reportRound 입력과 같은 field 이름으로 직렬화할 수 있는 실제 PostgreSQL 수집 결과다. */
 	record ReportRoundInput(
 		int round,
+		FixtureEvidence fixtureEvidence,
+		TopologyEvidence topologyEvidence,
 		List<MatcherProcess> matcherProcesses,
 		List<LogicalClaim> logicalClaims,
 		double throughputPerSecond,
@@ -942,6 +1032,6 @@ public final class MatchCandidateClaimBaselineSupport {
 		}
 	}
 
-	private record WorkerProcess(Process process, Path argumentFile, Path outputFile) {
+	record WorkerProcess(Process process, Path argumentFile, Path outputFile) {
 	}
 }
