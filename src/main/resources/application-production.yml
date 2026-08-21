@@ -115,6 +115,16 @@ logging:
       total-size-cap: 40MB
 
 app:
+  search:
+    cloudflare:
+      enabled: ${ALBAM_MATE_SEARCH_CLOUDFLARE_ENABLED:false}
+      account-id: ${CLOUDFLARE_ACCOUNT_ID:}
+      api-token: ${CLOUDFLARE_API_TOKEN:}
+      timeout: 5s
+      release-id: ${ALBAM_MATE_SEARCH_RELEASE_ID:}
+      field-version: ${ALBAM_MATE_SEARCH_FIELD_VERSION:}
+      manifest-sha256: ${ALBAM_MATE_SEARCH_MANIFEST_SHA256:}
+      search-text-checksum: ${ALBAM_MATE_SEARCH_TEXT_CHECKSUM:}
   assistant:
     enabled: ${ALBAM_MATE_ASSISTANT_ENABLED:false}
     provider: ${ALBAM_MATE_ASSISTANT_PROVIDER:fake}

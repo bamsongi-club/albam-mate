@@ -922,6 +922,36 @@ erDiagram
 
 AI 기능 저장소에는 `raw_prompt`, provider 원문 응답, prompt hash, 대화 이력, BGG 원문, 후보 목록, 사용자 ID·세션·secret을 provider payload 또는 관측 저장소로 복제하는 테이블·컬럼을 두지 않는다.
 
+## SEARCH-04 의미 검색 projection 저장 계약
+
+> 이 절은 [ADR-0087](adr/game/0087-search-04-cloudflare-managed-bge-m3-serving.md)과 #942 T1~T5가 승인한 초기 Top 1,000 pgvector projection의 물리 schema다. 승인된 release artifact가 없으면 `READY` 행을 만들지 않으며, 기능 제공·품질 판정은 이 저장 구조와 별개다.
+
+### SEMANTIC_SEARCH_INDEX_VERSIONS
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| id | UUID | PK, NN | index version 식별자 |
+| release_id, field_version | VARCHAR(128) | NN | 승인 catalog release와 field allowlist version |
+| manifest_sha256, search_text_checksum | CHAR(64) | NN | deployment artifact 무결성 값 |
+| provider, model | VARCHAR(128) | NN | embedding provider/model provenance |
+| embedding_mode | VARCHAR(16) | NN | direct REST `text` embedding mode provenance |
+| dimension | INTEGER | NN, `CHECK (dimension = 1024)` | vector 차원 |
+| l2_normalized | BOOLEAN | NN | 명시적 L2 normalization 여부 |
+| status | VARCHAR(16) | NN, `BUILDING`·`READY`·`FAILED`·`RETIRED` CHECK | index lifecycle |
+| active | BOOLEAN | NN, default false, active면 READY CHECK | 현재 조회 pointer |
+
+`semantic_search_index_versions_one_active_ready` partial unique index는 `active = true`인 READY pointer를 하나로 제한한다.
+
+### SEMANTIC_GAME_EMBEDDINGS
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| index_version_id | UUID | PK 일부, FK → SEMANTIC_SEARCH_INDEX_VERSIONS.id, NN | 소속 index version |
+| game_id | BIGINT | PK 일부, NN | catalog game 식별자 |
+| embedding | `vector(1024)` | NN | 해당 release의 Cloudflare L2-normalized document vector |
+
+초기 1,000 row는 HNSW를 만들지 않고 `embedding <=> :query` exact cosine distance로만 조회한다. 조회 SQL은 configured approved release의 release·field·두 checksum과 provider/model/`text` mode/dimension/normalization provenance가 모두 일치하고 정확히 1,000 row인 active READY version만 같은 statement에서 선택한다. 그 밖의 `BUILDING`·`FAILED`·부분 backfill·다른 release/version은 lexical fallback으로 수렴한다.
+
 ## P2 MATCH 저장 계약
 
 > 이 절은 `MATCH-01`의 승인된 저장 계약이다. 아래 테이블은 Flyway 마이그레이션과 JPA 엔티티로 이미 만들어져 있으며, 기능별 제공·검증·배포·실측 여부는 [P2 기능 상태](p2/README.md#기능별-현재-상태)에서만 판정한다. 저장 구조가 있다는 사실을 기능 구현의 완료 증거로 읽지 않는다. 후보 선점·멱등성 선택 근거는 [ADR-0061](adr/matching/0061-postgresql-candidate-reservation-idempotency.md), MATCH 전용 채팅의 도메인 분리·port 선택 근거는 [ADR-0062](adr/matching/0062-match-chat-handoff-recovery-retention.md), URL 텍스트 표현 선택은 [ADR-0064](adr/matching/0064-match-chat-url-text-storage.md), baseline 전 목표·Redis 재검토 결정은 [ADR-0063](adr/matching/0063-match-baseline-measurement-gate.md)을 따른다. MATCH 채팅의 제품 동작·보존은 [MATCH-01 성공 파티 채팅](p2/matching.md#성공-파티-채팅), 복구 실행은 [아키텍처의 P2 MATCH 모듈 계약](ARCHITECTURE.md#p2-match-모듈-계약), candidate 측정 상세는 [후보 탐색 baseline 측정 계약](measurements/match-01-candidate-search-baseline-contract.md)이 각각 소유한다.

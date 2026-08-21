@@ -2,8 +2,6 @@ package cloud.bamsongi.albammate.infra.search;
 
 import java.util.List;
 
-import org.springframework.stereotype.Component;
-
 import cloud.bamsongi.albammate.game.contract.DenseCandidateSource;
 import cloud.bamsongi.albammate.game.contract.SemanticSearchUnavailableException;
 
@@ -12,7 +10,6 @@ import cloud.bamsongi.albammate.game.contract.SemanticSearchUnavailableException
  *
  * 임의의 후보를 만들지 않고 의미 검색을 지금 사용할 수 없다고 알려, 서비스가 안전하게 키워드 검색으로 대체하게 한다.
  */
-@Component
 public class UnavailableSemanticGameCandidateSource implements DenseCandidateSource {
 
 	@Override
