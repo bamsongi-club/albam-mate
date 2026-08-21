@@ -76,6 +76,15 @@ beforeEach(() => {
 });
 
 describe('AI 모임 도우미 화면', () => {
+  it('빠른 문구는 게임 추천과 모임 만들기만 제공한다', async () => {
+    render(<AssistantView onBack={vi.fn()} onNavigate={vi.fn()} />);
+
+    expect(await screen.findByRole('button', { name: '전략 게임 추천해줘' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '오늘 저녁 4인 가볍게 할 게임 추천해줘' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '윙스팬 모임 만들어줘' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: '초보 환영 모임 찾아줘' })).toBeNull();
+  });
+
   it('Enter는 메시지를 전송하고 사용자 메시지를 채팅 로그에 표시한다', async () => {
     const recommend = vi.spyOn(api, 'recommendAssistant').mockResolvedValue({
       state: 'NEEDS_INPUT',

@@ -15,7 +15,7 @@ const MISSING_FIELD_LABELS = {
   STARTS_AT: '언제 시작할지 알려주세요.',
   REGION: '어느 지역에서 모일지 알려주세요.'
 };
-const QUICK_PROMPTS = ['초보 환영 모임 찾아줘', '오늘 저녁 4인 가볍게 할 게임 추천해줘', '윙스팬 모임 만들어줘'];
+const QUICK_PROMPTS = ['전략 게임 추천해줘', '오늘 저녁 4인 가볍게 할 게임 추천해줘', '윙스팬 모임 만들어줘'];
 
 function botReplyText(result) {
   if (!result) return '';
