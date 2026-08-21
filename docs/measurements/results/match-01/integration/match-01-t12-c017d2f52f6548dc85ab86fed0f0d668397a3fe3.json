@@ -5,7 +5,8 @@
   "id": "MATCH-01-T12",
   "task": "postgresTest",
   "selectors": [
-    "cloud.bamsongi.albammate.matching.integration.MatchCurrentStateCorrectionPostgresTest.scheduler가_멈춰도_재시작한_인스턴스의_현재상태_조회가_due_ACTIVE를_보정하고_불안정하면_세번_재시도한다"
+    "cloud.bamsongi.albammate.matching.integration.MatchCurrentStateCorrectionPostgresTest",
+    "cloud.bamsongi.albammate.matching.MatchCurrentStateSnapshotPostgresTest"
   ],
-  "purpose": "scheduler 미실행 current-state 보정과 bounded retry 소진을 검증한다."
+  "purpose": "scheduler 미실행 상태의 due ACTIVE/PREPARING/OPEN 보정, 시스템 메시지·CLOSED 전이, 안정 snapshot과 bounded retry 소진을 검증한다."
 }

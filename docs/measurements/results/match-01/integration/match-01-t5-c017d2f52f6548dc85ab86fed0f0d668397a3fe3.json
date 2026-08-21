@@ -5,7 +5,9 @@
   "id": "MATCH-01-T5",
   "task": "postgresTest",
   "selectors": [
-    "cloud.bamsongi.albammate.matching.integration.MatchLifecycleConcurrencyPostgresTest.서로_다른_두_matcher_인스턴스가_후보를_한번만_claim하고_전원_ACCEPT를_하나의_PREPARING_Party로_확정한다"
+    "cloud.bamsongi.albammate.matching.integration.MatchLifecycleConcurrencyPostgresTest",
+    "cloud.bamsongi.albammate.matching.MatchProposalTerminalPostgresTest",
+    "cloud.bamsongi.albammate.matching.MatchRequestInvariantPostgresTest"
   ],
-  "purpose": "독립 matcher 두 개의 후보 점유와 동시 전원 수락의 최종 정합성을 검증한다."
+  "purpose": "독립 matcher의 후보 점유, 전원 수락·응답 기한 만료·취소 경합, 중복·부분 성공 방지와 terminal 상태 수렴을 PostgreSQL에서 검증한다."
 }

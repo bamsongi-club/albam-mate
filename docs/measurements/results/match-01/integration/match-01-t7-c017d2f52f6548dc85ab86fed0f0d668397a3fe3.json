@@ -5,7 +5,12 @@
   "id": "MATCH-01-T7",
   "task": "postgresTest",
   "selectors": [
-    "cloud.bamsongi.albammate.matching.integration.MatchLifecycleRecoveryPostgresTest.서버_재시작_뒤_재연결_현재상태는_영속된_MATCH_채팅_handoff와_공개_프로필을_복구하고_연결종료를_나가기로_처리하지_않는다"
+    "cloud.bamsongi.albammate.matching.integration.MatchLifecycleRecoveryPostgresTest",
+    "cloud.bamsongi.albammate.chat.match.MatchChatWebSocketRestartRecoveryPostgresTest",
+    "cloud.bamsongi.albammate.chat.match.MatchChatWebSocketCrossInstanceDeliveryPostgresTest",
+    "cloud.bamsongi.albammate.chat.match.MatchChatWebSocketHandlerTest",
+    "cloud.bamsongi.albammate.chat.match.MatchChatWebSocketHandlerReconnectRecoveryTest",
+    "cloud.bamsongi.albammate.chat.match.MatchChatWebSocketHandlerRealtimeDeliveryTest"
   ],
-  "purpose": "독립 서버 재시작·재접속 뒤 MATCH 채팅 handoff와 현재 상태 복구를 검증한다."
+  "purpose": "실시간 이벤트의 유실·중복·역순 전달, 재연결 catch-up, 서버 재시작·교차 인스턴스 전달과 연결 종료를 명시적 나가기로 해석하지 않는 상태 복구를 검증한다."
 }
