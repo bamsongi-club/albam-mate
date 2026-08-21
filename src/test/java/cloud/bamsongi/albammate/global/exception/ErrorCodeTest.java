@@ -40,6 +40,9 @@ class ErrorCodeTest {
 			Map.entry(ErrorCode.ASSISTANT_INPUT_NOT_ALLOWED, "외부 AI 처리에 허용되지 않는 입력입니다."),
 			Map.entry(ErrorCode.ASSISTANT_PROVIDER_UNAVAILABLE, "AI provider를 현재 사용할 수 없습니다."),
 			Map.entry(ErrorCode.ASSISTANT_PROVIDER_RESPONSE_INVALID, "AI provider 응답을 처리할 수 없습니다."),
+			Map.entry(
+				ErrorCode.SEARCH_UNAVAILABLE,
+				"의미 검색을 현재 사용할 수 없습니다. 잠시 후 다시 시도해 주세요."),
 			Map.entry(ErrorCode.ASSISTANT_COST_LIMIT_EXCEEDED, "AI 사용 비용 한도를 초과했습니다."),
 			Map.entry(ErrorCode.ASSISTANT_DRAFT_NOT_FOUND, "AI 초안을 찾을 수 없습니다."),
 			Map.entry(ErrorCode.ASSISTANT_DRAFT_EXPIRED, "AI 초안이 만료되었습니다."),
@@ -93,6 +96,7 @@ class ErrorCodeTest {
 			Map.entry(ErrorCode.ASSISTANT_INPUT_NOT_ALLOWED, HttpStatus.BAD_REQUEST),
 			Map.entry(ErrorCode.ASSISTANT_PROVIDER_UNAVAILABLE, HttpStatus.SERVICE_UNAVAILABLE),
 			Map.entry(ErrorCode.ASSISTANT_PROVIDER_RESPONSE_INVALID, HttpStatus.SERVICE_UNAVAILABLE),
+			Map.entry(ErrorCode.SEARCH_UNAVAILABLE, HttpStatus.SERVICE_UNAVAILABLE),
 			Map.entry(ErrorCode.ASSISTANT_COST_LIMIT_EXCEEDED, HttpStatus.TOO_MANY_REQUESTS),
 			Map.entry(ErrorCode.ASSISTANT_DRAFT_NOT_FOUND, HttpStatus.NOT_FOUND),
 			Map.entry(ErrorCode.ASSISTANT_DRAFT_EXPIRED, HttpStatus.GONE),

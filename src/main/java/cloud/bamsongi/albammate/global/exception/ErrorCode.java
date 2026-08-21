@@ -32,6 +32,7 @@ public enum ErrorCode {
 	ASSISTANT_PROVIDER_RESPONSE_INVALID(HttpStatus.SERVICE_UNAVAILABLE, "AI provider 응답을 처리할 수 없습니다."),
 	ASSISTANT_COST_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "AI 사용 비용 한도를 초과했습니다."),
 	GAME_NOT_FOUND(HttpStatus.NOT_FOUND, "게임을 찾을 수 없습니다."),
+	SEARCH_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "의미 검색을 현재 사용할 수 없습니다. 잠시 후 다시 시도해 주세요."),
 	ROOM_NOT_FOUND(HttpStatus.NOT_FOUND, "방을 찾을 수 없습니다."),
 	NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "알림을 찾을 수 없습니다."),
 	INVALID_ROOM_STATUS_TRANSITION(HttpStatus.CONFLICT, "허용되지 않은 방 상태 변경입니다."),

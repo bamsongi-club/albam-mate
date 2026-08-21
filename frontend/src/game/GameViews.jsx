@@ -81,7 +81,7 @@ function GameSlicePagination({ page, hasNext, loading, onChange }) {
 export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, onPlayedError, headerActions, initialFilters = EMPTY_GAME_FILTERS, onBack }) {
   const [input, setInput] = useState(gameQuery);
   const [filters, setFilters] = useState(initialFilters);
-  const keyword = gameQuery.trim();
+  const query = gameQuery.trim();
   const parameters = gameFilterParameters(useAppliedGameFilters(filters));
   const filterKey = JSON.stringify(parameters);
   const playedGames = usePlayedGames(onPlayedError);
@@ -89,10 +89,17 @@ export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, on
   // 그 외에는 조회 결과가 playedByMe로 걸러지지 않으므로 다시 부를 필요가 없다.
   const playedRefreshKey = filters.playedFilter ? playedGames.version : 0;
   const { data, loading, error, unauthenticated, setPage, retry } = usePaginatedRequest(
-    (page, signal) => api.getGames({ keyword, ...parameters, page, size: GAME_LIST_PAGE_SIZE }, signal),
-    [keyword, filterKey, dataVersion, playedRefreshKey]
+    (page, signal) => {
+      // 검색어가 없으면 기존 인기순 목록(GAME-01)을 그대로 보여주고, 검색어가 있으면 의미 검색으로 넘긴다.
+      // 탭 없이 한 검색창에서 이름·문장 검색을 모두 받기 위한 분기다.
+      if (!query) return api.getGames({ ...parameters, page, size: GAME_LIST_PAGE_SIZE }, signal);
+      return api.getGamesSemanticSearch({ query, ...parameters, page, size: GAME_LIST_PAGE_SIZE }, signal);
+    },
+    [query, filterKey, dataVersion, playedRefreshKey]
   );
   const games = (data?.content || []).map(normalizeGameSummary);
+  const isSearching = Boolean(query);
+  const isFallback = isSearching && data?.searchMode === 'LEXICAL_FALLBACK';
   useEffect(() => setInput(gameQuery), [gameQuery]);
 
   const playedChips = (
@@ -124,10 +131,21 @@ export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, on
         onSubmit={(event) => { event.preventDefault(); onGameQueryChange(input.trim()); }}
       >
         <SearchIcon />
-        <label className="sr-only" htmlFor="game-q">게임 이름 검색</label>
-        <input id="game-q" value={input} onChange={(event) => setInput(event.target.value)} placeholder="게임 이름으로 검색" />
+        <label className="sr-only" htmlFor="game-q">게임 이름이나 찾는 느낌으로 검색</label>
+        <input
+          id="game-q"
+          value={input}
+          onChange={(event) => setInput(event.target.value)}
+          placeholder="게임 이름 또는 예: 가족과 짧게 즐길 협동 게임"
+          maxLength={200}
+        />
       </form>
       <GameFilters filters={filters} onChange={setFilters} quickSlot={playedChips} />
+      {isFallback && !error && (
+        <div style={{ marginTop: 18 }}>
+          <StateBlock title="키워드 검색 결과로 대신 보여드려요" description="의미 검색을 잠시 사용할 수 없어 이름·조건 기반 결과로 대체했어요." />
+        </div>
+      )}
       {!error && <p className="section-label" style={{ marginTop: 18 }}>{loading && !data ? '불러오는 중' : '게임 목록'}</p>}
       {error && (
         <div style={{ marginTop: 26 }}>
@@ -152,7 +170,7 @@ export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, on
       )}
       {!error && !loading && !games.length && (
         <div style={{ marginTop: 26 }}>
-          <StateBlock title="검색 결과가 없어요" description="게임 이름의 일부만 넣어보세요." />
+          <StateBlock title="검색 결과가 없어요" description={isSearching ? '다른 표현이나 조건으로 다시 시도해보세요.' : '게임 이름의 일부만 넣어보세요.'} />
         </div>
       )}
       {!error && data && (
