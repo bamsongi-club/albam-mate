@@ -32,16 +32,59 @@ function completeArtifact() {
           round,
           rawSamples,
           rawDataSha256: sha256(rawData),
-          dbStatistics: { calls: 1 },
-          lockWait: { observed: true },
+          dbStatistics: completeDatabaseStatistics(),
+          lockWait: completeLockWait(rawSamples),
           observationWindow: {
             startedAt: "2026-08-21T00:00:00Z",
             endedAt: "2026-08-21T00:00:01Z",
           },
+          metrics: completeMetrics(rawSamples),
           finalStateAssertion: completeFinalStateAssertion(scenario),
         })),
       };
     }),
+  };
+}
+
+function completeDatabaseStatistics() {
+  return {
+    observed: true,
+    statements: [{
+      queryId: "123",
+      calls: 1_000,
+      totalExecTimeMillis: 10,
+      rows: 1_000,
+      sharedBlksHit: 2_000,
+      sharedBlksRead: 0,
+    }],
+    statementCount: 1,
+    totalCalls: 1_000,
+    totalExecTimeMillis: 10,
+    totalRows: 1_000,
+    sharedBlksHit: 2_000,
+    sharedBlksRead: 0,
+  };
+}
+
+function completeLockWait(rawSamples) {
+  return {
+    observed: true,
+    pollCount: 1,
+    waitingSessionSampleCount: 0,
+    sampledWaitNanos: 0,
+    sampleTotalNanos: rawSamples.reduce((total, sample) => total + sample.lockWaitNanos, 0),
+    sampleMaxNanos: Math.max(...rawSamples.map((sample) => sample.lockWaitNanos)),
+  };
+}
+
+function completeMetrics(rawSamples) {
+  return {
+    sampleCount: rawSamples.length,
+    observationDurationNanos: 1_000_000_000,
+    latencyNanos: { p50: 500, p95: 950, p99: 990 },
+    throughputPerSecond: 1_000,
+    retry: { total: 0, max: 0 },
+    failure: { count: 0, rate: 0 },
   };
 }
 
@@ -168,6 +211,40 @@ test("T5 fixture 또는 관측 누락은 INVALID이고 완결 뒤 정합성 위�
   const incompleteFactCoverage = completeArtifact();
   incompleteFactCoverage.scenarios[0].measuredRounds[0].finalStateAssertion.memberFactMatchCount = 1_999;
   assert.equal(evaluateResponseArtifact(incompleteFactCoverage).outcome, "INVALID");
+});
+
+test("T2 T4 T5 measured round 번호, 모든 final-state 표본, 재계산 metric을 보존하지 않으면 INVALID다", () => {
+  const duplicateRound = completeArtifact();
+  duplicateRound.scenarios[0].measuredRounds[2].round = 1;
+  assert.equal(evaluateResponseArtifact(duplicateRound).outcome, "INVALID");
+
+  const missingRound = completeArtifact();
+  missingRound.scenarios[0].measuredRounds[2].round = 4;
+  assert.equal(evaluateResponseArtifact(missingRound).outcome, "INVALID");
+
+  const failedSample = completeArtifact();
+  failedSample.scenarios[0].measuredRounds[0].rawSamples[0].finalStatePassed = false;
+  assert.equal(evaluateResponseArtifact(failedSample).outcome, "INVALID");
+
+  const missingMetrics = completeArtifact();
+  delete missingMetrics.scenarios[0].measuredRounds[0].metrics;
+  assert.equal(evaluateResponseArtifact(missingMetrics).outcome, "INVALID");
+
+  const recalculationMismatch = completeArtifact();
+  recalculationMismatch.scenarios[0].measuredRounds[0].metrics.latencyNanos.p95 = 949;
+  assert.equal(evaluateResponseArtifact(recalculationMismatch).outcome, "INVALID");
+
+  const missingLockWaitObservation = completeArtifact();
+  missingLockWaitObservation.scenarios[0].measuredRounds[0].lockWait.pollCount = 0;
+  assert.equal(evaluateResponseArtifact(missingLockWaitObservation).outcome, "INVALID");
+
+  const dbStatisticsMismatch = completeArtifact();
+  dbStatisticsMismatch.scenarios[0].measuredRounds[0].dbStatistics.totalCalls = 999;
+  assert.equal(evaluateResponseArtifact(dbStatisticsMismatch).outcome, "INVALID");
+
+  const retryMismatch = completeArtifact();
+  retryMismatch.scenarios[0].measuredRounds[0].metrics.retry.max = 1;
+  assert.equal(evaluateResponseArtifact(retryMismatch).outcome, "INVALID");
 });
 
 test("T7 provenance와 raw data digest는 실제 bytes와 일치하고 candidate 및 gate SHA를 요구하지 않는다", () => {

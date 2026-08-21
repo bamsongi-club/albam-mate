@@ -26,6 +26,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Tag;
@@ -262,6 +265,42 @@ class MatchResponseCompletionBaselinePostgresTest {
 		assertTrue(new String(reporter.getInputStream().readAllBytes()).contains("INVALID"));
 	}
 
+	@Test
+	void measured_round는_fixture와_통계_초기화_뒤의_실제_PostgreSQL_관측과_재계산_metric을_보존한다()
+		throws Exception {
+		controlledMeasurementProposalCount = 2;
+		List<RoundArtifact> artifacts = new ArrayList<>();
+		List<PrivateManifestRow> privateManifestRows = new ArrayList<>();
+
+		runScenarioRound(Scenario.ACCEPT_NON_TERMINAL, 1, false, artifacts, privateManifestRows);
+
+		Path artifact = writeArtifact(artifacts, privateManifestRows,
+			Files.createTempDirectory("issue776-observation-artifact-"));
+		@SuppressWarnings("unchecked")
+		Map<String, Object> root = objectMapper.readValue(Files.readString(artifact), Map.class);
+		@SuppressWarnings("unchecked")
+		Map<String, Object> scenario = ((List<Map<String, Object>>)root.get("scenarios")).getFirst();
+		@SuppressWarnings("unchecked")
+		Map<String, Object> round = ((List<Map<String, Object>>)scenario.get("measuredRounds")).getFirst();
+		@SuppressWarnings("unchecked")
+		Map<String, Object> dbStatistics = (Map<String, Object>)round.get("dbStatistics");
+		@SuppressWarnings("unchecked")
+		Map<String, Object> lockWait = (Map<String, Object>)round.get("lockWait");
+		@SuppressWarnings("unchecked")
+		Map<String, Object> metrics = (Map<String, Object>)round.get("metrics");
+
+		assertEquals(true, dbStatistics.get("observed"));
+		assertTrue(((List<?>)dbStatistics.get("statements")).size() > 0);
+		assertTrue(((Number)dbStatistics.get("totalCalls")).longValue() > 0L);
+		assertEquals(true, lockWait.get("observed"));
+		assertTrue(((Number)lockWait.get("pollCount")).longValue() > 0L);
+		assertTrue(((Number)metrics.get("observationDurationNanos")).longValue() > 0L);
+		assertTrue(metrics.containsKey("latencyNanos"));
+		assertTrue(metrics.containsKey("throughputPerSecond"));
+		assertTrue(metrics.containsKey("retry"));
+		assertTrue(metrics.containsKey("failure"));
+	}
+
 	private Path runContractMeasurement(Path outputDirectory) {
 		List<RoundArtifact> roundArtifacts = new ArrayList<>();
 		List<PrivateManifestRow> privateManifestRows = new ArrayList<>();
@@ -463,19 +502,40 @@ class MatchResponseCompletionBaselinePostgresTest {
 		boolean warmUp,
 		List<RoundArtifact> artifacts,
 		List<PrivateManifestRow> privateManifestRows) {
-		Instant observationStartedAt = Instant.now();
+		Instant observationStartedAt = null;
+		Instant observationEndedAt = null;
 		List<RawSampleDraft> sampleDrafts = new ArrayList<>();
 		List<String> invalidReasons = new ArrayList<>();
 		MaterializedCommands materialized = null;
 		ExecutionResult execution = new ExecutionResult(0, 0, List.of(), List.of());
 		FinalStateAssertion finalState = FinalStateAssertion.invalid();
-		long pgStatStatementCount = -1L;
+		DatabaseStatistics databaseStatistics = DatabaseStatistics.unobserved();
+		LockWaitObservation lockWait = LockWaitObservation.unobserved();
 		try {
 			jdbcTemplate.execute("create extension if not exists pg_stat_statements");
-			jdbcTemplate.execute("select pg_stat_statements_reset()");
 			materialized = materializeCommands(scenario, measurementProposalCount(scenario));
+			jdbcTemplate.execute("select pg_stat_statements_reset()");
 			List<ResponseCommand> commands = materialized.commands();
-			execution = executeCommandsConcurrently(commands, false);
+			LockWaitMonitor lockWaitMonitor = new LockWaitMonitor(jdbcTemplate);
+			try {
+				lockWaitMonitor.start();
+				observationStartedAt = Instant.now();
+				execution = executeCommandsConcurrently(commands, false);
+			} finally {
+				observationEndedAt = Instant.now();
+				lockWaitMonitor.observeNow();
+				lockWait = lockWaitMonitor.stop();
+			}
+			if (!lockWait.observed()) {
+				invalidReasons.add("lockWaitObservationMissing");
+			}
+			if (lockWait.waitingSessionSampleCount() > 0) {
+				invalidReasons.add("lockWaitPerSampleAttributionMissing");
+			}
+			databaseStatistics = readDatabaseStatistics();
+			if (!databaseStatistics.observed()) {
+				invalidReasons.add("dbStatisticsMissing");
+			}
 			if (execution.readyRequestCount() != commands.size()) {
 				invalidReasons.add("barrierReadyTimeout");
 			}
@@ -490,7 +550,7 @@ class MatchResponseCompletionBaselinePostgresTest {
 				if (probeSample == null) {
 					invalidReasons.add("completionProbeMissing");
 					sampleDrafts.add(new RawSampleDraft(null, null, respondBy,
-						commandExecution.command().action().name(), result, 0, 0L, 200, null, 0L,
+						commandExecution.command().action().name(), result, 0, 200, null, 0L,
 						commandExecution.currentState()));
 					continue;
 				}
@@ -498,11 +558,10 @@ class MatchResponseCompletionBaselinePostgresTest {
 					invalidReasons.add("operationTimeAtOrAfterRespondBy");
 				}
 				sampleDrafts.add(new RawSampleDraft(probeSample.operationTime(), probeSample.completedAt(), respondBy,
-					commandExecution.command().action().name(), result, 0, 0L, 200, null, probeSample.latencyNanos(),
+					commandExecution.command().action().name(), result, 0, 200, null, probeSample.latencyNanos(),
 					commandExecution.currentState()));
 			}
 			finalState = assertScenarioFinalState(scenario, materialized, execution, true);
-			pgStatStatementCount = jdbcTemplate.queryForObject("select count(*) from pg_stat_statements", Long.class);
 		} catch (AssertionError | Exception exception) {
 			invalidReasons.add("technicalError:" + exception.getClass().getSimpleName());
 		} finally {
@@ -513,14 +572,41 @@ class MatchResponseCompletionBaselinePostgresTest {
 					invalidReasons.add("observabilityMissing:" + exception.getClass().getSimpleName());
 				}
 			}
+			if (observationStartedAt == null) {
+				observationStartedAt = Instant.now();
+			}
+			if (observationEndedAt == null) {
+				observationEndedAt = observationStartedAt;
+			}
 			boolean finalStatePassed = finalState.passed();
+			long perSampleWaitNanos = lockWait.perSampleWaitNanos();
 			List<RawSample> samples = sampleDrafts.stream()
-				.map(draft -> draft.toRawSample(finalStatePassed))
+				.map(draft -> draft.toRawSample(finalStatePassed, perSampleWaitNanos))
 				.toList();
 			String invalidReason = invalidReasons.isEmpty() ? null : String.join(",", invalidReasons);
 			artifacts.add(new RoundArtifact(scenario.name(), round, warmUp, List.copyOf(samples), finalState,
-				pgStatStatementCount, invalidReason, observationStartedAt, Instant.now()));
+				databaseStatistics, lockWait, RoundMetrics.from(samples, observationStartedAt, observationEndedAt),
+				invalidReason, observationStartedAt, observationEndedAt));
 			clearFixture();
+		}
+	}
+
+	private DatabaseStatistics readDatabaseStatistics() {
+		try {
+			List<StatementStatistics> statements = jdbcTemplate.query("""
+				select queryid::text as query_id, calls, total_exec_time, rows, shared_blks_hit, shared_blks_read
+				from pg_stat_statements
+				where queryid is not null
+				order by queryid
+				""", (resultSet, rowNumber) -> new StatementStatistics(resultSet.getString("query_id"),
+				resultSet.getLong("calls"), resultSet.getDouble("total_exec_time"), resultSet.getLong("rows"),
+				resultSet.getLong("shared_blks_hit"), resultSet.getLong("shared_blks_read")));
+			if (statements.isEmpty()) {
+				return DatabaseStatistics.unobserved();
+			}
+			return DatabaseStatistics.observed(statements);
+		} catch (Exception exception) {
+			return DatabaseStatistics.unobserved();
 		}
 	}
 
@@ -907,8 +993,9 @@ class MatchResponseCompletionBaselinePostgresTest {
 					roundNode.put("round", round.round());
 					roundNode.put("rawSamples", round.rawSamples());
 					roundNode.put("rawDataSha256", sha256(raw));
-					roundNode.put("dbStatistics", Map.of("calls", round.pgStatStatementCount()));
-					roundNode.put("lockWait", Map.of("observed", true));
+					roundNode.put("dbStatistics", round.databaseStatistics().toArtifactNode());
+					roundNode.put("lockWait", round.lockWait().toArtifactNode(round.rawSamples()));
+					roundNode.put("metrics", round.metrics().toArtifactNode());
 					roundNode.put("observationWindow", Map.of("startedAt", round.observationStartedAt().toString(),
 						"endedAt", round.observationEndedAt().toString()));
 					roundNode.put("finalStateAssertion", assertionNode);
@@ -925,10 +1012,74 @@ class MatchResponseCompletionBaselinePostgresTest {
 			String publicArtifactBytes = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(root)
 				.replace("\r\n", "\n");
 			Files.writeString(artifact, publicArtifactBytes);
+			writeResultDocument(directory, artifact, privateManifest, publicArtifactBytes, rounds);
 			return artifact;
 		} catch (Exception exception) {
 			throw new AssertionError("response completion artifact 기록 실패", exception);
 		}
+	}
+
+	private void writeResultDocument(
+		Path directory,
+		Path artifact,
+		Path privateManifest,
+		String publicArtifactBytes,
+		List<RoundArtifact> rounds) throws Exception {
+		StringBuilder document = new StringBuilder("# MATCH-01 응답 완료 baseline 결과\n\n");
+		document.append("- 측정 실행 SHA: `").append(artifact.getFileName().toString()
+			.replace("response-completion-", "").replace(".json", "")).append("`\n");
+		document.append("- private sidecar: `").append(privateManifest.getFileName()).append("`\n");
+		document.append("- materialized sidecar SHA-256: `").append(sha256(Files.readString(privateManifest)))
+			.append("`\n");
+		document.append("- artifact: `").append(artifact.getFileName()).append("`\n");
+		document.append("- artifact SHA-256: `").append(sha256(publicArtifactBytes)).append("`\n");
+		document.append("- 판정: `").append(measurementOutcome(rounds)).append("`\n\n");
+		document.append("| 시나리오 | round | p50 (ns) | p95 (ns) | p99 (ns) | 처리량 (req/s) | retry (total/max) | lock wait (sampled/raw ns) | 실패율 |\n");
+		document.append("| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |\n");
+		for (Scenario scenario : Scenario.values()) {
+			List<RoundArtifact> measuredRounds = rounds.stream()
+				.filter(round -> round.scenario().equals(scenario.name()) && !round.warmUp())
+				.toList();
+			for (RoundArtifact round : measuredRounds) {
+				RoundMetrics metrics = round.metrics();
+				document.append("| ").append(scenario.name()).append(" | ").append(round.round()).append(" | ")
+					.append(metrics.latencyNanos().p50()).append(" | ")
+					.append(metrics.latencyNanos().p95()).append(" | ")
+					.append(metrics.latencyNanos().p99()).append(" | ")
+					.append(String.format(java.util.Locale.ROOT, "%.3f", metrics.throughputPerSecond())).append(" | ")
+					.append(metrics.retry().total()).append("/").append(metrics.retry().max()).append(" | ")
+					.append(round.lockWait().sampledWaitNanos()).append("/")
+					.append(round.lockWait().sampleTotalNanos(round.rawSamples())).append(" | ")
+					.append(String.format(java.util.Locale.ROOT, "%.6f", metrics.failure().rate())).append(" |\n");
+			}
+		}
+		document.append("\n| 시나리오 | 세 measured round p95 중앙값 (ns) | 세 measured round p95 최댓값 (ns) |\n");
+		document.append("| --- | ---: | ---: |\n");
+		for (Scenario scenario : Scenario.values()) {
+			List<Long> p95Values = rounds.stream()
+				.filter(round -> round.scenario().equals(scenario.name()) && !round.warmUp())
+				.map(round -> round.metrics().latencyNanos().p95())
+				.sorted()
+				.toList();
+			if (p95Values.size() == 3) {
+				document.append("| ").append(scenario.name()).append(" | ").append(p95Values.get(1)).append(" | ")
+					.append(p95Values.getLast()).append(" |\n");
+			}
+		}
+		document.append("\n각 measured round는 1,000개 비식별 raw sample과 fixture/DB 통계/lock-wait 관측을 보존한다. "
+			+ "이 결과는 운영 SLO 또는 후보 선점 baseline 통과를 의미하지 않는다.\n");
+		Files.writeString(directory.resolve("response-completion-baseline-result.md"), document.toString());
+	}
+
+	private String measurementOutcome(List<RoundArtifact> rounds) {
+		if (rounds.size() != 16 || rounds.stream().anyMatch(round -> round.invalidReason() != null
+			|| !round.databaseStatistics().observed() || !round.lockWait().observed())) {
+			return "INVALID";
+		}
+		if (rounds.stream().anyMatch(round -> !round.finalState().passed())) {
+			return "FAILED";
+		}
+		return "RESPONSE_BASELINE_ACCEPTED";
 	}
 
 	private List<Map<String, Object>> privateSidecarRows(List<PrivateManifestRow> privateManifestRows) {
@@ -1092,9 +1243,213 @@ class MatchResponseCompletionBaselinePostgresTest {
 				observedRequestStatus, observedQueueTimestamp);
 		}
 	}
+	private record StatementStatistics(String queryId, long calls, double totalExecTimeMillis, long rows,
+		long sharedBlksHit, long sharedBlksRead) {
+		Map<String, Object> toArtifactNode() {
+			return Map.of("queryId", queryId, "calls", calls, "totalExecTimeMillis", totalExecTimeMillis,
+				"rows", rows, "sharedBlksHit", sharedBlksHit, "sharedBlksRead", sharedBlksRead);
+		}
+	}
+
+	private record DatabaseStatistics(boolean observed, List<StatementStatistics> statements) {
+		static DatabaseStatistics observed(List<StatementStatistics> statements) {
+			return new DatabaseStatistics(true, List.copyOf(statements));
+		}
+
+		static DatabaseStatistics unobserved() {
+			return new DatabaseStatistics(false, List.of());
+		}
+
+		Map<String, Object> toArtifactNode() {
+			long totalCalls = 0L;
+			double totalExecTimeMillis = 0D;
+			long totalRows = 0L;
+			long sharedBlksHit = 0L;
+			long sharedBlksRead = 0L;
+			List<Map<String, Object>> statementNodes = new ArrayList<>();
+			for (StatementStatistics statement : statements) {
+				statementNodes.add(statement.toArtifactNode());
+				totalCalls += statement.calls();
+				totalExecTimeMillis += statement.totalExecTimeMillis();
+				totalRows += statement.rows();
+				sharedBlksHit += statement.sharedBlksHit();
+				sharedBlksRead += statement.sharedBlksRead();
+			}
+			Map<String, Object> node = new LinkedHashMap<>();
+			node.put("observed", observed);
+			node.put("statements", statementNodes);
+			node.put("statementCount", statementNodes.size());
+			node.put("totalCalls", totalCalls);
+			node.put("totalExecTimeMillis", totalExecTimeMillis);
+			node.put("totalRows", totalRows);
+			node.put("sharedBlksHit", sharedBlksHit);
+			node.put("sharedBlksRead", sharedBlksRead);
+			return node;
+		}
+	}
+
+	private record LockWaitObservation(boolean observed, long pollCount, long waitingSessionSampleCount,
+		long sampledWaitNanos) {
+		static LockWaitObservation unobserved() {
+			return new LockWaitObservation(false, 0L, 0L, 0L);
+		}
+
+		long perSampleWaitNanos() {
+			return observed && waitingSessionSampleCount == 0L ? 0L : -1L;
+		}
+
+		long sampleTotalNanos(List<RawSample> samples) {
+			return samples.stream().mapToLong(RawSample::lockWaitNanos).sum();
+		}
+
+		long sampleMaxNanos(List<RawSample> samples) {
+			return samples.stream().mapToLong(RawSample::lockWaitNanos).max().orElse(0L);
+		}
+
+		Map<String, Object> toArtifactNode(List<RawSample> samples) {
+			return Map.of("observed", observed, "pollCount", pollCount,
+				"waitingSessionSampleCount", waitingSessionSampleCount, "sampledWaitNanos", sampledWaitNanos,
+				"sampleTotalNanos", sampleTotalNanos(samples), "sampleMaxNanos", sampleMaxNanos(samples));
+		}
+	}
+
+	private record LatencyPercentiles(long p50, long p95, long p99) {
+		Map<String, Object> toArtifactNode() {
+			return Map.of("p50", p50, "p95", p95, "p99", p99);
+		}
+	}
+
+	private record RetryMetrics(long total, long max) {
+		Map<String, Object> toArtifactNode() {
+			return Map.of("total", total, "max", max);
+		}
+	}
+
+	private record FailureMetrics(long count, double rate) {
+		Map<String, Object> toArtifactNode() {
+			return Map.of("count", count, "rate", rate);
+		}
+	}
+
+	private record RoundMetrics(int sampleCount, long observationDurationNanos, LatencyPercentiles latencyNanos,
+		double throughputPerSecond, RetryMetrics retry, FailureMetrics failure) {
+		static RoundMetrics from(List<RawSample> samples, Instant observationStartedAt, Instant observationEndedAt) {
+			long durationNanos = Math.max(1L,
+				java.time.Duration.between(observationStartedAt, observationEndedAt).toNanos());
+			if (samples.isEmpty()) {
+				return new RoundMetrics(0, durationNanos, new LatencyPercentiles(0L, 0L, 0L), 0D,
+					new RetryMetrics(0L, 0L), new FailureMetrics(0L, 0D));
+			}
+			List<Long> latencies = samples.stream().map(RawSample::latencyNanos).sorted().toList();
+			long retryTotal = samples.stream().mapToLong(RawSample::retryCount).sum();
+			long retryMax = samples.stream().mapToLong(RawSample::retryCount).max().orElse(0L);
+			long failureCount = samples.stream().filter(sample -> sample.errorCode() != null || sample.httpStatus() >= 400)
+				.count();
+			return new RoundMetrics(samples.size(), durationNanos,
+				new LatencyPercentiles(nearestRank(latencies, 0.50D), nearestRank(latencies, 0.95D),
+					nearestRank(latencies, 0.99D)),
+				samples.size() * 1_000_000_000D / durationNanos, new RetryMetrics(retryTotal, retryMax),
+				new FailureMetrics(failureCount, (double)failureCount / samples.size()));
+		}
+
+		private static long nearestRank(List<Long> samples, double percentile) {
+			return samples.get((int)Math.ceil(percentile * samples.size()) - 1);
+		}
+
+		Map<String, Object> toArtifactNode() {
+			return Map.of("sampleCount", sampleCount, "observationDurationNanos", observationDurationNanos,
+				"latencyNanos", latencyNanos.toArtifactNode(), "throughputPerSecond", throughputPerSecond,
+				"retry", retry.toArtifactNode(), "failure", failure.toArtifactNode());
+		}
+	}
+
+	private static final class LockWaitMonitor {
+		private static final long POLL_INTERVAL_MILLIS = 2L;
+
+		private final JdbcTemplate jdbcTemplate;
+		private final AtomicBoolean running = new AtomicBoolean();
+		private final AtomicLong pollCount = new AtomicLong();
+		private final AtomicLong waitingSessionSampleCount = new AtomicLong();
+		private final AtomicLong sampledWaitNanos = new AtomicLong();
+		private final AtomicLong lastPollNanos = new AtomicLong();
+		private final AtomicReference<String> observationFailure = new AtomicReference<>();
+		private ExecutorService executor;
+
+		LockWaitMonitor(JdbcTemplate jdbcTemplate) {
+			this.jdbcTemplate = jdbcTemplate;
+		}
+
+		void start() {
+			if (!running.compareAndSet(false, true)) {
+				throw new IllegalStateException("lock-wait observer가 이미 실행 중입니다.");
+			}
+			executor = Executors.newSingleThreadExecutor();
+			executor.submit(() -> {
+				while (running.get()) {
+					observe();
+					try {
+						TimeUnit.MILLISECONDS.sleep(POLL_INTERVAL_MILLIS);
+					} catch (InterruptedException exception) {
+						Thread.currentThread().interrupt();
+						return;
+					}
+				}
+			});
+		}
+
+		void observeNow() {
+			observe();
+		}
+
+		LockWaitObservation stop() {
+			running.set(false);
+			if (executor != null) {
+				executor.shutdownNow();
+				try {
+					if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
+						observationFailure.compareAndSet(null, "shutdownTimeout");
+					}
+				} catch (InterruptedException exception) {
+					Thread.currentThread().interrupt();
+					observationFailure.compareAndSet(null, "shutdownInterrupted");
+				}
+			}
+			if (observationFailure.get() != null || pollCount.get() == 0L) {
+				return LockWaitObservation.unobserved();
+			}
+			return new LockWaitObservation(true, pollCount.get(), waitingSessionSampleCount.get(),
+				sampledWaitNanos.get());
+		}
+
+		private void observe() {
+			if (observationFailure.get() != null) {
+				return;
+			}
+			try {
+				Integer waitingSessions = jdbcTemplate.queryForObject("""
+					select count(*)
+					from pg_stat_activity
+					where datname = current_database() and wait_event_type = 'Lock'
+					""", Integer.class);
+				if (waitingSessions == null) {
+					throw new IllegalStateException("lock-wait observer count가 null입니다.");
+				}
+				long observedAtNanos = System.nanoTime();
+				long previousPollNanos = lastPollNanos.getAndSet(observedAtNanos);
+				pollCount.incrementAndGet();
+				waitingSessionSampleCount.addAndGet(waitingSessions);
+				if (waitingSessions > 0 && previousPollNanos > 0L) {
+					sampledWaitNanos.addAndGet((observedAtNanos - previousPollNanos) * waitingSessions);
+				}
+			} catch (Exception exception) {
+				observationFailure.compareAndSet(null, exception.getClass().getSimpleName());
+			}
+		}
+	}
+
 	private record RoundArtifact(String scenario, int round, boolean warmUp, List<RawSample> rawSamples,
-		FinalStateAssertion finalState, long pgStatStatementCount, String invalidReason, Instant observationStartedAt,
-		Instant observationEndedAt) {
+		FinalStateAssertion finalState, DatabaseStatistics databaseStatistics, LockWaitObservation lockWait,
+		RoundMetrics metrics, String invalidReason, Instant observationStartedAt, Instant observationEndedAt) {
 		boolean accepted() {
 			return invalidReason == null && finalState.passed();
 		}
@@ -1131,9 +1486,9 @@ class MatchResponseCompletionBaselinePostgresTest {
 		}
 	}
 	private record RawSampleDraft(Instant operationTime, Instant completedAt, Instant respondBy, String action,
-		String result, int retryCount, long lockWaitNanos, int httpStatus, String errorCode, long latencyNanos,
+		String result, int retryCount, int httpStatus, String errorCode, long latencyNanos,
 		String finalStateObservation) {
-		RawSample toRawSample(boolean finalStatePassed) {
+		RawSample toRawSample(boolean finalStatePassed, long lockWaitNanos) {
 			return new RawSample(operationTime == null ? null : operationTime.toString(),
 				completedAt == null ? null : completedAt.toString(), respondBy.toString(), action, result, retryCount,
 				lockWaitNanos, httpStatus, errorCode, latencyNanos, finalStateObservation, finalStatePassed);

@@ -53,7 +53,89 @@ function sampleIsComplete(scenario, sample) {
     && Number.isInteger(sample.httpStatus) && sample.httpStatus >= 100 && sample.httpStatus <= 599
     && Object.hasOwn(sample, "errorCode") && (sample.errorCode === null || typeof sample.errorCode === "string")
     && typeof sample.finalStateObservation === "string" && sample.finalStateObservation.length > 0
-    && typeof sample.finalStatePassed === "boolean";
+    && sample.finalStatePassed === true;
+}
+
+function isNonNegativeInteger(value) {
+  return Number.isInteger(value) && value >= 0;
+}
+
+function nearestRank(samples, percentile) {
+  const sorted = [...samples].sort((left, right) => left - right);
+  return sorted[Math.ceil(percentile * sorted.length) - 1];
+}
+
+function hasRecalculableDatabaseStatistics(statistics) {
+  if (statistics?.observed !== true || !Array.isArray(statistics.statements)
+    || statistics.statements.length === 0) {
+    return false;
+  }
+  const integerFields = ["calls", "rows", "sharedBlksHit", "sharedBlksRead"];
+  if (!statistics.statements.every((statement) => typeof statement.queryId === "string"
+    && statement.queryId.length > 0
+    && integerFields.every((field) => isNonNegativeInteger(statement[field]))
+    && typeof statement.totalExecTimeMillis === "number" && statement.totalExecTimeMillis >= 0)) {
+    return false;
+  }
+  const totals = {
+    statementCount: statistics.statements.length,
+    totalCalls: statistics.statements.reduce((total, statement) => total + statement.calls, 0),
+    totalExecTimeMillis: statistics.statements.reduce((total, statement) => total + statement.totalExecTimeMillis, 0),
+    totalRows: statistics.statements.reduce((total, statement) => total + statement.rows, 0),
+    sharedBlksHit: statistics.statements.reduce((total, statement) => total + statement.sharedBlksHit, 0),
+    sharedBlksRead: statistics.statements.reduce((total, statement) => total + statement.sharedBlksRead, 0),
+  };
+  return isNonNegativeInteger(statistics.statementCount)
+    && isNonNegativeInteger(statistics.totalCalls)
+    && typeof statistics.totalExecTimeMillis === "number" && statistics.totalExecTimeMillis >= 0
+    && isNonNegativeInteger(statistics.totalRows)
+    && isNonNegativeInteger(statistics.sharedBlksHit)
+    && isNonNegativeInteger(statistics.sharedBlksRead)
+    && Object.entries(totals).every(([field, value]) => statistics[field] === value);
+}
+
+function hasRecalculableMetrics(round) {
+  const metrics = round.metrics;
+  const samples = round.rawSamples;
+  if (!metrics || metrics.sampleCount !== samples.length
+    || !isNonNegativeInteger(metrics.observationDurationNanos) || metrics.observationDurationNanos === 0
+    || typeof metrics.throughputPerSecond !== "number" || metrics.throughputPerSecond < 0
+    || !metrics.latencyNanos || !metrics.retry || !metrics.failure
+    || !["p50", "p95", "p99"].every((field) => isNonNegativeInteger(metrics.latencyNanos[field]))
+    || !isNonNegativeInteger(metrics.retry.total) || !isNonNegativeInteger(metrics.retry.max)
+    || !isNonNegativeInteger(metrics.failure.count)
+    || typeof metrics.failure.rate !== "number" || metrics.failure.rate < 0 || metrics.failure.rate > 1) {
+    return false;
+  }
+  const latencies = samples.map((sample) => sample.latencyNanos);
+  const expectedThroughput = samples.length * 1_000_000_000 / metrics.observationDurationNanos;
+  const retryTotal = samples.reduce((total, sample) => total + sample.retryCount, 0);
+  const retryMax = Math.max(...samples.map((sample) => sample.retryCount));
+  const failureCount = samples.filter((sample) => sample.errorCode !== null || sample.httpStatus >= 400).length;
+  const expected = {
+    p50: nearestRank(latencies, 0.50),
+    p95: nearestRank(latencies, 0.95),
+    p99: nearestRank(latencies, 0.99),
+  };
+  return Object.entries(expected).every(([field, value]) => metrics.latencyNanos[field] === value)
+    && Math.abs(metrics.throughputPerSecond - expectedThroughput) < 0.000001
+    && metrics.retry.total === retryTotal && metrics.retry.max === retryMax
+    && metrics.failure.count === failureCount
+    && Math.abs(metrics.failure.rate - failureCount / samples.length) < 0.000001;
+}
+
+function hasObservedLockWait(round) {
+  const lockWait = round.lockWait;
+  if (lockWait?.observed !== true || !isNonNegativeInteger(lockWait.pollCount) || lockWait.pollCount === 0
+    || !isNonNegativeInteger(lockWait.waitingSessionSampleCount)
+    || !isNonNegativeInteger(lockWait.sampledWaitNanos)
+    || !isNonNegativeInteger(lockWait.sampleTotalNanos)
+    || !isNonNegativeInteger(lockWait.sampleMaxNanos)) {
+    return false;
+  }
+  const sampleWaits = round.rawSamples.map((sample) => sample.lockWaitNanos);
+  return lockWait.sampleTotalNanos === sampleWaits.reduce((total, wait) => total + wait, 0)
+    && lockWait.sampleMaxNanos === Math.max(...sampleWaits);
 }
 
 function hasExactFactCoverage(scenario, assertion) {
@@ -74,14 +156,14 @@ function roundIsComplete(round) {
   return Array.isArray(round.rawSamples)
     && round.rawSamples.length === 1_000
     && typeof round.invalidReason !== "string"
-    && round.dbStatistics !== null
-    && round.dbStatistics !== undefined
-    && round.lockWait?.observed === true
+    && hasRecalculableDatabaseStatistics(round.dbStatistics)
+    && hasObservedLockWait(round)
     && isUtcTimestamp(round.observationWindow?.startedAt)
     && isUtcTimestamp(round.observationWindow?.endedAt)
     && Date.parse(round.observationWindow.startedAt) <= Date.parse(round.observationWindow.endedAt)
     && round.rawSamples.every((sample) => sampleIsComplete(round.scenario, sample))
     && hasExpectedResultDistribution(round.scenario, round.rawSamples)
+    && hasRecalculableMetrics(round)
     && assertion !== null
     && assertion !== undefined
     && [
@@ -120,6 +202,10 @@ export function evaluateResponseArtifact(artifact) {
   for (const scenario of artifact.scenarios) {
     if (scenario.warmUp?.completed !== true || scenario.measuredRounds?.length !== 3) {
       return invalid(`${scenario.scenario}의 warm-up 또는 measured round가 완전하지 않습니다.`);
+    }
+    const roundNumbers = scenario.measuredRounds.map((round) => round.round).sort((left, right) => left - right);
+    if (JSON.stringify(roundNumbers) !== JSON.stringify([1, 2, 3])) {
+      return invalid(`${scenario.scenario}의 measured round는 1, 2, 3을 각각 한 번만 포함해야 합니다.`);
     }
     for (const measuredRound of scenario.measuredRounds) {
       const round = { ...measuredRound, scenario: scenario.scenario };
