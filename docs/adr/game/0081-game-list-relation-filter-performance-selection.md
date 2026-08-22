@@ -3,7 +3,7 @@
 - 상태: 승인됨
 - 작성일: 2026-08-19
 - 결정일: 2026-08-19
-- 관련: [#770 게임 목록 Slice 전환](https://github.com/bamsongi-club/albam-mate/issues/770), [#867 relation·complex 후보 비교](https://github.com/bamsongi-club/albam-mate/issues/867), [#863 게임 목록 동시 부하·자원·오류율 검증](https://github.com/bamsongi-club/albam-mate/issues/863), [게임 목록 17만 건 기준선](../../measurements/game-list-740-baseline.md), [relation·complex 후보 비교 설계](../../superpowers/specs/2026-08-19-game-list-relation-performance-comparison-design.md), [ADR-0050: 게임 메타데이터 카탈로그와 상세 필터](0050-game-metadata-catalog-and-filters.md)
+- 관련: [#770 게임 목록 Slice 전환](https://github.com/bamsongi-club/albam-mate/issues/770), [#867 relation·complex 후보 비교](https://github.com/bamsongi-club/albam-mate/issues/867), [#863 게임 목록 동시 부하·자원·오류율 검증](https://github.com/bamsongi-club/albam-mate/issues/863), [게임 목록 17만 건 기준선](../../measurements/game-list-740-baseline.md), [ADR-0050: 게임 메타데이터 카탈로그와 상세 필터](0050-game-metadata-catalog-and-filters.md)
 - 대체 대상: 없음
 - 후속 ADR: 없음
 
@@ -114,7 +114,6 @@ HTTP p50/p95/max와 한 번 실행한 `EXPLAIN ANALYZE` execution time은 같은
 - [게임 목록 17만 건 기준선](../../measurements/game-list-740-baseline.md)
 - [#770 Slice 실측 결과](../../measurements/results/game-list-740/game-list-770-2026-08-19.md)
 - [#867 relation·complex 후보 비교 결과](../../measurements/results/game-list-740/game-list-867-2026-08-19.md)
-- [relation·complex 후보 비교 설계](../../superpowers/specs/2026-08-19-game-list-relation-performance-comparison-design.md)
 - [#770 게임 목록 Slice 전환](https://github.com/bamsongi-club/albam-mate/issues/770)
 - [#867 relation·complex 후보 비교](https://github.com/bamsongi-club/albam-mate/issues/867)
 - [#863 게임 목록 동시 부하·자원·오류율 검증](https://github.com/bamsongi-club/albam-mate/issues/863)
