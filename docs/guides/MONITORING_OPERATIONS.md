@@ -12,7 +12,7 @@
 | --- | --- | --- |
 | 이 문서의 metric·log·alarm·상태 전이 계약 | 확정 | 이 문서와 연결 정본의 링크·회귀 검사 |
 | 애플리케이션 OTLP·JSON logging | `OPS-01-AC1`~`AC3` 구현·자동 검증 완료, OPS-02 HTTP·JVM·Tomcat·Hikari·Nginx timing 원천 범위 부분 구현·자동 검증, OPS-04 usage·cost-warning meter 구현·자동 검증 완료. 단, 요청별 가격 적격성 신호는 미구현 | OPS-01 앱 [#764](https://github.com/bamsongi-club/albam-mate/pull/764), merge `0fa8285a019fafbb1d7caa65baa30cc8446e2c89`; OPS-02 production 설정·자동 검증; OPS-04 #852 소비 결과와 #872 계산기 검증 |
-| 인프라 수집·상태 정본·경고 제어·Scheduler | `OPS-01-AC1`~`AC7` 구현·자동 검증 완료, OPS-02 infra 미구현, OPS-04 숫자 비용 제거·기본 비활성 dashboard/alarm·전체 P2 비용 및 cardinality 배포 gate 구현·로컬 검증 완료. 가격 적격성 앱 신호·실측 입력·재승인은 미완료 | `albam-mate-infra` [#14](https://github.com/bamsongi-club/albam-mate-infra/pull/14)·[#16](https://github.com/bamsongi-club/albam-mate-infra/pull/16)·[#17](https://github.com/bamsongi-club/albam-mate-infra/pull/17)·[#18](https://github.com/bamsongi-club/albam-mate-infra/pull/18)·[#19](https://github.com/bamsongi-club/albam-mate-infra/pull/19)·[#20](https://github.com/bamsongi-club/albam-mate-infra/pull/20)·[#22](https://github.com/bamsongi-club/albam-mate-infra/pull/22), main `ce8913c01937b7db71264008bd24a851a1c6d4d4`; OPS-04 [#42](https://github.com/bamsongi-club/albam-mate-infra/pull/42)·후속 [#43](https://github.com/bamsongi-club/albam-mate-infra/pull/43), merge `f3334479a9b0a97a02c34cc1ad15708a5eeccec1` |
+| 인프라 수집·상태 정본·경고 제어·Scheduler | `OPS-01-AC1`~`AC7` 구현·자동 검증 완료, OPS-02 infra 미구현, OPS-04 숫자 비용 제거·기본 비활성 dashboard/alarm·전체 P2 비용 및 cardinality 배포 gate 구현·로컬 검증 완료. 가격 적격성 앱 신호·실측 입력·재승인은 미완료 | `albam-mate-infra` [#14](https://github.com/bamsongi-club/albam-mate-infra/pull/14)·[#16](https://github.com/bamsongi-club/albam-mate-infra/pull/16)·[#17](https://github.com/bamsongi-club/albam-mate-infra/pull/17)·[#18](https://github.com/bamsongi-club/albam-mate-infra/pull/18)·[#19](https://github.com/bamsongi-club/albam-mate-infra/pull/19)·[#20](https://github.com/bamsongi-club/albam-mate-infra/pull/20)·[#22](https://github.com/bamsongi-club/albam-mate-infra/pull/22), main `ce8913c01937b7db71264008bd24a851a1c6d4d4`; OPS-04 [#42](https://github.com/bamsongi-club/albam-mate-infra/pull/42)·후속 [#43](https://github.com/bamsongi-club/albam-mate-infra/pull/43)·[#1005](https://github.com/bamsongi-club/albam-mate/issues/1005), merge `f3334479a9b0a97a02c34cc1ad15708a5eeccec1` plus uncommitted local cost adjustment |
 | AWS 배포와 실제 수집 | `OPS-01-AC1`~`AC7` 임시 배포·실측·철거 완료, OPS-02·OPS-04 미배포·미측정 | OPS-01 #730 앱 release `8e25bbc6ee2c1b68aa28247b9c2fdbf7b8e88784`, 아래 #730·#731 T1~T3와 Terraform teardown; OPS-02·OPS-04는 같은 release의 metric·log 도착과 수집 공백 검사 필요 |
 | 경고·복구 | #731 OPS-01 범위 실측 완료, OPS-02·OPS-04 미측정 | OPS-01 대표 alarm `OK → ALARM → OK`, SNS 경고·복구 실제 수신, 최종 receipt `79bc6489-994a-4ba5-80ae-b43b075d8020`; OPS-02와 OPS-04 `$4` warning·복구 실측 필요 |
 
@@ -103,8 +103,8 @@ object key는 `receipts/v1/{environment}/{stackId}/{receiptId}/{sequence}-{stage
 | `AWS/EC2 StatusCheckFailed` | gauge·EC2 | `InstanceId`, 배포 `role` mapping | 1분 `Maximum > 0`, 2회 | 현재 인프라 alarm·P2 연결 필요 |
 | `AWS/EC2 CPUUtilization` | gauge·EC2 | `InstanceId`, 배포 `role` mapping | 1분 `Average`·원인 분석 | 현재 수집 |
 | `AWS/EC2 CPUCreditBalance` | gauge·EC2 | `InstanceId`, 배포 `role` mapping | 5분 `Minimum < 20`, 1회 | 현재 인프라 alarm |
-| `CWAgent mem_used_percent` | gauge·host Agent | `InstanceId`, `StackId`, `Role` | 10초 `Maximum > 85`, 6회 | 현재 인프라 alarm |
-| `CWAgent disk_used_percent` | gauge·host Agent | 위 값과 `fstype=xfs`, `path=/` | 10초 `Maximum > 85`, 6회 | 현재 인프라 alarm |
+| `CWAgent mem_used_percent` | gauge·host Agent | `InstanceId`, `StackId`, `Role` | 60초 `Maximum > 85`, 2회 | 현재 인프라 alarm |
+| `CWAgent disk_used_percent` | gauge·host Agent | 위 값과 `fstype=xfs`, `path=/` | 60초 `Maximum > 85`, 2회 | 현재 인프라 alarm |
 | `AWS/EC2 NetworkIn`, `NetworkOut` | counter·EC2 | `InstanceId`, 배포 `role` mapping | 1분 `Sum`·원인 분석 | 현재 dashboard |
 | `http.server.requests` | timer·Spring MVC observation | `method`, 정규화 `uri`, `status`, `outcome` | 5분 count·p50·p95·p99·5xx 비율 | production histogram 설정·OTLP export 자동 검증 완료, CloudWatch 배포·실측 필요 |
 | `jvm.memory.used`, `jvm.memory.max` | gauge·Micrometer JVM binder | `area`, 제한된 `id` | 1분 `Maximum`·used/max | production 설정·OTLP export 자동 검증 완료, CloudWatch 배포·실측 필요 |
@@ -148,11 +148,10 @@ source는 첫 두 meter가 `AuthenticationRequestLimiterMetrics`, WebSocket 네 
 | `room.status.correction.runs` | counter | `outcome=completed|failed|skipped|batch_limit` | 15분 `Sum`·보정 결과 | `completed|failed|batch_limit` 현재 코드·export 필요, `skipped` 추가 구현 필요 |
 | `room.status.correction.duration` | timer | 없음 | 실행별 p95·180초 warning | 현재 코드·export 필요, CloudWatch 배포·실측 필요 |
 | `room.waitlist.operations` | counter | `operation=join|cancel|promote`, `outcome=accepted|rejected|failed` | 배포 fixture별 `Sum`·최종 업무 결과 | 현재 코드·H2·PostgreSQL 자동 검증 완료, CloudWatch 배포·실측 필요 |
-| `assistant.usage.events` | counter | `provider=fake|openai|unknown`, `model=gpt-5.6-luna|unknown`, `feature=AI-02|unknown`, 승인된 `prompt_version`·`schema_version`·`status` 또는 `unknown` | 같은 release의 요청 수를 provider·model·feature·status별 `Sum` | 현재 코드·자동 검증 완료, CloudWatch 배포·실측 필요 |
-| `assistant.usage.tokens` | distribution summary | 위 usage tag와 `token_type=input|output|total` | 같은 release의 token 합계와 공식 가격 snapshot 기반 추정 비용 | 현재 코드·자동 검증 완료, CloudWatch 배포·실측 필요 |
-| `assistant.usage.latency` | timer | usage event와 같은 유한 tag | provider·model·feature별 count·p95 | 현재 코드·자동 검증 완료, CloudWatch 배포·실측 필요 |
-| `assistant.usage.cost.usd` | distribution summary | usage event와 같은 유한 tag | ADR-0085의 실제 외부 provider 호출당 USD `0.10` 고정 예약값; token 가격 추정이나 청구서로 사용 금지 | 현재 코드·자동 검증 완료, CloudWatch 배포·실측 필요 |
-| `assistant.cost.warning.events` | counter | `quota_month=YYYY-MM`, `warning_threshold_usd=4.00|unknown` | 월별 중복 없는 `$4` warning, SNS warning·OK 복구 | 현재 코드·자동 검증 완료, CloudWatch 배포·실측 필요 |
+| `assistant.usage.events` | counter | 승인된 `status` 또는 `unknown` | 같은 release의 요청 수를 status별 `Sum` | 현재 코드·자동 검증 완료, CloudWatch 배포·실측 필요 |
+| `assistant.usage.tokens` | distribution summary | `status`, `token_type=input|output|total` | 입력·출력 token 합계와 두 값을 재계산한 전체 token. 같은 tag 조합마다 하나의 series만 만듦 | 현재 코드·자동 검증 완료, CloudWatch 배포·실측 필요 |
+| `assistant.usage.latency` | timer | 승인된 `status` 또는 `unknown` | status별 count·p95 | 현재 코드·자동 검증 완료, CloudWatch 배포·실측 필요 |
+| `assistant.cost.warning.events` | counter | `warning_threshold_usd=4.00|unknown` | 중복 없는 `$4` warning. `quota_month` label은 만들지 않음 | 현재 코드·자동 검증 완료, CloudWatch 배포·실측 필요 |
 
 `notification.relay.delivery.duration`은 outbox의 `recordedAt`부터 Notification 기록 시각까지의 `deliveryDelayMs`를 기록한다. `notification.relay.oldest.processable.age`는 batch 종료 뒤 PostgreSQL 조회의 밀리초 값을 초 단위 gauge로 기록하고, 처리 가능한 적체가 없으면 0이다. `processingDurationMs`는 구조화 로그의 진단 필드일 뿐 meter에 기록하지 않는다.
 
@@ -162,9 +161,11 @@ source는 첫 두 meter가 `AuthenticationRequestLimiterMetrics`, WebSocket 네 
 
 #872 승인 T1의 `outcome` 축은 #852가 고정한 실제 bounded tag `status`로 조회한다. OPS-04가 같은 의미의 `outcome` tag를 중복 추가하거나 공유 meter 계약을 확장하지 않는다.
 
-현재 공유 meter는 요청별 cached input과 long-context 가격 적격성을 전달하지 않는다. [인프라 #43](https://github.com/bamsongi-club/albam-mate-infra/pull/43)은 #42의 집계 token 기반 숫자 비용 panel을 제거하고 dashboard·`$4` alarm을 기본 비활성화했으며, 가격 적격성·전체 P2 비용 입력·cardinality precondition을 통과하기 전에는 배포를 차단한다. 따라서 현재 dashboard 비용은 `NO_OBSERVATION`이고 cost-warning alarm의 SNS warning·OK action과 통제된 `OK → ALARM → OK`는 미배포·미측정이다. 앱의 `assistant.cost.warning` meter는 애플리케이션 상태 신호일 뿐 실제 청구서나 CloudWatch alarm을 대체하지 않는다.
+현재 공유 meter는 요청별 cached input과 long-context 가격 적격성을 전달하지 않는다. 숫자 비용 metric은 가격 적격성이 확인된 경우에만 별도 계산기로 만들 수 있으며, 현재 앱은 이를 전송하지 않는다. [인프라 #43](https://github.com/bamsongi-club/albam-mate-infra/pull/43)은 #42의 집계 token 기반 숫자 비용 panel을 제거하고 dashboard·`$4` alarm을 기본 비활성화했으며, 가격 적격성·전체 P2 비용 입력·cardinality precondition을 통과하기 전에는 배포를 차단한다. 따라서 현재 dashboard 비용은 `NO_OBSERVATION`이고 cost-warning alarm의 SNS warning·OK action과 통제된 `OK → ALARM → OK`는 미배포·미측정이다. 앱의 `assistant.cost.warning` meter는 애플리케이션 상태 신호일 뿐 실제 청구서나 CloudWatch alarm을 대체하지 않는다.
 
-인프라 #43은 P2 신규 application OTLP metric의 meter별 series·datapoint, 중앙 로그 수집량·14일 보존, alarm·dashboard를 목록화하고 기존 host 관측 비용을 별도 항목으로 분리했다. 현재 알려진 application series 3,278개는 승인 상한 128개를 넘고 알려진 월 비용 하한 USD 83.51도 예산 `$10`을 넘는다. 공통 meter 일부, 중앙 로그 ingestion과 alarm query sample은 미측정이라 최종 합계는 `null`이며 판정은 `BLOCKED_REAPPROVAL`이다. 가격 적격성 신호와 미측정 입력을 갖추고 조정·재승인하기 전에는 배포하거나 T5 PASS를 주장하지 않는다.
+인프라 #43은 P2 신규 application OTLP metric의 meter별 series·datapoint, 중앙 로그 수집량·14일 보존, alarm·dashboard를 목록화하고 기존 host 관측 비용을 별도 항목으로 분리했다. 기존 계산의 알려진 application series 3,278개와 월 비용 하한 USD 83.51은 조정 전 snapshot이며, 이 앱 변경만으로 새 전체 합계나 `PASS`를 선언하지 않는다. 계정 기준선·조정 후 P2 증분·가정·필수 입력을 모두 갖춘 계산만 무료 구간을 계정 전체에 한 번 적용하고 USD 10 이하를 `PASS`, 초과를 `BLOCKED_REAPPROVAL`로 판정한다. 하나라도 빠지면 `NO_OBSERVATION`이며, 새 AI release의 배포 후 실제 값은 #872 미완료 실측 입력이다.
+
+production 기본 OTLP export는 5분이고 위 `인프라·Spring 표준 meter`와 `현재 생산 코드의 domain meter` 표에 이름이 있는 application meter만 exact allowlist로 전송한다. 1분 export는 통제된 측정에서만 `ALBAM_MATE_OTLP_METRICS_STEP=1m`를 명시해 일시적으로 사용하며, 측정이 끝나면 제거한다. 배포 식별자는 OTel resource attribute로 한 번만 붙이고 Micrometer common tag나 exporter resource attribute로 중복하지 않는다.
 
 채팅 보존의 복구 판정은 앱 인스턴스 메모리나 domain meter가 합성하지 않는다. release 전체의 `failures`와 `completed` 신호를 함께 평가하는 비공개 infra alarm이 소유하며, 그 alarm 구현·배포·실측은 미완료다.
 

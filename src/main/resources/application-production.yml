@@ -43,16 +43,48 @@ management:
     address: 127.0.0.1
   metrics:
     enable:
-      jvm: true
-      tomcat: true
-      hikaricp: true
-    tags:
-      environment: ${ALBAM_MATE_ENVIRONMENT}
-      stackId: ${ALBAM_MATE_STACK_ID}
-      service: albam-mate
-      role: ${ALBAM_MATE_ROLE}
-      instanceId: ${ALBAM_MATE_INSTANCE_ID}
-      release: ${ALBAM_MATE_RELEASE}
+      all: false
+      "http.server.requests": true
+      "jvm.memory.used": true
+      "jvm.memory.max": true
+      "jvm.gc.pause": true
+      "jvm.threads.live": true
+      "tomcat.threads.busy": true
+      "tomcat.threads.current": true
+      "tomcat.threads.config.max": true
+      "hikaricp.connections.active": true
+      "hikaricp.connections.idle": true
+      "hikaricp.connections.pending": true
+      "hikaricp.connections.max": true
+      "hikaricp.connections.timeout": true
+      "albam.dependency.health": true
+      "auth.request.limiter.rejections": true
+      "auth.request.limiter.capacity.utilization": true
+      "chat.websocket.connections.active": true
+      "chat.websocket.delivery.latency": true
+      "chat.websocket.delivery.failures": true
+      "chat.websocket.recovery.messages": true
+      "chat.message.delivery.duration": true
+      "chat.message.delivery.failures": true
+      "chat.message.operations": true
+      "chat.message.retention.lock.skipped": true
+      "chat.message.retention.rooms.purged": true
+      "chat.message.retention.messages.deleted": true
+      "chat.message.retention.failures": true
+      "chat.message.retention.lease.guard.aborted": true
+      "chat.message.retention.backlog.remaining": true
+      "chat.message.retention.execution.duration": true
+      "chat.message.retention.delay": true
+      "notification.relay.events": true
+      "notification.relay.delivery.duration": true
+      "notification.relay.oldest.processable.age": true
+      "room.status.correction.runs": true
+      "room.status.correction.duration": true
+      "room.waitlist.operations": true
+      "assistant.usage.events": true
+      "assistant.usage.tokens": true
+      "assistant.usage.latency": true
+      "assistant.cost.warning.events": true
     distribution:
       percentiles:
         http.server.requests: [0.5, 0.95, 0.99]
@@ -79,17 +111,10 @@ management:
       export:
         enabled: true
         url: ${ALBAM_MATE_OTLP_METRICS_URL:http://host.docker.internal:4318/v1/metrics}
-        step: 1m
+        step: ${ALBAM_MATE_OTLP_METRICS_STEP:5m}
         batch-size: 1000
         connect-timeout: 1s
         read-timeout: 2s
-        resource-attributes:
-          environment: ${ALBAM_MATE_ENVIRONMENT}
-          stackId: ${ALBAM_MATE_STACK_ID}
-          service: albam-mate
-          role: ${ALBAM_MATE_ROLE}
-          instanceId: ${ALBAM_MATE_INSTANCE_ID}
-          release: ${ALBAM_MATE_RELEASE}
 
 logging:
   structured:
