@@ -91,10 +91,11 @@ function canonicalize(value) {
 
 function resultPayload(evidence) {
     const execution = structuredClone(evidence.execution);
+    const parameters = structuredClone(evidence.parameters);
     delete execution.startedAt;
     delete execution.completedAt;
     delete execution.resultSha256;
-    return canonicalize(execution);
+    return canonicalize({ execution, parameters });
 }
 
 export function resultSha256(evidence) {
@@ -233,8 +234,8 @@ export function validateLiveEvidence(evidence, options = {}) {
     assertEqual(evidence.schemaVersion, LIVE_EVIDENCE_SCHEMA_VERSION, `schemaVersion은 ${LIVE_EVIDENCE_SCHEMA_VERSION}이어야 합니다.`);
     assertEqual(evidence.kind, LIVE_EVIDENCE_KIND, "kind가 올바르지 않습니다.");
     assertEqual(evidence.issue, 1002, "issue는 1002여야 합니다.");
-    if (!["completed", "timeout-observed"].includes(evidence.status)) {
-        throw new Error("evidence status는 completed 또는 timeout-observed여야 합니다.");
+    if (!["completed", "timeout-observed", "failure-observed"].includes(evidence.status)) {
+        throw new Error("evidence status는 completed, timeout-observed 또는 failure-observed여야 합니다.");
     }
 
     const input = evidence.input;
@@ -336,8 +337,9 @@ export function validateLiveEvidence(evidence, options = {}) {
         "공통 deadline은 6초여야 합니다.");
     assertEqual(execution.parallel?.requestCount, EXECUTION_REQUEST_COUNT,
         "동시 실행 request 수가 8개 질의×5회가 아닙니다.");
-    assertEqual(execution.parallel?.completedCount + execution.parallel?.timeoutCount, EXECUTION_REQUEST_COUNT,
-        "동시 실행 완료·timeout request 수가 맞지 않습니다.");
+    assertEqual(execution.parallel?.completedCount + execution.parallel?.timeoutCount
+        + execution.parallel?.failureCount, EXECUTION_REQUEST_COUNT,
+        "동시 실행 완료·timeout·failure request 수가 맞지 않습니다.");
     if (!Array.isArray(execution.requests) || execution.requests.length !== EXECUTION_REQUEST_COUNT) {
         throw new Error("요청별 동시 실행 결과 40개를 모두 보존해야 합니다.");
     }
@@ -351,14 +353,21 @@ export function validateLiveEvidence(evidence, options = {}) {
         }
         assertEqual(request.deadlineMs, COMMON_DEADLINE_MS, `${request.queryId}.deadlineMs가 다릅니다.`);
         assertEqual(request.providerTimeoutMs, PROVIDER_TIMEOUT_MS, `${request.queryId}.providerTimeoutMs가 다릅니다.`);
+        if (!["completed", "timeout", "failure"].includes(request.status)) {
+            throw new Error(`${request.queryId} request 상태가 올바르지 않습니다.`);
+        }
         if (!["success", "timeout", "failure"].includes(request.dense?.status)) {
             throw new Error(`${request.queryId} Dense branch 상태가 올바르지 않습니다.`);
         }
         if (!["success", "timeout", "failure"].includes(request.sparse?.status)) {
             throw new Error(`${request.queryId} Sparse branch 상태가 올바르지 않습니다.`);
         }
-        if (request.completedWithinDeadline !== (request.dense.status === "success"
-            && request.sparse.status === "success")) {
+        const branchSucceeded = request.dense.status === "success" && request.sparse.status === "success";
+        const branchTimedOut = request.dense.status === "timeout" || request.sparse.status === "timeout";
+        const expectedRequestStatus = branchSucceeded && request.parallelElapsedMs < COMMON_DEADLINE_MS
+            ? "completed" : branchTimedOut || request.parallelElapsedMs >= COMMON_DEADLINE_MS ? "timeout" : "failure";
+        assertEqual(request.status, expectedRequestStatus, `${request.queryId} request 상태가 branch 결과와 다릅니다.`);
+        if (request.completedWithinDeadline !== (request.status === "completed")) {
             throw new Error(`${request.queryId} branch 상태와 deadline 결과가 다릅니다.`);
         }
         assertPositiveNumber(request.parallelElapsedMs, `${request.queryId}.parallelElapsedMs`);
@@ -375,16 +384,22 @@ export function validateLiveEvidence(evidence, options = {}) {
             assertPositiveNumber(request.fusionElapsedMs, `${request.queryId}.fusionElapsedMs`);
         }
     }
-    const timeoutRequestCount = execution.requests.filter((request) => !request.completedWithinDeadline).length;
+    const timeoutRequestCount = execution.requests.filter((request) => request.status === "timeout").length;
+    const failureRequestCount = execution.requests.filter((request) => request.status === "failure").length;
     assertEqual(execution.parallel.timeoutCount, timeoutRequestCount,
         "parallel timeoutCount와 요청별 timeout 수가 다릅니다.");
-    assertEqual(execution.parallel.completedCount, EXECUTION_REQUEST_COUNT - timeoutRequestCount,
-        "parallel completedCount와 요청별 완료 수가 다릅니다.");
-    if (evidence.status === "completed" && timeoutRequestCount !== 0) {
-        throw new Error("timeout request가 있는 실행을 completed로 기록할 수 없습니다.");
+    assertEqual(execution.parallel.completedCount, EXECUTION_REQUEST_COUNT - timeoutRequestCount - failureRequestCount,
+        "parallel completedCount와 요청별 timeout·failure 제외 수가 다릅니다.");
+    assertEqual(execution.parallel.failureCount, failureRequestCount,
+        "parallel failureCount와 요청별 failure 수가 다릅니다.");
+    if (evidence.status === "completed" && (timeoutRequestCount !== 0 || failureRequestCount !== 0)) {
+        throw new Error("timeout 또는 failure request가 있는 실행을 completed로 기록할 수 없습니다.");
     }
     if (evidence.status === "timeout-observed" && timeoutRequestCount === 0) {
         throw new Error("timeout-observed evidence에는 timeout request가 있어야 합니다.");
+    }
+    if (evidence.status === "failure-observed" && (timeoutRequestCount !== 0 || failureRequestCount === 0)) {
+        throw new Error("failure-observed evidence에는 timeout 없이 failure request가 있어야 합니다.");
     }
 
     const queries = execution.queries;
@@ -407,6 +422,10 @@ export function validateLiveEvidence(evidence, options = {}) {
         }
         if (!Array.isArray(query.denseTop20) || query.denseTop20.length !== 20) {
             throw new Error(`${query.id}.denseTop20은 20개여야 합니다.`);
+        }
+        if (!Array.isArray(query.servingSparseTop20InternalGameIds)
+            || query.servingSparseTop20InternalGameIds.length !== Math.min(query.servingSparseCount, 20)) {
+            throw new Error(`${query.id}.servingSparseTop20InternalGameIds가 serving 결과와 다릅니다.`);
         }
         if (!Array.isArray(query.candidateKComparison) || query.candidateKComparison.length !== CANDIDATE_K_VALUES.length) {
             throw new Error(`${query.id}.candidateKComparison이 불완전합니다.`);
@@ -434,6 +453,11 @@ export function validateLiveEvidence(evidence, options = {}) {
     assertEqual(evidence.parameters?.selected?.timeoutSeconds, SELECTED_TIMEOUT_SECONDS,
         "공통 timeout 확정값은 현재 6초여야 합니다.");
     assertPositiveNumber(evidence.parameters?.observedParallelP95Ms, "parameters.observedParallelP95Ms");
+    assertEqual(evidence.parameters.observedParallelP95Ms, execution.observedParallelP95Ms,
+        "parameters와 execution의 observed parallel p95가 다릅니다.");
+    assertEqual(execution.observedParallelP95Ms,
+        execution.phaseLatency.parallel.p95 + execution.phaseLatency.fusion.p95,
+        "observed parallel p95가 phase latency 합계와 다릅니다.");
     if (evidence.status === "completed" && evidence.parameters.observedParallelP95Ms >= COMMON_DEADLINE_MS) {
         throw new Error("관찰된 parallel p95가 6초 budget을 초과합니다.");
     }
@@ -542,7 +566,8 @@ async function runMeasurement(args) {
             servingSparseCount: servingSparseCandidates.length,
             denseTop20: denseCandidates.slice(0, 20).map((candidate) => candidate.gameId),
             sparseTop20: sparseCandidates.slice(0, 20).map((candidate) => candidate.gameId),
-            servingSparseTop20: servingSparseCandidates.slice(0, 20).map((candidate) => candidate.gameId),
+            servingSparseTop20InternalGameIds: servingSparseCandidates.slice(0, 20)
+                .map((candidate) => candidate.internalGameId),
             hybridTop20: hybridK200.slice(0, 20).map((candidate) => candidate.gameId),
             anchorRanks: {
                 dense: rankOf(denseCandidates, fixture.anchorGameId),
@@ -596,8 +621,9 @@ async function runMeasurement(args) {
         marginMs: timeoutSeconds * 1000 - observedParallelP95Ms,
         passesObservedBudget: observedParallelP95Ms < timeoutSeconds * 1000,
     }));
-    const timeoutCount = requests.filter((request) => !request.completedWithinDeadline).length;
-    const evidenceStatus = timeoutCount === 0 ? "completed" : "timeout-observed";
+    const timeoutCount = requests.filter((request) => request.status === "timeout").length;
+    const failureCount = requests.filter((request) => request.status === "failure").length;
+    const evidenceStatus = timeoutCount > 0 ? "timeout-observed" : failureCount > 0 ? "failure-observed" : "completed";
 
     const evidence = {
         schemaVersion: LIVE_EVIDENCE_SCHEMA_VERSION,
@@ -691,7 +717,8 @@ async function runMeasurement(args) {
                     requestCount: EXECUTION_REQUEST_COUNT,
                     queryCount: EXECUTION_REQUEST_COUNT,
                     successCount: requests.filter((request) => request.sparse.status === "success").length,
-                    timeoutCount,
+                    timeoutCount: requests.filter((request) => request.sparse.status === "timeout").length,
+                    failureCount: requests.filter((request) => request.sparse.status === "failure").length,
                     executionMs: phaseLatency.sparseServingSql,
                 },
                 corpus: {
@@ -715,9 +742,8 @@ async function runMeasurement(args) {
                 commonDeadlineMs: COMMON_DEADLINE_MS,
                 requestCount: requests.length,
                 completedCount: requests.filter((request) => request.completedWithinDeadline).length,
-                timeoutCount: requests.filter((request) => !request.completedWithinDeadline).length,
-                failureCount: requests.filter((request) => request.dense.status !== "success"
-                    || request.sparse.status !== "success").length,
+                timeoutCount,
+                failureCount,
             },
             resultSha256: null,
             requests,
@@ -737,7 +763,7 @@ async function runMeasurement(args) {
             recommendation: {
                 candidateK: "retain-200-until-quality-qrels",
                 rrfK: "retain-60-until-quality-qrels",
-                timeoutSeconds: timeoutCount === 0 ? "retain-6s" : "not-validated-timeout-observed",
+                timeoutSeconds: evidenceStatus === "completed" ? "retain-6s" : "not-validated-timeout-observed",
             },
         },
         runtime: {
@@ -827,6 +853,7 @@ async function measureConcurrentRound(fixture, round, context) {
         context.database.bggIdByInternalId,
         SERVING_SPARSE_CANDIDATE_LIMIT,
         controller.signal,
+        true,
     );
     const [denseOutcome, sparseOutcome] = await Promise.all([
         settleWithinDeadline(densePromise, startedAt, controller),
@@ -845,6 +872,10 @@ async function measureConcurrentRound(fixture, round, context) {
     const requestSucceeded = denseOutcome.status === "success"
         && sparseOutcome.status === "success"
         && parallelElapsedMs < COMMON_DEADLINE_MS;
+    const requestTimedOut = !requestSucceeded
+        && (denseOutcome.status === "timeout" || sparseOutcome.status === "timeout"
+            || parallelElapsedMs >= COMMON_DEADLINE_MS);
+    const requestStatus = requestSucceeded ? "completed" : requestTimedOut ? "timeout" : "failure";
     return {
         denseCandidates: denseValue?.dense.candidates ?? null,
         servingSparseCandidates: sparseValue?.candidates ?? null,
@@ -854,6 +885,7 @@ async function measureConcurrentRound(fixture, round, context) {
             deadlineMs: COMMON_DEADLINE_MS,
             providerTimeoutMs: PROVIDER_TIMEOUT_MS,
             parallelElapsedMs,
+            status: requestStatus,
             completedWithinDeadline: requestSucceeded,
             dense: {
                 status: denseOutcome.status,
@@ -910,23 +942,25 @@ async function measureDenseCandidates(queryVector, container, database, signal) 
     return { elapsedMs, candidates };
 }
 
-async function measureSparseCandidates(query, container, approvedInternalIds, bggIdByInternalId, limit, signal) {
+async function measureSparseCandidates(query, container, approvedInternalIds, bggIdByInternalId, limit, signal,
+    allowUnmapped = false) {
     const sql = sparseSql(query, approvedInternalIds, limit);
     const started = performance.now();
     const output = await runPsqlAsync(container, sql, signal);
     const elapsedMs = performance.now() - started;
-    return { elapsedMs, candidates: parseCandidateRows(output, bggIdByInternalId) };
+    return { elapsedMs, candidates: parseCandidateRows(output, bggIdByInternalId, allowUnmapped) };
 }
 
-function parseCandidateRows(output, bggIdByInternalId) {
+function parseCandidateRows(output, bggIdByInternalId, allowUnmapped = false) {
     if (output.trim() === "") return [];
     return output.trim().split(/\r?\n/u).map((line) => {
         const [internalId, score] = line.split("|").map(Number);
-        const gameId = bggIdByInternalId.get(internalId) ?? internalId;
-        if (!Number.isSafeInteger(gameId) || !Number.isFinite(score)) {
+        const mappedGameId = bggIdByInternalId.get(internalId);
+        if ((!allowUnmapped && mappedGameId === undefined)
+            || !Number.isSafeInteger(internalId) || !Number.isFinite(score)) {
             throw new Error(`candidate row가 올바르지 않습니다: ${line}`);
         }
-        return { gameId, score };
+        return { gameId: mappedGameId ?? internalId, internalGameId: internalId, score };
     });
 }
 
