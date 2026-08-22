@@ -26,17 +26,21 @@ BGG ID와 DB 내부 `games.id`는 서로 다른 식별자이므로, runner가 �
 ## 실행 경로와 재현
 
 - runner: [`search-04e-hybrid-rrf-live.mjs`](../../scripts/measurements/search-04e-hybrid-rrf-live.mjs)
+- 고정 execution manifest: [`search-04e-hybrid-rrf-live.manifest.json`](./search-04e-hybrid-rrf-live.manifest.json)
 - 보존 결과: [`search-04e-hybrid-rrf-live.json`](./search-04e-hybrid-rrf-live.json)
 - 회귀 검증: [`search-04e-hybrid-rrf-live.test.mjs`](../../scripts/measurements/search-04e-hybrid-rrf-live.test.mjs)
-- Dense: active pgvector index의 동일 corpus 1,000행과 Cloudflare Workers AI direct REST `@cf/baai/bge-m3` query embedding 40회(8개 질의×5회)
-- Sparse: `StructuredSparseCandidateSource`의 production SQL shape·field weight·public relation 조건을 실제 PostgreSQL에 실행. serving limit 200과 full-pool 비교를 위해 측정 query의 상한만 1,000으로 열어 둠
+- Dense: active pgvector index의 동일 corpus 1,000행에서 `PgVectorDenseCandidateSource`와 같은 top-1,000 SQL을 실행하고, Cloudflare Workers AI direct REST `@cf/baai/bge-m3` query embedding 40회(8개 질의×5회)를 같은 dense branch에서 측정
+- Sparse serving: `StructuredSparseCandidateSource`와 같은 전체 `games` 범위·field weight·public relation·`LIMIT 200` SQL을 실제 PostgreSQL에 40회 실행
+- Sparse corpus 비교: 승인 1,000개 내부 ID CTE와 `LIMIT 1000`을 별도 실행해 full-pool overlap 비교에만 사용. serving latency와 corpus 비교 latency를 섞지 않음
 - Fusion: Dense 1,000행과 Sparse full pool을 기준으로 K `[50, 100, 200, 400, 800, 1000]`, RRF k `[10, 30, 60, 100, 200]`을 비교
+- timeout: 각 질의에서 Dense(Cloudflare 5초 provider timeout + pgvector)와 Sparse serving을 실제로 동시에 시작하고, 공통 6초 deadline 안의 요청별 완료·실패·경과 시간을 보존
 
 ```bash
 set -a; . /path/to/albam-mate/.env; set +a
 node scripts/measurements/search-04e-hybrid-rrf-live.mjs \
   --search-text docs/p2/search-evaluation/dense-bge-m3/search-text-top1000.json \
   --postgres-container <postgres-container> \
+  --manifest docs/measurements/search-04e-hybrid-rrf-live.manifest.json \
   --out docs/measurements/search-04e-hybrid-rrf-live.json
 
 node scripts/measurements/search-04e-hybrid-rrf-live.mjs \
@@ -71,7 +75,7 @@ Common query 4개 모두 Sparse full count가 200을 넘고 Stone Age 질의 4�
 | Sparse SQL `EXPLAIN ANALYZE` | 8 | 69.456 | 130.873 | 130.873 |
 | Fusion | 40 | 0.314 | 0.552 | 0.808 |
 
-보수적으로 `max(Dense p95, Sparse p95) + Fusion p95`를 parallel p95 upper bound로 계산하면 `1,389.888ms`입니다. 2초 budget은 이 관찰값을 통과하지만, Cloudflare embedding client 계약의 자체 timeout이 5초이고 provider 지연 변동을 포함해야 하므로 공통 timeout `6초`는 유지합니다. 이 값은 실제 장애율·p99 SLO를 확정하는 측정이 아닙니다.
+`parallel` p95는 각 요청에서 Dense와 Sparse를 실제 동시 시작한 뒤 둘 다 완료할 때까지의 p95이고, `observedParallelP95Ms`는 여기에 실제 fusion p95를 더한 값입니다. Cloudflare provider timeout은 5초로 고정하고 공통 deadline은 6초로 비교합니다. 이 값은 실제 장애율·p99 SLO를 확정하는 측정이 아닙니다.
 
 ## 현재 상수 판정
 
@@ -85,7 +89,13 @@ Common query 4개 모두 Sparse full count가 200을 넘고 Stone Age 질의 4�
 
 `search-04e-hybrid-rrf-live.test.mjs`는 다음 변조를 실패시킵니다.
 
+- 고정 execution manifest·catalog release·quality corpus·search_text의 실제 bytes checksum 불일치
+- execution manifest에 기록한 runner commit/file checksum/source clean 상태 불일치
+- 결과·latency·요청별 완료 상태를 포함한 result digest 변조
 - 승인 corpus와 BGG/index membership checksum 불일치
+- production Dense pgvector SQL이 아닌 JS 순위 계산 또는 Dense 후보 상한 변조
+- production Sparse 전체 범위·`LIMIT 200`과 corpus `LIMIT 1000` 경계 변조
+- 5초 provider timeout·6초 공통 deadline·동시 실행 요청 결과 누락
 - `DenseCandidateSource`를 mock source로 대체하거나 승인되지 않은 query fixture 사용
 - Stone Age 4개와 common query 4개 중 하나 누락
 - common query에서 Sparse full count가 200을 넘지 않는 evidence

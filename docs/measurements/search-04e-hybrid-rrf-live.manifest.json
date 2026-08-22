@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "kind": "search-04e-hybrid-rrf-live-execution-manifest",
+  "issue": 1002,
+  "featureId": "SEARCH-04",
+  "catalogRelease": {
+    "path": "docs/game-catalog/catalog-dataset-release.json",
+    "sha256": "9b1341775977078d70ca91d741ad6420ec443ced6b50a98ab4ff46638fb9f2c5",
+    "releaseId": "bgg-catalog-170k-v4-2026-08-19",
+    "datasetId": "bgg-catalog-170k",
+    "fieldVersion": "catalog-fields-v1"
+  },
+  "qualityCorpus": {
+    "path": "docs/p2/search-evaluation/dense-bge-m3/quality-corpus.json",
+    "sha256": "0ce65a0ab500054c11548fe487afab8247b8f09282087f6db4d144d0783c87e8",
+    "rowCount": 1000,
+    "gameIdMembershipSha256": "87aff382f7a91bff93d5eddf4ee7b048bbef22e5e220a6295c0c09821d87a353"
+  },
+  "searchText": {
+    "path": "docs/p2/search-evaluation/dense-bge-m3/search-text-top1000.json",
+    "sha256": "ec364be3a34268d1bb6d27e3c41e2cdd31852565eec79fa31faaacda17af4ece",
+    "rowCount": 1000,
+    "gameIdMembershipSha256": "87aff382f7a91bff93d5eddf4ee7b048bbef22e5e220a6295c0c09821d87a353"
+  },
+  "executionInput": {
+    "path": "docs/p2/search-evaluation/lexical-sparse/fixtures/poc-search-text-manifest.json",
+    "sha256": "b9793fa757c953c3bbc7724f665160874274111b65fbec7bba9d06f63c854f40"
+  },
+  "runner": {
+    "path": "scripts/measurements/search-04e-hybrid-rrf-live.mjs",
+    "sourceGitHead": "b7c1395b8e4a305d3b45dc1589da712328e79ccb",
+    "fileSha256": "2142aa41938bea78eb4046e5b639333a894120d113d683df2fe60e42120b956a",
+    "sourceClean": true
+  },
+  "index": {
+    "id": "c245b97b-0b4e-43ec-987c-ea359e4a2e37",
+    "releaseId": "bgg-catalog-170k-v4-2026-08-19",
+    "fieldVersion": "catalog-fields-v1",
+    "manifestSha256": "fdcf8bacd8b8a7c5e8961c02b50ff727ca3460f6846b5b3dddc9dae16d1c1c92",
+    "searchTextChecksum": "ec364be3a34268d1bb6d27e3c41e2cdd31852565eec79fa31faaacda17af4ece",
+    "provider": "cloudflare-workers-ai",
+    "model": "@cf/baai/bge-m3",
+    "embeddingMode": "text",
+    "dimension": 1024,
+    "l2Normalized": true,
+    "status": "READY",
+    "rowCount": 1000,
+    "internalGameIdMembershipSha256": "fdcf8bacd8b8a7c5e8961c02b50ff727ca3460f6846b5b3dddc9dae16d1c1c92"
+  },
+  "result": {
+    "path": "docs/measurements/search-04e-hybrid-rrf-live.json",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  }
+}
