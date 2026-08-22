@@ -39,9 +39,16 @@ test('T1 workflow_run의 같은 저장소 develop 성공 CI head_sha만 배포 s
 
 test('T2 workflow는 SHA pin과 OIDC로 같은 revision의 ARM64 immutable digest를 검증한다', () => {
     const contents = reusableWorkflow();
+    const publishImagesJob = contents.slice(
+        contents.indexOf('  publish-images:'),
+        contents.indexOf('  deploy-p2:'),
+    );
 
     assert.match(contents, /^name:\s*P2 CD$/m);
     assert.match(contents, /workflow_call:/);
+    assert.match(publishImagesJob, /runs-on:\s*ubuntu-24\.04-arm/);
+    assert.match(publishImagesJob, /timeout-minutes:\s*20/);
+    assert.doesNotMatch(publishImagesJob, /runs-on:\s*ubuntu-latest/);
     assert.match(contents, /group:\s*p2-deploy/);
     assert.match(contents, /cancel-in-progress:\s*false/);
     assert.match(contents, /id-token:\s*write/);
