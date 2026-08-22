@@ -28,8 +28,8 @@
   },
   "runner": {
     "path": "scripts/measurements/search-04e-hybrid-rrf-live.mjs",
-    "sourceGitHead": "b7c1395b8e4a305d3b45dc1589da712328e79ccb",
-    "fileSha256": "2142aa41938bea78eb4046e5b639333a894120d113d683df2fe60e42120b956a",
+    "sourceGitHead": "f91782ce373f00ba715ad714034ddce5f7da31f5",
+    "fileSha256": "ec51e017a30d0385fc5149fbc064ea6eb63074ee244e2287ddebb8b8382b63fb",
     "sourceClean": true
   },
   "index": {
