@@ -19,6 +19,7 @@ jobs:
   publish-images:
     if: vars.P2_CD_ENABLED == 'true'
     runs-on: ubuntu-latest
+    environment: p2
     concurrency:
       group: p2-image-${{ inputs.source_sha }}
       cancel-in-progress: false
@@ -117,6 +118,7 @@ jobs:
     needs: publish-images
     if: vars.P2_CD_ENABLED == 'true'
     runs-on: ubuntu-latest
+    environment: p2
     concurrency:
       group: p2-deploy
       cancel-in-progress: false
