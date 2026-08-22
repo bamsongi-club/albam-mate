@@ -427,6 +427,15 @@ export function validateLiveEvidence(evidence, options = {}) {
             || query.servingSparseTop20InternalGameIds.length !== Math.min(query.servingSparseCount, 20)) {
             throw new Error(`${query.id}.servingSparseTop20InternalGameIds가 serving 결과와 다릅니다.`);
         }
+        if (!["completed", "timeout", "failure"].includes(query.servingSparseStatus)) {
+            throw new Error(`${query.id}.servingSparseStatus가 올바르지 않습니다.`);
+        }
+        if (query.servingSparseStatus === "completed" && query.servingSparseCount === 0) {
+            throw new Error(`${query.id} serving completed 결과가 비어 있습니다.`);
+        }
+        if (query.servingSparseStatus !== "completed" && query.servingSparseCount !== 0) {
+            throw new Error(`${query.id} serving 실패 결과에 후보가 남아 있습니다.`);
+        }
         if (!Array.isArray(query.candidateKComparison) || query.candidateKComparison.length !== CANDIDATE_K_VALUES.length) {
             throw new Error(`${query.id}.candidateKComparison이 불완전합니다.`);
         }
@@ -551,10 +560,13 @@ async function runMeasurement(args) {
             SEARCH_TEXT_ROW_COUNT,
         );
         sparseCorpusLatencies.push(corpusMeasurement.elapsedMs);
-        const successfulRound = rounds.find((round) => round.denseCandidates && round.servingSparseCandidates);
-        if (!successfulRound) throw new Error(`${fixture.id}에서 Dense·Sparse serving 성공 round를 확보하지 못했습니다.`);
-        const denseCandidates = successfulRound.denseCandidates;
-        const servingSparseCandidates = successfulRound.servingSparseCandidates;
+        const denseRound = rounds.find((round) => round.denseCandidates);
+        if (!denseRound) throw new Error(`${fixture.id}에서 Dense 성공 round를 확보하지 못했습니다.`);
+        const servingRound = rounds.find((round) => round.servingSparseCandidates);
+        const denseCandidates = denseRound.denseCandidates;
+        const servingSparseCandidates = servingRound?.servingSparseCandidates ?? [];
+        const servingSparseStatus = servingRound ? "completed"
+            : rounds.every((round) => round.request.sparse.status === "timeout") ? "timeout" : "failure";
         const sparseCandidates = corpusMeasurement.candidates;
         const referenceHybrid = fuse(denseCandidates, sparseCandidates, SELECTED_RRF_K);
         const hybridK200 = fuse(denseCandidates, sparseCandidates.slice(0, SELECTED_CANDIDATE_K), SELECTED_RRF_K);
@@ -566,6 +578,7 @@ async function runMeasurement(args) {
             servingSparseCount: servingSparseCandidates.length,
             denseTop20: denseCandidates.slice(0, 20).map((candidate) => candidate.gameId),
             sparseTop20: sparseCandidates.slice(0, 20).map((candidate) => candidate.gameId),
+            servingSparseStatus,
             servingSparseTop20InternalGameIds: servingSparseCandidates.slice(0, 20)
                 .map((candidate) => candidate.internalGameId),
             hybridTop20: hybridK200.slice(0, 20).map((candidate) => candidate.gameId),
