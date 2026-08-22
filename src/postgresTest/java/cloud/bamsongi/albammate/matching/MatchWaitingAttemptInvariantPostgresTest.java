@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.matching;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -115,7 +116,10 @@ class MatchWaitingAttemptInvariantPostgresTest extends SharedPostgresIntegration
 		matchRequestCommandService.create(pausedUserId, "find-again", new MatchRequestCreateRequest(2, 2));
 
 		assertNewRequestAttempt(pausedRequestId, pausedAttemptTime);
+	}
 
+	@Test
+	void PAUSED_요청의_인원_조건이_바뀌면_새_범위의_WAITING_요청을_생성한다() {
 		Instant rangeChangingAttemptTime = Instant.parse("2025-01-07T00:00:00Z");
 		long rangeChangingUserId = insertUser("find-again-range-change");
 		long oldPausedRequestId = insertRequest(
@@ -213,8 +217,13 @@ class MatchWaitingAttemptInvariantPostgresTest extends SharedPostgresIntegration
 
 	private void assertNewRequestAttempt(long requestId, Instant previousAttemptTime) {
 		assertRequestAttemptIsWaiting(requestId);
-		assertTrue(requestTime(requestId, "queued_at").isAfter(previousAttemptTime));
-		assertTrue(requestTime(requestId, "priority_since").isAfter(previousAttemptTime));
+		Instant queuedAt = requestTime(requestId, "queued_at");
+		Instant prioritySince = requestTime(requestId, "priority_since");
+		Instant observedDatabaseTime = currentDatabaseTime();
+
+		assertTrue(queuedAt.isAfter(previousAttemptTime));
+		assertEquals(queuedAt, prioritySince);
+		assertFalse(queuedAt.isAfter(observedDatabaseTime));
 	}
 
 	private void assertRequestAttemptIsWaiting(long requestId) {
@@ -238,5 +247,9 @@ class MatchWaitingAttemptInvariantPostgresTest extends SharedPostgresIntegration
 			.queryForObject("select " + columnName + " from match_requests where id = ?", Timestamp.class,
 				requestId)
 			.toInstant();
+	}
+
+	private Instant currentDatabaseTime() {
+		return jdbcTemplate.queryForObject("select current_timestamp", Timestamp.class).toInstant();
 	}
 }
