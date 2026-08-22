@@ -157,6 +157,8 @@ class MatchChatWebSocketHandlerTest {
 		long sensitiveUserId = 987654321L;
 		String sensitiveUrl = "https://private.example.test/?token=url-sentinel";
 		String sensitiveBody = "message-body-sentinel";
+		String sensitiveParticipantRef = "participant-ref-sensitive-sentinel";
+		String sensitiveNickname = "nickname-sensitive-sentinel";
 		when(matchPartyAccessQuery.evaluateChatAccess(USER_ID, PARTY_ID)).thenReturn(MatchPartyChatAccess.ALLOWED);
 		WebSocketSession session = connectedSession();
 		MatchChatWebSocketHandler handler = handler();
@@ -169,8 +171,8 @@ class MatchChatWebSocketHandlerTest {
 		when(matchChatMessageRepository.findByMatchChatRoomIdAndIdGreaterThanOrderByIdAsc(
 			MATCH_CHAT_ROOM_ID, 101L)).thenReturn(List.of(missingSenderMessage));
 		when(matchPartyParticipantRefQuery.findParticipantRefs(eq(PARTY_ID), anySet()))
-			.thenReturn(Map.of(sensitiveUserId, "participant-ref"), Map.of());
-		when(userQuery.findNicknamesByIds(anySet())).thenReturn(Map.of(sensitiveUserId, "nickname"), Map.of());
+			.thenReturn(Map.of(sensitiveUserId, sensitiveParticipantRef), Map.of());
+		when(userQuery.findNicknamesByIds(anySet())).thenReturn(Map.of(sensitiveUserId, sensitiveNickname), Map.of());
 		ListAppender<ILoggingEvent> appender = attachRootLogAppender();
 
 		try {
@@ -180,11 +182,15 @@ class MatchChatWebSocketHandlerTest {
 			ArgumentCaptor<TextMessage> sentMessage = ArgumentCaptor.forClass(TextMessage.class);
 			verify(session).sendMessage(sentMessage.capture());
 			assertTrue(sentMessage.getValue().getPayload().contains(sensitiveUrl));
+			assertTrue(sentMessage.getValue().getPayload().contains(sensitiveParticipantRef));
+			assertTrue(sentMessage.getValue().getPayload().contains(sensitiveNickname));
 			for (ILoggingEvent event : appender.list) {
 				String logged = event.getFormattedMessage() + " " + event.getKeyValuePairs();
 				assertFalse(logged.contains(sensitiveUrl));
 				assertFalse(logged.contains(sensitiveBody));
 				assertFalse(logged.contains(String.valueOf(sensitiveUserId)));
+				assertFalse(logged.contains(sensitiveParticipantRef));
+				assertFalse(logged.contains(sensitiveNickname));
 			}
 			meterRegistry.getMeters().stream()
 				.filter(meter -> meter.getId().getName().startsWith("match.chat."))
@@ -194,6 +200,8 @@ class MatchChatWebSocketHandlerTest {
 					assertFalse(tagKeyAndValue.contains(sensitiveUrl));
 					assertFalse(tagKeyAndValue.contains(sensitiveBody));
 					assertFalse(tagKeyAndValue.contains(String.valueOf(sensitiveUserId)));
+					assertFalse(tagKeyAndValue.contains(sensitiveParticipantRef));
+					assertFalse(tagKeyAndValue.contains(sensitiveNickname));
 				});
 		} finally {
 			detachRootLogAppender(appender);

@@ -27,6 +27,7 @@ import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.matching.contract.MatchChatCleanupPort;
 import cloud.bamsongi.albammate.matching.recovery.MatchClosedPartyCleanupExecutor;
+import cloud.bamsongi.albammate.matching.recovery.MatchPartyLifecycleExecutor;
 import cloud.bamsongi.albammate.matching.recovery.MatchRecoveryCoordinator;
 import cloud.bamsongi.albammate.testsupport.SharedPostgresIntegrationSupport;
 
@@ -48,6 +49,8 @@ class MatchChatAdapterTransactionPostgresTest extends SharedPostgresIntegrationS
 	private MatchChatCleanupPort matchChatCleanupPort;
 	@Autowired
 	private MatchClosedPartyCleanupExecutor matchClosedPartyCleanupExecutor;
+	@Autowired
+	private MatchPartyLifecycleExecutor matchPartyLifecycleExecutor;
 	@Autowired
 	private MatchRecoveryCoordinator matchRecoveryCoordinator;
 	@Autowired
@@ -311,25 +314,41 @@ class MatchChatAdapterTransactionPostgresTest extends SharedPostgresIntegrationS
 	}
 
 	private long insertRetainedClosedParty() {
+		long partyId = insertActivePartyDueForClosing();
+		matchPartyLifecycleExecutor.recover(partyId);
+		assertClosedPurgeDeadlineDerived(partyId);
+		return partyId;
+	}
+
+	private long insertPurgeDueClosedParty() {
+		long partyId = insertActivePartyDueForClosing();
+		matchPartyLifecycleExecutor.recover(partyId);
+		assertClosedPurgeDeadlineDerived(partyId);
+		jdbcTemplate.update(
+			"update match_parties set (closed_at, purge_after) = "
+				+ "(current_timestamp - interval '7 days' - interval '1 second', "
+				+ "current_timestamp - interval '1 second') where id = ?",
+			partyId);
+		assertClosedPurgeDeadlineDerived(partyId);
+		return partyId;
+	}
+
+	private long insertActivePartyDueForClosing() {
 		return jdbcTemplate.queryForObject(
 			"insert into match_parties "
-				+ "(status, preparing_started_at, chat_opened_at, closes_at, closed_at, purge_after, created_at, updated_at) "
-				+ "values ('CLOSED', current_timestamp - interval '8 days', current_timestamp - interval '8 days', "
-				+ "current_timestamp - interval '7 days', current_timestamp - interval '6 days', "
-				+ "current_timestamp + interval '1 day', "
+				+ "(status, preparing_started_at, chat_opened_at, closes_at, created_at, updated_at) "
+				+ "values ('ACTIVE', current_timestamp - interval '8 days', current_timestamp - interval '8 days', "
+				+ "current_timestamp - interval '1 second', "
 				+ "current_timestamp, current_timestamp) returning id",
 			Long.class);
 	}
 
-	private long insertPurgeDueClosedParty() {
-		return jdbcTemplate.queryForObject(
-			"insert into match_parties "
-				+ "(status, preparing_started_at, chat_opened_at, closes_at, closed_at, purge_after, created_at, updated_at) "
-				+ "values ('CLOSED', current_timestamp - interval '8 days', current_timestamp - interval '8 days', "
-				+ "current_timestamp - interval '7 days', current_timestamp - interval '7 days', "
-				+ "current_timestamp, "
-				+ "current_timestamp, current_timestamp) returning id",
-			Long.class);
+	private void assertClosedPurgeDeadlineDerived(long partyId) {
+		assertEquals(1, jdbcTemplate.queryForObject(
+			"select count(*) from match_parties where id = ? and status = 'CLOSED' "
+				+ "and purge_after = closed_at + interval '7 days'",
+			Integer.class,
+			partyId));
 	}
 
 	private long insertActivePartyWithChatRoom() {
