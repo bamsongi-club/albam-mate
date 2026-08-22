@@ -27,12 +27,25 @@
 
 ## release 경계
 
-기존 v4 release와 SEARCH-04 평가 산출물의 참조는 유지한다. v5 `catalog-dataset-release` manifest는 추가하지 않았으며, 실제 보정 산출물은 상충 후보의 사람 검수, 전체 재생성, release 실측, 별도 사람 승인이 모두 끝난 뒤에만 release로 취급한다.
+기존 v4 release(`bgg-catalog-170k-v4-2026-08-19`)와 SEARCH-04 평가 산출물의 참조는 유지한다. v4 manifest(`catalog-dataset-release.json`)는 변경하지 않는다.
+
+v5 release manifest(`catalog-dataset-release-v5.json`, `releaseId=bgg-catalog-170k-v5-2026-08-21`)를 추가했다. 이 release는 다음이 완료된 뒤 생성되었다.
+
+1. `bgg_id=327266` 상충 후보의 사람 최종 확정 (`네덜란드 저항군: 오렌지는 승리하리라!`)
+2. `bgg_id=370749` 보정 (`웬디, 어른이 되렴`)
+3. 자동 음차 게임명 제거 (7,874건 자동 보정)
+4. 전체 handoff 재생성 및 PostgreSQL 재적재 검증 (`verified-fresh-postgresql-import`)
+
+v5의 `01-games-full.sql` SHA-256은 `ea8a67108614d5d2115f3b4185abba025f50a32c01cc92520cb732e2bab2b500`(207,254,929 bytes)이다. `02-metadata-full.sql`은 metadata 변경이 없으므로 v4와 동일하다. BGG ID 집합(170,000), coverage 관계(mechanism: 428,488, theme: 461,973, playerPreference: 263,463)도 v4와 동일하다.
+
+통합 SQL `albam-mate-170k.sql` SHA-256은 `3210b0b4c3a72f51c4e6f86d11b6f38216bfeed65da5fa2ee7173e39589628ec`(251,826,175 bytes)이며, handoff package manifest와 SHA256SUMS로 추적한다.
 
 ## 검증 결과
 
 - `node --test --test-name-pattern='^T[1-4]:' scripts/game-catalog/game-name-correction.test.mjs`: 8/8 통과. 검수명 우선·상충 검수명 차단·XML 한글 alternate·XML primary fail-closed·provenance를 검증한다.
 - `postgresTest`의 exact T1~T4 selector: 4/4 통과. 적재, API 노출, 행 수·관계·내부 ID·checksum/provenance 보존을 검증한다.
-- 실제 후보 입력의 `bgg_id=327266` 상충은 새 handoff 재생성을 차단하는 기대 동작이다.
+- `bgg_id=327266` 상충은 사람 최종 확정으로 해소되었다. `human-name-decisions.json`에 결정이 기록되었고, rebuild-verification으로 최종 값을 검증했다.
+- v5 release manifest는 `catalog-dataset-release-manifest.test.mjs`의 구조 검증을 통과한다.
+- 기존 v4 테스트와 SEARCH-04 fixture는 영향 없이 유지된다.
 
 이번 변경은 게임명 산출·provenance와 데이터 적재에 한정하며, 게임 목록 정렬·가중치·인기점수·필터·스키마·관계 계약은 변경하지 않는다.

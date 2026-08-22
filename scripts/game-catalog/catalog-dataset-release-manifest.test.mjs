@@ -72,6 +72,57 @@ test('커밋된 승인 release manifest는 고정 profile과 승인·실측 선�
     });
 });
 
+test('커밋된 v5 승인 release manifest는 게임명 보정 후 고정 profile을 보존한다', () => {
+    const manifest = JSON.parse(
+        fs.readFileSync(new URL('../../docs/game-catalog/catalog-dataset-release-v5.json', import.meta.url)),
+    );
+
+    assert.deepEqual(validateCatalogDatasetReleaseManifest(manifest), manifest);
+    assert.equal(manifest.releaseId, 'bgg-catalog-170k-v5-2026-08-21');
+    assert.equal(manifest.approved, true);
+    assert.equal(manifest.testOnly, false);
+    assert.equal(manifest.datasetId, CATALOG_DATASET_ID);
+    assert.equal(manifest.fieldVersion, CATALOG_FIELD_VERSION);
+    assert.equal(manifest.sourceSnapshot.batchId, CATALOG_SOURCE_BATCH_ID);
+    assert.equal(manifest.sourceSnapshot.manifestSha256, CATALOG_SOURCE_MANIFEST_SHA256);
+    assert.equal(manifest.dataset.rows, CATALOG_DATASET_ROWS);
+    assert.deepEqual(manifest.artifacts['01'], {
+        status: 'approved',
+        path: '01-games-full.sql',
+        sha256: 'ea8a67108614d5d2115f3b4185abba025f50a32c01cc92520cb732e2bab2b500',
+        bytes: 207254929,
+    });
+    assert.deepEqual(manifest.artifacts['02'], {
+        status: 'approved',
+        path: '02-metadata-full.sql',
+        sha256: '65fac23bef6bd662b9b74c8f5adb754981236c35d89839509bcca76610790278',
+        bytes: 41650159,
+    });
+    for (const name of Object.keys(COVERAGE_SERIALIZATIONS)) {
+        assert.equal(manifest.coverage[name].rows, EXPECTED_COVERAGE_ROWS[name]);
+        assert.equal(manifest.coverage[name].serialization, COVERAGE_SERIALIZATIONS[name]);
+    }
+});
+
+test('v4와 v5 release는 서로 다른 releaseId와 01 artifact를 가진다', () => {
+    const v4 = JSON.parse(
+        fs.readFileSync(new URL('../../docs/game-catalog/catalog-dataset-release.json', import.meta.url)),
+    );
+    const v5 = JSON.parse(
+        fs.readFileSync(new URL('../../docs/game-catalog/catalog-dataset-release-v5.json', import.meta.url)),
+    );
+
+    assert.notEqual(v4.releaseId, v5.releaseId);
+    assert.notEqual(v4.artifacts['01'].sha256, v5.artifacts['01'].sha256);
+    assert.notEqual(v4.artifacts['01'].bytes, v5.artifacts['01'].bytes);
+    assert.equal(v4.artifacts['02'].sha256, v5.artifacts['02'].sha256);
+    assert.equal(v4.artifacts['02'].bytes, v5.artifacts['02'].bytes);
+    assert.equal(v4.datasetId, v5.datasetId);
+    assert.equal(v4.fieldVersion, v5.fieldVersion);
+    assert.equal(v4.sourceSnapshot.manifestSha256, v5.sourceSnapshot.manifestSha256);
+    assert.deepEqual(v4.coverage, v5.coverage);
+});
+
 test('catalog dataset release는 embedding 정보 없이 승인할 수 있다', () => {
     const manifest = validManifest();
     assert.deepEqual(validateCatalogDatasetReleaseManifest(manifest), manifest);
