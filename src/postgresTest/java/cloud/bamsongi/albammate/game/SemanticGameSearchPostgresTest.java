@@ -209,6 +209,27 @@ class SemanticGameSearchPostgresTest extends SharedPostgresIntegrationSupport {
 		verifyNoInteractions(candidateSource);
 	}
 
+	@Test
+	void T5_PostgreSQL에서_존재하지않는_category와_theme은_candidate_전에_VALIDATION_ERROR다() {
+		SemanticGameSearchRequest categoryRequest = new SemanticGameSearchRequest();
+		categoryRequest.setQuery("협력 게임");
+		categoryRequest.setCategory(List.of("UNKNOWN_CATEGORY_VALIDATION"));
+		SemanticGameSearchRequest themeRequest = new SemanticGameSearchRequest();
+		themeRequest.setQuery("협력 게임");
+		themeRequest.setTheme(List.of("UNKNOWN_THEME_VALIDATION"));
+
+		assertValidationError(categoryRequest);
+		assertValidationError(themeRequest);
+
+		verifyNoInteractions(candidateSource);
+	}
+
+	private void assertValidationError(SemanticGameSearchRequest request) {
+		BusinessException exception = assertThrows(BusinessException.class,
+			() -> semanticGameSearchQueryService.search(request, null));
+		assertEquals(ErrorCode.VALIDATION_ERROR, exception.getErrorCode());
+	}
+
 	private SemanticGameSearchQuery query(Long currentUserId, int page, int size) {
 		GameListRequest request = new GameListRequest();
 		request.setPlayerCount(2);

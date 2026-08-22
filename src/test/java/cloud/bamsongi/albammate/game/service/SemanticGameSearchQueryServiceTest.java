@@ -108,6 +108,24 @@ class SemanticGameSearchQueryServiceTest {
 	}
 
 	@Test
+	void T2_빈_metadata_filter는_저장소_검증없이_검색_criteria를_비운다() {
+		SemanticGameSearchRequest request = request("협력 게임");
+		request.setMechanism(List.of());
+		request.setCategory(List.of());
+		request.setTheme(List.of());
+		when(semanticGameSearch.search(any(SemanticGameSearchQuery.class))).thenReturn(emptySemanticResult());
+
+		service.search(request, null);
+
+		verifyNoInteractions(gameMechanismRepository, gameCategoryRepository, gameThemeRepository);
+		ArgumentCaptor<SemanticGameSearchQuery> queryCaptor = ArgumentCaptor.forClass(SemanticGameSearchQuery.class);
+		verify(semanticGameSearch).search(queryCaptor.capture());
+		assertEquals(List.of(), queryCaptor.getValue().criteria().getMechanisms());
+		assertEquals(List.of(), queryCaptor.getValue().criteria().getCategories());
+		assertEquals(List.of(), queryCaptor.getValue().criteria().getThemes());
+	}
+
+	@Test
 	void T4_유효한_hard_filter는_검증뒤_기존_no_result_페이지_의미를_유지한다() {
 		SemanticGameSearchRequest request = request("협력 게임");
 		request.setMechanism(List.of("WORKER_PLACEMENT"));
