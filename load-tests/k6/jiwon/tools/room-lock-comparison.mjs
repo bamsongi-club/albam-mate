@@ -1490,7 +1490,7 @@ function aggregateCampaign(values) {
       summary = readJson(summaryPath, 'k6 summary');
     }
     const sampleGate = sampleGateFor(run, summary);
-    const status = sampleGate.issues.length > 0 && finalResult.status === 'PASS'
+    const status = sampleGate.issues.length > 0
       ? 'INVALID'
       : finalResult.status;
     const metric = {

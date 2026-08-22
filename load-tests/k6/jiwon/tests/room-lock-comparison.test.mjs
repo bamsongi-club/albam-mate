@@ -17,7 +17,7 @@ const candidates = {
   C: '3333333333333333333333333333333333333333',
 };
 
-function aggregateReportFor({ contract = { corePairedRuns: 1 }, roomRequests = 2, droppedIterations = 0, httpRequests = 99 }) {
+function aggregateReportFor({ contract = { corePairedRuns: 1 }, roomRequests = 2, droppedIterations = 0, httpRequests = 99, finalStatus = 'PASS' }) {
   const root = mkdtempSync(path.join(tmpdir(), 'room-lock-aggregate-'));
   const bundle = path.join(root, 'bundle');
   mkdirSync(bundle, { recursive: true });
@@ -39,7 +39,7 @@ function aggregateReportFor({ contract = { corePairedRuns: 1 }, roomRequests = 2
     bundlePath: bundle,
   };
   const planPath = path.join(root, 'plan.json');
-  writeFileSync(path.join(bundle, 'final-result.json'), JSON.stringify({ status: 'PASS', issues: [] }));
+  writeFileSync(path.join(bundle, 'final-result.json'), JSON.stringify({ status: finalStatus, issues: [] }));
   writeFileSync(path.join(bundle, 'k6-summary.json'), JSON.stringify({
     metrics: {
       room_requests: { values: { count: roomRequests } },
@@ -213,12 +213,19 @@ test('constant-arrival sample mismatch와 dropped iteration은 run·campaign을 
   const report = aggregateReportFor({ roomRequests: 1, droppedIterations: 1 });
   const condition = report.candidates.A.conditions['t1/constant-mixed/c8'];
   const metric = condition.runs[0];
+  const failedRunReport = aggregateReportFor({
+    roomRequests: 1,
+    droppedIterations: 1,
+    finalStatus: 'FAIL',
+  });
+  const failedRunMetric = failedRunReport.candidates.A.conditions['t1/constant-mixed/c8'].runs[0];
 
   assert.equal(report.status, 'INVALID');
   assert.equal(metric.status, 'INVALID');
   assert.equal(metric.validSampleGate, false);
   assert.equal(metric.sampleGateIssues.length, 2);
   assert.equal(report.excludedRuns[0].reason, 'INVALID');
+  assert.equal(failedRunMetric.status, 'INVALID');
 });
 
 test('aggregate requiredCoreRuns는 신규·구형·누락 contract fallback을 각각 적용한다', () => {
