@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 import org.yaml.snakeyaml.Yaml;
@@ -138,6 +139,44 @@ class P2MonitoringContractTest {
 		assertTrue(monitoringOperations.contains("결정적 또는 보존 기간 만료"));
 		assertTrue(customizer.contains("\"deterministicfailure\""));
 		assertTrue(recorder.contains("addKeyValue(\"deterministicFailure\""));
+	}
+
+	@Test
+	void T4_OPS04_정상_OTLP_허용목록은_비용_gate의_17개_meter만_전송한다() {
+		Map<String, Object> productionRoot = new Yaml().load(read("src/main/resources/application-production.yml"));
+		Map<String, Object> enabled = map(map(productionRoot.get("management")).get("metrics"))
+			.get("enable") instanceof Map<?, ?> values ? map(values) : Map.of();
+		String monitoringOperations = read("docs/guides/MONITORING_OPERATIONS.md");
+
+		assertEquals(Set.of(
+			"http.server.requests", "jvm.memory.used", "jvm.memory.max", "tomcat.threads.busy",
+			"tomcat.threads.config.max", "hikaricp.connections.pending", "hikaricp.connections.max",
+			"albam.dependency.health",
+			"notification.relay.events", "notification.relay.delivery.duration",
+			"notification.relay.oldest.processable.age", "chat.message.operations", "room.waitlist.operations",
+			"assistant.usage.events", "assistant.usage.tokens", "assistant.usage.latency",
+			"assistant.cost.warning.events"),
+			enabled.keySet().stream().filter(key -> !key.equals("all")).collect(java.util.stream.Collectors.toSet()));
+		assertTrue(monitoringOperations.contains("정상 production OTLP 허용 목록은 아래 17개 meter만"));
+	}
+
+	@Test
+	void T5_OPS04_앱_입력은_두_instance에서_AI_18_series로_재현된다() {
+		String monitoringOperations = read("docs/guides/MONITORING_OPERATIONS.md");
+
+		assertTrue(monitoringOperations.contains("두 App instance에서 AI meter는 최대 18개 series"));
+		assertTrue(monitoringOperations.contains("기존 계정 기준선과 P2 증분 정적 상한"));
+		assertTrue(monitoringOperations.contains("`NO_OBSERVATION`"));
+	}
+
+	@Test
+	void T6_OPS04_상태는_배포전_비용_gate까지만_기록하고_실측을_대신하지_않는다() {
+		String readme = read("docs/p2/README.md");
+		String monitoringOperations = read("docs/guides/MONITORING_OPERATIONS.md");
+
+		assertTrue(readme.contains("앱 normal allowlist 17개와 두 App AI 18 series"));
+		assertTrue(readme.contains("미배포 | 미측정"));
+		assertTrue(monitoringOperations.contains("#823 앱 배포·#824 AI 운영 실측·#872"));
 	}
 
 	@Test

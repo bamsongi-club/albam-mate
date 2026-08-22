@@ -20,7 +20,7 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 class AiUsageRuntimeConfigurationTest {
 
 	@Test
-	void T2_cost_warning은_월이_바뀌어도_quota_month_series를_만들지_않는다() throws Exception {
+	void T2_cost_warning은_월이_바뀌어도_비용이나_quota_month_label을_만들지_않는다() throws Exception {
 		try (AnnotationConfigApplicationContext context = usageObservationContext()) {
 			AiCostWarningEventSink sink = context.getBean(AiCostWarningEventSink.class);
 			SimpleMeterRegistry meterRegistry = context.getBean(SimpleMeterRegistry.class);
@@ -33,15 +33,14 @@ class AiUsageRuntimeConfigurationTest {
 			sink.record(warning);
 			sink.record(followingMonthWarning);
 
-			assertEquals(2.0, meterRegistry.get("assistant.cost.warning.events")
-				.tag("warning_threshold_usd", "4.00").counter().count());
+			assertEquals(2.0, meterRegistry.get("assistant.cost.warning.events").counter().count());
 			assertEquals(1, meterRegistry.getMeters().stream()
 				.filter(meter -> meter.getId().getName().equals("assistant.cost.warning.events"))
 				.count());
 			assertEquals(false, meterRegistry.getMeters().stream()
 				.filter(meter -> meter.getId().getName().equals("assistant.cost.warning.events"))
 				.flatMap(meter -> meter.getId().getTags().stream())
-				.anyMatch(tag -> tag.getKey().equals("quota_month")));
+				.anyMatch(tag -> tag.getKey().equals("quota_month") || tag.getKey().contains("usd")));
 		}
 	}
 
