@@ -85,7 +85,16 @@ test('커밋된 v5 승인 release manifest는 게임명 보정 후 고정 profil
     assert.equal(manifest.fieldVersion, CATALOG_FIELD_VERSION);
     assert.equal(manifest.sourceSnapshot.batchId, CATALOG_SOURCE_BATCH_ID);
     assert.equal(manifest.sourceSnapshot.manifestSha256, CATALOG_SOURCE_MANIFEST_SHA256);
-    assert.equal(manifest.dataset.rows, CATALOG_DATASET_ROWS);
+    assert.deepEqual(manifest.approval, {
+        reviewedBy: 'beyejin',
+        reviewedAt: '2026-08-22T05:02:04.000Z',
+        references: ['https://github.com/bamsongi-club/albam-mate/issues/924#issuecomment-5378050658'],
+    });
+    assert.deepEqual(manifest.dataset, {
+        rows: 170000,
+        sha256: '16dc54a9b123328e7e4c58edcd7acfc7c9036bd2ca6dadf9a7b000f24fa682b0',
+        idSetSha256: '46277da6ad8173c69dc26478df461b00ca9425971a1daa698fb6da3da1fd4546',
+    });
     assert.deepEqual(manifest.artifacts['01'], {
         status: 'approved',
         path: '01-games-full.sql',
@@ -121,6 +130,7 @@ test('v4와 v5 release는 서로 다른 releaseId와 01 artifact를 가진다', 
     assert.equal(v4.fieldVersion, v5.fieldVersion);
     assert.equal(v4.sourceSnapshot.manifestSha256, v5.sourceSnapshot.manifestSha256);
     assert.deepEqual(v4.coverage, v5.coverage);
+    assert.deepEqual(v4.dataset, v5.dataset);
 });
 
 test('catalog dataset release는 embedding 정보 없이 승인할 수 있다', () => {
