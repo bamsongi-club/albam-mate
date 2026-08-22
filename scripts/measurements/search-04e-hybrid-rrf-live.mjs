@@ -50,7 +50,7 @@ const DEFAULT_SEARCH_TEXT = "docs/p2/search-evaluation/dense-bge-m3/search-text-
 const DEFAULT_OUTPUT = "docs/measurements/search-04e-hybrid-rrf-live.json";
 const DEFAULT_MANIFEST = "docs/measurements/search-04e-hybrid-rrf-live.manifest.json";
 // 이 값은 manifest 파일 자체의 bytes checksum이다. manifest를 바꾸면 이 상수도 함께 바꿔야 한다.
-const PINNED_MANIFEST_SHA256 = "f570b6d89cbd7ff0d7a20f501dddc13b7205eea4c1d4a369964f1de037560fa6";
+const PINNED_MANIFEST_SHA256 = "1e3a19cbbee508ec2d65fd35f14bccb543136f0fd9cd3edf90d30f3c0fed5bf5";
 const MODEL = Object.freeze({
     provider: "cloudflare-workers-ai",
     model: "@cf/baai/bge-m3",
