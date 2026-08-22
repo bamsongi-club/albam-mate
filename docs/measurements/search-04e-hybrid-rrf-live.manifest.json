@@ -28,9 +28,10 @@
   },
   "runner": {
     "path": "scripts/measurements/search-04e-hybrid-rrf-live.mjs",
-    "sourceGitHead": "26a746c22b97826618ffe2c21fb67d212958bdc9",
+    "sourceGitHead": "086b8e4378aea5b6673b274440b5adf28ce5b541",
     "fileSha256": "30d05620b42fd431bb22e889816d55c13419dd4b4aa29a2e90a14c9f0f6aecbb",
-    "sourceClean": true
+    "sourceClean": false,
+    "snapshotPath": "docs/measurements/results/search-04e-hybrid-rrf-live-runner-snapshot.mjs"
   },
   "index": {
     "id": "c245b97b-0b4e-43ec-987c-ea359e4a2e37",
