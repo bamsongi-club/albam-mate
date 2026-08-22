@@ -4,8 +4,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.data.domain.PageRequest;
@@ -20,11 +18,8 @@ import cloud.bamsongi.albammate.game.contract.GameRankingQuery;
 import cloud.bamsongi.albammate.game.dto.GameListRequest;
 import cloud.bamsongi.albammate.game.dto.GamePlayTimeFilter;
 import cloud.bamsongi.albammate.game.entity.Game;
-import cloud.bamsongi.albammate.game.repository.GameCategoryRepository;
 import cloud.bamsongi.albammate.game.repository.GameListSpecification;
-import cloud.bamsongi.albammate.game.repository.GameMechanismRepository;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
-import cloud.bamsongi.albammate.game.repository.GameThemeRepository;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -44,16 +39,11 @@ public class AssistantGameCandidateQueryService implements AssistantGameCandidat
 
 	private final GameRepository gameRepository;
 	private final GameRankingQuery gameRankingQuery;
-	private final GameCategoryRepository gameCategoryRepository;
-	private final GameMechanismRepository gameMechanismRepository;
-	private final GameThemeRepository gameThemeRepository;
+	private final GameFilterValidator gameFilterValidator;
 
 	@Override
 	public void validateCriteria(Criteria criteria) {
-		Objects.requireNonNull(criteria, "criteria");
-		validateCodes(criteria.categories(), gameCategoryRepository::countByCodeIn);
-		validateCodes(criteria.mechanisms(), gameMechanismRepository::countByCodeInAndIsPublicTrue);
-		validateCodes(criteria.themes(), gameThemeRepository::countByCodeIn);
+		gameFilterValidator.validate(toGameListSearchCriteria(criteria));
 		if (criteria.gameId() != null && !gameRepository.existsById(criteria.gameId())) {
 			throw new BusinessException(ErrorCode.VALIDATION_ERROR);
 		}
@@ -69,16 +59,7 @@ public class AssistantGameCandidateQueryService implements AssistantGameCandidat
 		Criteria criteria,
 		java.util.function.BiFunction<Specification<Game>, PageRequest, Slice<T>> candidateReader,
 		java.util.function.Function<T, Long> idExtractor) {
-		GameListRequest request = new GameListRequest();
-		request.setCategory(criteria.categories());
-		request.setMechanism(criteria.mechanisms());
-		request.setTheme(criteria.themes());
-		request.setComplexityMax(criteria.complexityMax());
-		request.setPlayerCount(criteria.playerCount());
-		if (criteria.playTimeMax() != null) {
-			request.setPlayTime(List.of(GamePlayTimeFilter.valueOf(criteria.playTimeMax())));
-		}
-		Specification<Game> specification = GameListSpecification.from(GameListSearchCriteria.from(request));
+		Specification<Game> specification = GameListSpecification.from(toGameListSearchCriteria(criteria));
 		if (criteria.gameId() != null) {
 			specification = specification.and(
 				(root, query, builder) -> builder.equal(root.get("id"), criteria.gameId()));
@@ -112,11 +93,17 @@ public class AssistantGameCandidateQueryService implements AssistantGameCandidat
 		}
 	}
 
-	private void validateCodes(List<String> requestedCodes, Function<List<String>, Long> countByCodes) {
-		List<String> codes = requestedCodes.stream().filter(Objects::nonNull).distinct().toList();
-		if (!codes.isEmpty() && countByCodes.apply(codes) != codes.size()) {
-			throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+	private GameListSearchCriteria toGameListSearchCriteria(Criteria criteria) {
+		GameListRequest request = new GameListRequest();
+		request.setCategory(criteria.categories());
+		request.setMechanism(criteria.mechanisms());
+		request.setTheme(criteria.themes());
+		request.setComplexityMax(criteria.complexityMax());
+		request.setPlayerCount(criteria.playerCount());
+		if (criteria.playTimeMax() != null) {
+			request.setPlayTime(List.of(GamePlayTimeFilter.valueOf(criteria.playTimeMax())));
 		}
+		return GameListSearchCriteria.from(request);
 	}
 
 	private record RankedCandidate<T>(T candidate, long roomCount, long id) {

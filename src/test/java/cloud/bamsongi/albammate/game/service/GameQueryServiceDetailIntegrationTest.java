@@ -32,6 +32,7 @@ import cloud.bamsongi.albammate.room.service.query.RoomUpcomingRoomCountQuery;
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Import({
 	GameQueryService.class,
+	GameFilterValidator.class,
 	GameDetailQueryService.class,
 	RoomUpcomingRoomCountQuery.class,
 	JpaConfig.class,

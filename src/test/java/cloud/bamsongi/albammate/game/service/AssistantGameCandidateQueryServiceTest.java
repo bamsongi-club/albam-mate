@@ -92,7 +92,9 @@ class AssistantGameCandidateQueryServiceTest {
 		when(gameRepository.existsById(42L)).thenReturn(true, false);
 
 		var service = new AssistantGameCandidateQueryService(
-			gameRepository, gameRankingQuery, categoryRepository, mechanismRepository, themeRepository);
+			gameRepository,
+			gameRankingQuery,
+			new GameFilterValidator(mechanismRepository, categoryRepository, themeRepository));
 
 		var criteriaWithGameId = new AssistantGameCandidateQuery.Criteria(
 			List.of("STRATEGY"), List.of("WORKER_PLACEMENT"), List.of("FANTASY"),
@@ -110,9 +112,10 @@ class AssistantGameCandidateQueryServiceTest {
 		return new AssistantGameCandidateQueryService(
 			gameRepository,
 			gameRankingQuery,
-			org.mockito.Mockito.mock(GameCategoryRepository.class),
-			org.mockito.Mockito.mock(GameMechanismRepository.class),
-			org.mockito.Mockito.mock(GameThemeRepository.class));
+			new GameFilterValidator(
+				org.mockito.Mockito.mock(GameMechanismRepository.class),
+				org.mockito.Mockito.mock(GameCategoryRepository.class),
+				org.mockito.Mockito.mock(GameThemeRepository.class)));
 	}
 
 	private AssistantRecommendationCandidate candidate(long id, String name) {
