@@ -1,51 +1,125 @@
-# SEARCH-04e Hybrid/RRF 회귀 evidence와 candidate K·RRF k·timeout 확정
+# SEARCH-04e Hybrid/RRF 동일 corpus live evidence
 
-> 문서 상태: 구현 완료(#983) · 담당: backend-developer(위임 실행) · 정본: [ADR-0088](../adr/game/0088-search-04-hybrid-rrf-parallel-candidate-generation.md), [docs/p2/search.md#search-04](../p2/search.md#search-04)
+> 문서 상태: #1002 live evidence 재생성 · `timeout-observed` (40건 중 34건 완료, 6건 timeout) · 현재 serving 계약값은 `K=200`, `RRF k=60`, 공통 timeout `6초`입니다. 이 문서는 [ADR-0088](../adr/game/0088-search-04-hybrid-rrf-parallel-candidate-generation.md)의 근거를 실제 승인 corpus와 production SQL shape로 갱신한 기록입니다.
 
-이 문서는 ADR-0088이 SEARCH-04 후속 serving으로 승인한 Dense + structured/sparse 독립 병렬 candidate 생성과
-RRF 결합을 실제로 구현(#983)하면서 만든 회귀 evidence를 보존한다. candidate K(sparse), RRF `k`, 공통 bounded
-timeout 값은 ADR-0086/0087/0088이 "이번 구현에서 evidence로 확정"하도록 열어 둔 실험값이며, 이 문서의 측정
-결과를 근거로 아래와 같이 확정한다.
+## 결론
 
-## 확정값과 근거
+이전 #983 evidence는 101개 합성 corpus와 `@MockitoBean DenseCandidateSource`를 사용했으므로 #1002의 production 상수 근거로 폐기합니다. 새 evidence는 승인된 1,000개 `search_text`, 같은 release와 active READY pgvector index, 실제 Cloudflare BGE-M3 query embedding, 실제 PostgreSQL sparse query shape를 고정해 8개 질의를 비교합니다.
 
-| 값 | 확정값 | 근거 |
-| --- | --- | --- |
-| Sparse candidate 상한(K) | 200 | `StructuredSparseCandidateSource`는 mechanism/category/theme/name/alias/description LIKE 매칭이라 dense pgvector candidate(1,000, `PgVectorDenseCandidateSource.CANDIDATE_LIMIT`, 이번 구현에서 소급 변경하지 않음)보다 훨씬 적은 후보로도 구조적 신호를 표현한다. 아래 회귀 실행에서 실제 sparse 매칭 건수는 질의당 1건(Stone Age 단독)이었고, 101-game 테스트 corpus 전체에서도 200을 넘는 매칭이 나오지 않았다. 200은 현재 ~1,000-game corpus 규모에서 구조화 신호가 명확한 후보를 자르지 않으면서도 무제한 증가를 막는 보수적 상한이다. |
-| RRF `k` | 60 | 정보검색 문헌에서 흔히 쓰는 기본값이며, 아래 회귀 실행에서 이 값으로 Stone Age 순위가 4개 질의 모두에서 Dense-only 대비 개선됨을 실제로 확인했다(모두 최종 순위 1위로 수렴). k를 늘리면 순위 격차가 큰 source의 영향력이 줄어들고, k를 줄이면 top-rank source가 과도하게 지배한다. 이번 corpus·질의 4개로는 k=60과 더 작은 값(예: 10)을 구분할 만한 tie 사례가 나오지 않아, 문헌 기본값을 그대로 채택했다. |
-| 공통 bounded timeout | 6초(`app.search.hybrid.candidate-timeout`, 기본값) | Dense candidate(`PgVectorDenseCandidateSource`)는 `CloudflareEmbeddingProperties.REQUEST_TIMEOUT`(5초, ADR-0087)에서 이미 자체 timeout 후 `SemanticSearchUnavailableException`으로 수렴한다. Hybrid 공통 timeout을 5초보다 짧게 두면 정상 지연 범위의 dense 응답까지 우리 쪽에서 먼저 잘라버릴 위험이 있으므로, dense 자체 timeout보다 여유를 둔 6초를 공통 상한으로 둔다. Sparse는 아래 실측에서 최대 24.138ms로 훨씬 빠르므로 6초 상한이 sparse의 정상 응답을 자르는 일은 없다. |
+현재 결과만으로는 품질 qrels 없이 `K=200`의 relevance 안전성을 최종 확정할 수 없습니다. full sparse pool의 top20과 비교하면 K=200 일치율은 질의별 16~19개, K=400은 19~20개, K=800은 20개였습니다. 따라서 serving 값은 기존 계약을 유지하되 `K=400`을 다음 품질 qrels 재검토의 우선 후보로 기록합니다. 이 문서는 qrels 없는 상태에서 K를 자동 승격하지 않습니다.
 
-## 실행 환경과 재현 방법
+실제 동시 실행에서는 Dense와 Sparse를 공통 6초 deadline으로 시작한 40건 중 34건이 완료되고 6건이 timeout되었습니다. 관찰된 parallel p95는 6,002.960ms, fusion을 포함한 `observedParallelP95Ms`는 6,004.534ms이므로 이번 evidence는 공통 timeout 6초의 통과 근거가 아니라 timeout 관측과 후속 성능 검토가 필요한 상태를 기록합니다.
 
-- 실행 코드: `src/postgresTest/java/cloud/bamsongi/albammate/game/HybridSemanticGameSearchRegressionPostgresTest.java`
-- 실행 명령: `./gradlew postgresTest --tests "cloud.bamsongi.albammate.game.HybridSemanticGameSearchRegressionPostgresTest" --no-daemon --rerun`
-- DB: Testcontainers PostgreSQL(`SharedPostgresIntegrationSupport`, pgvector 호환 PostgreSQL 18 이미지)
-- Dense candidate: 실제 Cloudflare 호출 없이, [ADR-0088](../adr/game/0088-search-04-hybrid-rrf-parallel-candidate-generation.md)이 이미 승인한 실측 Stone Age Dense-only 순위(38/15/12/97, #942 실제 Cloudflare BGE-M3 + pgvector index 기준)를 그대로 재현하는 합성 후보 목록을 `@MockitoBean DenseCandidateSource`로 주입했다.
-- Sparse candidate: 이번 구현의 실제 `StructuredSparseCandidateSource`를 Spring이 그대로 주입한 real bean으로 사용했다(mock 아님). PostgreSQL에 실제 SQL을 실행한다.
-- Corpus: filler game 100개(질의 어휘와 겹치지 않는 placeholder 이름·설명) + Stone Age 1개, mechanism `일꾼 놓기`/`Worker Placement` 1개, Stone Age에만 연결. 실제 승인 catalog(~1,000-game)보다 훨씬 작은 corpus이므로 latency 수치는 production 대표값이 아니라 이번 구현의 상대적 확인용 evidence다.
-- Stone Age 순위는 5회 반복 측정(warm-up 없이 그대로 포함) 중 마지막 회차 결과 기준이며, latency는 5회 각각의 `SemanticGameSearchService.search()` 호출 소요시간으로 p50/p95/p99/max를 계산했다.
-- gitCommit(측정 시점): `fbed058b0b91a610fd7bed0d47026fc564990cc8`(작업 시작 시점 HEAD)
+## 동일 corpus·release·index 고정
 
-## 회귀 질의 4개 결과
+| 항목 | 값 |
+| --- | --- |
+| 승인 corpus | [`search-text-top1000.json`](../p2/search-evaluation/dense-bge-m3/search-text-top1000.json), 1,000행 |
+| `search_text` SHA-256 | `ec364be3a34268d1bb6d27e3c41e2cdd31852565eec79fa31faaacda17af4ece` |
+| BGG game ID membership SHA-256 | `87aff382f7a91bff93d5eddf4ee7b048bbef22e5e220a6295c0c09821d87a353` |
+| execution manifest SHA-256 | `f61b97630e53edd3f6da6c421bbe4545e6efe2321ef676b0aa3377e2e3504b7b` |
+| catalog release / field | `bgg-catalog-170k-v4-2026-08-19` / `catalog-fields-v1` |
+| active index | `c245b97b-0b4e-43ec-987c-ea359e4a2e37`, `READY`, exact cosine |
+| index provider / model | `cloudflare-workers-ai` / `@cf/baai/bge-m3` |
+| dimension / normalization | 1,024 / L2 normalized |
+| 내부 game ID membership / manifest SHA-256 | `fdcf8bacd8b8a7c5e8961c02b50ff727ca3460f6846b5b3dddc9dae16d1c1c92` |
+| runner commit / file SHA-256 | `26a746c22b97826618ffe2c21fb67d212958bdc9` / `30d05620b42fd431bb22e889816d55c13419dd4b4aa29a2e90a14c9f0f6aecbb` |
+| runner source 상태 | clean |
+| execution result SHA-256 | `0c7570965bd504fdee115c073a27b655ec4f1e1394d747c27bcb6d79d82390bd` |
 
-| 질의 | Dense-only 순위(ADR-0088 실측 재현) | Hybrid/RRF 순위(이번 실측) | mode | latency p50 / p95 / p99 / max (ms) |
-| --- | ---: | ---: | --- | --- |
-| 일꾼 놓고 밥 먹이는 게임 | 38 | **1** | SEMANTIC | 5.963 / 7.703 / 7.703 / 7.703 |
-| 일꾼 배치하고 식량으로 부족을 부양하는 게임 | 15 | **1** | SEMANTIC | 6.107 / 24.138 / 24.138 / 24.138 |
-| place workers and feed your population | 12 | **1** | SEMANTIC | 3.948 / 5.38 / 5.38 / 5.38 |
-| worker placement and food management game | 97 | **1** | SEMANTIC | 8.475 / 13.215 / 13.215 / 13.215 |
+BGG ID와 DB 내부 `games.id`는 서로 다른 식별자이므로, runner가 승인 corpus의 BGG ID를 DB 내부 ID로 매핑한 뒤 index membership과 다시 대조합니다. Dense·corpus 비교 결과는 BGG ID로 기록하고, 전체 games serving 결과의 top20은 DB 내부 `games.id` namespace로 별도 기록합니다. index의 원시 vector나 provider 응답은 결과 artifact에 저장하지 않습니다.
 
-- 4개 질의 모두 mode는 `SEMANTIC`(dense·sparse 모두 성공 후 RRF 결합)이었고, hard filter 위반(존재하지 않는 game id 노출) 없음을 각 실행에서 함께 검증했다(`HybridSemanticGameSearchRegressionPostgresTest`의 `assertTrue` 단언).
-- Sparse가 Stone Age를 찾은 근거: mechanism `일꾼 놓기`/`Worker Placement`와 description(`이 게임은 일꾼 놓기 방식을 사용합니다. Players compete for food to feed their populations.`)에서 질의 토큰과 실제로 매칭됐다(질의 4개 모두 sparse 후보 목록에 Stone Age 단독 포함, 다른 filler는 매칭되지 않음).
-- 개선 여부와 무관하게 기록한다는 원칙에 따라 밝히면: 이번 합성 corpus·질의 조합에서는 4개 모두 개선됐다(38→1, 15→1, 12→1, 97→1). 이는 sparse 신호가 Stone Age에서만 고유하게 매칭되도록 corpus를 설계했기 때문이며, 실제 ~1,000-game production corpus에서의 개선 폭은 이 문서의 범위가 아니다(§ 유효성 경계 참고).
+## 실행 경로와 재현
 
-## 관찰한 추가 사실(참고용, 이번 구현 범위 밖)
+- runner: [`search-04e-hybrid-rrf-live.mjs`](../../scripts/measurements/search-04e-hybrid-rrf-live.mjs)
+- 고정 execution manifest: [`search-04e-hybrid-rrf-live.manifest.json`](./search-04e-hybrid-rrf-live.manifest.json)
+- 보존 결과: [`search-04e-hybrid-rrf-live.json`](./search-04e-hybrid-rrf-live.json)
+- 회귀 검증: [`search-04e-hybrid-rrf-live.test.mjs`](../../scripts/measurements/search-04e-hybrid-rrf-live.test.mjs)
+- Dense: active pgvector index의 동일 corpus 1,000행에서 `PgVectorDenseCandidateSource`와 같은 top-1,000 SQL을 실행하고, Cloudflare Workers AI direct REST `@cf/baai/bge-m3` query embedding 40회(8개 질의×5회)를 같은 dense branch에서 측정
+- Sparse serving: `StructuredSparseCandidateSource`와 같은 전체 `games` 범위·field weight·public relation·`LIMIT 200` SQL을 실제 PostgreSQL에 40회 실행
+- Sparse corpus 비교: 승인 1,000개 내부 ID CTE와 `LIMIT 1000`을 별도 실행해 full-pool overlap 비교에만 사용. serving latency와 corpus 비교 latency를 섞지 않음
+- Fusion: Dense 1,000행과 Sparse full pool을 기준으로 K `[50, 100, 200, 400, 800, 1000]`, RRF k `[10, 30, 60, 100, 200]`을 비교
+- timeout: 각 질의에서 Dense(Cloudflare 5초 provider timeout + pgvector)와 Sparse serving을 실제로 동시에 시작하고, 공통 6초 deadline 안의 요청별 status·완료·실패·경과 시간을 보존. 이번 실행은 40건 중 6건이 timeout-observed였습니다.
 
-- 진단 과정에서, 흔한 단어(`게임`처럼 한국어로 "game"을 뜻하는 일반명사)가 이름·설명에 그대로 들어간 filler fixture를 썼을 때 sparse 신호가 사실상 무의미한 tie로 붕괴함을 확인했다(첫 번째 diagnostic 실행에서 Stone Age가 개선되지 않고 Dense-only 순위를 그대로 유지). 이는 버그가 아니라 현재 scoring 방식(`count(distinct token) * weight`)이 흔한 단어를 걸러내지 않는다는 사실을 보여준다. production catalog에서 이런 흔한 단어가 구조적 신호를 희석할 가능성이 있으므로, 다음 재검토 시 stopword 처리나 IDF 가중치 도입을 고려할 근거로 남긴다. 이번 #983 구현 범위에는 포함하지 않는다.
-- `SemanticGameSearchService`의 dense/sparse 병렬 실행은 전용 daemon thread(`semantic-search-dense`, `semantic-search-sparse`)에서 수행된다. 이 회귀 테스트를 만드는 과정에서, PostgreSQL 테스트가 `@Transactional`로 열어 둔 미커밋 데이터는 테스트 메인 thread에서는 보이지만 서비스가 스폰한 별도 daemon thread에서는 보이지 않음을 실측으로 확인했다(Spring의 `DataSourceUtils` 트랜잭션 바인딩이 thread-local이기 때문). 그래서 이 회귀 테스트 클래스는 `@Transactional`을 쓰지 않고 각 fixture를 실제로 커밋한 뒤 `@AfterEach`로 정리한다. production에서는 catalog 데이터가 이미 커밋된 상태이므로 이 문제가 발생하지 않는다.
+```bash
+set -a; . /path/to/albam-mate/.env; set +a
+node scripts/measurements/search-04e-hybrid-rrf-live.mjs \
+  --search-text docs/p2/search-evaluation/dense-bge-m3/search-text-top1000.json \
+  --postgres-container <postgres-container> \
+  --manifest docs/measurements/search-04e-hybrid-rrf-live.manifest.json \
+  --out docs/measurements/search-04e-hybrid-rrf-live.json
 
-## 유효성 경계
+node scripts/measurements/search-04e-hybrid-rrf-live.mjs \
+  --validate docs/measurements/search-04e-hybrid-rrf-live.json \
+  --manifest docs/measurements/search-04e-hybrid-rrf-live.manifest.json
+node --test scripts/measurements/search-04e-hybrid-rrf-live.test.mjs
+```
 
-- 이 문서의 corpus는 101개 게임으로, 실제 ~1,000-game 승인 catalog보다 훨씬 작다. latency 수치는 이번 구현의 상대적 확인(sparse SQL이 밀리초 단위로 빠르게 끝나고, dense timeout budget을 침범하지 않는다는 것)에만 쓰고, production 용량·비용 근거로 확대 해석하지 않는다.
-- Dense candidate는 실제 Cloudflare 호출이 아니라 ADR-0088이 이미 확보한 실측 순위를 재현한 합성 목록이다. 실제 프로덕션 배포 뒤에는 Dense candidate 자체도 다시 실측해야 한다.
-- 이 문서는 candidate K·RRF k·timeout의 "이번 구현 확정값"과 그 근거만 다루며, SEARCH-04 전체 품질 평가(Recall@10/MRR@10/nDCG@10, human qrels)나 17만 catalog 확장은 다루지 않는다. 그 범위는 `docs/p2/search.md`의 완료 기준과 별도 evidence가 소유한다.
+실행 시 `CLOUDFLARE_ACCOUNT_ID`와 `CLOUDFLARE_API_TOKEN`의 존재만 확인하며 실제 token은 로그·artifact에 기록하지 않습니다. 현재 결과는 local active index에 대한 측정이며 production cutover를 의미하지 않습니다.
+
+## 회귀 질의와 candidate K 비교
+
+`overlap`은 각 K의 hybrid top20이 Sparse full pool을 K=1000으로 실행한 hybrid top20과 공유하는 개수입니다. `dropped`는 full-pool top20에서 빠진 개수입니다.
+
+| fixture | 질의 | sparse full | Dense anchor rank | K=200 overlap / dropped | K=400 overlap / dropped | K=800 overlap / dropped |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| STONE-01 | 일꾼 놓고 밥 먹이는 게임 | 1,000 | 38 | 17 / 3 | 20 / 0 | 20 / 0 |
+| STONE-02 | 일꾼 배치하고 식량으로 부족을 부양하는 게임 | 1,000 | 15 | 18 / 2 | 20 / 0 | 20 / 0 |
+| STONE-03 | place workers and feed your population | 763 | 12 | 19 / 1 | 20 / 0 | 20 / 0 |
+| STONE-04 | worker placement and food management game | 937 | 97 | 16 / 4 | 19 / 1 | 20 / 0 |
+| COMMON-01 | 게임 | 1,000 | - | 16 / 4 | 20 / 0 | 20 / 0 |
+| COMMON-02 | game | 731 | - | 17 / 3 | 19 / 1 | 20 / 0 |
+| COMMON-03 | 플레이어 | 273 | - | 18 / 2 | 20 / 0 | 20 / 0 |
+| COMMON-04 | 카드 게임 | 1,000 | - | 19 / 1 | 19 / 1 | 20 / 0 |
+
+Common query 4개 모두 Sparse full count가 200을 넘고 Stone Age 질의 4개도 같은 조건을 충족하므로, 이전 101-game corpus에서 불가능했던 truncation 비교를 실제 승인 corpus에서 수행했습니다. RRF k=60을 기준으로 top20 overlap 범위는 k=10에서 10~15개, k=30에서 15~19개, k=100에서 16~18개, k=200에서 13~17개였습니다. 이 지표는 relevance qrels를 대체하지 않으므로 RRF k=60은 보수적으로 유지합니다.
+
+## latency와 timeout
+
+| 단계 | samples | p50 (ms) | p95 (ms) | max (ms) |
+| --- | ---: | ---: | ---: | ---: |
+| Cloudflare Dense query embedding | 40 | 197.979 | 1,548.654 | 2,012.476 |
+| Dense pgvector candidate query | 40 | 99.957 | 509.879 | 1,135.408 |
+| Sparse serving SQL · all games `LIMIT 200` | 40 | 1,089.321 | 6,002.960 | 6,008.459 |
+| Sparse corpus SQL · approved corpus `LIMIT 1000` | 8 | 120.292 | 876.134 | 876.134 |
+| Parallel Dense + Sparse | 40 | 1,930.188 | 6,002.960 | 6,008.459 |
+| Fusion | 34 | 0.396 | 1.574 | 1.620 |
+
+`parallel` p95는 각 요청에서 Dense와 Sparse를 실제 동시 시작한 뒤의 요청별 경과시간 p95이고, `observedParallelP95Ms`는 여기에 완료된 요청의 fusion p95를 더한 `6,004.534ms`입니다. Cloudflare provider timeout은 5초로 고정하고 공통 deadline은 6초로 비교했습니다. 6건의 timeout이 관측되었으므로 공통 timeout 6초를 통과했다고 해석하지 않으며, 이 값은 실제 장애율·p99 SLO를 확정하는 측정도 아닙니다.
+
+## 현재 상수 판정
+
+| 상수 | 현재 serving 값 | 이번 live evidence 판정 |
+| --- | ---: | --- |
+| Sparse candidate K | 200 | 유지. full-pool top20 손실이 관찰되어 최종 relevance 안전성은 미확정이며 K=400을 다음 qrels 검토 후보로 기록 |
+| RRF k | 60 | 유지. 비교 결과는 기록했지만 8개 질의만으로 relevance 우열을 확정하지 않음 |
+| 공통 timeout | 6초 | 계약값은 유지하되 이번 실행은 `timeout-observed`로 판정. 40건 중 6건 timeout, `observedParallelP95Ms=6,004.534ms`이므로 6초 통과 근거로 사용하지 않음 |
+
+## 재발 방지 경계
+
+`search-04e-hybrid-rrf-live.test.mjs`는 다음 변조를 실패시킵니다.
+
+- 고정 execution manifest·catalog release·quality corpus·search_text의 실제 bytes checksum 불일치
+- execution manifest에 기록한 runner commit/file checksum/source clean 상태 불일치
+- 결과·latency·요청별 완료 상태를 포함한 result digest 변조
+- 승인 corpus와 BGG/index membership checksum 불일치
+- production Dense pgvector SQL이 아닌 JS 순위 계산 또는 Dense 후보 상한 변조
+- production Sparse 전체 범위·`LIMIT 200`과 corpus `LIMIT 1000` 경계 변조
+- 5초 provider timeout·6초 공통 deadline·동시 실행 요청 결과 누락
+- 요청 단위 `completed`·`timeout`·`failure` 상태 및 serving query status 변조
+- `DenseCandidateSource`를 mock source로 대체하거나 승인되지 않은 query fixture 사용
+- Stone Age 4개와 common query 4개 중 하나 누락
+- common query에서 Sparse full count가 200을 넘지 않는 evidence
+- active READY index의 row count·provider·model·dimension 불일치
+
+현재 repository의 `HybridSemanticGameSearchRegressionPostgresTest`는 구현-level smoke test로만 남아 있으며, mock Dense 결과를 사용하는 이전 101-game evidence를 대체하지 않습니다.
+
+## 폐기된 이전 evidence
+
+이전 문서 버전의 실행은 다음 이유로 #1002 acceptance evidence에서 제외합니다.
+
+- 101개 합성 corpus라 Sparse 결과가 200개를 넘을 수 없음
+- Dense가 실제 Cloudflare 호출이 아니라 `@MockitoBean DenseCandidateSource` 합성 목록임
+- 실제 승인 release/index와 Dense·Sparse가 같은 corpus를 사용했는지 검증하지 않음
+
+그 실행은 #983의 구현 smoke test 기록으로만 해석하며, candidate K·RRF k·timeout의 현재 live 근거로 사용하지 않습니다.

@@ -76,6 +76,16 @@ test("SEARCH-04 offline 평가 스크립트 변경은 Docs 계약 검증으로 �
   );
 });
 
+test("SEARCH-04e live evidence 검증기는 Docs 계약으로 처리한다", () => {
+  assert.deepEqual(
+    classifyCiPaths([
+      "scripts/measurements/search-04e-hybrid-rrf-live.mjs",
+      "scripts/measurements/search-04e-hybrid-rrf-live.test.mjs",
+    ]),
+    noBackend(false),
+  );
+});
+
 test("Docs가 직접 검증하지 않는 SEARCH-04 실행기는 backend로 분류한다", () => {
   for (const changedPath of [
     "scripts/search-evaluation/dense-bge-m3-execution.mjs",

@@ -10,6 +10,7 @@
 | PostgreSQL 테스트 분류 | `scripts/ci/classify-postgres-requirement.mjs` | GitHub Actions |
 | PostgreSQL 테스트 파티셔닝 | `scripts/ci/partition-postgres-tests.mjs` | GitHub Actions |
 | ROOM-09 실측 보고서 생성 | `scripts/measurements/room09-measurement-report.mjs` | 수동 |
+| SEARCH-04e 동일 corpus live evidence 생성·검증 | `scripts/measurements/search-04e-hybrid-rrf-live.mjs` | 수동, CI 계약 검증 |
 | Git hook 설치 | `scripts/hooks/install-git-hooks.ps1`, `scripts/hooks/install-git-hooks.sh` | 로컬 |
 | 게임 카탈로그 준비·검증 | `scripts/game-catalog/` | 수동 |
 | 백엔드 전달 검증 | `scripts/validate-packet.mjs`, `scripts/validate-backend-test-manifest.mjs`, `scripts/validate-coverage-ratchet.mjs`, `scripts/verify-changed-h2-coverage.mjs` | 에이전트, CI |
