@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 
 import {
+  aggregateCampaign,
   buildCampaignPlan,
   createComparisonFixturePlan,
   runtimeContractSource,
@@ -12,6 +16,52 @@ const candidates = {
   B: '2222222222222222222222222222222222222222',
   C: '3333333333333333333333333333333333333333',
 };
+
+function aggregateReportFor({ contract = { corePairedRuns: 1 }, roomRequests = 2, droppedIterations = 0, httpRequests = 99 }) {
+  const root = mkdtempSync(path.join(tmpdir(), 'room-lock-aggregate-'));
+  const bundle = path.join(root, 'bundle');
+  mkdirSync(bundle, { recursive: true });
+  const run = {
+    runId: 'aggregate-test-t1-constant-mixed-c8-r1-a',
+    pairId: 'aggregate-test-t1-constant-mixed-c8-r1',
+    sequence: 1,
+    scenario: 't1',
+    candidate: 'A',
+    candidateSha: candidates.A,
+    repetition: 1,
+    condition: {
+      id: 'constant-mixed',
+      executionModel: 'constant-arrival-rate',
+      concurrency: 8,
+      minimumValidSamples: 2,
+    },
+    runner: 'room-lock-comparison',
+    bundlePath: bundle,
+  };
+  const planPath = path.join(root, 'plan.json');
+  writeFileSync(path.join(bundle, 'final-result.json'), JSON.stringify({ status: 'PASS', issues: [] }));
+  writeFileSync(path.join(bundle, 'k6-summary.json'), JSON.stringify({
+    metrics: {
+      room_requests: { values: { count: roomRequests } },
+      room_success: { values: { count: roomRequests } },
+      http_reqs: { values: { count: httpRequests } },
+      dropped_iterations: { values: { count: droppedIterations } },
+    },
+  }));
+  writeFileSync(planPath, JSON.stringify({
+    schemaVersion: 1,
+    campaignId: 'aggregate-test',
+    candidates,
+    ...(contract === undefined ? {} : { contract }),
+    runs: [run],
+  }));
+
+  try {
+    return aggregateCampaign({ plan: planPath });
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
 
 test('campaign plan은 A/B/C를 고정 순서가 아닌 paired/crossover로 core 10회·회귀 5회 배치한다', () => {
   const plan = buildCampaignPlan({
@@ -33,6 +83,7 @@ test('campaign plan은 A/B/C를 고정 순서가 아닌 paired/crossover로 core
   assert.equal(plan.contract.constantArrivalTailRequestTarget, 5000);
   assert.deepEqual(plan.contract.constantArrivalTailConditions, ['constant-hot', 'constant-mixed']);
   assert.deepEqual(plan.contract.constantArrivalTailConcurrencyLevels, [8, 16]);
+  assert.equal('constantArrivalDurationSeconds' in plan.contract, false);
 
   const pairGroups = new Map();
   for (const run of plan.runs) {
@@ -105,6 +156,80 @@ test('constant mixed c4 fixture는 기존 60초·240 요청 baseline을 유지�
   assert.equal(plan.durationSeconds, 60);
   assert.equal(plan.minimumValidSamples, 240);
   assert.equal(plan.targets.length, 240);
+});
+
+test('constant hot c8 fixture는 625초·5000개 hot target을 만든다', () => {
+  const plan = createComparisonFixturePlan({
+    scenario: 't1',
+    runId: 'cmp1026-t1-constant-hot-c8-r1-a',
+    candidate: 'A',
+    candidateSha: candidates.A,
+    conditionId: 'constant-hot',
+    executionModel: 'constant-arrival-rate',
+    distribution: 'hot',
+    concurrency: 8,
+  });
+
+  assert.equal(plan.rounds, 625);
+  assert.equal(plan.durationSeconds, 625);
+  assert.equal(plan.minimumValidSamples, 5000);
+  assert.equal(plan.tailRequestTarget, 5000);
+  assert.equal(plan.targets.length, 5000);
+  assert.ok(plan.targets.every((target) => target.distribution === 'hot'));
+});
+
+test('constant mixed c8 fixture는 정확히 625초·5000개 표본을 고정한다', () => {
+  const plan = createComparisonFixturePlan({
+    scenario: 't1',
+    runId: 'cmp1026-t1-constant-mixed-c8-r1-a',
+    candidate: 'A',
+    candidateSha: candidates.A,
+    conditionId: 'constant-mixed',
+    executionModel: 'constant-arrival-rate',
+    distribution: 'mixed',
+    concurrency: 8,
+  });
+
+  assert.equal(plan.durationSeconds, 625);
+  assert.equal(plan.minimumValidSamples, 5000);
+  assert.equal(plan.tailRequestTarget, 5000);
+  assert.equal(plan.targets.length, 5000);
+  assert.equal(plan.targets.filter((target) => target.distribution === 'hot').length, 2500);
+  assert.equal(plan.targets.filter((target) => target.distribution === 'spread').length, 2500);
+});
+
+test('constant-arrival sample gate는 setup http_reqs가 아니라 measurement room_requests를 사용한다', () => {
+  const report = aggregateReportFor({ roomRequests: 2, droppedIterations: 0, httpRequests: 99 });
+  const metric = report.candidates.A.conditions['t1/constant-mixed/c8'].runs[0];
+
+  assert.equal(report.status, 'PASS');
+  assert.equal(metric.requestCount, 2);
+  assert.equal(metric.droppedIterations, 0);
+  assert.equal(metric.validSampleGate, true);
+  assert.deepEqual(metric.sampleGateIssues, []);
+});
+
+test('constant-arrival sample mismatch와 dropped iteration은 run·campaign을 INVALID로 만든다', () => {
+  const report = aggregateReportFor({ roomRequests: 1, droppedIterations: 1 });
+  const condition = report.candidates.A.conditions['t1/constant-mixed/c8'];
+  const metric = condition.runs[0];
+
+  assert.equal(report.status, 'INVALID');
+  assert.equal(metric.status, 'INVALID');
+  assert.equal(metric.validSampleGate, false);
+  assert.equal(metric.sampleGateIssues.length, 2);
+  assert.equal(report.excludedRuns[0].reason, 'INVALID');
+});
+
+test('aggregate requiredCoreRuns는 신규·구형·누락 contract fallback을 각각 적용한다', () => {
+  const current = aggregateReportFor({ contract: { corePairedRuns: 1 } });
+  const legacy = aggregateReportFor({ contract: { minPairedRuns: 1 } });
+  const missing = aggregateReportFor({ contract: {} });
+
+  assert.equal(current.status, 'PASS');
+  assert.equal(legacy.status, 'PASS');
+  assert.equal(missing.status, 'INVALID');
+  assert.equal(missing.candidates.A.conditions['t1/constant-mixed/c8'].requiredRuns, 10);
 });
 
 test('T1 barrier fixture는 T1 cancel/promotion fixture를 만든다', () => {

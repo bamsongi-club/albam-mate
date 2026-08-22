@@ -545,7 +545,6 @@ export function buildCampaignPlan({ campaignId, candidates, seed = campaignId })
       concurrencyLevels: CONCURRENCY_LEVELS,
       barrierRounds: BARRIER_ROUNDS,
       constantArrivalBaselineDurationSeconds: CONSTANT_BASELINE_DURATION_SECONDS,
-      constantArrivalDurationSeconds: CONSTANT_BASELINE_DURATION_SECONDS,
       constantArrivalTailRequestTarget: CONSTANT_TAIL_REQUEST_TARGET,
       constantArrivalTailConditions: [...CONSTANT_TAIL_CONDITIONS],
       constantArrivalTailConcurrencyLevels: [...CONSTANT_TAIL_CONCURRENCY_LEVELS],
@@ -1381,6 +1380,25 @@ function countMetric(summary, name) {
   return Number.isSafeInteger(value) ? value : null;
 }
 
+function sampleGateFor(run, summary) {
+  const requestCount = countMetric(summary, 'room_requests');
+  if (run.condition.executionModel !== 'constant-arrival-rate') {
+    return { requestCount, droppedIterations: null, issues: [] };
+  }
+
+  const droppedIterations = countMetric(summary, 'dropped_iterations');
+  const issues = [];
+  if (requestCount !== run.condition.minimumValidSamples) {
+    issues.push(
+      `measurement room_requests=${requestCount}이며 expected=${run.condition.minimumValidSamples}와 다릅니다.`,
+    );
+  }
+  if (droppedIterations !== 0) {
+    issues.push(`dropped_iterations=${droppedIterations}이며 0이 아닙니다.`);
+  }
+  return { requestCount, droppedIterations, issues };
+}
+
 function aggregateCampaign(values) {
   const plan = readJson(path.resolve(text(values.plan, '--plan')), 'campaign plan');
   if (plan.schemaVersion !== 1 || !Array.isArray(plan.runs)) {
@@ -1471,19 +1489,24 @@ function aggregateCampaign(values) {
     if (existsSync(summaryPath)) {
       summary = readJson(summaryPath, 'k6 summary');
     }
+    const sampleGate = sampleGateFor(run, summary);
+    const status = sampleGate.issues.length > 0 && finalResult.status === 'PASS'
+      ? 'INVALID'
+      : finalResult.status;
     const metric = {
       runId: run.runId,
       pairId: run.pairId,
       sequence: run.sequence,
-      status: finalResult.status,
-      requestCount: countMetric(summary, 'room_requests'),
+      status,
+      requestCount: sampleGate.requestCount,
       successCount: countMetric(summary, 'room_success'),
+      droppedIterations: sampleGate.droppedIterations,
       p95: metricValues(summary, 'http_req_duration')?.['p(95)'] ?? null,
       p99: metricValues(summary, 'http_req_duration')?.['p(99)'] ?? null,
       rps: finalResult.resourceSignals?.http?.rps ?? null,
       validSampleGate: run.condition.executionModel === 'constant-arrival-rate'
-        ? countMetric(summary, 'http_reqs') === run.condition.minimumValidSamples
-        : false,
+        && sampleGate.issues.length === 0,
+      sampleGateIssues: sampleGate.issues,
     };
     conditionReport.runs.push(metric);
     const eligibleStatuses = conditionReport.runs.length === requiredCoreRuns
@@ -1493,6 +1516,10 @@ function aggregateCampaign(values) {
       && conditionReport.runs.every((item) => item.validSampleGate);
     conditionReport.metrics = conditionReport.runs;
     report.candidates[run.candidate].conditions[conditionId] = conditionReport;
+    if (sampleGate.issues.length > 0) {
+      report.status = 'INVALID';
+      report.excludedRuns.push({ runId: run.runId, reason: 'INVALID', issues: sampleGate.issues });
+    }
     if (finalResult.status !== 'PASS') {
       report.excludedRuns.push({ runId: run.runId, reason: finalResult.status, issues: finalResult.issues });
     }
@@ -1572,6 +1599,7 @@ if (isMainModule) {
 
 export {
   CONDITION_TEMPLATES,
+  aggregateCampaign,
   createComparisonFixturePlan,
   conditionFor,
   normalizedComparisonInput,

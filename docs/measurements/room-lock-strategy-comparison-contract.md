@@ -47,7 +47,7 @@ constant-arrival-rate의 rate는 기존 값을 유지한다.
 - c2/c4 baseline: 60초, 최소 유효 표본 `c × 60` — 각각 120·240 요청
 - `constant-hot`·`constant-mixed`의 c8/c16 tail: 실행당 최소 5,000 요청을 위해 `ceil(5000 / c)`초 — c8=625초·5,000 요청, c16=313초·5,008 요청
 - c16의 pre-allocated VU `32`, max VU `64`를 유지하고, 다른 수준도 rate의 2배·4배 headroom 규칙을 적용한다.
-- 모든 constant-arrival 실행은 `http_reqs`가 `minimumValidSamples`와 정확히 같고 `dropped_iterations=0`이어야 한다. VU 부족이나 요청 수 불일치는 `INVALID`다.
+- 모든 constant-arrival 실행은 측정 구간의 `room_requests`가 `minimumValidSamples`와 정확히 같고 `dropped_iterations=0`이어야 한다. setup·로그인 요청까지 포함하는 `http_reqs`는 이 gate에 사용하지 않는다. VU 부족이나 요청 수 불일치는 `INVALID`다.
 - fixture 준비·로그인·정리 비용은 측정 요청 지연에 포함하지 않으며, 실행 시간 창은 k6 `run-manifest.json`의 UTC 시작·종료 시각으로 고정한다.
 
 `constant-mixed`는 하나의 fixture 안에서 요청 절반을 같은 hot ROOM에, 나머지 절반을 서로 다른 spread ROOM에 배치한다. 따라서 hot 경합과 spread 대조군이 같은 release·환경·실행 창에 존재한다.
