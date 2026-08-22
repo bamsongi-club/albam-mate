@@ -1022,6 +1022,7 @@ PostgreSQL에 커밋된 매칭 요청·제안·성공 파티·채팅 접근 관�
 | `consentVersion` | string | Y | N | 동의문 버전 |
 | `policyVersion` | string | Y | N | 확인한 provider 정책 버전 |
 | `policyUrl` | string(uri) | Y | N | 확인한 provider 정책 주소 |
+| `retentionMode` | string | Y | N | `default-30d`(OpenAI 기본 abuse-monitoring 보존 최대 30일 수용) 또는 `zero-data-retention` |
 | `store` | boolean | Y | N | provider 요청 저장 옵션. 항상 `false` |
 | `grantedAt` | string(date-time) | Y | Y | 동의 시각. 동의 전·철회 상태에서는 `null` |
 | `revokedAt` | string(date-time) | Y | Y | 철회 시각. 현재 철회 이력이 없으면 `null` |
@@ -2024,7 +2025,7 @@ Vary: Cookie
 
 > **도입 단계: P2** · **기능: AI-01·AI-02·AI-03** · **API 계약 상태: 계약 확정** · **제공 상태: AI-01a T1~T5와 AI-03a T1~T6 검증 범위 제공**
 >
-> 이 절의 AI-01 동의·AI-02 자연어 추천과 AI-03 초안·확인 경로는 현재 제공한다. 외부 provider·보존 경계는 [ADR-0074](adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md), AI-02의 호출 quota·고정 예약 비용·정확 게임명 직접 조회는 [ADR-0085](adr/platform/0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md), 초안·확인·멱등성은 [ADR-0075](adr/room/0075-p2-ai-draft-confirmation-and-idempotent-room-command.md), 지역은 [ADR-0076](adr/room/0076-p2-room-region-closed-set-and-compatibility.md)을 따른다. ADR-0085의 후보 DTO·직접 조회는 #951에서 제공하며, 제공 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)에서 판정한다.
+> 이 절의 AI-01 동의·AI-02 자연어 추천과 AI-03 초안·확인 경로는 현재 제공한다. 외부 provider·동의·기본 보존 mode는 [ADR-0074](adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md)와 [ADR-0089](adr/platform/0089-p2-ai-openai-default-retention-and-smoke-gate.md), AI-02의 호출 quota·고정 예약 비용·정확 게임명 직접 조회는 [ADR-0085](adr/platform/0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md), 초안·확인·멱등성은 [ADR-0075](adr/room/0075-p2-ai-draft-confirmation-and-idempotent-room-command.md), 지역은 [ADR-0076](adr/room/0076-p2-room-region-closed-set-and-compatibility.md)을 따른다. ADR-0085의 후보 DTO·직접 조회는 #951에서 제공하며, 제공 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)에서 판정한다.
 
 모든 AI 기능군 API는 로그인한 현재 사용자만 호출한다. `GET`은 CSRF가 필요 없고 상태 변경 `PUT`·`POST`·`PATCH`·`DELETE`는 세션과 CSRF가 필요하다. 유효한 외부 처리 동의가 없으면 provider 호출·추천·초안 생성·확인을 시작하지 않는다. AI-01은 동의·제품 흐름, AI-02는 자연어 추천, AI-03은 확인형 초안·Room 생성 경로를 소유하며, 기존 `POST /api/rooms` 즉시 생성 경로는 유지한다.
 
@@ -2036,7 +2037,7 @@ Vary: Cookie
 | 인증 / CSRF | 필요 / 불필요 |
 | 성공 | `200 OK`, `data`: `AssistantConsentResponse` |
 
-동의가 아직 저장되지 않았으면 `status = NOT_GRANTED`를 반환한다. 이 조회는 provider를 호출하지 않는다. `policyVersion`·`policyUrl`은 현재 배포가 확인한 provider 정책만 반환하며, 확인할 수 없는 정책은 동의 승인 대상이 아니다.
+동의가 아직 저장되지 않았으면 `status = NOT_GRANTED`를 반환한다. 이 조회는 provider를 호출하지 않는다. `policyVersion`·`policyUrl`·`retentionMode`는 현재 배포가 확인한 provider 정책과 보존 mode를 반환하며, 확인할 수 없는 값은 동의 승인 대상이 아니다.
 
 ### AI-01 동의 변경
 
@@ -2060,7 +2061,7 @@ Vary: Cookie
 | `decision` | AssistantConsentDecision | Y | N | `GRANT` 또는 `REVOKE` |
 | `consentVersion` | string | 조건부 | Y | `GRANT`일 때 현재 동의문 버전과 일치해야 함. `REVOKE`에서는 생략 |
 
-`REVOKE`는 새 provider 호출과 활성 초안 생성을 막고, 현재 활성 초안을 `DISCARDED`로 종결한다. 동의 원문·사용자 자연어·provider token은 저장하지 않는다. `GRANT`는 현재 provider 정책의 no-retention·no-training 확인이 끝난 경우에만 저장한다. 이 전제를 확인할 수 없으면 `503 ASSISTANT_NOT_ENABLED`로 fail-closed 한다. 이 endpoint는 provider를 호출하지 않으므로 `ASSISTANT_PROVIDER_UNAVAILABLE`을 사용하지 않는다. `GRANT`의 판정 순서는 `UNAUTHENTICATED` → `CSRF_TOKEN_INVALID` → `ASSISTANT_NOT_ENABLED` → `VALIDATION_ERROR` → `ASSISTANT_CONSENT_VERSION_MISMATCH`다. `REVOKE`의 판정 순서는 `UNAUTHENTICATED` → `CSRF_TOKEN_INVALID` → `VALIDATION_ERROR`이며 `ASSISTANT_NOT_ENABLED`와 `ASSISTANT_CONSENT_VERSION_MISMATCH`를 적용하지 않는다. 따라서 기능이 비활성이어도 사용자는 항상 동의를 철회할 수 있다.
+`REVOKE`는 새 provider 호출과 활성 초안 생성을 막고, 현재 활성 초안을 `DISCARDED`로 종결한다. 동의 원문·사용자 자연어·provider token은 저장하지 않는다. `GRANT`는 유효한 retention mode와 no-training, `store=false`, policy version/URL을 확인한 경우에만 저장한다. `default-30d`는 OpenAI 기본 abuse-monitoring 보존(최대 30일)을 수용하는 mode이며 ZDR/no-retention 확인을 요구하지 않는다. `zero-data-retention`은 ZDR/MAM 확인과 no-retention 검증이 필요하다. 이 전제를 확인할 수 없으면 `503 ASSISTANT_NOT_ENABLED`로 fail-closed 한다. 이 endpoint는 provider를 호출하지 않으므로 `ASSISTANT_PROVIDER_UNAVAILABLE`을 사용하지 않는다. `GRANT`의 판정 순서는 `UNAUTHENTICATED` → `CSRF_TOKEN_INVALID` → `ASSISTANT_NOT_ENABLED` → `VALIDATION_ERROR` → `ASSISTANT_CONSENT_VERSION_MISMATCH`다. `REVOKE`의 판정 순서는 `UNAUTHENTICATED` → `CSRF_TOKEN_INVALID` → `VALIDATION_ERROR`이며 `ASSISTANT_NOT_ENABLED`와 `ASSISTANT_CONSENT_VERSION_MISMATCH`를 적용하지 않는다. 따라서 기능이 비활성이어도 사용자는 항상 동의를 철회할 수 있다.
 
 ### AI-02 자연어 추천
 

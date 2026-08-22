@@ -10,6 +10,7 @@ const NOT_GRANTED = {
   consentVersion: 'AI-01-CONSENT-V1',
   policyVersion: 'OPENAI-2026-08',
   policyUrl: 'https://example.com/provider-policy',
+  retentionMode: 'default-30d',
   store: false,
   grantedAt: null,
   revokedAt: null
@@ -82,6 +83,7 @@ describe('AI 모임 도우미 화면', () => {
     render(<AssistantView onBack={vi.fn()} onNavigate={vi.fn()} />);
 
     await waitFor(() => expect(screen.getByRole('heading', { name: 'AI 사용 동의' })).toBeTruthy());
+    expect(screen.getByText('OpenAI 기본 보존(최대 30일)')).toBeTruthy();
     expect(screen.queryByLabelText('알밤봇에게 묻기')).toBeNull();
 
     await act(async () => { screen.getByRole('button', { name: '동의하고 시작하기' }).click(); });
@@ -243,6 +245,29 @@ describe('AI 모임 도우미 화면', () => {
     fireEvent.change(screen.getByLabelText('총 인원'), { target: { value: '4' } });
     await act(async () => { screen.getByRole('button', { name: '확인 카드 만들기' }).click(); });
     await waitFor(() => expect(createDraft).toHaveBeenCalledTimes(1));
+  });
+
+  it('직접 입력은 후보 확인창을 닫고 별도 모달로 연다', async () => {
+    vi.spyOn(api, 'recommendAssistant').mockResolvedValue(recommendation({
+      conditions: {
+        categories: ['COOPERATIVE'], mechanisms: [], themes: [], playerCount: null, startsAt: null,
+        region: '홍대', experienceLevel: 'BEGINNER_WELCOME'
+      }
+    }));
+    const createDraft = vi.spyOn(api, 'createAssistantDraft');
+    render(<AssistantView onBack={vi.fn()} onNavigate={vi.fn()} />);
+
+    await requestRecommendation();
+    await act(async () => { screen.getByRole('button', { name: '이 게임으로 모임 만들기' }).click(); });
+    await act(async () => { screen.getByRole('button', { name: '내가 직접 채우기' }).click(); });
+
+    expect(screen.queryByRole('dialog', { name: '이 게임으로 모임 만들기' })).toBeNull();
+    expect(screen.getByRole('dialog', { name: '모임 정보 입력' })).toBeTruthy();
+    expect(screen.getByRole('form', { name: 'AI 초안 만들기' }).closest('[role="dialog"]')).toBeTruthy();
+    expect(createDraft).not.toHaveBeenCalled();
+
+    await act(async () => { screen.getByRole('button', { name: '모임 정보 입력 닫기' }).click(); });
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
   it('활성 초안 조회의 410은 만료 안내와 새 흐름 시작 행동으로 끝낸다', async () => {

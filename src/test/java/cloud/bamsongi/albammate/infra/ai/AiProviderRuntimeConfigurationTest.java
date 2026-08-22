@@ -42,8 +42,9 @@ class AiProviderRuntimeConfigurationTest {
 		openAiProperties.setProvider("local-openai");
 		openAiProperties.setEnabled(true);
 		openAiProperties.setProviderConfigured(true);
-		openAiProperties.setNoRetentionVerified(true);
+		openAiProperties.setNoRetentionVerified(false);
 		openAiProperties.setNoTrainingVerified(true);
+		openAiProperties.setRetentionMode("default-30d");
 		openAiProperties.setPolicyVersion("OPENAI-POLICY-V1");
 		openAiProperties.setPolicyUrl("https://example.com/openai-policy");
 		openAiProperties.setPricingSnapshot("OPENAI-PRICING-V1");
@@ -147,10 +148,10 @@ class AiProviderRuntimeConfigurationTest {
 	void T1_fake_provider는_외부_보존학습_검증없이도_결정적_로컬_경로를_사용할_수_있다() {
 		AiProviderSettings fakeSettings = new AiProviderSettings(
 			"fake", true, true, false, false, "", "", "gpt-5.6-luna", Duration.ofSeconds(10), 0, false,
-			"", BigDecimal.ZERO, BigDecimal.ZERO, 4096, 256, new BigDecimal("0.10"));
+			"", BigDecimal.ZERO, BigDecimal.ZERO, 4096, 256, new BigDecimal("0.10"), "unverified");
 		AiProviderSettings openAiSettings = new AiProviderSettings(
 			"local-openai", true, true, false, false, "", "", "gpt-5.6-luna", Duration.ofSeconds(10), 0, false,
-			"", BigDecimal.ZERO, BigDecimal.ZERO, 4096, 256, new BigDecimal("0.10"));
+			"", BigDecimal.ZERO, BigDecimal.ZERO, 4096, 256, new BigDecimal("0.10"), "unverified");
 
 		assertTrue(fakeSettings.readyForCall());
 		assertFalse(openAiSettings.readyForCall());
@@ -181,8 +182,9 @@ class AiProviderRuntimeConfigurationTest {
 		properties.setProvider("local-openai");
 		properties.setEnabled(true);
 		properties.setProviderConfigured(true);
-		properties.setNoRetentionVerified(true);
+		properties.setNoRetentionVerified(false);
 		properties.setNoTrainingVerified(true);
+		properties.setRetentionMode("default-30d");
 		properties.setPolicyVersion("OPENAI-POLICY-V1");
 		properties.setPolicyUrl("https://example.com/openai-policy");
 		properties.setPricingSnapshot("OPENAI-PRICING-V1");

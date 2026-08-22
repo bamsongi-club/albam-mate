@@ -855,6 +855,7 @@ erDiagram
 | provider | VARCHAR(20) | NN, `CHECK (provider = 'OPENAI')` | 현재 승인 provider |
 | policy_version | VARCHAR(100) | NN | 확인한 provider 정책 버전 |
 | policy_url | VARCHAR(500) | NN | 확인한 provider 정책 주소 |
+| retention_mode | VARCHAR(30) | NN, `CHECK (retention_mode IN ('default-30d', 'zero-data-retention', 'unverified'))` | GRANT 당시 retention mode. migration 이전 행은 `unverified`이며 재동의 전 현재 GRANT가 될 수 없음 |
 | store | BOOLEAN | NN, `CHECK (store = FALSE)` | provider 요청 저장 금지 |
 | granted_at | TIMESTAMPTZ | NULL | 마지막 동의 시각 |
 | revoked_at | TIMESTAMPTZ | NULL | 마지막 철회 시각 |
@@ -909,7 +910,7 @@ erDiagram
 
 | 대상 | 제약 또는 인덱스 | 의미 |
 |---|---|---|
-| ASSISTANT_CONSENTS | `UNIQUE (user_id)` 및 status·provider·store CHECK | 한 사용자의 최신 동의와 승인된 provider 정책만 저장한다. |
+| ASSISTANT_CONSENTS | `UNIQUE (user_id)` 및 status·provider·retention_mode·store CHECK | 한 사용자의 최신 동의와 승인된 provider 정책·retention mode만 저장한다. |
 | ASSISTANT_DRAFTS | `uq_assistant_drafts_active_user`: `UNIQUE (user_id) WHERE status = 'ACTIVE'` | 한 사용자당 활성 초안을 하나로 제한한다. |
 | ASSISTANT_DRAFTS | `ck_assistant_drafts_room_type`, `ck_assistant_drafts_experience_level`, `ck_assistant_drafts_region`, `ck_assistant_drafts_capacity` | 기존 Room 값 집합·네 지역·모집 정원 범위를 DB에서도 제한한다. |
 | ASSISTANT_DRAFTS | `ck_assistant_drafts_place_before_confirm`: `status <> 'CONFIRMED' OR place IS NOT NULL` | `ACTIVE`·`DISCARDED` 초안은 장소가 NULL일 수 있고, `CONFIRMED` 초안은 사용자 장소 입력 없이는 저장하지 않는다. |

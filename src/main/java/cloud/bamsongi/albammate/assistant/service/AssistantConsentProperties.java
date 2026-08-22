@@ -16,14 +16,15 @@ public class AssistantConsentProperties {
 	private boolean store;
 	private String policyVersion = "";
 	private String policyUrl = "";
+	private String retentionMode = "unverified";
 	private String consentVersion = DEFAULT_CONSENT_VERSION;
 
 	public boolean isGrantable() {
 		return enabled
 			&& isSupportedProvider()
 			&& ("fake".equals(provider) || providerConfigured)
-			&& noRetentionVerified
-			&& noTrainingVerified
+			&& ("fake".equals(provider) || retentionPolicyReady())
+			&& ("fake".equals(provider) || noTrainingVerified)
 			&& !store
 			&& hasText(policyVersion)
 			&& hasText(policyUrl)
@@ -74,6 +75,14 @@ public class AssistantConsentProperties {
 		this.policyUrl = policyUrl;
 	}
 
+	public String getRetentionMode() {
+		return retentionMode;
+	}
+
+	public void setRetentionMode(String retentionMode) {
+		this.retentionMode = retentionMode;
+	}
+
 	public String getConsentVersion() {
 		return consentVersion;
 	}
@@ -96,5 +105,13 @@ public class AssistantConsentProperties {
 
 	private boolean hasText(String value) {
 		return value != null && !value.isBlank();
+	}
+
+	private boolean retentionPolicyReady() {
+		return switch (retentionMode) {
+			case "default-30d" -> !noRetentionVerified;
+			case "zero-data-retention" -> noRetentionVerified;
+			default -> false;
+		};
 	}
 }

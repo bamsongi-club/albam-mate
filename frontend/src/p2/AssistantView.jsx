@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import { ApiError, api } from '../api';
 import { Cover, ErrorBox, SendIcon, TopBar } from '../shared/ui';
 
@@ -137,6 +137,12 @@ function formatStartsAt(value) {
   }).format(date);
 }
 
+function retentionModeLabel(value) {
+  if (value === 'default-30d') return 'OpenAI 기본 보존(최대 30일)';
+  if (value === 'zero-data-retention') return 'ZDR(보존 제외)';
+  return '확인되지 않음';
+}
+
 function newIdempotencyKey() {
   return globalThis.crypto?.randomUUID?.() || 'assistant-' + Date.now() + '-' + Math.random().toString(36).slice(2);
 }
@@ -150,6 +156,7 @@ function ConsentCard({ consent, pending, onGrant }) {
       <dl className="assistant-policy-summary">
         <div><dt>처리 제공자</dt><dd>OpenAI</dd></div>
         <div><dt>저장 설정</dt><dd>{consent.store ? '저장 가능' : '저장하지 않음'}</dd></div>
+        <div><dt>보존 정책</dt><dd>{retentionModeLabel(consent.retentionMode)}</dd></div>
         <div><dt>정책 버전</dt><dd>{consent.policyVersion}</dd></div>
       </dl>
       <a className="assistant-policy-link" href={consent.policyUrl} target="_blank" rel="noreferrer noopener">provider 정책 보기</a>
@@ -176,12 +183,81 @@ function RecommendationResult({ result, selectedCandidate, onSelectCandidate, on
                   {candidate.description && <span>{candidate.description}</span>}
                 </span>
               </a>
-              <button className="assistant-candidate-cta" type="button" onClick={() => onSelectCandidate(candidate)}>이 게임으로 모임 만들기</button>
+              <button className="assistant-candidate-cta" type="button" onClick={(event) => onSelectCandidate(candidate, event.currentTarget)}>이 게임으로 모임 만들기</button>
             </article>
           );
         })}
       </div>
     </section>
+  );
+}
+
+function AssistantModal({ title, kicker, onClose, closeLabel, returnFocusRef, children, className = '' }) {
+  const dialogRef = useRef(null);
+  const triggerRef = useRef(document.activeElement);
+  const onCloseRef = useRef(onClose);
+  const titleId = useId();
+  onCloseRef.current = onClose;
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return undefined;
+    const focusable = () => [...dialog.querySelectorAll('button, a[href], input, select, textarea')]
+      .filter((node) => !node.disabled);
+    const focusTimer = window.setTimeout(() => {
+      const autofocus = dialog.querySelector('[data-modal-autofocus]');
+      (autofocus || focusable()[0])?.focus();
+    }, 0);
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onCloseRef.current();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const nodes = focusable();
+      if (!nodes.length) return;
+      const first = nodes[0];
+      const last = nodes[nodes.length - 1];
+      const inside = dialog.contains(document.activeElement);
+      if (event.shiftKey ? (document.activeElement === first || !inside) : (document.activeElement === last || !inside)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+      }
+    };
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.clearTimeout(focusTimer);
+      window.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      const trigger = returnFocusRef?.current || triggerRef.current;
+      if (trigger && trigger.isConnected !== false && typeof trigger.focus === 'function') trigger.focus();
+    };
+  }, [returnFocusRef]);
+
+  const close = () => onCloseRef.current();
+  return (
+    <div className="sheet-backdrop assistant-modal-backdrop" role="presentation" onMouseDown={close}>
+      <section
+        className={'sheet assistant-modal' + (className ? ' ' + className : '')}
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="assistant-modal-head">
+          <div className="assistant-modal-heading">
+            {kicker && <p className="assistant-modal-kicker">{kicker}</p>}
+            <h2 id={titleId}>{title}</h2>
+          </div>
+          <button type="button" className="assistant-modal-close" aria-label={closeLabel} onClick={close}>닫기</button>
+        </div>
+        <div className="assistant-modal-body">{children}</div>
+      </section>
+    </div>
   );
 }
 
@@ -226,9 +302,9 @@ function DraftCreationForm({ candidate, initialForm, onChange, onCreate }) {
   };
 
   return (
-    <form className="assistant-card assistant-draft-form" onSubmit={submit} aria-label="AI 초안 만들기">
-      <p className="assistant-eyebrow">확인 전에는 모임이 만들어지지 않아요</p>
-      <h2>{candidateName(candidate)} 모임 정보</h2>
+    <form className="assistant-modal-form" onSubmit={submit} aria-label="AI 초안 만들기">
+      <p className="assistant-modal-lead">{candidateName(candidate)}을(를) 기준으로 모임 정보를 정해주세요.</p>
+      <p className="assistant-modal-note">확인 카드를 만든 뒤에도 장소를 바꾸거나 실제 방 생성을 취소할 수 있어요.</p>
       <div className="field">
         <label className="field-label" htmlFor="assistant-draft-title">모임 제목</label>
         <input id="assistant-draft-title" className="field-input" value={form.title} maxLength="100" onChange={(event) => updateForm({ title: event.target.value })} />
@@ -264,54 +340,35 @@ function DraftCreationForm({ candidate, initialForm, onChange, onCreate }) {
         <label className="field-label" htmlFor="assistant-draft-description">소개 (선택)</label>
         <textarea id="assistant-draft-description" className="field-input" value={form.description} maxLength="255" onChange={(event) => updateForm({ description: event.target.value })} />
       </div>
-      <label className="assistant-checkbox"><input type="checkbox" checked={form.isRulemasterLed} onChange={(event) => updateForm({ isRulemasterLed: event.target.checked })} /> 룰 설명을 진행할게요</label>
-      {error && <p className="field-hint warn" role="alert">{error}</p>}
-      <button className="btn" type="submit" disabled={saving}>{saving ? '초안을 만드는 중…' : '확인 카드 만들기'}</button>
+      <label className="assistant-checkbox"><input type="checkbox" checked={form.isRulemasterLed} onChange={(event) => updateForm({ isRulemasterLed: event.target.checked })} /><span>룰 설명을 진행할게요</span></label>
+      <div className="assistant-modal-form-actions">
+        {error && <p className="field-hint warn" role="alert">{error}</p>}
+        <button className="btn" type="submit" disabled={saving} data-modal-autofocus>{saving ? '초안을 만드는 중…' : '확인 카드 만들기'}</button>
+      </div>
     </form>
   );
 }
 
-function CandidateConfirmationModal({ candidate, conditions, onClose, onCreate, onManual }) {
+function DraftCreationModal({ candidate, initialForm, onChange, onCreate, onClose, returnFocusRef }) {
+  return (
+    <AssistantModal
+      title="모임 정보 입력"
+      kicker={candidateName(candidate)}
+      closeLabel="모임 정보 입력 닫기"
+      onClose={onClose}
+      returnFocusRef={returnFocusRef}
+      className="assistant-form-modal"
+    >
+      <DraftCreationForm candidate={candidate} initialForm={initialForm} onChange={onChange} onCreate={onCreate} />
+    </AssistantModal>
+  );
+}
+
+function CandidateConfirmationModal({ candidate, conditions, onClose, onCreate, onManual, returnFocusRef }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const submitted = useRef(false);
-  const dialogRef = useRef(null);
-  const triggerRef = useRef(document.activeElement);
   const automaticInput = automaticDraftInput(candidate, conditions);
-
-  useEffect(() => {
-    const trigger = triggerRef.current;
-    return () => {
-      if (trigger && typeof trigger.focus === 'function') trigger.focus();
-    };
-  }, []);
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    const focusable = () => [...dialog.querySelectorAll('button, a[href], input, select, textarea')].filter((node) => !node.disabled);
-    const focusTimer = window.setTimeout(() => focusable()[0]?.focus(), 0);
-    const onKeyDown = (event) => {
-      if (event.key === 'Escape' && !saving) onClose();
-      if (event.key !== 'Tab') return;
-      const nodes = focusable();
-      if (!nodes.length) return;
-      const first = nodes[0];
-      const last = nodes[nodes.length - 1];
-      const inside = dialog.contains(document.activeElement);
-      if (event.shiftKey ? (document.activeElement === first || !inside) : (document.activeElement === last || !inside)) {
-        event.preventDefault();
-        (event.shiftKey ? last : first).focus();
-      }
-    };
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    window.addEventListener('keydown', onKeyDown);
-    return () => {
-      window.clearTimeout(focusTimer);
-      window.removeEventListener('keydown', onKeyDown);
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [onClose, saving]);
 
   const confirm = async () => {
     if (!automaticInput || submitted.current) return;
@@ -334,26 +391,34 @@ function CandidateConfirmationModal({ candidate, conditions, onClose, onCreate, 
   };
 
   return (
-    <div className="sheet-backdrop" role="presentation" onMouseDown={close}>
-      <section className="sheet assistant-create-modal" ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="assistant-create-title" onMouseDown={(event) => event.stopPropagation()}>
-        <div className="sheet-head">
-          <h2 id="assistant-create-title">이 게임으로 모임 만들기</h2>
-          <button type="button" className="sheet-reset" aria-label="모임 만들기 확인 닫기" disabled={saving} onClick={close}>닫기</button>
+    <AssistantModal
+      title="이 게임으로 모임 만들기"
+      kicker="선택한 게임"
+      closeLabel="모임 만들기 확인 닫기"
+      onClose={close}
+      returnFocusRef={returnFocusRef}
+      className="assistant-confirm-modal"
+    >
+      <div className="assistant-modal-game">
+        <Cover src={candidate.imageUrl} className="assistant-modal-cover" />
+        <div className="assistant-modal-game-copy">
+          <strong>{candidateName(candidate)}</strong>
+          <span>{candidate.description || '이 게임으로 새로운 모임을 열어요.'}</span>
         </div>
-        <p className="assistant-modal-game">{candidateName(candidate)}</p>
-        {automaticInput ? (
-          <p className="assistant-note">확인 카드를 만든 뒤 상세 장소를 입력하고 실제 방 생성을 확정할 수 있어요.</p>
-        ) : (
-          <p className="assistant-note">총 인원, 미래 시작 시각 또는 제목 조건이 아직 충분하지 않아 직접 채워야 해요.</p>
-        )}
-        {error && <p className="field-hint warn" role="alert">{error}</p>}
-        <div className="btn-row assistant-modal-actions">
-          {automaticInput && <button className="btn fill" type="button" disabled={saving} onClick={confirm}>{saving ? '확인 카드를 만드는 중…' : '이 조건으로 만들기'}</button>}
-          <button className="btn" type="button" disabled={saving} onClick={onManual}>내가 직접 채우기</button>
-          <button className="assistant-discard" type="button" disabled={saving} onClick={close}>취소</button>
-        </div>
-      </section>
-    </div>
+      </div>
+      <div className="assistant-modal-message">
+        <strong>{automaticInput ? '기본 조건으로 먼저 확인할까요?' : '몇 가지만 채우면 모임을 열 수 있어요.'}</strong>
+        <p>{automaticInput
+          ? '확인 카드를 만든 뒤 상세 장소를 입력하고 실제 방 생성을 확정할 수 있어요.'
+          : '총 인원, 미래 시작 시각 또는 제목을 직접 입력하면 확인 카드를 만들 수 있어요.'}</p>
+      </div>
+      {error && <p className="field-hint warn" role="alert">{error}</p>}
+      <div className="assistant-modal-actions">
+        {automaticInput && <button className="btn" type="button" disabled={saving} onClick={confirm} data-modal-autofocus>{saving ? '확인 카드를 만드는 중…' : '이 조건으로 만들기'}</button>}
+        <button className={'btn' + (automaticInput ? ' fill' : '')} type="button" disabled={saving} onClick={onManual}>내가 직접 채우기</button>
+        <button className="assistant-modal-cancel" type="button" disabled={saving} onClick={close}>취소</button>
+      </div>
+    </AssistantModal>
   );
 }
 
@@ -459,9 +524,13 @@ function AssistantStart({ initialMemory, onMemoryChange, onCreateDraft, onConsen
   const [selectedCandidate, setSelectedCandidate] = useState(initialMemory?.selectedCandidate || null);
   const [editState, setEditState] = useState(initialMemory?.editState || null);
   const [modalCandidate, setModalCandidate] = useState(null);
+  const [manualCandidate, setManualCandidate] = useState(
+    initialMemory?.selectedCandidate && initialMemory?.editState ? initialMemory.selectedCandidate : null
+  );
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   const logRef = useRef(null);
+  const candidateTriggerRef = useRef(null);
 
   useEffect(() => {
     const log = logRef.current;
@@ -497,6 +566,7 @@ function AssistantStart({ initialMemory, onMemoryChange, onCreateDraft, onConsen
       setSelectedCandidate(null);
       setEditState(null);
       setModalCandidate(null);
+      setManualCandidate(null);
       storeMemory(next, null, null);
       const reply = botReplyText(next);
       if (reply) setHistory((entries) => [...entries, { role: 'theirs', text: reply }]);
@@ -513,10 +583,12 @@ function AssistantStart({ initialMemory, onMemoryChange, onCreateDraft, onConsen
     send(message);
   };
 
-  const openCandidateModal = (candidate) => {
+  const openCandidateModal = (candidate, trigger) => {
     const nextEditState = selectedCandidate?.id === candidate.id ? editState : null;
+    candidateTriggerRef.current = trigger;
     setSelectedCandidate(candidate);
     setEditState(nextEditState);
+    setManualCandidate(null);
     setModalCandidate(candidate);
     storeMemory(result, candidate, nextEditState);
   };
@@ -527,6 +599,7 @@ function AssistantStart({ initialMemory, onMemoryChange, onCreateDraft, onConsen
       : initialManualDraftForm(modalCandidate, result?.conditions);
     setEditState(nextEditState);
     setModalCandidate(null);
+    setManualCandidate(modalCandidate);
     storeMemory(result, modalCandidate, nextEditState);
   };
 
@@ -552,7 +625,6 @@ function AssistantStart({ initialMemory, onMemoryChange, onCreateDraft, onConsen
           </div>
         )}
         <RecommendationResult result={result} selectedCandidate={selectedCandidate} onSelectCandidate={openCandidateModal} onGameDetailOpen={onGameDetailOpen} />
-        {selectedCandidate && editState && <DraftCreationForm key={selectedCandidate.id} candidate={selectedCandidate} initialForm={editState} onChange={updateEditState} onCreate={onCreateDraft} />}
         {error && <p className="assistant-error" role="alert">{error}</p>}
       </div>
       <div className="chiprow assistant-suggestions">
@@ -567,7 +639,8 @@ function AssistantStart({ initialMemory, onMemoryChange, onCreateDraft, onConsen
           <SendIcon />
         </button>
       </form>
-      {modalCandidate && <CandidateConfirmationModal candidate={modalCandidate} conditions={result?.conditions} onClose={() => setModalCandidate(null)} onCreate={onCreateDraft} onManual={startManualDraft} />}
+      {modalCandidate && <CandidateConfirmationModal candidate={modalCandidate} conditions={result?.conditions} onClose={() => setModalCandidate(null)} onCreate={onCreateDraft} onManual={startManualDraft} returnFocusRef={candidateTriggerRef} />}
+      {manualCandidate && editState && <DraftCreationModal candidate={manualCandidate} initialForm={editState} onChange={updateEditState} onCreate={onCreateDraft} onClose={() => setManualCandidate(null)} returnFocusRef={candidateTriggerRef} />}
     </>
   );
 }
@@ -785,6 +858,7 @@ export function AssistantSettingsView({ onBack }) {
         <dl className="assistant-policy-summary">
           <div><dt>동의 상태</dt><dd>{consentStatusLabel(consent.status)}</dd></div>
           <div><dt>처리 제공자</dt><dd>{consent.provider === 'OPENAI' ? 'OpenAI' : consent.provider}</dd></div>
+          <div><dt>보존 정책</dt><dd>{retentionModeLabel(consent.retentionMode)}</dd></div>
           <div><dt>정책 버전</dt><dd>{consent.policyVersion}</dd></div>
           <div><dt>저장 설정</dt><dd>{consent.store ? '저장 가능' : '저장하지 않음'}</dd></div>
         </dl>

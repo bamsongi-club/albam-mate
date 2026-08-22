@@ -722,22 +722,56 @@ textarea.field-input { height: 112px; line-height: 1.6; padding: 14px 16px; resi
 .assistant-candidate strong { display: block; font-size: 15.5px; font-weight: 800; letter-spacing: -0.04em; }
 .assistant-candidate-copy > span { color: var(--sub); display: -webkit-box; font-size: 13px; line-height: 1.45; margin-top: 5px; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .assistant-candidate-cta { color: var(--ink); display: block; font-size: 13.5px; font-weight: 800; min-height: 42px; padding: 8px 14px 13px; text-align: left; text-decoration: underline; text-underline-offset: 3px; width: 100%; }
-.assistant-draft-form { display: flex; flex-direction: column; }
-.assistant-draft-form .field, .assistant-confirmation .field { margin-top: 15px; }
+.assistant-confirmation .field { margin-top: 15px; }
 .assistant-form-grid { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
 .assistant-form-grid .field { min-width: 0; }
-.assistant-draft-form textarea.field-input { min-height: 82px; padding: 12px; resize: vertical; }
 .assistant-checkbox { align-items: center; color: var(--mid); display: flex; font-size: 14px; gap: 8px; margin-top: 16px; }
-.assistant-draft-form .btn { margin-top: 18px; }
+.assistant-checkbox input { accent-color: var(--ink); flex: none; height: 18px; width: 18px; }
+.assistant-checkbox span { line-height: 1.4; }
 .assistant-confirmation { background: #f5f3ed; }
 .assistant-confirmation .btn-row { margin-top: 18px; }
 .assistant-discard { color: var(--mid); display: block; font-size: 13.5px; font-weight: 700; margin: 15px auto 0; min-height: 38px; }
 .assistant-loading { color: var(--mid); font-size: 14.5px; padding: 22px 2px; }
 .assistant-error { color: var(--red); font-size: 14px; line-height: 1.6; }
-.assistant-create-modal { gap: 12px; }
-.assistant-modal-game { font-size: 18px; font-weight: 800; letter-spacing: -0.04em; margin-top: 10px; }
-.assistant-modal-actions { flex-wrap: wrap; margin-top: 8px; }
-.assistant-modal-actions .assistant-discard { margin: 0; }
+
+/* 알밤봇의 선택·직접 입력은 같은 중앙 모달 안에서 다음 행동을 고르게 한다. */
+.assistant-modal-backdrop { align-items: center; justify-content: center; overflow-y: auto; padding: 24px 16px calc(24px + env(safe-area-inset-bottom)); }
+.assistant-modal {
+  animation: upin 0.2s ease-out;
+  border-radius: 24px;
+  box-shadow: 0 22px 60px rgba(10, 10, 10, 0.24);
+  max-height: min(86dvh, 760px);
+  overflow: hidden;
+  padding: 0;
+  width: min(100%, 380px);
+}
+.assistant-modal-head { align-items: flex-start; display: flex; flex: none; gap: 12px; justify-content: space-between; padding: 24px 22px 12px; }
+.assistant-modal-heading { min-width: 0; }
+.assistant-modal-kicker { color: var(--sub); font-size: 12.5px; font-weight: 800; letter-spacing: -0.01em; }
+.assistant-modal-heading h2 { font-size: 24px; font-weight: 800; letter-spacing: -0.055em; line-height: 1.25; margin-top: 5px; }
+.assistant-modal-close { align-items: center; background: var(--fill); border-radius: 12px; color: var(--mid); display: flex; flex: none; font-size: 13.5px; font-weight: 700; height: 40px; justify-content: center; padding: 0 12px; }
+.assistant-modal-body { flex: 1; min-height: 0; overflow-y: auto; padding: 12px 22px 24px; scrollbar-width: none; }
+.assistant-modal-body::-webkit-scrollbar { display: none; }
+.assistant-modal-game { align-items: center; background: var(--fill); border-radius: 16px; display: flex; gap: 14px; margin-top: 4px; padding: 12px; }
+.assistant-modal-cover { border-radius: 10px; box-shadow: var(--shadow-thumb); flex: none; height: 64px; width: 52px; }
+.assistant-modal-game-copy { min-width: 0; }
+.assistant-modal-game-copy strong { display: block; font-size: 17px; font-weight: 800; letter-spacing: -0.04em; }
+.assistant-modal-game-copy span { color: var(--sub); display: -webkit-box; font-size: 13px; line-height: 1.45; margin-top: 4px; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.assistant-modal-message { background: var(--card); border-radius: 14px; margin-top: 14px; padding: 14px 15px; }
+.assistant-modal-message strong { display: block; font-size: 14.5px; font-weight: 800; }
+.assistant-modal-message p { color: var(--mid); font-size: 13.5px; line-height: 1.6; margin-top: 5px; }
+.assistant-modal-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 18px; }
+.assistant-modal-actions .btn { width: 100%; }
+.assistant-modal-cancel { color: var(--sub); font-size: 14px; font-weight: 700; min-height: 42px; text-align: center; width: 100%; }
+.assistant-form-modal .assistant-modal-body { padding-top: 4px; }
+.assistant-modal-form { display: flex; flex-direction: column; min-height: 100%; }
+.assistant-modal-lead { font-size: 15px; font-weight: 700; line-height: 1.5; margin-top: 4px; }
+.assistant-modal-note { color: var(--sub); font-size: 13px; line-height: 1.55; margin-top: 4px; }
+.assistant-modal-form .field { margin-top: 16px; }
+.assistant-modal-form textarea.field-input { min-height: 88px; padding: 12px; resize: vertical; }
+.assistant-modal-form-actions { background: #fff; bottom: 0; box-shadow: 0 -1px 0 var(--line), 0 -10px 18px rgba(10, 10, 10, 0.05); margin: 20px -22px -24px; padding: 14px 22px calc(14px + env(safe-area-inset-bottom)); position: sticky; }
+.assistant-modal-form-actions .field-hint { margin-bottom: 10px; }
+.assistant-modal-form-actions .btn { margin-top: 0; }
 
 .screen-note { color: var(--muted); font-size: 12.5px; line-height: 1.6; margin-top: 12px; }
 .section-label-note { color: var(--muted); font-weight: 600; }

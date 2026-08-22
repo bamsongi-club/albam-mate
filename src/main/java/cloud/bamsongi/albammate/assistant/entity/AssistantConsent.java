@@ -42,6 +42,9 @@ public class AssistantConsent {
 	@Column(name = "policy_url", nullable = false, length = 500)
 	private String policyUrl;
 
+	@Column(name = "retention_mode", nullable = false, length = 30)
+	private String retentionMode;
+
 	@Column(name = "store", nullable = false)
 	private boolean store;
 
@@ -59,6 +62,7 @@ public class AssistantConsent {
 		String consentVersion,
 		String policyVersion,
 		String policyUrl,
+		String retentionMode,
 		Instant updatedAt) {
 		this.userId = userId;
 		this.provider = PROVIDER;
@@ -66,6 +70,7 @@ public class AssistantConsent {
 		this.consentVersion = requireText(consentVersion, "consentVersion");
 		this.policyVersion = requireText(policyVersion, "policyVersion");
 		this.policyUrl = requireText(policyUrl, "policyUrl");
+		this.retentionMode = requireText(retentionMode, "retentionMode");
 		this.updatedAt = Objects.requireNonNull(updatedAt, "updatedAt");
 	}
 
@@ -74,8 +79,10 @@ public class AssistantConsent {
 		String consentVersion,
 		String policyVersion,
 		String policyUrl,
+		String retentionMode,
 		Instant revokedAt) {
-		AssistantConsent consent = new AssistantConsent(userId, consentVersion, policyVersion, policyUrl, revokedAt);
+		AssistantConsent consent = new AssistantConsent(
+			userId, consentVersion, policyVersion, policyUrl, retentionMode, revokedAt);
 		consent.revoke(revokedAt);
 		return consent;
 	}
@@ -85,9 +92,11 @@ public class AssistantConsent {
 		String consentVersion,
 		String policyVersion,
 		String policyUrl,
+		String retentionMode,
 		Instant grantedAt) {
-		AssistantConsent consent = new AssistantConsent(userId, consentVersion, policyVersion, policyUrl, grantedAt);
-		consent.grant(consentVersion, policyVersion, policyUrl, grantedAt);
+		AssistantConsent consent = new AssistantConsent(
+			userId, consentVersion, policyVersion, policyUrl, retentionMode, grantedAt);
+		consent.grant(consentVersion, policyVersion, policyUrl, retentionMode, grantedAt);
 		return consent;
 	}
 
@@ -95,11 +104,13 @@ public class AssistantConsent {
 		String consentVersion,
 		String policyVersion,
 		String policyUrl,
+		String retentionMode,
 		Instant grantedAt) {
 		this.status = AssistantConsentStatus.GRANTED;
 		this.consentVersion = requireText(consentVersion, "consentVersion");
 		this.policyVersion = requireText(policyVersion, "policyVersion");
 		this.policyUrl = requireText(policyUrl, "policyUrl");
+		this.retentionMode = requireText(retentionMode, "retentionMode");
 		this.provider = PROVIDER;
 		this.store = false;
 		this.grantedAt = Objects.requireNonNull(grantedAt, "grantedAt");

@@ -48,10 +48,11 @@ import cloud.bamsongi.albammate.user.repository.UserRepository;
 
 @SpringBootTest(properties = {
 	"app.assistant.enabled=true",
-	"app.assistant.no-retention-verified=true",
+	"app.assistant.no-retention-verified=false",
 	"app.assistant.no-training-verified=true",
 	"app.assistant.policy-version=OPENAI-POLICY-2026-08",
 	"app.assistant.policy-url=https://openai.com/policies/api-data-usage-policies",
+	"app.assistant.retention-mode=default-30d",
 	"app.assistant.store=false"
 })
 @AutoConfigureMockMvc
@@ -91,7 +92,7 @@ class AssistantConsentHttpIntegrationTest {
 	}
 
 	@Test
-	void T2_CSRF_오류는_동의를_바꾸지_않고_유효한_GRANT는_정책_메타데이터만_저장한다() throws Exception {
+	void T2_CSRF_오류는_동의를_바꾸지_않고_유효한_GRANT는_정책과_retention_mode를_저장한다() throws Exception {
 		User user = userRepository.saveAndFlush(User.create("assistant-t2@example.com", "{bcrypt}hash", "T2 사용자"));
 
 		mockMvc.perform(consentPut("{\"decision\":\"GRANT\",\"consentVersion\":\"AI-01-CONSENT-V1\"}")
@@ -115,19 +116,50 @@ class AssistantConsentHttpIntegrationTest {
 			.andExpect(jsonPath("$.data.provider").value("OPENAI"))
 			.andExpect(jsonPath("$.data.policyVersion").value("OPENAI-POLICY-2026-08"))
 			.andExpect(jsonPath("$.data.policyUrl").value("https://openai.com/policies/api-data-usage-policies"))
+			.andExpect(jsonPath("$.data.retentionMode").value("default-30d"))
 			.andExpect(jsonPath("$.data.store").value(false));
 
 		assertEquals(1, countConsentRows(user.getId()));
 		String persisted = jdbcTemplate.queryForObject(
-			"select status || '|' || consent_version || '|' || provider || '|' || policy_version || '|' || policy_url || '|' || store "
+			"select status || '|' || consent_version || '|' || provider || '|' || policy_version || '|' || policy_url || '|' || retention_mode || '|' || store "
 				+ "from assistant_consents where user_id = ?",
 			String.class,
 			user.getId());
 		assertEquals(
-			"GRANTED|AI-01-CONSENT-V1|OPENAI|OPENAI-POLICY-2026-08|https://openai.com/policies/api-data-usage-policies|FALSE",
+			"GRANTED|AI-01-CONSENT-V1|OPENAI|OPENAI-POLICY-2026-08|https://openai.com/policies/api-data-usage-policies|default-30d|FALSE",
 			persisted);
 		assertTrue(assistantConsentGate.isGranted(user.getId()));
 		assistantConsentGate.requireGranted(user.getId());
+	}
+
+	@Test
+	void T3_zero_data_retention에서_default_30d로_바뀌면_기존_GRANT는_NOT_GRANTED가_되고_provider_진입을_차단한다() throws Exception {
+		User user = userRepository
+			.saveAndFlush(User.create("assistant-t3-retention@example.com", "{bcrypt}hash", "T3 사용자"));
+
+		String originalRetentionMode = assistantConsentProperties.getRetentionMode();
+		try {
+			assistantConsentProperties.setRetentionMode("zero-data-retention");
+			assistantConsentProperties.setNoRetentionVerified(true);
+			grant(user);
+			assistantConsentProperties.setRetentionMode("default-30d");
+			assistantConsentProperties.setNoRetentionVerified(false);
+
+			mockMvc.perform(get("/api/assistant/consent").with(authenticationFor(user.getId())))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.data.status").value("NOT_GRANTED"))
+				.andExpect(jsonPath("$.data.retentionMode").value("default-30d"));
+			assertFalse(assistantConsentGate.isGranted(user.getId()));
+			BusinessException exception = assertThrows(
+				BusinessException.class,
+				() -> assistantIntentOrchestrationService.extract(
+					user.getId(),
+					AssistantIntentRequest.forUser(Long.toString(user.getId()), "협력 게임 추천", java.util.List.of())));
+			assertEquals(ErrorCode.ASSISTANT_CONSENT_REQUIRED, exception.getErrorCode());
+		} finally {
+			assistantConsentProperties.setRetentionMode(originalRetentionMode);
+			assistantConsentProperties.setNoRetentionVerified(false);
+		}
 	}
 
 	@Test

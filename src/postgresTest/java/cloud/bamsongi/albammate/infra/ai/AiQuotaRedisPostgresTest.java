@@ -205,7 +205,7 @@ class AiQuotaRedisPostgresTest {
 	private AiProviderSettings zeroCostFakeSettings() {
 		return new AiProviderSettings(
 			"fake", true, true, true, true, "", "", "gpt-5.6-luna", Duration.ofSeconds(10), 0, false,
-			"TEST-PRICING-V1", BigDecimal.ONE, BigDecimal.ONE, 4096, 256, BigDecimal.ZERO);
+			"TEST-PRICING-V1", BigDecimal.ONE, BigDecimal.ONE, 4096, 256, BigDecimal.ZERO, "unverified");
 	}
 
 	private AiQuotaReservation reserveWhenStarted(

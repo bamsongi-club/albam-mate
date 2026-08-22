@@ -31,6 +31,7 @@ app:
     provider: ${ALBAM_MATE_ASSISTANT_PROVIDER:fake}
     no-retention-verified: ${ALBAM_MATE_ASSISTANT_NO_RETENTION_VERIFIED:false}
     no-training-verified: ${ALBAM_MATE_ASSISTANT_NO_TRAINING_VERIFIED:false}
+    retention-mode: ${ALBAM_MATE_ASSISTANT_RETENTION_MODE:unverified}
     policy-version: ${ALBAM_MATE_ASSISTANT_POLICY_VERSION:}
     policy-url: ${ALBAM_MATE_ASSISTANT_POLICY_URL:}
     pricing-snapshot: ${ALBAM_MATE_ASSISTANT_PRICING_SNAPSHOT:}

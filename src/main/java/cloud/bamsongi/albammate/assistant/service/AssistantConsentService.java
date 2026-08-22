@@ -38,7 +38,8 @@ public class AssistantConsentService implements AssistantConsentGate {
 			.orElseGet(() -> AssistantConsentResponse.notGranted(
 				properties.getConsentVersion(),
 				properties.responsePolicyVersion(),
-				properties.responsePolicyUrl()));
+				properties.responsePolicyUrl(),
+				properties.getRetentionMode()));
 	}
 
 	@Transactional
@@ -79,13 +80,16 @@ public class AssistantConsentService implements AssistantConsentGate {
 				properties.getConsentVersion(),
 				properties.getPolicyVersion(),
 				properties.getPolicyUrl(),
+				properties.getRetentionMode(),
 				now));
 		consent.grant(
 			properties.getConsentVersion(),
 			properties.getPolicyVersion(),
 			properties.getPolicyUrl(),
+			properties.getRetentionMode(),
 			now);
-		return AssistantConsentResponse.from(consentRepository.saveAndFlush(consent));
+		return AssistantConsentResponse.from(
+			consentRepository.saveAndFlush(consent), properties.getRetentionMode());
 	}
 
 	private AssistantConsentResponse toCurrentPolicyResponse(AssistantConsent consent) {
@@ -94,6 +98,7 @@ public class AssistantConsentService implements AssistantConsentGate {
 			properties.getConsentVersion(),
 			properties.responsePolicyVersion(),
 			properties.responsePolicyUrl(),
+			properties.getRetentionMode(),
 			isCurrentGrant(consent));
 	}
 
@@ -103,6 +108,7 @@ public class AssistantConsentService implements AssistantConsentGate {
 			&& properties.getConsentVersion().equals(consent.getConsentVersion())
 			&& properties.responsePolicyVersion().equals(consent.getPolicyVersion())
 			&& properties.responsePolicyUrl().equals(consent.getPolicyUrl())
+			&& properties.getRetentionMode().equals(consent.getRetentionMode())
 			&& !consent.isStore();
 	}
 
@@ -114,6 +120,7 @@ public class AssistantConsentService implements AssistantConsentGate {
 				properties.getConsentVersion(),
 				properties.responsePolicyVersion(),
 				properties.responsePolicyUrl(),
+				properties.getRetentionMode(),
 				now));
 		consent.revoke(now);
 		AssistantConsentResponse response = toCurrentPolicyResponse(consentRepository.saveAndFlush(consent));
