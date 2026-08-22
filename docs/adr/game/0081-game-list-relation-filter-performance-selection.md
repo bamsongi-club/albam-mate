@@ -132,4 +132,16 @@ HTTP p50/p95/max와 한 번 실행한 `EXPLAIN ANALYZE` execution time은 같은
 - 미검증:
   - [#863](https://github.com/bamsongi-club/albam-mate/issues/863)의 동시 HTTP·CPU·memory·connection·오류율과 production SLO 검증
 
+### #925 후속 검증 (V2/V3/V4 재시도, 2026-08-21~22)
+
+- 상태: 검증 완료 — 세 후보 모두 REJECTED, V1(위 결정의 Slice query shape)을 그대로 유지한다.
+- 배경: [#925](https://github.com/bamsongi-club/albam-mate/issues/925)에서 V1 기준선의 relation·complex tail을 더 낮추기 위해 V2(theme 역방향 index를 `(theme_id, game_id)` 복합 index로 교체), V3(theme·mechanism ANY 필터를 독립 `IN` 서브쿼리 2개로 분리), V4(V3 반려 후 EXISTS 상관 semi-join으로 재작성)를 순서대로 시도했다.
+- 근거:
+  - V2/V3: 같은 170,005건 fixture·runner로 control/V2/V3 4-round 교차 HTTP 측정(`--runs 20`, 이후 노이즈 민감도 확인을 위해 `--runs 50`로 재측정)에서 relation·complex는 개선됐으나 코드가 손대지 않는 `base`·`flags-upcoming-exact`가 두 회차 모두 105% gate를 초과해 REJECTED.
+  - V3 단독 진단: App 단일 인스턴스·warm-up 40회 조건에서 그 순간 Hibernate가 실제로 만든 SQL을 `EXPLAIN (ANALYZE, BUFFERS)`로 재실행한 결과, 관계 매칭 건수가 큰 조합(`theme=BOOK_BGG_1117`, 4,258행 / `mechanism=HAND_MANAGEMENT`, 24,419행)에서 V3의 실행계획이 games 테이블을 4,258회 개별 조회하는 낭비 구조를 선택해 control보다 느림을 확인(33.5ms/buffers 4,270 vs 46.0ms/buffers 21,041).
+  - V4(EXISTS 재작성) 후 T4(관계 매칭 건수 큰/작은 두 조합 EXPLAIN 비교) 게이트에서도 동일 원인(관계 필터를 root game과 독립적으로 평가하는 구조 자체가 이 데이터 분포에서 불리)으로 큰 조합(control 53.0ms/buffers 73,748 vs V4 238.8ms/buffers ~101,685)·작은 조합(buffers 기준 V4가 control보다 나쁨) 모두 REJECTED.
+  - 두 가지 구조적으로 다른 재작성(독립 IN 서브쿼리, EXISTS semi-join)이 같은 근본 원인(relation 매칭 건수가 클 때 planner가 games를 조기에 과다 조회)으로 반복 실패한 것은, 현재 V1의 "theme·mechanism을 하나의 서브쿼리로 묶어 처리"하는 구조가 이 데이터 분포에서는 이미 견고한 선택임을 뒷받침한다.
+  - 측정·진단 원자료와 상세 결론은 `perf/issue-925-v2-v3` 브랜치(원격 미게시, 로컬 보존)의 `docs/measurements/k6/yejin/game-list-925-*.md` 4개 문서에 보존했다.
+- 재검토 조건: relation·mechanism 매칭 건수 분포가 크게 달라지는 새 fixture가 나오거나, planner 힌트·통계 조정 같은 더 근본적인 기법을 시도할 근거가 생기면 다시 검토한다.
+
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.
