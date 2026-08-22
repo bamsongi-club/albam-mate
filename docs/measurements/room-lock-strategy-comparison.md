@@ -68,7 +68,7 @@ node load-tests/k6/jiwon/tools/room-lock-comparison.mjs plan `
 
 ### 3. 후보별 comparison bundle 생성
 
-비교 controller는 786 branch에서 실행하고, `--app-root`에는 해당 후보 SHA의 clean checkout을 지정한다. 후보 checkout에는 비교 도구를 추가하지 않는다. controller는 후보 checkout의 ROOM runtime만 bundle에 복사하고, infra가 요구하는 `build/k6/room/**` 아래에 결과를 만든다. 이 생성 경로 외의 후보 checkout 변경은 거절한다.
+비교 controller는 merged campaign runner에서 실행하고, `--app-root`에는 해당 후보 SHA의 clean checkout을 지정한다. 후보 checkout에는 비교 도구를 추가하지 않는다. controller는 후보 checkout의 HEAD·source provenance만 확인하고, A/B/C에 공통인 comparison·portable runner와 fixture runtime을 controller checkout에서 bundle에 복사한다. 출력은 후보 checkout의 `build/k6/room/**` 아래에 만들며, 이 생성 경로 외의 후보 checkout 변경은 거절한다. 따라서 후보별 차이는 배포된 앱 `sourceRevision`에만 남고, k6·fixture 해석기는 모든 후보에서 같다.
 
 ```powershell
 $env:ROOM_K6_FIXTURE_PASSWORD_HASH = '<실행 환경 전용 fixture hash>'
@@ -87,7 +87,7 @@ node load-tests/k6/jiwon/tools/room-lock-comparison.mjs validate `
   --bundle build/k6/room/<run-id>/<fixture-id>
 ```
 
-`render-bundle`는 candidate SHA와 source SHA가 다르면 중단한다. bundle에는 prepare SQL, resource query, fixture plan, execution options, generated k6 scenario, immutable SHA-256이 들어간다.
+`render-bundle`는 candidate SHA와 source SHA가 다르면 중단한다. bundle에는 prepare SQL, resource query, fixture plan, execution options, generated k6 scenario, 공통 runner runtime과 immutable SHA-256이 들어간다. `sourceRevision`은 배포 후보 SHA이고, 공통 runner 파일의 실제 내용은 bundle immutable SHA-256으로 고정한다.
 
 ### 4. AWS 실행
 
@@ -101,7 +101,7 @@ AWS `apply`, 앱 배포/release, `room-k6` 실행은 각각 실행 직전 명시
 
 ### 5. 회귀와 결과 집계
 
-T3·T4·T5는 후보 checkout에서 portable bundle을 읽기 전용으로 생성·실행하고, 결과를 같은 campaign의 회귀 gate로 연결한다. 모든 결과가 보존된 뒤 후보 checkout root를 함께 지정하여 campaign report를 만든다.
+T3·T4·T5는 공통 portable runner로 후보 source provenance를 고정한 bundle을 읽기 전용으로 생성·실행하고, 결과를 같은 campaign의 회귀 gate로 연결한다. 모든 결과가 보존된 뒤 후보 checkout root를 함께 지정하여 campaign report를 만든다.
 
 ```powershell
 node load-tests/k6/jiwon/tools/room-lock-comparison.mjs aggregate-campaign `

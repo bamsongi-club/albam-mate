@@ -53,6 +53,7 @@ const EXECUTION_MODELS = ['barrier', 'constant-arrival-rate'];
 const RUNTIME_FILES = [
   'lib/room-k6.js',
   'lib/read-execution-options.mjs',
+  'lib/room-mixed-options.mjs',
   'lib/write-options.mjs',
   'lib/t3-execution-plan.mjs',
   'lib/start-skew.mjs',
@@ -329,10 +330,10 @@ function appRootValue(value) {
   return result;
 }
 
-function sourceRuntimePath(appRoot, relativePath) {
-  const result = path.join(appRoot, 'load-tests', 'k6', 'jiwon', relativePath);
+function sourceRuntimePath(relativePath) {
+  const result = path.join(sourceRepositoryRoot, 'load-tests', 'k6', 'jiwon', relativePath);
   if (!existsSync(result)) {
-    fail(`후보 checkout에 필요한 ROOM runtime 파일이 없습니다: ${result}`);
+    fail(`comparison runner에 필요한 ROOM runtime 파일이 없습니다: ${result}`);
   }
   return result;
 }
@@ -340,9 +341,9 @@ function sourceRuntimePath(appRoot, relativePath) {
 function portableBundleContext(appRoot) {
   return {
     repositoryRoot: appRoot,
-    scenarioDirectory: path.join(appRoot, 'load-tests', 'k6', 'jiwon'),
+    scenarioDirectory: path.join(sourceRepositoryRoot, 'load-tests', 'k6', 'jiwon'),
     buildRoot: path.join(appRoot, 'build', 'k6', 'room'),
-    bundleRoot: path.join(appRoot, 'load-tests', 'k6', 'jiwon', 'tools'),
+    bundleRoot: path.join(sourceRepositoryRoot, 'load-tests', 'k6', 'jiwon', 'tools'),
     isBundleRuntime: false,
     environment: process.env,
   };
@@ -1062,7 +1063,7 @@ function renderBundle(values) {
   writeNewText(artifactPath(outputDirectory, 'scenario.js'), runtimeContractSource(plan));
 
   for (const relativePath of RUNTIME_FILES) {
-    copyFileSync(sourceRuntimePath(appRoot, relativePath), artifactPath(outputDirectory, relativePath));
+    copyFileSync(sourceRuntimePath(relativePath), artifactPath(outputDirectory, relativePath));
   }
   writeNewText(
     artifactPath(outputDirectory, 'tools/fixture.mjs'),
@@ -1603,6 +1604,7 @@ export {
   createComparisonFixturePlan,
   conditionFor,
   normalizedComparisonInput,
+  renderRegressionBundle,
   renderBundle,
   runtimeContractSource,
 };

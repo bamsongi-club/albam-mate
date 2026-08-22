@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import test from 'node:test';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -8,6 +15,8 @@ import {
   aggregateCampaign,
   buildCampaignPlan,
   createComparisonFixturePlan,
+  renderBundle,
+  renderRegressionBundle,
   runtimeContractSource,
 } from '../tools/room-lock-comparison.mjs';
 
@@ -16,6 +25,52 @@ const candidates = {
   B: '2222222222222222222222222222222222222222',
   C: '3333333333333333333333333333333333333333',
 };
+
+function createCleanCandidateCheckout() {
+  const root = mkdtempSync(path.join(tmpdir(), 'room-lock-candidate-'));
+  writeFileSync(path.join(root, 'README.md'), 'candidate checkout\n');
+  execFileSync('git', ['init', '--quiet'], { cwd: root });
+  execFileSync('git', ['add', 'README.md'], { cwd: root });
+  execFileSync(
+    'git',
+    [
+      '-c', 'user.email=room-lock-test@example.invalid',
+      '-c', 'user.name=ROOM lock test',
+      'commit', '--quiet', '-m', 'test: create candidate checkout',
+    ],
+    { cwd: root },
+  );
+  const sha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
+  return { root, sha };
+}
+
+function withFixturePasswordHash(callback) {
+  const previous = process.env.ROOM_K6_FIXTURE_PASSWORD_HASH;
+  process.env.ROOM_K6_FIXTURE_PASSWORD_HASH = '{bcrypt}$2a$10$provenance-test';
+  try {
+    return callback();
+  } finally {
+    if (previous === undefined) {
+      delete process.env.ROOM_K6_FIXTURE_PASSWORD_HASH;
+    } else {
+      process.env.ROOM_K6_FIXTURE_PASSWORD_HASH = previous;
+    }
+  }
+}
+
+function validateBundleThroughCopiedTool(bundlePath) {
+  return execFileSync(
+    process.execPath,
+    [
+      path.join(bundlePath, 'tools', 'fixture.mjs'),
+      'validate',
+      '--for-execution',
+      '--bundle',
+      bundlePath,
+    ],
+    { cwd: bundlePath, encoding: 'utf8' },
+  );
+}
 
 function aggregateReportFor({ contract = { corePairedRuns: 1 }, roomRequests = 2, droppedIterations = 0, httpRequests = 99, finalStatus = 'PASS' }) {
   const root = mkdtempSync(path.join(tmpdir(), 'room-lock-aggregate-'));
@@ -308,4 +363,56 @@ test('지원하지 않는 concurrency와 condition 조합은 bundle plan에서 �
     }),
     /실행 모델·분포와 입력이 다릅니다/,
   );
+});
+
+test('comparison bundle은 후보 checkout이 없어도 공통 runner로 self-validation한다', () => {
+  const candidate = createCleanCandidateCheckout();
+  try {
+    withFixturePasswordHash(() => {
+      const result = renderBundle({
+        scenario: 't1',
+        runId: 'cmp1032-t1-barrier-hot-c2-r1-a',
+        candidate: 'A',
+        candidateSha: candidate.sha,
+        condition: 'barrier-hot',
+        concurrency: 2,
+        sourceSha: candidate.sha,
+        appRoot: candidate.root,
+      });
+
+      const validation = validateBundleThroughCopiedTool(result.bundlePath);
+      assert.match(validation, /cmp1032-t1-barrier-hot-c2-r1-a/);
+      assert.equal(
+        readFileSync(path.join(result.bundlePath, 'tools', 'fixture-model.mjs'), 'utf8'),
+        readFileSync(path.resolve('load-tests/k6/jiwon/tools/fixture-model.mjs'), 'utf8'),
+      );
+    });
+  } finally {
+    rmSync(candidate.root, { recursive: true, force: true });
+  }
+});
+
+test('portable regression bundle은 공통 runner runtime으로 self-validation한다', () => {
+  const candidate = createCleanCandidateCheckout();
+  try {
+    withFixturePasswordHash(() => {
+      const result = renderRegressionBundle({
+        regression: 'regression-t3-race',
+        runId: 'cmp1032-regression-t3-race-r1-a',
+        candidate: 'A',
+        candidateSha: candidate.sha,
+        sourceSha: candidate.sha,
+        appRoot: candidate.root,
+      });
+
+      const validation = validateBundleThroughCopiedTool(result.bundlePath);
+      assert.match(validation, /cmp1032-regression-t3-race-r1-a/);
+      assert.equal(
+        readFileSync(path.join(result.bundlePath, 'tools', 'portable-bundle.mjs'), 'utf8'),
+        readFileSync(path.resolve('load-tests/k6/jiwon/tools/portable-bundle.mjs'), 'utf8'),
+      );
+    });
+  } finally {
+    rmSync(candidate.root, { recursive: true, force: true });
+  }
 });

@@ -68,7 +68,7 @@ T3 15회, T4 15회, T5 90회로 총 **120회**를 기존 portable bundle read-on
 
 ### provenance 고정
 
-공통 기준 SHA, A/B/C candidate SHA, bundle source revision, fixture schema, release/image revision, infra branch, seed, 실행 순서와 각 artifact SHA-256을 plan·manifest에 고정한다. 이슈 #1026의 infra 참조 브랜치는 `albam-mate-infra`의 `codex/room-k6-local-runner`이며, 해당 저장소는 실행 참조만 하고 commit·push·PR을 만들지 않는다.
+공통 기준 SHA, A/B/C candidate SHA, bundle source revision, fixture schema, release/image revision, infra branch, seed, 실행 순서와 각 artifact SHA-256을 plan·manifest에 고정한다. `sourceRevision`·`candidateSha`·infra `RELEASE_SHA`는 배포된 후보 앱을 식별하고, comparison·portable runner와 fixture runtime은 controller checkout에서 공통으로 bundle에 넣어 후보 간 실행기를 동일하게 유지한다. 공통 runtime의 실제 내용은 bundle immutable SHA-256으로 고정하며, 후보 checkout은 clean HEAD/provenance 확인과 결과 출력 root로만 사용한다. 이슈 #1026의 infra 참조 브랜치는 `albam-mate-infra`의 `codex/room-k6-local-runner`이며, 해당 저장소는 실행 참조만 하고 commit·push·PR을 만들지 않는다.
 
 ## 기존 전체 실행 matrix (2026-08-20 timeboxed 당시 보류)
 
