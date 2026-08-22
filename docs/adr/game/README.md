@@ -25,3 +25,4 @@
  | [0081](0081-game-list-relation-filter-performance-selection.md) | 게임 목록 relation filter는 query shape·theme index를 실측 비교해 선택 | 승인됨 | 2026-08-19 | 미검증 |
 | [0086](0086-search-04-dense-serving-architecture.md) | SEARCH-04 dense serving core와 index delivery를 분리 | 대체됨 | 2026-08-20 | 미검증 |
 | [0087](0087-search-04-cloudflare-managed-bge-m3-serving.md) | SEARCH-04 dense serving을 Cloudflare managed BGE-M3와 pgvector로 전환 | 승인됨 | 2026-08-21 | 미검증 |
+| [0088](0088-search-04-hybrid-rrf-parallel-candidate-generation.md) | SEARCH-04 후속 serving은 Dense + structured/sparse 병렬 후보를 RRF로 결합 | 승인됨 | 2026-08-22 | 미검증 |

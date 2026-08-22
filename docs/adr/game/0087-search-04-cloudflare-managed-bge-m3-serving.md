@@ -5,7 +5,7 @@
 - 결정일: 2026-08-21
 - 관련: [SEARCH-04 검색 명세](../../p2/search.md#search-04), [ADR-0060](0060-approved-catalog-ai-embedding-scope.md), [ADR-0072](0072-search-quality-corpus-membership-and-versioning.md), [ADR-0086](0086-search-04-dense-serving-architecture.md), [#965 evidence 승인](https://github.com/bamsongi-club/albam-mate/issues/965#issuecomment-5364669134), [#942 delivery T1~T5 승인](https://github.com/bamsongi-club/albam-mate/issues/942#issuecomment-5364669345)
 - 대체 대상: [ADR-0086](0086-search-04-dense-serving-architecture.md)의 Python BGE-M3 service 결정
-- 후속 ADR: 없음
+- 후속 ADR: [ADR-0088](0088-search-04-hybrid-rrf-parallel-candidate-generation.md)가 "보류 및 재검토"의 `HNSW/Hybrid/RRF` 항목만 대체함. 그 외 provider·index·fail-closed 결정은 이 ADR이 계속 소유함
 
 ## 맥락
 
