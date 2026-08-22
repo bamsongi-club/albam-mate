@@ -75,9 +75,15 @@ public class MatchRequestCommandExecutor {
 		if (currentRequest == null) {
 			request = requestRepository.save(MatchRequest.create(
 				userId, command.minPlayers(), command.maxPlayers(), MatchRequestStatus.WAITING, operationTime));
-		} else {
+		} else if (currentRequest.getMinPartySize() == command.minPlayers()
+			&& currentRequest.getMaxPartySize() == command.maxPlayers()) {
 			currentRequest.startNewWaitingAttempt(operationTime);
 			request = currentRequest;
+		} else {
+			currentRequest.cancel(operationTime);
+			requestRepository.flush();
+			request = requestRepository.save(MatchRequest.create(
+				userId, command.minPlayers(), command.maxPlayers(), MatchRequestStatus.WAITING, operationTime));
 		}
 		if (record == null) {
 			idempotencyRecordRepository.save(MatchIdempotencyRecord.create(
