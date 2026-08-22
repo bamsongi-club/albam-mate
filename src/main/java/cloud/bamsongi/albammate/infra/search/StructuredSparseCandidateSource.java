@@ -90,7 +90,7 @@ final class StructuredSparseCandidateSource implements SparseCandidateSource {
 			mechanism_matches as (
 				select r.game_id as game_id, count(distinct t.token) * %s as weight
 				from game_mechanism_relations r
-				join game_mechanisms m on m.id = r.mechanism_id
+				join game_mechanisms m on m.id = r.mechanism_id and m.is_public = true
 				join tokens t on (lower(m.name_ko) like '%%' || t.token || '%%'
 					or lower(m.name_en) like '%%' || t.token || '%%')
 				group by r.game_id

@@ -107,6 +107,17 @@ class StructuredSparseCandidateSourcePostgresTest extends SharedPostgresIntegrat
 		assertTrue(descriptionMatches.contains(byDescription.getId()));
 	}
 
+	@Test
+	void T1_비공개_메커니즘_이름만으로는_게임이_검색되지_않는다() {
+		GameMechanism privateMechanism = mechanism("SPARSE_T1_PRIVATE_MECH", "비공개메커니즘고유어휘",
+			"PrivateMechanismUniqueTerm", false);
+		Game privateGame = game(983_401L, "비공개메커니즘게임", "Private Mechanism Game", "설명 없음");
+		link(privateGame, privateMechanism);
+
+		assertThrows(SemanticSearchUnavailableException.class,
+			() -> source().findCandidates("비공개메커니즘고유어휘"));
+	}
+
 	private StructuredSparseCandidateSource source() {
 		return new StructuredSparseCandidateSource(new JdbcTemplate(dataSource));
 	}
@@ -116,9 +127,13 @@ class StructuredSparseCandidateSourcePostgresTest extends SharedPostgresIntegrat
 	}
 
 	private GameMechanism mechanism(String code, String nameKo, String nameEn) {
+		return mechanism(code, nameKo, nameEn, true);
+	}
+
+	private GameMechanism mechanism(String code, String nameKo, String nameEn, boolean isPublic) {
 		return gameMechanismRepository.saveAndFlush(
 			new GameMechanism(900_000L + Math.abs(code.hashCode()), code, nameKo, nameEn, code + " 방식을 활용해요.", null,
-				true, "#983", "reviewer", java.time.Instant.parse("2026-08-22T00:00:00Z")));
+				isPublic, "#983", "reviewer", java.time.Instant.parse("2026-08-22T00:00:00Z")));
 	}
 
 	private Game game(long bggId, String name, String englishName, String description) {
