@@ -374,6 +374,18 @@ class SemanticGameSearchServiceTest {
 				+ hybridTimeoutMillis + "ms)");
 	}
 
+	@Test
+	void HYBRID_T7_dense_후보_조회에서_런타임_예외가_아닌_예외가_발생하면_IllegalStateException으로_감싸_전파한다() {
+		GameRepository gameRepository = org.mockito.Mockito.mock(GameRepository.class);
+		DenseCandidateSource candidateSource = org.mockito.Mockito.mock(DenseCandidateSource.class);
+		when(candidateSource.findCandidates(anyString())).thenAnswer(invocation -> {
+			throw new java.io.IOException("candidate 원격 호출 checked 실패");
+		});
+
+		assertThrows(IllegalStateException.class,
+			() -> service(gameRepository, candidateSource).search(query("전략 게임")));
+	}
+
 	private SemanticGameSearchService service(
 		GameRepository gameRepository, DenseCandidateSource candidateSource) {
 		SparseCandidateSource sparseCandidateSource = org.mockito.Mockito.mock(SparseCandidateSource.class);
