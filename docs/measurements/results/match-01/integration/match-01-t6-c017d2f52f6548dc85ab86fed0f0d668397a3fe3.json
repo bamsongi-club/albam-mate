@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "measuredGitCommitSha": "c017d2f52f6548dc85ab86fed0f0d668397a3fe3",
+  "outcome": "PASSED",
+  "id": "MATCH-01-T6",
+  "task": "test and postgresTest",
+  "selectors": [
+    "cloud.bamsongi.albammate.matching.integration.MatchLifecycleRecoveryPostgresTest",
+    "cloud.bamsongi.albammate.matching.MatchPartyLifecyclePostgresTest",
+    "cloud.bamsongi.albammate.matching.MatchPartyAccessQueryPostgresTest",
+    "cloud.bamsongi.albammate.matching.MatchPartyChatWriteGuardPostgresTest",
+    "cloud.bamsongi.albammate.chat.match.MatchChatAdapterTransactionPostgresTest",
+    "cloud.bamsongi.albammate.chat.match.MatchChatMessageRateLimitPostgresTest",
+    "cloud.bamsongi.albammate.infra.redis.RedisMatchChatMessageRateLimiterTest"
+  ],
+  "purpose": "PREPARING 5분 복구·cleanup·기존 우선순위 유지·ACTIVE/CLOSED lifecycle·시스템 메시지 멱등성·채팅 접근·MATCH 전송 제한과 Redis 판정 경계를 PostgreSQL·Redis에서 검증한다."
+}

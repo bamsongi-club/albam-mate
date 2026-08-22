@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "measuredGitCommitSha": "c017d2f52f6548dc85ab86fed0f0d668397a3fe3",
+  "outcome": "PASSED",
+  "id": "MATCH-01-T12",
+  "task": "postgresTest",
+  "selectors": [
+    "cloud.bamsongi.albammate.matching.integration.MatchCurrentStateCorrectionPostgresTest",
+    "cloud.bamsongi.albammate.matching.MatchCurrentStateSnapshotPostgresTest"
+  ],
+  "purpose": "scheduler 미실행 상태의 due ACTIVE/PREPARING/OPEN 보정, 시스템 메시지·CLOSED 전이, 안정 snapshot과 bounded retry 소진을 검증한다."
+}
