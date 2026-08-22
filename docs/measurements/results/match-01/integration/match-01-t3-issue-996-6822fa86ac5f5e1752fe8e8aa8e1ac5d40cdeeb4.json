@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "measuredGitCommitSha": "a6661c0db3cddd610136d4cbf05843bb1bc11d02",
+  "measuredGitCommitSha": "6822fa86ac5f5e1752fe8e8aa8e1ac5d40cdeeb4",
   "outcome": "PASSED",
   "id": "MATCH-01-T3",
   "task": "postgresTest",
@@ -9,5 +9,5 @@
     "cloud.bamsongi.albammate.matching.MatchWaitingAttemptInvariantPostgresTest.제안_만료와_PREPARING_복구_실패_자동_재대기는_기존_두_시각값을_보존한다",
     "cloud.bamsongi.albammate.matching.MatchWaitingAttemptInvariantPostgresTest.사용자의_다시_찾기_직접_재대기_취소_후_새_요청은_새_두_시각값을_사용한다"
   ],
-  "purpose": "오래된 WAITING 유지, 제안 만료·PREPARING 복구 실패 자동 재대기의 queuedAt·prioritySince 보존, 사용자의 다시 찾기·직접 재대기·취소 후 새 요청의 두 시각값 리셋을 PostgreSQL에서 검증했다. measuredGitCommitSha는 기준 SHA이며 test/production changes가 미커밋인 working tree에서 실행한 결과다."
+  "purpose": "오래된 WAITING 유지, 제안 만료·PREPARING 복구 실패 자동 재대기의 queuedAt·prioritySince 보존, 사용자의 다시 찾기·직접 재대기·취소 후 새 요청의 두 시각값 리셋과 PAUSED 요청 조건 변경 시 새 요청 생성을 PostgreSQL에서 검증했다. 이 결과는 변경된 생산 코드와 전용 테스트가 커밋된 깨끗한 measuredGitCommitSha에서 exact selector로 실행됐다."
 }
