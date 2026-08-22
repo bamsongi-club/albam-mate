@@ -1,0 +1,131 @@
+{
+  "schemaVersion": 1,
+  "kind": "catalog-dataset-release",
+  "releaseId": "bgg-catalog-170k-v5-2026-08-21",
+  "datasetId": "bgg-catalog-170k",
+  "fieldVersion": "catalog-fields-v1",
+  "approved": true,
+  "testOnly": false,
+  "approval": {
+    "reviewedBy": "beyejin",
+    "reviewedAt": "2026-08-22T05:02:04.000Z",
+    "references": [
+      "https://github.com/bamsongi-club/albam-mate/issues/924#issuecomment-5378050658"
+    ]
+  },
+  "sourceSnapshot": {
+    "source": "BGG XML",
+    "batchId": "bgg-xml-basic-170k-2026-08-10",
+    "rows": 170000,
+    "manifestSha256": "b7aa4731c5480a434b915921cb8f7f6d6a616a007b87239bff0452b80764f524"
+  },
+  "approvedFields": [
+    "bgg_id",
+    "name",
+    "english_name",
+    "description",
+    "detail_description",
+    "min_players",
+    "max_players",
+    "min_age"
+  ],
+  "fieldProvenance": {
+    "bgg_id": {
+      "sourceColumn": "BGG XML item[@id]",
+      "sourceVersion": "bgg-xml-basic-170k-2026-08-10",
+      "public": true,
+      "processingAllowed": true,
+      "provenanceSha256": "b7aa4731c5480a434b915921cb8f7f6d6a616a007b87239bff0452b80764f524"
+    },
+    "name": {
+      "sourceColumn": "BGG XML alternate name or primary name",
+      "sourceVersion": "bgg-xml-basic-170k-2026-08-10",
+      "public": true,
+      "processingAllowed": true,
+      "provenanceSha256": "b7aa4731c5480a434b915921cb8f7f6d6a616a007b87239bff0452b80764f524"
+    },
+    "english_name": {
+      "sourceColumn": "BGG XML name[@type=primary]@value",
+      "sourceVersion": "bgg-xml-basic-170k-2026-08-10",
+      "public": true,
+      "processingAllowed": true,
+      "provenanceSha256": "b7aa4731c5480a434b915921cb8f7f6d6a616a007b87239bff0452b80764f524"
+    },
+    "description": {
+      "sourceColumn": "BGG XML description derived first sentence",
+      "sourceVersion": "bgg-xml-basic-170k-2026-08-10",
+      "public": true,
+      "processingAllowed": true,
+      "provenanceSha256": "b7aa4731c5480a434b915921cb8f7f6d6a616a007b87239bff0452b80764f524"
+    },
+    "detail_description": {
+      "sourceColumn": "BGG XML description",
+      "sourceVersion": "bgg-xml-basic-170k-2026-08-10",
+      "public": true,
+      "processingAllowed": true,
+      "provenanceSha256": "b7aa4731c5480a434b915921cb8f7f6d6a616a007b87239bff0452b80764f524"
+    },
+    "min_players": {
+      "sourceColumn": "BGG XML minplayers",
+      "sourceVersion": "bgg-xml-basic-170k-2026-08-10",
+      "public": true,
+      "processingAllowed": true,
+      "provenanceSha256": "b7aa4731c5480a434b915921cb8f7f6d6a616a007b87239bff0452b80764f524"
+    },
+    "max_players": {
+      "sourceColumn": "BGG XML maxplayers",
+      "sourceVersion": "bgg-xml-basic-170k-2026-08-10",
+      "public": true,
+      "processingAllowed": true,
+      "provenanceSha256": "b7aa4731c5480a434b915921cb8f7f6d6a616a007b87239bff0452b80764f524"
+    },
+    "min_age": {
+      "sourceColumn": "BGG XML poll suggested_age",
+      "sourceVersion": "bgg-xml-basic-170k-2026-08-10",
+      "public": true,
+      "processingAllowed": true,
+      "provenanceSha256": "b7aa4731c5480a434b915921cb8f7f6d6a616a007b87239bff0452b80764f524"
+    }
+  },
+  "dataset": {
+    "rows": 170000,
+    "sha256": "16dc54a9b123328e7e4c58edcd7acfc7c9036bd2ca6dadf9a7b000f24fa682b0",
+    "idSetSha256": "46277da6ad8173c69dc26478df461b00ca9425971a1daa698fb6da3da1fd4546"
+  },
+  "artifacts": {
+    "01": {
+      "status": "approved",
+      "path": "01-games-full.sql",
+      "sha256": "ea8a67108614d5d2115f3b4185abba025f50a32c01cc92520cb732e2bab2b500",
+      "bytes": 207254929
+    },
+    "02": {
+      "status": "approved",
+      "path": "02-metadata-full.sql",
+      "sha256": "65fac23bef6bd662b9b74c8f5adb754981236c35d89839509bcca76610790278",
+      "bytes": 41650159
+    }
+  },
+  "coverage": {
+    "catalogIds": {
+      "rows": 170000,
+      "sha256": "46277da6ad8173c69dc26478df461b00ca9425971a1daa698fb6da3da1fd4546",
+      "serialization": "sorted-bgg-id-lines-v1"
+    },
+    "mechanismRelations": {
+      "rows": 428488,
+      "sha256": "2dc8aca4c0a2b8149e5a5556d5f07040dbb91394474bf01592160d5b5d3008e3",
+      "serialization": "sorted-bgg-id-mechanism-id-csv-v1"
+    },
+    "themeRelations": {
+      "rows": 461973,
+      "sha256": "5eff6c8432b3254861ac43569ecf71bb341f4ad881dcfb67602fee6bbd6bb93d",
+      "serialization": "sorted-bgg-id-theme-id-csv-v1"
+    },
+    "playerPreferences": {
+      "rows": 263463,
+      "sha256": "1c76de0cf0e0afd0faa4a98cad9178b4474c9634fa24fed3a31cb198b2574e8a",
+      "serialization": "sorted-bgg-id-player-count-recommended-best-csv-v1"
+    }
+  }
+}
