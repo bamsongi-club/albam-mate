@@ -27,6 +27,7 @@ import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.rnorth.ducttape.unreliables.Unreliables;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -36,6 +37,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.core.env.Environment;
+import org.springframework.data.redis.RedisConnectionFailureException;
+import org.springframework.data.redis.RedisSystemException;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration;
@@ -46,9 +49,9 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
-import org.testcontainers.DockerClientFactory;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
@@ -117,7 +120,7 @@ class MatchChatMessageRateLimitPostgresTest {
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
 	@Autowired
-	private RedisConnectionFactory redisConnectionFactory;
+	private LettuceConnectionFactory redisConnectionFactory;
 	@Autowired
 	private RedisChatMessageRateLimiter roomRateLimiter;
 	@Autowired
@@ -489,7 +492,8 @@ class MatchChatMessageRateLimitPostgresTest {
 	}
 
 	private void assertError(
-		HttpClient client, long partyId, String clientMessageId, String csrfToken, ErrorCode errorCode) throws Exception {
+		HttpClient client, long partyId, String clientMessageId, String csrfToken, ErrorCode errorCode)
+		throws Exception {
 		HttpResponse<String> response = postMessage(client, partyId, clientMessageId, csrfToken);
 		assertEquals(errorCode.getStatus(), response.statusCode(), response.body());
 		JsonNode body = objectMapper.readTree(response.body());
@@ -534,29 +538,29 @@ class MatchChatMessageRateLimitPostgresTest {
 	private void stopRedis() {
 		DockerClientFactory.instance().client().pauseContainerCmd(REDIS.getContainerId()).exec();
 		redisPaused = true;
+		redisConnectionFactory.resetConnection();
+		assertRedisUnavailable();
 	}
 
 	private void startRedis() {
 		DockerClientFactory.instance().client().unpauseContainerCmd(REDIS.getContainerId()).exec();
 		redisPaused = false;
 		assertTrue(REDIS.isRunning());
-		for (int attempt = 0; attempt < 10; attempt++) {
+		redisConnectionFactory.resetConnection();
+		Unreliables.retryUntilTrue(5, TimeUnit.SECONDS, () -> {
 			try {
-				redis().opsForValue().set("match-chat-rate-limit-recovery-probe", "ready");
-				redis().delete("match-chat-rate-limit-recovery-probe");
-				return;
+				return "PONG".equals(redisConnectionFactory.getConnection().ping());
 			} catch (RuntimeException exception) {
-				if (attempt == 9) {
-					throw exception;
-				}
-				try {
-					Thread.sleep(Duration.ofMillis(100));
-				} catch (InterruptedException interruptedException) {
-					Thread.currentThread().interrupt();
-					throw new IllegalStateException("Redis 복구 대기 중 인터럽트되었습니다.", interruptedException);
-				}
+				return false;
 			}
-		}
+		});
+	}
+
+	private void assertRedisUnavailable() {
+		RuntimeException exception = assertThrows(RuntimeException.class,
+			() -> redisConnectionFactory.getConnection().ping());
+		assertTrue(exception instanceof RedisConnectionFailureException || exception instanceof RedisSystemException,
+			() -> "Redis command 경로가 연결 장애로 종료되지 않았습니다: " + exception);
 	}
 
 	private int messageCount(long partyId) {
