@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""OPS-04 공식 가격 snapshot 기반 AI 추정 비용 계산기."""
+"""OPS-04 공식 가격 snapshot 기반 token 참고 비용 계산기."""
 
 from __future__ import annotations
 
@@ -12,6 +12,8 @@ from typing import Any
 
 
 OUTPUT_SCALE = Decimal("0.000000000001")
+FIXED_RESERVATION_USD_PER_EXTERNAL_PROVIDER_CALL = "0.10"
+ESTIMATE_PURPOSE = "RESERVATION_POLICY_REVIEW_ONLY"
 APPROVED_SNAPSHOT_ID = "openai-gpt-5.6-luna-standard-2026-07-30-v1"
 APPROVED_SNAPSHOT_CHECKSUM_SHA256 = (
     "4fcaa7afd3e6ec6f0f223051d06d488ddfb48c4e17939fd462122868e94a22bb"
@@ -63,6 +65,11 @@ def no_observation(snapshot: dict[str, Any], reason: str) -> dict[str, Any]:
         "snapshotId": snapshot["snapshotId"],
         "currency": snapshot["currency"],
         "estimatedCostUsd": None,
+        "estimatePurpose": ESTIMATE_PURPOSE,
+        "hardCapCalculation": False,
+        "fixedReservationUsdPerExternalProviderCall": (
+            FIXED_RESERVATION_USD_PER_EXTERNAL_PROVIDER_CALL
+        ),
     }
 
 
@@ -138,6 +145,11 @@ def estimate(snapshot: dict[str, Any], usage: dict[str, Any]) -> dict[str, Any]:
         "outputTokens": total_output,
         "totalTokens": total_input + total_output,
         "estimatedCostUsd": format(estimated, "f"),
+        "estimatePurpose": ESTIMATE_PURPOSE,
+        "hardCapCalculation": False,
+        "fixedReservationUsdPerExternalProviderCall": (
+            FIXED_RESERVATION_USD_PER_EXTERNAL_PROVIDER_CALL
+        ),
         "periodEstimate": {
             "requestCount": len(requests),
             "inputTokens": total_input,

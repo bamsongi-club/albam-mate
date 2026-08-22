@@ -1,6 +1,6 @@
 # OPS-04 AI 사용량·추정 비용 증거 계약
 
-이 디렉터리는 [OPS-04](../../p2/monitoring.md#ops-04-ai-사용량과-추정-비용)의 공개 입력 경계다. 실제 청구서, prompt·응답·Tool 원문, 사용자·session 식별자와 secret은 저장하지 않는다.
+이 디렉터리는 [OPS-04](../../p2/monitoring.md#ops-04-ai-사용량과-추정-비용)의 공개 입력 경계다. 실제 청구서, prompt·응답·Tool 원문, 사용자·session 식별자와 secret은 저장하지 않는다. [ADR-0085](../../adr/platform/0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md)에 따라 앱 월 `$5` hard cap과 `$4` warning은 실제 외부 provider 호출마다 USD `0.10`을 예약하는 내부 예산으로 계산한다. 아래 token 가격 계산은 이 예약값의 적정성을 재검토하는 참고 추정이며 hard cap이나 실제 청구액을 계산하지 않는다.
 
 ## 가격 snapshot
 
@@ -18,7 +18,7 @@ estimatedUsd = inputTokens × 0.20 / 1,000,000
              + outputTokens × 1.20 / 1,000,000
 ```
 
-이 값은 할인·무료 구간·cache write·regional processing·환율·세금과 실제 provider 청구 조정을 포함하지 않는 추정값이다.
+이 값은 할인·무료 구간·cache write·regional processing·환율·세금과 실제 provider 청구 조정을 포함하지 않는 참고 추정값이다. 계산 결과의 `estimatePurpose=RESERVATION_POLICY_REVIEW_ONLY`, `hardCapCalculation=false`, `fixedReservationUsdPerExternalProviderCall=0.10`은 token 추정과 고정 예약 예산을 혼동하지 않기 위한 계약이다.
 
 ## 재현 명령
 

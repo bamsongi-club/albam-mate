@@ -43,6 +43,9 @@ class EstimateAiCostTest(unittest.TestCase):
         self.assertEqual(result["estimatedCostUsd"], result["periodEstimate"]["estimatedCostUsd"])
         self.assertEqual(2000, result["totalTokens"])
         self.assertFalse(result["actualInvoiceAmount"])
+        self.assertEqual("RESERVATION_POLICY_REVIEW_ONLY", result["estimatePurpose"])
+        self.assertFalse(result["hardCapCalculation"])
+        self.assertEqual("0.10", result["fixedReservationUsdPerExternalProviderCall"])
 
     def test_t4_missing_usage_is_not_reported_as_zero_cost(self) -> None:
         result = ESTIMATOR.estimate(self.snapshot, {
@@ -52,6 +55,8 @@ class EstimateAiCostTest(unittest.TestCase):
 
         self.assertEqual("NO_OBSERVATION", result["status"])
         self.assertIsNone(result["estimatedCostUsd"])
+        self.assertEqual("RESERVATION_POLICY_REVIEW_ONLY", result["estimatePurpose"])
+        self.assertFalse(result["hardCapCalculation"])
 
     def test_t4_model_mismatch_and_unsupported_pricing_do_not_fall_back(self) -> None:
         base = {

@@ -151,14 +151,14 @@ source는 첫 두 meter가 `AuthenticationRequestLimiterMetrics`, WebSocket 네 
 | `assistant.usage.events` | counter | `provider=fake|openai|unknown`, `model=gpt-5.6-luna|unknown`, `feature=AI-02|unknown`, 승인된 `prompt_version`·`schema_version`·`status` 또는 `unknown` | 같은 release의 요청 수를 provider·model·feature·status별 `Sum` | 현재 코드·자동 검증 완료, CloudWatch 배포·실측 필요 |
 | `assistant.usage.tokens` | distribution summary | 위 usage tag와 `token_type=input|output|total` | 같은 release의 token 합계와 공식 가격 snapshot 기반 추정 비용 | 현재 코드·자동 검증 완료, CloudWatch 배포·실측 필요 |
 | `assistant.usage.latency` | timer | usage event와 같은 유한 tag | provider·model·feature별 count·p95 | 현재 코드·자동 검증 완료, CloudWatch 배포·실측 필요 |
-| `assistant.usage.cost.usd` | distribution summary | usage event와 같은 유한 tag | provider adapter가 보고한 참고 비용; 공식 가격 재계산이나 청구서로 사용 금지 | 현재 코드·자동 검증 완료, CloudWatch 배포·실측 필요 |
+| `assistant.usage.cost.usd` | distribution summary | usage event와 같은 유한 tag | ADR-0085의 실제 외부 provider 호출당 USD `0.10` 고정 예약값; token 가격 추정이나 청구서로 사용 금지 | 현재 코드·자동 검증 완료, CloudWatch 배포·실측 필요 |
 | `assistant.cost.warning.events` | counter | `quota_month=YYYY-MM`, `warning_threshold_usd=4.00|unknown` | 월별 중복 없는 `$4` warning, SNS warning·OK 복구 | 현재 코드·자동 검증 완료, CloudWatch 배포·실측 필요 |
 
 `notification.relay.delivery.duration`은 outbox의 `recordedAt`부터 Notification 기록 시각까지의 `deliveryDelayMs`를 기록한다. `notification.relay.oldest.processable.age`는 batch 종료 뒤 PostgreSQL 조회의 밀리초 값을 초 단위 gauge로 기록하고, 처리 가능한 적체가 없으면 0이다. `processingDurationMs`는 구조화 로그의 진단 필드일 뿐 meter에 기록하지 않는다.
 
 ### OPS-04 가격·비용 계산과 경고 경계
 
-OpenAI `gpt-5.6-luna` standard short-context 가격은 [OPS-04 가격 snapshot](../measurements/ops-04/README.md)에 고정한다. 정제된 요청별 입력에서 `cachedInputTokens`가 명시적인 정수 `0`이고 input이 272,000 token 이하일 때만 입력 USD 0.20/1M token과 출력 USD 1.20/1M token으로 독립 재계산한다. 그 외에는 임의의 요율이나 비용 `0`을 적용하지 않고 `NO_OBSERVATION`으로 남긴다.
+[ADR-0085](../adr/platform/0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md)의 앱 월 `$5` hard cap과 `$4` warning은 실제 외부 provider 호출당 USD `0.10` 고정 예약값으로 계산한다. OpenAI `gpt-5.6-luna` standard short-context 가격은 [OPS-04 가격 snapshot](../measurements/ops-04/README.md)에 별도로 고정하고, 정제된 요청별 입력에서 `cachedInputTokens`가 명시적인 정수 `0`이고 input이 272,000 token 이하일 때만 입력 USD 0.20/1M token과 출력 USD 1.20/1M token으로 참고 추정한다. 이 token 추정값은 고정 예약 hard cap을 다시 계산하지 않으며, 가격 적격성을 확인하지 못하면 임의의 요율이나 비용 `0` 대신 `NO_OBSERVATION`으로 남긴다.
 
 #872 승인 T1의 `outcome` 축은 #852가 고정한 실제 bounded tag `status`로 조회한다. OPS-04가 같은 의미의 `outcome` tag를 중복 추가하거나 공유 meter 계약을 확장하지 않는다.
 
