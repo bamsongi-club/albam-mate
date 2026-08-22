@@ -50,7 +50,7 @@ const DEFAULT_SEARCH_TEXT = "docs/p2/search-evaluation/dense-bge-m3/search-text-
 const DEFAULT_OUTPUT = "docs/measurements/search-04e-hybrid-rrf-live.json";
 const DEFAULT_MANIFEST = "docs/measurements/search-04e-hybrid-rrf-live.manifest.json";
 // 이 값은 manifest 파일 자체의 bytes checksum이다. manifest를 바꾸면 이 상수도 함께 바꿔야 한다.
-const PINNED_MANIFEST_SHA256 = "5094b2a1cf1c1b876f42e28bcdca04631dd54c46123ab311ee56d90ed93ed73c";
+const PINNED_MANIFEST_SHA256 = "1e3a19cbbee508ec2d65fd35f14bccb543136f0fd9cd3edf90d30f3c0fed5bf5";
 const MODEL = Object.freeze({
     provider: "cloudflare-workers-ai",
     model: "@cf/baai/bge-m3",
@@ -210,23 +210,19 @@ function validateRunnerProvenance(evidence, pinned) {
         "runner 파일 checksum이 고정값과 다릅니다.");
     assertEqual(runner.sourceClean, pinned.manifest.runner.sourceClean,
         "runner source clean 상태가 고정값과 다릅니다.");
-    // sourceClean은 원래의 실측 상태(true/false)를 있는 그대로 기록하므로 별도로 강제하지 않습니다.
+    if (runner.sourceClean !== true) throw new Error("dirty source에서 생성한 evidence는 허용하지 않습니다.");
     if (!/^[a-f0-9]{40}$/u.test(runner.sourceGitHead)) {
         throw new Error("runner sourceGitHead가 40자리 Git SHA-1이 아닙니다.");
     }
-
-    assertEqual(runner.snapshotPath, pinned.manifest.runner.snapshotPath, "runner snapshot 경로가 고정값과 다릅니다.");
-    if (!runner.snapshotPath || !runner.snapshotPath.startsWith("docs/measurements/results/")) {
-        throw new Error("runner snapshotPath는 docs/measurements/results/ 하위 경로여야 합니다.");
-    }
-
     try {
-        const snapshotPath = repositoryPath(runner.snapshotPath);
-        const runnerBytes = fs.readFileSync(snapshotPath);
+        const runnerBytes = execFileSync("git", ["show", `${runner.sourceGitHead}:${runner.path}`], {
+            cwd: REPOSITORY_ROOT,
+            encoding: "buffer",
+        });
         assertEqual(sha256(runnerBytes), runner.fileSha256,
-            "실행 commit의 runner 파일 checksum이 snapshot 파일과 다릅니다.");
+            "실행 commit의 runner 파일 checksum이 evidence와 다릅니다.");
     } catch (error) {
-        throw new Error(`runner snapshot 파일을 확인할 수 없습니다: ${error.message}`);
+        throw new Error(`runner source commit/file을 확인할 수 없습니다: ${error.message}`);
     }
 }
 
@@ -293,9 +289,7 @@ export function validateLiveEvidence(evidence, options = {}) {
         "bggGameIdMembershipSha256", "internalGameIdMembershipSha256", "provider", "model", "embeddingMode",
         "dimension", "l2Normalized", "status",
     ]) {
-        const actual = ["releaseId", "fieldVersion", "manifestSha256", "searchTextChecksum"].includes(field)
-            ? input.release?.[field] : input.index?.[field];
-        assertEqual(actual, pinned.manifest.index[field], `index.${field}가 고정값과 다릅니다.`);
+        assertEqual(input.index?.[field], pinned.manifest.index[field], `index.${field}가 고정값과 다릅니다.`);
     }
 
     const execution = evidence.execution;

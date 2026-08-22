@@ -1,3 +1,4 @@
+import os from "node:os";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -93,12 +94,44 @@ test("SEARCH-04e live evidence는 mock Dense와 corpus 불일치를 거부한다
         ["request completion", (evidence) => {
             evidence.execution.requests[0].completedWithinDeadline = false;
         }],
+        ["runner.fileSha256 변경", (evidence) => {
+            evidence.runner.fileSha256 = "0".repeat(64);
+        }],
+        ["runner.snapshotPath 변경", (evidence) => {
+            evidence.runner.snapshotPath = "docs/measurements/results/other-snapshot.mjs";
+        }],
+        ["sourceGitHead 불일치", (evidence) => {
+            evidence.sourceGitHead = "0".repeat(40);
+        }],
+        ["sourceClean 변경", (evidence) => {
+            evidence.runner.sourceClean = !evidence.runner.sourceClean;
+        }],
     ];
 
     for (const [label, mutate] of mutations) {
         const evidence = copyEvidence();
         mutate(evidence);
         assert.throws(() => validateLiveEvidence(evidence), { name: "Error" }, label);
+    }
+});
+
+
+test("SEARCH-04e live evidence는 snapshot 파일이 변조되면 실패한다", () => {
+    const evidence = copyEvidence();
+    const originalSnapshotPath = path.join(REPOSITORY_ROOT, evidence.runner.snapshotPath);
+    const originalBytes = fs.readFileSync(originalSnapshotPath);
+    
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'albam-mate-search-04e-'));
+    const tmpSnapshotPath = path.join(tmpDir, 'search-04e-hybrid-rrf-live-runner-snapshot.mjs');
+    
+    try {
+        const mutatedBytes = Buffer.from(originalBytes);
+        mutatedBytes[0] ^= 0xFF; // 변조
+        fs.writeFileSync(tmpSnapshotPath, mutatedBytes);
+        evidence.runner.snapshotPath = path.relative(REPOSITORY_ROOT, tmpSnapshotPath);
+        assert.throws(() => validateLiveEvidence(evidence), { name: "Error" }, "snapshot bytes 변조 시 실패해야 합니다");
+    } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
     }
 });
 

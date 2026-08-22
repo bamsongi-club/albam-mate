@@ -4,17 +4,18 @@
   "issue": 1002,
   "featureId": "SEARCH-04",
   "status": "timeout-observed",
-  "sourceGitHead": "26a746c22b97826618ffe2c21fb67d212958bdc9",
+  "sourceGitHead": "086b8e4378aea5b6673b274440b5adf28ce5b541",
   "runner": {
     "path": "scripts/measurements/search-04e-hybrid-rrf-live.mjs",
-    "sourceGitHead": "26a746c22b97826618ffe2c21fb67d212958bdc9",
+    "sourceGitHead": "086b8e4378aea5b6673b274440b5adf28ce5b541",
     "fileSha256": "30d05620b42fd431bb22e889816d55c13419dd4b4aa29a2e90a14c9f0f6aecbb",
-    "sourceClean": true
+    "sourceClean": false,
+    "snapshotPath": "docs/measurements/results/search-04e-hybrid-rrf-live-runner-snapshot.mjs"
   },
   "input": {
     "executionManifest": {
       "path": "docs/measurements/search-04e-hybrid-rrf-live.manifest.json",
-      "sha256": "f61b97630e53edd3f6da6c421bbe4545e6efe2321ef676b0aa3377e2e3504b7b"
+      "sha256": "5094b2a1cf1c1b876f42e28bcdca04631dd54c46123ab311ee56d90ed93ed73c"
     },
     "catalogRelease": {
       "releaseId": "bgg-catalog-170k-v4-2026-08-19",
