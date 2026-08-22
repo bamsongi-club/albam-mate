@@ -28,16 +28,19 @@
   },
   "runner": {
     "path": "scripts/measurements/search-04e-hybrid-rrf-live.mjs",
-    "sourceGitHead": "1cf42110a70d6a27f88f52195f59b78ec52db797",
-    "fileSha256": "ea207099f6b6e1b452ec9e21e0279c0d1979edb4929ff9b44bf9d90927ef9d77",
+    "sourceGitHead": "26a746c22b97826618ffe2c21fb67d212958bdc9",
+    "fileSha256": "30d05620b42fd431bb22e889816d55c13419dd4b4aa29a2e90a14c9f0f6aecbb",
     "sourceClean": true
   },
   "index": {
     "id": "c245b97b-0b4e-43ec-987c-ea359e4a2e37",
+    "version": "c245b97b-0b4e-43ec-987c-ea359e4a2e37",
     "releaseId": "bgg-catalog-170k-v4-2026-08-19",
     "fieldVersion": "catalog-fields-v1",
     "manifestSha256": "fdcf8bacd8b8a7c5e8961c02b50ff727ca3460f6846b5b3dddc9dae16d1c1c92",
     "searchTextChecksum": "ec364be3a34268d1bb6d27e3c41e2cdd31852565eec79fa31faaacda17af4ece",
+    "bggGameIdMembershipSha256": "87aff382f7a91bff93d5eddf4ee7b048bbef22e5e220a6295c0c09821d87a353",
+    "internalGameIdMembershipSha256": "fdcf8bacd8b8a7c5e8961c02b50ff727ca3460f6846b5b3dddc9dae16d1c1c92",
     "provider": "cloudflare-workers-ai",
     "model": "@cf/baai/bge-m3",
     "embeddingMode": "text",
@@ -49,6 +52,6 @@
   },
   "result": {
     "path": "docs/measurements/search-04e-hybrid-rrf-live.json",
-    "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    "sha256": "0c7570965bd504fdee115c073a27b655ec4f1e1394d747c27bcb6d79d82390bd"
   }
 }

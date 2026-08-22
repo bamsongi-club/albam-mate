@@ -1,12 +1,14 @@
 # SEARCH-04e Hybrid/RRF 동일 corpus live evidence
 
-> 문서 상태: #1002 live evidence 완료 · 현재 serving 값은 `K=200`, `RRF k=60`, 공통 timeout `6초`입니다. 이 문서는 [ADR-0088](../adr/game/0088-search-04-hybrid-rrf-parallel-candidate-generation.md)의 확정값 근거를 실제 승인 corpus로 갱신한 기록입니다.
+> 문서 상태: #1002 live evidence 재생성 · `timeout-observed` (40건 중 34건 완료, 6건 timeout) · 현재 serving 계약값은 `K=200`, `RRF k=60`, 공통 timeout `6초`입니다. 이 문서는 [ADR-0088](../adr/game/0088-search-04-hybrid-rrf-parallel-candidate-generation.md)의 근거를 실제 승인 corpus와 production SQL shape로 갱신한 기록입니다.
 
 ## 결론
 
 이전 #983 evidence는 101개 합성 corpus와 `@MockitoBean DenseCandidateSource`를 사용했으므로 #1002의 production 상수 근거로 폐기합니다. 새 evidence는 승인된 1,000개 `search_text`, 같은 release와 active READY pgvector index, 실제 Cloudflare BGE-M3 query embedding, 실제 PostgreSQL sparse query shape를 고정해 8개 질의를 비교합니다.
 
 현재 결과만으로는 품질 qrels 없이 `K=200`의 relevance 안전성을 최종 확정할 수 없습니다. full sparse pool의 top20과 비교하면 K=200 일치율은 질의별 16~19개, K=400은 19~20개, K=800은 20개였습니다. 따라서 serving 값은 기존 계약을 유지하되 `K=400`을 다음 품질 qrels 재검토의 우선 후보로 기록합니다. 이 문서는 qrels 없는 상태에서 K를 자동 승격하지 않습니다.
+
+실제 동시 실행에서는 Dense와 Sparse를 공통 6초 deadline으로 시작한 40건 중 34건이 완료되고 6건이 timeout되었습니다. 관찰된 parallel p95는 6,002.960ms, fusion을 포함한 `observedParallelP95Ms`는 6,004.534ms이므로 이번 evidence는 공통 timeout 6초의 통과 근거가 아니라 timeout 관측과 후속 성능 검토가 필요한 상태를 기록합니다.
 
 ## 동일 corpus·release·index 고정
 
@@ -15,13 +17,17 @@
 | 승인 corpus | [`search-text-top1000.json`](../p2/search-evaluation/dense-bge-m3/search-text-top1000.json), 1,000행 |
 | `search_text` SHA-256 | `ec364be3a34268d1bb6d27e3c41e2cdd31852565eec79fa31faaacda17af4ece` |
 | BGG game ID membership SHA-256 | `87aff382f7a91bff93d5eddf4ee7b048bbef22e5e220a6295c0c09821d87a353` |
+| execution manifest SHA-256 | `f61b97630e53edd3f6da6c421bbe4545e6efe2321ef676b0aa3377e2e3504b7b` |
 | catalog release / field | `bgg-catalog-170k-v4-2026-08-19` / `catalog-fields-v1` |
 | active index | `c245b97b-0b4e-43ec-987c-ea359e4a2e37`, `READY`, exact cosine |
 | index provider / model | `cloudflare-workers-ai` / `@cf/baai/bge-m3` |
 | dimension / normalization | 1,024 / L2 normalized |
 | 내부 game ID membership / manifest SHA-256 | `fdcf8bacd8b8a7c5e8961c02b50ff727ca3460f6846b5b3dddc9dae16d1c1c92` |
+| runner commit / file SHA-256 | `26a746c22b97826618ffe2c21fb67d212958bdc9` / `30d05620b42fd431bb22e889816d55c13419dd4b4aa29a2e90a14c9f0f6aecbb` |
+| runner source 상태 | clean |
+| execution result SHA-256 | `0c7570965bd504fdee115c073a27b655ec4f1e1394d747c27bcb6d79d82390bd` |
 
-BGG ID와 DB 내부 `games.id`는 서로 다른 식별자이므로, runner가 승인 corpus의 BGG ID를 DB 내부 ID로 매핑한 뒤 index membership과 다시 대조합니다. index의 원시 vector나 provider 응답은 결과 artifact에 저장하지 않습니다.
+BGG ID와 DB 내부 `games.id`는 서로 다른 식별자이므로, runner가 승인 corpus의 BGG ID를 DB 내부 ID로 매핑한 뒤 index membership과 다시 대조합니다. Dense·corpus 비교 결과는 BGG ID로 기록하고, 전체 games serving 결과의 top20은 DB 내부 `games.id` namespace로 별도 기록합니다. index의 원시 vector나 provider 응답은 결과 artifact에 저장하지 않습니다.
 
 ## 실행 경로와 재현
 
@@ -33,7 +39,7 @@ BGG ID와 DB 내부 `games.id`는 서로 다른 식별자이므로, runner가 �
 - Sparse serving: `StructuredSparseCandidateSource`와 같은 전체 `games` 범위·field weight·public relation·`LIMIT 200` SQL을 실제 PostgreSQL에 40회 실행
 - Sparse corpus 비교: 승인 1,000개 내부 ID CTE와 `LIMIT 1000`을 별도 실행해 full-pool overlap 비교에만 사용. serving latency와 corpus 비교 latency를 섞지 않음
 - Fusion: Dense 1,000행과 Sparse full pool을 기준으로 K `[50, 100, 200, 400, 800, 1000]`, RRF k `[10, 30, 60, 100, 200]`을 비교
-- timeout: 각 질의에서 Dense(Cloudflare 5초 provider timeout + pgvector)와 Sparse serving을 실제로 동시에 시작하고, 공통 6초 deadline 안의 요청별 완료·실패·경과 시간을 보존
+- timeout: 각 질의에서 Dense(Cloudflare 5초 provider timeout + pgvector)와 Sparse serving을 실제로 동시에 시작하고, 공통 6초 deadline 안의 요청별 status·완료·실패·경과 시간을 보존. 이번 실행은 40건 중 6건이 timeout-observed였습니다.
 
 ```bash
 set -a; . /path/to/albam-mate/.env; set +a
@@ -44,7 +50,8 @@ node scripts/measurements/search-04e-hybrid-rrf-live.mjs \
   --out docs/measurements/search-04e-hybrid-rrf-live.json
 
 node scripts/measurements/search-04e-hybrid-rrf-live.mjs \
-  --validate docs/measurements/search-04e-hybrid-rrf-live.json
+  --validate docs/measurements/search-04e-hybrid-rrf-live.json \
+  --manifest docs/measurements/search-04e-hybrid-rrf-live.manifest.json
 node --test scripts/measurements/search-04e-hybrid-rrf-live.test.mjs
 ```
 
@@ -71,11 +78,14 @@ Common query 4개 모두 Sparse full count가 200을 넘고 Stone Age 질의 4�
 
 | 단계 | samples | p50 (ms) | p95 (ms) | max (ms) |
 | --- | ---: | ---: | ---: | ---: |
-| Cloudflare Dense query embedding | 40 | 204.986 | 1,389.336 | 1,658.016 |
-| Sparse SQL `EXPLAIN ANALYZE` | 8 | 69.456 | 130.873 | 130.873 |
-| Fusion | 40 | 0.314 | 0.552 | 0.808 |
+| Cloudflare Dense query embedding | 40 | 197.979 | 1,548.654 | 2,012.476 |
+| Dense pgvector candidate query | 40 | 99.957 | 509.879 | 1,135.408 |
+| Sparse serving SQL · all games `LIMIT 200` | 40 | 1,089.321 | 6,002.960 | 6,008.459 |
+| Sparse corpus SQL · approved corpus `LIMIT 1000` | 8 | 120.292 | 876.134 | 876.134 |
+| Parallel Dense + Sparse | 40 | 1,930.188 | 6,002.960 | 6,008.459 |
+| Fusion | 34 | 0.396 | 1.574 | 1.620 |
 
-`parallel` p95는 각 요청에서 Dense와 Sparse를 실제 동시 시작한 뒤 둘 다 완료할 때까지의 p95이고, `observedParallelP95Ms`는 여기에 실제 fusion p95를 더한 값입니다. Cloudflare provider timeout은 5초로 고정하고 공통 deadline은 6초로 비교합니다. 이 값은 실제 장애율·p99 SLO를 확정하는 측정이 아닙니다.
+`parallel` p95는 각 요청에서 Dense와 Sparse를 실제 동시 시작한 뒤의 요청별 경과시간 p95이고, `observedParallelP95Ms`는 여기에 완료된 요청의 fusion p95를 더한 `6,004.534ms`입니다. Cloudflare provider timeout은 5초로 고정하고 공통 deadline은 6초로 비교했습니다. 6건의 timeout이 관측되었으므로 공통 timeout 6초를 통과했다고 해석하지 않으며, 이 값은 실제 장애율·p99 SLO를 확정하는 측정도 아닙니다.
 
 ## 현재 상수 판정
 
@@ -83,7 +93,7 @@ Common query 4개 모두 Sparse full count가 200을 넘고 Stone Age 질의 4�
 | --- | ---: | --- |
 | Sparse candidate K | 200 | 유지. full-pool top20 손실이 관찰되어 최종 relevance 안전성은 미확정이며 K=400을 다음 qrels 검토 후보로 기록 |
 | RRF k | 60 | 유지. 비교 결과는 기록했지만 8개 질의만으로 relevance 우열을 확정하지 않음 |
-| 공통 timeout | 6초 | 유지. 관찰 upper bound 1,389.888ms, Cloudflare 자체 5초 timeout과 여유 필요 |
+| 공통 timeout | 6초 | 계약값은 유지하되 이번 실행은 `timeout-observed`로 판정. 40건 중 6건 timeout, `observedParallelP95Ms=6,004.534ms`이므로 6초 통과 근거로 사용하지 않음 |
 
 ## 재발 방지 경계
 
@@ -96,12 +106,13 @@ Common query 4개 모두 Sparse full count가 200을 넘고 Stone Age 질의 4�
 - production Dense pgvector SQL이 아닌 JS 순위 계산 또는 Dense 후보 상한 변조
 - production Sparse 전체 범위·`LIMIT 200`과 corpus `LIMIT 1000` 경계 변조
 - 5초 provider timeout·6초 공통 deadline·동시 실행 요청 결과 누락
+- 요청 단위 `completed`·`timeout`·`failure` 상태 및 serving query status 변조
 - `DenseCandidateSource`를 mock source로 대체하거나 승인되지 않은 query fixture 사용
 - Stone Age 4개와 common query 4개 중 하나 누락
 - common query에서 Sparse full count가 200을 넘지 않는 evidence
 - active READY index의 row count·provider·model·dimension 불일치
 
-이슈에 승인된 최신 human comment/T-ID가 현재 존재하지 않으므로, 별도 T-ID를 만들어 production 동작을 확장하지 않았습니다. 현재 repository의 `HybridSemanticGameSearchRegressionPostgresTest`는 구현-level smoke test로만 남아 있으며, mock Dense 결과를 사용하는 이전 101-game evidence를 대체하지 않습니다.
+현재 repository의 `HybridSemanticGameSearchRegressionPostgresTest`는 구현-level smoke test로만 남아 있으며, mock Dense 결과를 사용하는 이전 101-game evidence를 대체하지 않습니다.
 
 ## 폐기된 이전 evidence
 

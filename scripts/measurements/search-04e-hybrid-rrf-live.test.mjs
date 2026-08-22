@@ -84,6 +84,12 @@ test("SEARCH-04e live evidence는 mock Dense와 corpus 불일치를 거부한다
         ["latency summary", (evidence) => {
             evidence.execution.phaseLatency.parallel.p95 += 1;
         }],
+        ["derived latency", (evidence) => {
+            evidence.parameters.observedParallelP95Ms += 1;
+        }],
+        ["request status", (evidence) => {
+            evidence.execution.requests[0].status = "timeout";
+        }],
         ["request completion", (evidence) => {
             evidence.execution.requests[0].completedWithinDeadline = false;
         }],

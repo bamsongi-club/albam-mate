@@ -50,7 +50,7 @@ const DEFAULT_SEARCH_TEXT = "docs/p2/search-evaluation/dense-bge-m3/search-text-
 const DEFAULT_OUTPUT = "docs/measurements/search-04e-hybrid-rrf-live.json";
 const DEFAULT_MANIFEST = "docs/measurements/search-04e-hybrid-rrf-live.manifest.json";
 // 이 값은 manifest 파일 자체의 bytes checksum이다. manifest를 바꾸면 이 상수도 함께 바꿔야 한다.
-const PINNED_MANIFEST_SHA256 = "1e3a19cbbee508ec2d65fd35f14bccb543136f0fd9cd3edf90d30f3c0fed5bf5";
+const PINNED_MANIFEST_SHA256 = "f61b97630e53edd3f6da6c421bbe4545e6efe2321ef676b0aa3377e2e3504b7b";
 const MODEL = Object.freeze({
     provider: "cloudflare-workers-ai",
     model: "@cf/baai/bge-m3",
@@ -289,7 +289,9 @@ export function validateLiveEvidence(evidence, options = {}) {
         "bggGameIdMembershipSha256", "internalGameIdMembershipSha256", "provider", "model", "embeddingMode",
         "dimension", "l2Normalized", "status",
     ]) {
-        assertEqual(input.index?.[field], pinned.manifest.index[field], `index.${field}가 고정값과 다릅니다.`);
+        const actual = ["releaseId", "fieldVersion", "manifestSha256", "searchTextChecksum"].includes(field)
+            ? input.release?.[field] : input.index?.[field];
+        assertEqual(actual, pinned.manifest.index[field], `index.${field}가 고정값과 다릅니다.`);
     }
 
     const execution = evidence.execution;

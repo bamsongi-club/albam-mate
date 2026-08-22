@@ -3,18 +3,18 @@
   "kind": "search-04e-hybrid-rrf-live-evidence",
   "issue": 1002,
   "featureId": "SEARCH-04",
-  "status": "completed",
-  "sourceGitHead": "086b8e4378aea5b6673b274440b5adf28ce5b541",
+  "status": "timeout-observed",
+  "sourceGitHead": "26a746c22b97826618ffe2c21fb67d212958bdc9",
   "runner": {
     "path": "scripts/measurements/search-04e-hybrid-rrf-live.mjs",
-    "sourceGitHead": "086b8e4378aea5b6673b274440b5adf28ce5b541",
+    "sourceGitHead": "26a746c22b97826618ffe2c21fb67d212958bdc9",
     "fileSha256": "30d05620b42fd431bb22e889816d55c13419dd4b4aa29a2e90a14c9f0f6aecbb",
-    "sourceClean": false
+    "sourceClean": true
   },
   "input": {
     "executionManifest": {
       "path": "docs/measurements/search-04e-hybrid-rrf-live.manifest.json",
-      "sha256": "1e3a19cbbee508ec2d65fd35f14bccb543136f0fd9cd3edf90d30f3c0fed5bf5"
+      "sha256": "f61b97630e53edd3f6da6c421bbe4545e6efe2321ef676b0aa3377e2e3504b7b"
     },
     "catalogRelease": {
       "releaseId": "bgg-catalog-170k-v4-2026-08-19",
@@ -56,8 +56,8 @@
     }
   },
   "execution": {
-    "startedAt": "2026-08-22T11:41:26.631Z",
-    "completedAt": "2026-08-22T11:42:19.831Z",
+    "startedAt": "2026-08-22T11:43:02.334Z",
+    "completedAt": "2026-08-22T11:44:53.551Z",
     "database": {
       "container": "issue-implementation-pr-95eb72-postgres-1",
       "approvedGameRowCount": 1000,
@@ -75,9 +75,9 @@
         "failureCount": 0,
         "latencyMs": {
           "count": 40,
-          "p50": 187.957,
-          "p95": 1325.386,
-          "max": 2071.844
+          "p50": 197.979,
+          "p95": 1548.654,
+          "max": 2012.476
         }
       },
       "queryRounds": 5,
@@ -90,16 +90,16 @@
         "failureCount": 0,
         "latencyMs": {
           "count": 40,
-          "p50": 74.571,
-          "p95": 110.505,
-          "max": 124.937
+          "p50": 99.957,
+          "p95": 509.879,
+          "max": 1135.408
         }
       },
       "branchLatency": {
         "count": 40,
-        "p50": 269.257,
-        "p95": 1421.075,
-        "max": 2155.233
+        "p50": 349.164,
+        "p95": 2063.486,
+        "max": 2356.348
       }
     },
     "sparse": {
@@ -109,14 +109,14 @@
         "candidateLimit": 200,
         "requestCount": 40,
         "queryCount": 40,
-        "successCount": 40,
-        "timeoutCount": 0,
+        "successCount": 34,
+        "timeoutCount": 6,
         "failureCount": 0,
         "executionMs": {
           "count": 40,
-          "p50": 901.455,
-          "p95": 1925.807,
-          "max": 2232.622
+          "p50": 1089.321,
+          "p95": 6002.96,
+          "max": 6008.459
         }
       },
       "corpus": {
@@ -126,9 +126,9 @@
         "queryCount": 8,
         "executionMs": {
           "count": 8,
-          "p50": 111.518,
-          "p95": 156.582,
-          "max": 156.582
+          "p50": 120.292,
+          "p95": 876.134,
+          "max": 876.134
         }
       }
     },
@@ -154,1017 +154,1017 @@
     "phaseLatency": {
       "denseEmbedding": {
         "count": 40,
-        "p50": 187.957,
-        "p95": 1325.386,
-        "max": 2071.844
+        "p50": 197.979,
+        "p95": 1548.654,
+        "max": 2012.476
       },
       "denseCandidateQuery": {
         "count": 40,
-        "p50": 74.571,
-        "p95": 110.505,
-        "max": 124.937
+        "p50": 99.957,
+        "p95": 509.879,
+        "max": 1135.408
       },
       "denseBranch": {
         "count": 40,
-        "p50": 269.257,
-        "p95": 1421.075,
-        "max": 2155.233
+        "p50": 349.164,
+        "p95": 2063.486,
+        "max": 2356.348
       },
       "sparseServingSql": {
         "count": 40,
-        "p50": 901.455,
-        "p95": 1925.807,
-        "max": 2232.622
+        "p50": 1089.321,
+        "p95": 6002.96,
+        "max": 6008.459
       },
       "sparseCorpusSql": {
         "count": 8,
-        "p50": 111.518,
-        "p95": 156.582,
-        "max": 156.582
+        "p50": 120.292,
+        "p95": 876.134,
+        "max": 876.134
       },
       "parallel": {
         "count": 40,
-        "p50": 1365.905,
-        "p95": 1957.173,
-        "max": 2233.432
+        "p50": 1930.188,
+        "p95": 6002.96,
+        "max": 6008.459
       },
       "fusion": {
-        "count": 40,
-        "p50": 0.492,
-        "p95": 1.068,
-        "max": 1.999
+        "count": 34,
+        "p50": 0.396,
+        "p95": 1.574,
+        "max": 1.62
       }
     },
-    "observedParallelP95Ms": 1958.241,
+    "observedParallelP95Ms": 6004.534,
     "parallel": {
       "providerTimeoutMs": 5000,
       "commonDeadlineMs": 6000,
       "requestCount": 40,
-      "completedCount": 40,
-      "timeoutCount": 0,
+      "completedCount": 34,
+      "timeoutCount": 6,
       "failureCount": 0
     },
-    "resultSha256": "6abfefc60b3162a225b06ca459e845e262f3a96c270615d7b4bd4fc4e6df4822",
+    "resultSha256": "0c7570965bd504fdee115c073a27b655ec4f1e1394d747c27bcb6d79d82390bd",
     "requests": [
       {
         "queryId": "STONE-01",
         "round": 1,
         "deadlineMs": 6000,
         "providerTimeoutMs": 5000,
-        "parallelElapsedMs": 1498.532625,
+        "parallelElapsedMs": 5404.471584000001,
         "status": "completed",
         "completedWithinDeadline": true,
         "dense": {
           "status": "success",
           "reasonCode": null,
-          "embeddingElapsedMs": 668.7506249999999,
-          "candidateQueryElapsedMs": 124.93666700000006,
-          "branchElapsedMs": 796.5954999999999
+          "embeddingElapsedMs": 2012.47575,
+          "candidateQueryElapsedMs": 328.24908300000016,
+          "branchElapsedMs": 2356.347792
         },
         "sparse": {
           "status": "success",
           "reasonCode": null,
-          "sqlElapsedMs": 1484.5043329999999,
+          "sqlElapsedMs": 5358.160875,
           "candidateLimit": 200,
           "scope": "all-games"
         },
-        "fusionElapsedMs": 1.5578750000001946
+        "fusionElapsedMs": 1.5736249999999927
       },
       {
         "queryId": "STONE-01",
         "round": 2,
         "deadlineMs": 6000,
         "providerTimeoutMs": 5000,
-        "parallelElapsedMs": 1409.4187499999998,
+        "parallelElapsedMs": 5545.821292,
         "status": "completed",
         "completedWithinDeadline": true,
         "dense": {
           "status": "success",
           "reasonCode": null,
-          "embeddingElapsedMs": 1325.3863330000001,
-          "candidateQueryElapsedMs": 81.08433299999979,
-          "branchElapsedMs": 1409.3762499999998
+          "embeddingElapsedMs": 1389.3343749999995,
+          "candidateQueryElapsedMs": 251.95104099999935,
+          "branchElapsedMs": 1645.0191249999998
         },
         "sparse": {
           "status": "success",
           "reasonCode": null,
-          "sqlElapsedMs": 1238.6288339999999,
+          "sqlElapsedMs": 5542.603999999999,
           "candidateLimit": 200,
           "scope": "all-games"
         },
-        "fusionElapsedMs": 0.5677909999999429
+        "fusionElapsedMs": 0.6569999999992433
       },
       {
         "queryId": "STONE-01",
         "round": 3,
         "deadlineMs": 6000,
         "providerTimeoutMs": 5000,
-        "parallelElapsedMs": 1219.726792,
+        "parallelElapsedMs": 3533.3432919999996,
         "status": "completed",
         "completedWithinDeadline": true,
         "dense": {
           "status": "success",
           "reasonCode": null,
-          "embeddingElapsedMs": 153.010667,
-          "candidateQueryElapsedMs": 80.34454199999982,
-          "branchElapsedMs": 235.69245899999987
+          "embeddingElapsedMs": 431.27679100000023,
+          "candidateQueryElapsedMs": 276.54925000000003,
+          "branchElapsedMs": 711.4804999999997
         },
         "sparse": {
           "status": "success",
           "reasonCode": null,
-          "sqlElapsedMs": 1218.6392500000002,
+          "sqlElapsedMs": 3531.3087920000016,
           "candidateLimit": 200,
           "scope": "all-games"
         },
-        "fusionElapsedMs": 0.7139170000000377
+        "fusionElapsedMs": 1.620082999999795
       },
       {
         "queryId": "STONE-01",
         "round": 4,
         "deadlineMs": 6000,
         "providerTimeoutMs": 5000,
-        "parallelElapsedMs": 1236.3762080000006,
+        "parallelElapsedMs": 2280.956042,
         "status": "completed",
         "completedWithinDeadline": true,
         "dense": {
           "status": "success",
           "reasonCode": null,
-          "embeddingElapsedMs": 344.4213749999999,
-          "candidateQueryElapsedMs": 65.27912500000002,
-          "branchElapsedMs": 412.80412500000057
+          "embeddingElapsedMs": 203.45270899999923,
+          "candidateQueryElapsedMs": 191.57554100000016,
+          "branchElapsedMs": 399.3790420000005
         },
         "sparse": {
           "status": "success",
           "reasonCode": null,
-          "sqlElapsedMs": 1234.9990829999997,
+          "sqlElapsedMs": 2278.9620830000003,
           "candidateLimit": 200,
           "scope": "all-games"
         },
-        "fusionElapsedMs": 0.6560419999996157
+        "fusionElapsedMs": 0.735541000001831
       },
       {
         "queryId": "STONE-01",
         "round": 5,
         "deadlineMs": 6000,
         "providerTimeoutMs": 5000,
-        "parallelElapsedMs": 1216.5481250000003,
+        "parallelElapsedMs": 2025.7753329999978,
         "status": "completed",
         "completedWithinDeadline": true,
         "dense": {
           "status": "success",
           "reasonCode": null,
-          "embeddingElapsedMs": 102.38745800000015,
-          "candidateQueryElapsedMs": 67.10933300000033,
-          "branchElapsedMs": 172.02029100000073
+          "embeddingElapsedMs": 249.86441700000069,
+          "candidateQueryElapsedMs": 96.86495800000193,
+          "branchElapsedMs": 349.16412499999933
         },
         "sparse": {
           "status": "success",
           "reasonCode": null,
-          "sqlElapsedMs": 1215.5414579999997,
+          "sqlElapsedMs": 2024.504832999999,
           "candidateLimit": 200,
           "scope": "all-games"
         },
-        "fusionElapsedMs": 0.29408299999977316
+        "fusionElapsedMs": 0.2752920000020822
       },
       {
         "queryId": "STONE-02",
         "round": 1,
         "deadlineMs": 6000,
         "providerTimeoutMs": 5000,
-        "parallelElapsedMs": 1719.3142909999997,
-        "status": "completed",
-        "completedWithinDeadline": true,
+        "parallelElapsedMs": 6002.9596249999995,
+        "status": "timeout",
+        "completedWithinDeadline": false,
         "dense": {
           "status": "success",
           "reasonCode": null,
-          "embeddingElapsedMs": 107.38854199999969,
-          "candidateQueryElapsedMs": 63.17341699999997,
-          "branchElapsedMs": 174.714833
+          "embeddingElapsedMs": 150.83637499999895,
+          "candidateQueryElapsedMs": 247.46854200000234,
+          "branchElapsedMs": 400.3808749999989
         },
         "sparse": {
-          "status": "success",
-          "reasonCode": null,
-          "sqlElapsedMs": 1718.5565420000012,
+          "status": "timeout",
+          "reasonCode": "COMMON_DEADLINE",
+          "sqlElapsedMs": 6002.9596249999995,
           "candidateLimit": 200,
           "scope": "all-games"
         },
-        "fusionElapsedMs": 0.4916250000005675
+        "fusionElapsedMs": 0
       },
       {
         "queryId": "STONE-02",
         "round": 2,
         "deadlineMs": 6000,
         "providerTimeoutMs": 5000,
-        "parallelElapsedMs": 1819.350792000001,
-        "status": "completed",
-        "completedWithinDeadline": true,
+        "parallelElapsedMs": 6008.459000000003,
+        "status": "timeout",
+        "completedWithinDeadline": false,
         "dense": {
           "status": "success",
           "reasonCode": null,
-          "embeddingElapsedMs": 1316.1095829999995,
-          "candidateQueryElapsedMs": 76.34995899999922,
-          "branchElapsedMs": 1395.6900420000002
+          "embeddingElapsedMs": 183.93258399999831,
+          "candidateQueryElapsedMs": 509.8786669999972,
+          "branchElapsedMs": 698.7082919999993
         },
         "sparse": {
-          "status": "success",
-          "reasonCode": null,
-          "sqlElapsedMs": 1818.4240420000006,
+          "status": "timeout",
+          "reasonCode": "COMMON_DEADLINE",
+          "sqlElapsedMs": 6008.459000000003,
           "candidateLimit": 200,
           "scope": "all-games"
         },
-        "fusionElapsedMs": 0.28458300000056624
+        "fusionElapsedMs": 0
       },
       {
         "queryId": "STONE-02",
         "round": 3,
         "deadlineMs": 6000,
         "providerTimeoutMs": 5000,
-        "parallelElapsedMs": 1858.5922500000015,
-        "status": "completed",
-        "completedWithinDeadline": true,
+        "parallelElapsedMs": 6001.537208000002,
+        "status": "timeout",
+        "completedWithinDeadline": false,
         "dense": {
           "status": "success",
           "reasonCode": null,
-          "embeddingElapsedMs": 108.93116599999848,
-          "candidateQueryElapsedMs": 75.56170800000109,
-          "branchElapsedMs": 186.70270900000105
+          "embeddingElapsedMs": 1548.6536250000026,
+          "candidateQueryElapsedMs": 517.6274169999961,
+          "branchElapsedMs": 2073.7844160000022
         },
         "sparse": {
-          "status": "success",
-          "reasonCode": null,
-          "sqlElapsedMs": 1857.882042000001,
+          "status": "timeout",
+          "reasonCode": "COMMON_DEADLINE",
+          "sqlElapsedMs": 6001.537208000002,
           "candidateLimit": 200,
           "scope": "all-games"
         },
-        "fusionElapsedMs": 0.5077499999988504
+        "fusionElapsedMs": 0
       },
       {
         "queryId": "STONE-02",
         "round": 4,
         "deadlineMs": 6000,
         "providerTimeoutMs": 5000,
-        "parallelElapsedMs": 1732.9813749999994,
-        "status": "completed",
-        "completedWithinDeadline": true,
+        "parallelElapsedMs": 6005.859624999997,
+        "status": "timeout",
+        "completedWithinDeadline": false,
         "dense": {
           "status": "success",
           "reasonCode": null,
-          "embeddingElapsedMs": 106.94237500000054,
-          "candidateQueryElapsedMs": 75.96420799999942,
-          "branchElapsedMs": 184.89404099999956
+          "embeddingElapsedMs": 1028.4828750000015,
+          "candidateQueryElapsedMs": 402.38158300000214,
+          "branchElapsedMs": 1434.3821669999961
         },
         "sparse": {
-          "status": "success",
-          "reasonCode": null,
-          "sqlElapsedMs": 1731.5652499999997,
+          "status": "timeout",
+          "reasonCode": "COMMON_DEADLINE",
+          "sqlElapsedMs": 6005.859624999997,
           "candidateLimit": 200,
           "scope": "all-games"
         },
-        "fusionElapsedMs": 0.8441250000014406
+        "fusionElapsedMs": 0
       },
       {
         "queryId": "STONE-02",
         "round": 5,
         "deadlineMs": 6000,
         "providerTimeoutMs": 5000,
-        "parallelElapsedMs": 1799.318541999999,
-        "status": "completed",
-        "completedWithinDeadline": true,
+        "parallelElapsedMs": 6001.348250000003,
+        "status": "timeout",
+        "completedWithinDeadline": false,
         "dense": {
           "status": "success",
           "reasonCode": null,
-          "embeddingElapsedMs": 151.45716700000048,
-          "candidateQueryElapsedMs": 73.57875000000058,
-          "branchElapsedMs": 226.97983299999942
+          "embeddingElapsedMs": 920.8397919999989,
+          "candidateQueryElapsedMs": 1135.4075830000002,
+          "branchElapsedMs": 2063.485708
         },
         "sparse": {
-          "status": "success",
-          "reasonCode": null,
-          "sqlElapsedMs": 1798.332875,
+          "status": "timeout",
+          "reasonCode": "COMMON_DEADLINE",
+          "sqlElapsedMs": 6001.348250000003,
           "candidateLimit": 200,
           "scope": "all-games"
         },
-        "fusionElapsedMs": 0.8168750000004366
+        "fusionElapsedMs": 0
       },
       {
         "queryId": "STONE-03",
         "round": 1,
         "deadlineMs": 6000,
         "providerTimeoutMs": 5000,
-        "parallelElapsedMs": 1840.6261249999989,
+        "parallelElapsedMs": 5734.5767080000005,
         "status": "completed",
         "completedWithinDeadline": true,
         "dense": {
           "status": "success",
           "reasonCode": null,
-          "embeddingElapsedMs": 108.9477910000005,
-          "candidateQueryElapsedMs": 80.15762499999983,
-          "branchElapsedMs": 192.04425000000083
+          "embeddingElapsedMs": 518.3394579999949,
+          "candidateQueryElapsedMs": 307.6219579999961,
+          "branchElapsedMs": 828.0954580000034
         },
         "sparse": {
           "status": "success",
           "reasonCode": null,
-          "sqlElapsedMs": 1839.2085409999981,
+          "sqlElapsedMs": 5733.085625,
           "candidateLimit": 200,
           "scope": "all-games"
         },
-        "fusionElapsedMs": 0.37416700000176206
+        "fusionElapsedMs": 0.4708749999990687
       },
       {
         "queryId": "STONE-03",
         "round": 2,
         "deadlineMs": 6000,
         "providerTimeoutMs": 5000,
-        "parallelElapsedMs": 1723.9520410000005,
+        "parallelElapsedMs": 4614.514832999994,
         "status": "completed",
         "completedWithinDeadline": true,
         "dense": {
           "status": "success",
           "reasonCode": null,
-          "embeddingElapsedMs": 126.25166600000011,
-          "candidateQueryElapsedMs": 68.03825000000143,
-          "branchElapsedMs": 197.8894999999975
+          "embeddingElapsedMs": 154.35024999999587,
+          "candidateQueryElapsedMs": 400.7846669999999,
+          "branchElapsedMs": 557.5724579999951
         },
         "sparse": {
           "status": "success",
           "reasonCode": null,
-          "sqlElapsedMs": 1723.0790000000015,
+          "sqlElapsedMs": 4613.195542000001,
           "candidateLimit": 200,
           "scope": "all-games"
         },
-        "fusionElapsedMs": 0.34883300000001327
+        "fusionElapsedMs": 0.3781249999956344
       },
       {
         "queryId": "STONE-03",
         "round": 3,
         "deadlineMs": 6000,
         "providerTimeoutMs": 5000,
-        "parallelElapsedMs": 1729.723584000003,
+        "parallelElapsedMs": 5303.222167,
         "status": "completed",
         "completedWithinDeadline": true,
         "dense": {
           "status": "success",
           "reasonCode": null,
-          "embeddingElapsedMs": 129.41091700000106,
-          "candidateQueryElapsedMs": 66.66645900000003,
-          "branchElapsedMs": 198.81725000000006
+          "embeddingElapsedMs": 418.2472080000007,
+          "candidateQueryElapsedMs": 145.81104100000084,
+          "branchElapsedMs": 565.8912920000002
         },
         "sparse": {
           "status": "success",
           "reasonCode": null,
-          "sqlElapsedMs": 1729.1294589999998,
+          "sqlElapsedMs": 5301.665999999997,
           "candidateLimit": 200,
           "scope": "all-games"
         },
-        "fusionElapsedMs": 0.2181669999990845
+        "fusionElapsedMs": 0.29499999999825377
       },
       {
         "queryId": "STONE-03",
         "round": 4,
         "deadlineMs": 6000,
         "providerTimeoutMs": 5000,
-        "parallelElapsedMs": 1764.5623330000017,
+        "parallelElapsedMs": 4811.6048750000045,
         "status": "completed",
         "completedWithinDeadline": true,
         "dense": {
           "status": "success",
           "reasonCode": null,
-          "embeddingElapsedMs": 119.72058399999878,
-          "candidateQueryElapsedMs": 71.27308400000038,
-          "branchElapsedMs": 193.54883300000074
+          "embeddingElapsedMs": 229.04233399999794,
+          "candidateQueryElapsedMs": 156.72624999999243,
+          "branchElapsedMs": 390.1902919999993
         },
         "sparse": {
           "status": "success",
           "reasonCode": null,
-          "sqlElapsedMs": 1763.9773750000022,
+          "sqlElapsedMs": 4810.374374999999,
           "candidateLimit": 200,
           "scope": "all-games"
         },
-        "fusionElapsedMs": 0.3355420000007143
+        "fusionElapsedMs": 0.29504199999792036
       },
       {
         "queryId": "STONE-03",
         "round": 5,
         "deadlineMs": 6000,
         "providerTimeoutMs": 5000,
-        "parallelElapsedMs": 1684.5948750000025,
+        "parallelElapsedMs": 2553.7788750000036,
         "status": "completed",
         "completedWithinDeadline": true,
         "dense": {
           "status": "success",
           "reasonCode": null,
-          "embeddingElapsedMs": 1309.719541999999,
-          "candidateQueryElapsedMs": 79.92062499999884,
-          "branchElapsedMs": 1392.318292
+          "embeddingElapsedMs": 1379.8959999999934,
+          "candidateQueryElapsedMs": 87.79041600000346,
+          "branchElapsedMs": 1471.052708000003
         },
         "sparse": {
           "status": "success",
           "reasonCode": null,
-          "sqlElapsedMs": 1683.9426249999997,
+          "sqlElapsedMs": 2552.384124999997,
           "candidateLimit": 200,
           "scope": "all-games"
         },
-        "fusionElapsedMs": 1.0679159999999683
+        "fusionElapsedMs": 1.4605420000007143
       },
       {
         "queryId": "STONE-04",
         "round": 1,
         "deadlineMs": 6000,
         "providerTimeoutMs": 5000,
-        "parallelElapsedMs": 2233.4323750000003,
+        "parallelElapsedMs": 3089.3517500000016,
         "status": "completed",
         "completedWithinDeadline": true,
         "dense": {
           "status": "success",
           "reasonCode": null,
-          "embeddingElapsedMs": 114.39079199999833,
-          "candidateQueryElapsedMs": 68.35429199999999,
-          "branchElapsedMs": 184.4050410000018
+          "embeddingElapsedMs": 154.92812500000582,
+          "candidateQueryElapsedMs": 105.41920800000662,
+          "branchElapsedMs": 261.53362500001094
         },
         "sparse": {
           "status": "success",
           "reasonCode": null,
-          "sqlElapsedMs": 2232.6219999999994,
+          "sqlElapsedMs": 3088.4669589999976,
           "candidateLimit": 200,
           "scope": "all-games"
         },
-        "fusionElapsedMs": 0.2047920000004524
+        "fusionElapsedMs": 0.3956659999967087
       },
       {
         "queryId": "STONE-04",
         "round": 2,
         "deadlineMs": 6000,
         "providerTimeoutMs": 5000,
-        "parallelElapsedMs": 1957.1727920000012,
+        "parallelElapsedMs": 3187.4718749999884,
         "status": "completed",
         "completedWithinDeadline": true,
         "dense": {
           "status": "success",
           "reasonCode": null,
-          "embeddingElapsedMs": 1117.6634589999994,
-          "candidateQueryElapsedMs": 71.10666700000002,
-          "branchElapsedMs": 1191.471042000001
+          "embeddingElapsedMs": 173.31108400000085,
+          "candidateQueryElapsedMs": 134.75554199999897,
+          "branchElapsedMs": 311.29620799999975
         },
         "sparse": {
           "status": "success",
           "reasonCode": null,
-          "sqlElapsedMs": 1956.3935840000013,
+          "sqlElapsedMs": 3186.069042000003,
           "candidateLimit": 200,
           "scope": "all-games"
         },
-        "fusionElapsedMs": 0.28470799999922747
+        "fusionElapsedMs": 0.8090000000083819
       },
       {
         "queryId": "STONE-04",
         "round": 3,
         "deadlineMs": 6000,
         "providerTimeoutMs": 5000,
-        "parallelElapsedMs": 1908.5440830000007,
+        "parallelElapsedMs": 2497.3620410000003,
         "status": "completed",
         "completedWithinDeadline": true,
         "dense": {
           "status": "success",
           "reasonCode": null,
-          "embeddingElapsedMs": 124.07216600000174,
-          "candidateQueryElapsedMs": 69.91029200000048,
-          "branchElapsedMs": 195.60075000000143
+          "embeddingElapsedMs": 127.30216700000165,
+          "candidateQueryElapsedMs": 75.05558299999393,
+          "branchElapsedMs": 204.7963749999908
         },
         "sparse": {
           "status": "success",
           "reasonCode": null,
-          "sqlElapsedMs": 1907.9982500000006,
+          "sqlElapsedMs": 2496.5088749999995,
           "candidateLimit": 200,
           "scope": "all-games"
         },
-        "fusionElapsedMs": 0.570917000000918
+        "fusionElapsedMs": 1.052958000000217
       },
       {
         "queryId": "STONE-04",
         "round": 4,
         "deadlineMs": 6000,
         "providerTimeoutMs": 5000,
-        "parallelElapsedMs": 1926.487333000001,
+        "parallelElapsedMs": 2371.4513330000045,
         "status": "completed",
         "completedWithinDeadline": true,
         "dense": {
           "status": "success",
           "reasonCode": null,
-          "embeddingElapsedMs": 166.58237499999814,
-          "candidateQueryElapsedMs": 71.79375000000073,
-          "branchElapsedMs": 240.40920800000094
+          "embeddingElapsedMs": 153.3929160000116,
+          "candidateQueryElapsedMs": 96.22775000000547,
+          "branchElapsedMs": 253.61095800000476
         },
         "sparse": {
           "status": "success",
           "reasonCode": null,
-          "sqlElapsedMs": 1925.8073749999967,
+          "sqlElapsedMs": 2370.7789170000033,
           "candidateLimit": 200,
           "scope": "all-games"
         },
-        "fusionElapsedMs": 0.6804580000025453
+        "fusionElapsedMs": 0.3413750000036089
       },
       {
         "queryId": "STONE-04",
         "round": 5,
         "deadlineMs": 6000,
         "providerTimeoutMs": 5000,
-        "parallelElapsedMs": 1913.9636249999967,
-        "status": "completed",
-        "completedWithinDeadline": true,
+        "parallelElapsedMs": 6001.166041999997,
+        "status": "timeout",
+        "completedWithinDeadline": false,
         "dense": {
           "status": "success",
           "reasonCode": null,
-          "embeddingElapsedMs": 187.95724999999948,
-          "candidateQueryElapsedMs": 78.43950000000041,
-          "branchElapsedMs": 269.25654199999553
+          "embeddingElapsedMs": 134.31412500000442,
+          "candidateQueryElapsedMs": 86.10758399999759,
+          "branchElapsedMs": 223.05658299999777
         },
         "sparse": {
-          "status": "success",
-          "reasonCode": null,
-          "sqlElapsedMs": 1913.3211660000015,
+          "status": "timeout",
+          "reasonCode": "COMMON_DEADLINE",
+          "sqlElapsedMs": 6001.166041999997,
           "candidateLimit": 200,
           "scope": "all-games"
         },
-        "fusionElapsedMs": 0.4379160000025877
+        "fusionElapsedMs": 0
       },
       {
         "queryId": "COMMON-01",
         "round": 1,
         "deadlineMs": 6000,
         "providerTimeoutMs": 5000,
-        "parallelElapsedMs": 587.6960840000029,
+        "parallelElapsedMs": 703.3641669999924,
         "status": "completed",
         "completedWithinDeadline": true,
         "dense": {
           "status": "success",
           "reasonCode": null,
-          "embeddingElapsedMs": 99.40837499999907,
-          "candidateQueryElapsedMs": 83.6058750000011,
-          "branchElapsedMs": 185.16720899999927
+          "embeddingElapsedMs": 468.22295799999847,
+          "candidateQueryElapsedMs": 95.4957080000022,
+          "branchElapsedMs": 565.9864169999928
         },
         "sparse": {
           "status": "success",
           "reasonCode": null,
-          "sqlElapsedMs": 587.1136670000051,
+          "sqlElapsedMs": 702.1216249999998,
           "candidateLimit": 200,
           "scope": "all-games"
         },
-        "fusionElapsedMs": 0.5992499999993015
+        "fusionElapsedMs": 0.2329160000081174
       },
       {
         "queryId": "COMMON-01",
         "round": 2,
         "deadlineMs": 6000,
         "providerTimeoutMs": 5000,
-        "parallelElapsedMs": 546.8764589999992,
+        "parallelElapsedMs": 679.2486670000071,
         "status": "completed",
         "completedWithinDeadline": true,
         "dense": {
           "status": "success",
           "reasonCode": null,
-          "embeddingElapsedMs": 172.46920800000225,
-          "candidateQueryElapsedMs": 65.1700420000052,
-          "branchElapsedMs": 241.2074169999978
+          "embeddingElapsedMs": 191.07233399999677,
+          "candidateQueryElapsedMs": 94.99195899999177,
+          "branchElapsedMs": 289.0242500000022
         },
         "sparse": {
           "status": "success",
           "reasonCode": null,
-          "sqlElapsedMs": 546.1352079999997,
+          "sqlElapsedMs": 678.7334169999958,
           "candidateLimit": 200,
           "scope": "all-games"
         },
-        "fusionElapsedMs": 0.5822499999994761
+        "fusionElapsedMs": 0.21587499999441206
       },
       {
         "queryId": "COMMON-01",
         "round": 3,
         "deadlineMs": 6000,
         "providerTimeoutMs": 5000,
-        "parallelElapsedMs": 584.1864169999972,
+        "parallelElapsedMs": 594.2435419999965,
         "status": "completed",
         "completedWithinDeadline": true,
         "dense": {
           "status": "success",
           "reasonCode": null,
-          "embeddingElapsedMs": 341.706041999998,
-          "candidateQueryElapsedMs": 85.35416699999769,
-          "branchElapsedMs": 430.3044169999994
+          "embeddingElapsedMs": 501.1287500000035,
+          "candidateQueryElapsedMs": 78.40454200000386,
+          "branchElapsedMs": 582.5153340000106
         },
         "sparse": {
           "status": "success",
           "reasonCode": null,
-          "sqlElapsedMs": 583.4433750000026,
+          "sqlElapsedMs": 593.6293750000041,
           "candidateLimit": 200,
           "scope": "all-games"
         },
-        "fusionElapsedMs": 0.6335840000028838
+        "fusionElapsedMs": 0.19466700000339188
       },
       {
         "queryId": "COMMON-01",
         "round": 4,
         "deadlineMs": 6000,
         "providerTimeoutMs": 5000,
-        "parallelElapsedMs": 588.448083000003,
+        "parallelElapsedMs": 762.7141669999983,
         "status": "completed",
         "completedWithinDeadline": true,
         "dense": {
           "status": "success",
           "reasonCode": null,
-          "embeddingElapsedMs": 270.2846669999999,
-          "candidateQueryElapsedMs": 74.57095899999695,
-          "branchElapsedMs": 346.77316599999904
+          "embeddingElapsedMs": 197.97929200000362,
+          "candidateQueryElapsedMs": 94.99366700000246,
+          "branchElapsedMs": 295.0305420000077
         },
         "sparse": {
           "status": "success",
           "reasonCode": null,
-          "sqlElapsedMs": 587.6282500000016,
+          "sqlElapsedMs": 762.1909580000065,
           "candidateLimit": 200,
           "scope": "all-games"
         },
-        "fusionElapsedMs": 0.5896670000001905
+        "fusionElapsedMs": 0.3072919999976875
       },
       {
         "queryId": "COMMON-01",
         "round": 5,
         "deadlineMs": 6000,
         "providerTimeoutMs": 5000,
-        "parallelElapsedMs": 2155.249917000001,
+        "parallelElapsedMs": 683.1765420000011,
         "status": "completed",
         "completedWithinDeadline": true,
         "dense": {
           "status": "success",
           "reasonCode": null,
-          "embeddingElapsedMs": 2071.843584000002,
-          "candidateQueryElapsedMs": 81.02949999999691,
-          "branchElapsedMs": 2155.232750000003
+          "embeddingElapsedMs": 120.53991700000188,
+          "candidateQueryElapsedMs": 87.22137499999371,
+          "branchElapsedMs": 211.4672500000015
         },
         "sparse": {
           "status": "success",
           "reasonCode": null,
-          "sqlElapsedMs": 536.7676250000004,
+          "sqlElapsedMs": 682.3714170000021,
           "candidateLimit": 200,
           "scope": "all-games"
         },
-        "fusionElapsedMs": 0.38724999999976717
+        "fusionElapsedMs": 0.5669999999954598
       },
       {
         "queryId": "COMMON-02",
         "round": 1,
         "deadlineMs": 6000,
         "providerTimeoutMs": 5000,
-        "parallelElapsedMs": 1025.934792,
+        "parallelElapsedMs": 1571.2677919999987,
         "status": "completed",
         "completedWithinDeadline": true,
         "dense": {
           "status": "success",
           "reasonCode": null,
-          "embeddingElapsedMs": 923.997832999994,
-          "candidateQueryElapsedMs": 98.98674999999639,
-          "branchElapsedMs": 1025.9124590000065
+          "embeddingElapsedMs": 1476.3895000000048,
+          "candidateQueryElapsedMs": 92.14054100000067,
+          "branchElapsedMs": 1571.245916999993
         },
         "sparse": {
           "status": "success",
           "reasonCode": null,
-          "sqlElapsedMs": 570.4146249999976,
+          "sqlElapsedMs": 797.6880419999943,
           "candidateLimit": 200,
           "scope": "all-games"
         },
-        "fusionElapsedMs": 0.6936249999998836
+        "fusionElapsedMs": 0.34445899999991525
       },
       {
         "queryId": "COMMON-02",
         "round": 2,
         "deadlineMs": 6000,
         "providerTimeoutMs": 5000,
-        "parallelElapsedMs": 578.2224169999972,
+        "parallelElapsedMs": 579.4240419999987,
         "status": "completed",
         "completedWithinDeadline": true,
         "dense": {
           "status": "success",
           "reasonCode": null,
-          "embeddingElapsedMs": 141.01800000000367,
-          "candidateQueryElapsedMs": 67.986834000003,
-          "branchElapsedMs": 210.74266699999862
+          "embeddingElapsedMs": 193.33179100000416,
+          "candidateQueryElapsedMs": 74.72208400000818,
+          "branchElapsedMs": 269.73404200001096
         },
         "sparse": {
           "status": "success",
           "reasonCode": null,
-          "sqlElapsedMs": 577.5352080000011,
+          "sqlElapsedMs": 578.595250000013,
           "candidateLimit": 200,
           "scope": "all-games"
         },
-        "fusionElapsedMs": 0.9161249999961001
+        "fusionElapsedMs": 0.6490840000042226
       },
       {
         "queryId": "COMMON-02",
         "round": 3,
         "deadlineMs": 6000,
         "providerTimeoutMs": 5000,
-        "parallelElapsedMs": 579.4453749999957,
+        "parallelElapsedMs": 1476.7760839999974,
         "status": "completed",
         "completedWithinDeadline": true,
         "dense": {
           "status": "success",
           "reasonCode": null,
-          "embeddingElapsedMs": 202.2888329999987,
-          "candidateQueryElapsedMs": 87.02975000000151,
-          "branchElapsedMs": 292.08370899999863
+          "embeddingElapsedMs": 1373.78575000001,
+          "candidateQueryElapsedMs": 99.95712500000081,
+          "branchElapsedMs": 1476.7499169999937
         },
         "sparse": {
           "status": "success",
           "reasonCode": null,
-          "sqlElapsedMs": 578.7439169999998,
+          "sqlElapsedMs": 610.7407910000038,
           "candidateLimit": 200,
           "scope": "all-games"
         },
-        "fusionElapsedMs": 0.8924169999954756
+        "fusionElapsedMs": 0.8833329999906709
       },
       {
         "queryId": "COMMON-02",
         "round": 4,
         "deadlineMs": 6000,
         "providerTimeoutMs": 5000,
-        "parallelElapsedMs": 1421.0975410000028,
+        "parallelElapsedMs": 609.8100419999973,
         "status": "completed",
         "completedWithinDeadline": true,
         "dense": {
           "status": "success",
           "reasonCode": null,
-          "embeddingElapsedMs": 1314.0420000000013,
-          "candidateQueryElapsedMs": 105.28516700000182,
-          "branchElapsedMs": 1421.0750410000037
+          "embeddingElapsedMs": 155.0478340000118,
+          "candidateQueryElapsedMs": 77.21404199999233,
+          "branchElapsedMs": 235.01900000000023
         },
         "sparse": {
           "status": "success",
           "reasonCode": null,
-          "sqlElapsedMs": 552.827959000002,
+          "sqlElapsedMs": 609.1516669999983,
           "candidateLimit": 200,
           "scope": "all-games"
         },
-        "fusionElapsedMs": 1.9992920000004233
+        "fusionElapsedMs": 0.5776249999908032
       },
       {
         "queryId": "COMMON-02",
         "round": 5,
         "deadlineMs": 6000,
         "providerTimeoutMs": 5000,
-        "parallelElapsedMs": 1256.8969999999972,
+        "parallelElapsedMs": 688.463499999998,
         "status": "completed",
         "completedWithinDeadline": true,
         "dense": {
           "status": "success",
           "reasonCode": null,
-          "embeddingElapsedMs": 1143.1720829999977,
-          "candidateQueryElapsedMs": 110.50450000000274,
-          "branchElapsedMs": 1256.8695829999997
+          "embeddingElapsedMs": 156.69600000001083,
+          "candidateQueryElapsedMs": 76.25574999999662,
+          "branchElapsedMs": 235.2054999999964
         },
         "sparse": {
           "status": "success",
           "reasonCode": null,
-          "sqlElapsedMs": 552.1407919999983,
+          "sqlElapsedMs": 687.9037500000122,
           "candidateLimit": 200,
           "scope": "all-games"
         },
-        "fusionElapsedMs": 0.36462500000197906
+        "fusionElapsedMs": 0.22454100000322796
       },
       {
         "queryId": "COMMON-03",
         "round": 1,
         "deadlineMs": 6000,
         "providerTimeoutMs": 5000,
-        "parallelElapsedMs": 459.49725000000035,
+        "parallelElapsedMs": 860.0912919999973,
         "status": "completed",
         "completedWithinDeadline": true,
         "dense": {
           "status": "success",
           "reasonCode": null,
-          "embeddingElapsedMs": 110.43595900000219,
-          "candidateQueryElapsedMs": 66.06779100000131,
-          "branchElapsedMs": 178.71708300000319
+          "embeddingElapsedMs": 159.7645829999965,
+          "candidateQueryElapsedMs": 154.0565840000054,
+          "branchElapsedMs": 315.7925830000022
         },
         "sparse": {
           "status": "success",
           "reasonCode": null,
-          "sqlElapsedMs": 458.68308300000353,
+          "sqlElapsedMs": 859.6472500000091,
           "candidateLimit": 200,
           "scope": "all-games"
         },
-        "fusionElapsedMs": 0.37958400000206893
+        "fusionElapsedMs": 0.3387499999953434
       },
       {
         "queryId": "COMMON-03",
         "round": 2,
         "deadlineMs": 6000,
         "providerTimeoutMs": 5000,
-        "parallelElapsedMs": 483.60287499999686,
+        "parallelElapsedMs": 930.1829169999983,
         "status": "completed",
         "completedWithinDeadline": true,
         "dense": {
           "status": "success",
           "reasonCode": null,
-          "embeddingElapsedMs": 115.14712499999587,
-          "candidateQueryElapsedMs": 81.81837500000256,
-          "branchElapsedMs": 198.81508400000166
+          "embeddingElapsedMs": 113.50645899999654,
+          "candidateQueryElapsedMs": 121.38470800001232,
+          "branchElapsedMs": 237.09333399999014
         },
         "sparse": {
           "status": "success",
           "reasonCode": null,
-          "sqlElapsedMs": 483.0247079999972,
+          "sqlElapsedMs": 929.4757909999898,
           "candidateLimit": 200,
           "scope": "all-games"
         },
-        "fusionElapsedMs": 0.5525419999976293
+        "fusionElapsedMs": 0.5542500000010477
       },
       {
         "queryId": "COMMON-03",
         "round": 3,
         "deadlineMs": 6000,
         "providerTimeoutMs": 5000,
-        "parallelElapsedMs": 1365.9054590000014,
+        "parallelElapsedMs": 778.0450419999979,
         "status": "completed",
         "completedWithinDeadline": true,
         "dense": {
           "status": "success",
           "reasonCode": null,
-          "embeddingElapsedMs": 1274.6855419999993,
-          "candidateQueryElapsedMs": 87.44241600000532,
-          "branchElapsedMs": 1365.877625000001
+          "embeddingElapsedMs": 212.96774999999616,
+          "candidateQueryElapsedMs": 115.1043750000099,
+          "branchElapsedMs": 330.4102920000005
         },
         "sparse": {
           "status": "success",
           "reasonCode": null,
-          "sqlElapsedMs": 469.1057080000028,
+          "sqlElapsedMs": 777.3958330000023,
           "candidateLimit": 200,
           "scope": "all-games"
         },
-        "fusionElapsedMs": 0.47520799999620067
+        "fusionElapsedMs": 0.7290839999914169
       },
       {
         "queryId": "COMMON-03",
         "round": 4,
         "deadlineMs": 6000,
         "providerTimeoutMs": 5000,
-        "parallelElapsedMs": 485.33829200000037,
+        "parallelElapsedMs": 673.9481250000099,
         "status": "completed",
         "completedWithinDeadline": true,
         "dense": {
           "status": "success",
           "reasonCode": null,
-          "embeddingElapsedMs": 357.84275000000343,
-          "candidateQueryElapsedMs": 66.35670900000696,
-          "branchElapsedMs": 426.5769169999985
+          "embeddingElapsedMs": 155.87920900000609,
+          "candidateQueryElapsedMs": 119.10404199999175,
+          "branchElapsedMs": 277.5704160000023
         },
         "sparse": {
           "status": "success",
           "reasonCode": null,
-          "sqlElapsedMs": 484.7122920000038,
+          "sqlElapsedMs": 673.1637090000004,
           "candidateLimit": 200,
           "scope": "all-games"
         },
-        "fusionElapsedMs": 0.45062500000494765
+        "fusionElapsedMs": 0.3382910000073025
       },
       {
         "queryId": "COMMON-03",
         "round": 5,
         "deadlineMs": 6000,
         "providerTimeoutMs": 5000,
-        "parallelElapsedMs": 463.9261669999978,
+        "parallelElapsedMs": 1495.6784999999945,
         "status": "completed",
         "completedWithinDeadline": true,
         "dense": {
           "status": "success",
           "reasonCode": null,
-          "embeddingElapsedMs": 202.08600000000297,
-          "candidateQueryElapsedMs": 71.07137499999953,
-          "branchElapsedMs": 274.9740840000013
+          "embeddingElapsedMs": 1424.2139999999927,
+          "candidateQueryElapsedMs": 69.53304199999548,
+          "branchElapsedMs": 1495.6665829999984
         },
         "sparse": {
           "status": "success",
           "reasonCode": null,
-          "sqlElapsedMs": 463.20220799999515,
+          "sqlElapsedMs": 609.1307919999963,
           "candidateLimit": 200,
           "scope": "all-games"
         },
-        "fusionElapsedMs": 0.49037500000122236
+        "fusionElapsedMs": 0.23058399998990353
       },
       {
         "queryId": "COMMON-04",
         "round": 1,
         "deadlineMs": 6000,
         "providerTimeoutMs": 5000,
-        "parallelElapsedMs": 902.064916000003,
+        "parallelElapsedMs": 1036.062917000003,
         "status": "completed",
         "completedWithinDeadline": true,
         "dense": {
           "status": "success",
           "reasonCode": null,
-          "embeddingElapsedMs": 329.41329199999745,
-          "candidateQueryElapsedMs": 87.86504199999763,
-          "branchElapsedMs": 419.1392909999995
+          "embeddingElapsedMs": 100.37279199999466,
+          "candidateQueryElapsedMs": 76.86104100001103,
+          "branchElapsedMs": 178.932541999995
         },
         "sparse": {
           "status": "success",
           "reasonCode": null,
-          "sqlElapsedMs": 901.4545419999995,
+          "sqlElapsedMs": 1035.71695799999,
           "candidateLimit": 200,
           "scope": "all-games"
         },
-        "fusionElapsedMs": 0.4227499999979045
+        "fusionElapsedMs": 0.6025840000074822
       },
       {
         "queryId": "COMMON-04",
         "round": 2,
         "deadlineMs": 6000,
         "providerTimeoutMs": 5000,
-        "parallelElapsedMs": 862.3096249999944,
+        "parallelElapsedMs": 1090.0688329999975,
         "status": "completed",
         "completedWithinDeadline": true,
         "dense": {
           "status": "success",
           "reasonCode": null,
-          "embeddingElapsedMs": 255.6064170000027,
-          "candidateQueryElapsedMs": 68.03874999999971,
-          "branchElapsedMs": 325.9004169999971
+          "embeddingElapsedMs": 181.9450829999987,
+          "candidateQueryElapsedMs": 80.91662500001257,
+          "branchElapsedMs": 264.4836249999935
         },
         "sparse": {
           "status": "success",
           "reasonCode": null,
-          "sqlElapsedMs": 861.6235410000008,
+          "sqlElapsedMs": 1089.3207919999986,
           "candidateLimit": 200,
           "scope": "all-games"
         },
-        "fusionElapsedMs": 0.3102920000019367
+        "fusionElapsedMs": 0.34399999999732245
       },
       {
         "queryId": "COMMON-04",
         "round": 3,
         "deadlineMs": 6000,
         "providerTimeoutMs": 5000,
-        "parallelElapsedMs": 871.1420829999988,
+        "parallelElapsedMs": 1930.1875,
         "status": "completed",
         "completedWithinDeadline": true,
         "dense": {
           "status": "success",
           "reasonCode": null,
-          "embeddingElapsedMs": 166.6666669999977,
-          "candidateQueryElapsedMs": 73.53279199999815,
-          "branchElapsedMs": 242.88466600000538
+          "embeddingElapsedMs": 1820.3135829999956,
+          "candidateQueryElapsedMs": 106.70533300000534,
+          "branchElapsedMs": 1930.1605000000127
         },
         "sparse": {
           "status": "success",
           "reasonCode": null,
-          "sqlElapsedMs": 870.5900839999958,
+          "sqlElapsedMs": 1054.6898749999964,
           "candidateLimit": 200,
           "scope": "all-games"
         },
-        "fusionElapsedMs": 0.5809579999986454
+        "fusionElapsedMs": 0.3310420000052545
       },
       {
         "queryId": "COMMON-04",
         "round": 4,
         "deadlineMs": 6000,
         "providerTimeoutMs": 5000,
-        "parallelElapsedMs": 885.468958999998,
+        "parallelElapsedMs": 917.6362090000039,
         "status": "completed",
         "completedWithinDeadline": true,
         "dense": {
           "status": "success",
           "reasonCode": null,
-          "embeddingElapsedMs": 207.54354199999943,
-          "candidateQueryElapsedMs": 68.30720899999869,
-          "branchElapsedMs": 277.5995000000039
+          "embeddingElapsedMs": 251.40250000001106,
+          "candidateQueryElapsedMs": 77.810083999997,
+          "branchElapsedMs": 331.0533340000111
         },
         "sparse": {
           "status": "success",
           "reasonCode": null,
-          "sqlElapsedMs": 884.7131249999948,
+          "sqlElapsedMs": 916.913790999999,
           "candidateLimit": 200,
           "scope": "all-games"
         },
-        "fusionElapsedMs": 0.41833300000143936
+        "fusionElapsedMs": 0.5592089999991003
       },
       {
         "queryId": "COMMON-04",
         "round": 5,
         "deadlineMs": 6000,
         "providerTimeoutMs": 5000,
-        "parallelElapsedMs": 1722.3180839999986,
+        "parallelElapsedMs": 915.6202080000076,
         "status": "completed",
         "completedWithinDeadline": true,
         "dense": {
           "status": "success",
           "reasonCode": null,
-          "embeddingElapsedMs": 1608.4538329999996,
-          "candidateQueryElapsedMs": 111.56424999999581,
-          "branchElapsedMs": 1722.3010419999991
+          "embeddingElapsedMs": 119.16412499999569,
+          "candidateQueryElapsedMs": 70.05258299999696,
+          "branchElapsedMs": 191.37062500001048
         },
         "sparse": {
           "status": "success",
           "reasonCode": null,
-          "sqlElapsedMs": 866.0463749999981,
+          "sqlElapsedMs": 914.7838750000083,
           "candidateLimit": 200,
           "scope": "all-games"
         },
-        "fusionElapsedMs": 0.4789170000003651
+        "fusionElapsedMs": 0.4092079999973066
       }
     ],
     "queries": [
@@ -1585,22 +1585,22 @@
         "measurement": {
           "denseBranch": {
             "count": 5,
-            "p50": 412.804,
-            "p95": 1409.376,
-            "max": 1409.376
+            "p50": 711.48,
+            "p95": 2356.348,
+            "max": 2356.348
           },
           "servingSparseSql": {
             "count": 5,
-            "p50": 1234.999,
-            "p95": 1484.504,
-            "max": 1484.504
+            "p50": 3531.309,
+            "p95": 5542.604,
+            "max": 5542.604
           },
-          "corpusSparseSql": 112.11804200000006,
+          "corpusSparseSql": 175.7660410000026,
           "fusion": {
             "count": 5,
-            "p50": 0.656,
-            "p95": 1.558,
-            "max": 1.558
+            "p50": 0.736,
+            "p95": 1.62,
+            "max": 1.62
           }
         }
       },
@@ -1609,7 +1609,7 @@
         "querySha256": "769404dc3de7dc4cf85d274259344d653e30cb12fbfd2c428da110d10a37d37c",
         "anchorGameId": 34635,
         "sparseFullCount": 1000,
-        "servingSparseCount": 200,
+        "servingSparseCount": 0,
         "denseTop20": [
           126163,
           70149,
@@ -1654,29 +1654,8 @@
           358246,
           359609
         ],
-        "servingSparseStatus": "completed",
-        "servingSparseTop20InternalGameIds": [
-          88193,
-          89195,
-          134432,
-          34142,
-          80341,
-          82439,
-          90109,
-          97186,
-          101098,
-          117233,
-          117497,
-          120247,
-          124421,
-          126251,
-          126252,
-          132656,
-          140404,
-          142459,
-          2482,
-          2493
-        ],
+        "servingSparseStatus": "timeout",
+        "servingSparseTop20InternalGameIds": [],
         "hybridTop20": [
           199792,
           188920,
@@ -2021,22 +2000,22 @@
         "measurement": {
           "denseBranch": {
             "count": 5,
-            "p50": 186.703,
-            "p95": 1395.69,
-            "max": 1395.69
+            "p50": 1434.382,
+            "p95": 2073.784,
+            "max": 2073.784
           },
           "servingSparseSql": {
             "count": 5,
-            "p50": 1798.333,
-            "p95": 1857.882,
-            "max": 1857.882
+            "p50": 6002.96,
+            "p95": 6008.459,
+            "max": 6008.459
           },
-          "corpusSparseSql": 117.20612500000061,
+          "corpusSparseSql": 876.1335420000032,
           "fusion": {
             "count": 5,
-            "p50": 0.508,
-            "p95": 0.844,
-            "max": 0.844
+            "p50": 0,
+            "p95": 0,
+            "max": 0
           }
         }
       },
@@ -2457,22 +2436,22 @@
         "measurement": {
           "denseBranch": {
             "count": 5,
-            "p50": 197.889,
-            "p95": 1392.318,
-            "max": 1392.318
+            "p50": 565.891,
+            "p95": 1471.053,
+            "max": 1471.053
           },
           "servingSparseSql": {
             "count": 5,
-            "p50": 1729.129,
-            "p95": 1839.209,
-            "max": 1839.209
+            "p50": 4810.374,
+            "p95": 5733.086,
+            "max": 5733.086
           },
-          "corpusSparseSql": 100.3156659999986,
+          "corpusSparseSql": 119.24025000000256,
           "fusion": {
             "count": 5,
-            "p50": 0.349,
-            "p95": 1.068,
-            "max": 1.068
+            "p50": 0.378,
+            "p95": 1.461,
+            "max": 1.461
           }
         }
       },
@@ -2893,22 +2872,22 @@
         "measurement": {
           "denseBranch": {
             "count": 5,
-            "p50": 240.409,
-            "p95": 1191.471,
-            "max": 1191.471
+            "p50": 253.611,
+            "p95": 311.296,
+            "max": 311.296
           },
           "servingSparseSql": {
             "count": 5,
-            "p50": 1925.807,
-            "p95": 2232.622,
-            "max": 2232.622
+            "p50": 3088.467,
+            "p95": 6001.166,
+            "max": 6001.166
           },
-          "corpusSparseSql": 156.5823750000054,
+          "corpusSparseSql": 192.43774999999732,
           "fusion": {
             "count": 5,
-            "p50": 0.438,
-            "p95": 0.68,
-            "max": 0.68
+            "p50": 0.396,
+            "p95": 1.053,
+            "max": 1.053
           }
         }
       },
@@ -3329,22 +3308,22 @@
         "measurement": {
           "denseBranch": {
             "count": 5,
-            "p50": 346.773,
-            "p95": 2155.233,
-            "max": 2155.233
+            "p50": 295.031,
+            "p95": 582.515,
+            "max": 582.515
           },
           "servingSparseSql": {
             "count": 5,
-            "p50": 583.443,
-            "p95": 587.628,
-            "max": 587.628
+            "p50": 682.371,
+            "p95": 762.191,
+            "max": 762.191
           },
-          "corpusSparseSql": 92.20504200000141,
+          "corpusSparseSql": 115.03595799999312,
           "fusion": {
             "count": 5,
-            "p50": 0.59,
-            "p95": 0.634,
-            "max": 0.634
+            "p50": 0.233,
+            "p95": 0.567,
+            "max": 0.567
           }
         }
       },
@@ -3765,22 +3744,22 @@
         "measurement": {
           "denseBranch": {
             "count": 5,
-            "p50": 1025.912,
-            "p95": 1421.075,
-            "max": 1421.075
+            "p50": 269.734,
+            "p95": 1571.246,
+            "max": 1571.246
           },
           "servingSparseSql": {
             "count": 5,
-            "p50": 570.415,
-            "p95": 578.744,
-            "max": 578.744
+            "p50": 610.741,
+            "p95": 797.688,
+            "max": 797.688
           },
-          "corpusSparseSql": 111.51799999999639,
+          "corpusSparseSql": 172.80933300001197,
           "fusion": {
             "count": 5,
-            "p50": 0.892,
-            "p95": 1.999,
-            "max": 1.999
+            "p50": 0.578,
+            "p95": 0.883,
+            "max": 0.883
           }
         }
       },
@@ -4201,22 +4180,22 @@
         "measurement": {
           "denseBranch": {
             "count": 5,
-            "p50": 274.974,
-            "p95": 1365.878,
-            "max": 1365.878
+            "p50": 315.793,
+            "p95": 1495.667,
+            "max": 1495.667
           },
           "servingSparseSql": {
             "count": 5,
-            "p50": 469.106,
-            "p95": 484.712,
-            "max": 484.712
+            "p50": 777.396,
+            "p95": 929.476,
+            "max": 929.476
           },
-          "corpusSparseSql": 75.06037500000093,
+          "corpusSparseSql": 81.1339580000058,
           "fusion": {
             "count": 5,
-            "p50": 0.475,
-            "p95": 0.553,
-            "max": 0.553
+            "p50": 0.339,
+            "p95": 0.729,
+            "max": 0.729
           }
         }
       },
@@ -4637,22 +4616,22 @@
         "measurement": {
           "denseBranch": {
             "count": 5,
-            "p50": 325.9,
-            "p95": 1722.301,
-            "max": 1722.301
+            "p50": 264.484,
+            "p95": 1930.161,
+            "max": 1930.161
           },
           "servingSparseSql": {
             "count": 5,
-            "p50": 870.59,
-            "p95": 901.455,
-            "max": 901.455
+            "p50": 1035.717,
+            "p95": 1089.321,
+            "max": 1089.321
           },
-          "corpusSparseSql": 121.95550000000367,
+          "corpusSparseSql": 120.29154199999175,
           "fusion": {
             "count": 5,
-            "p50": 0.423,
-            "p95": 0.581,
-            "max": 0.581
+            "p50": 0.409,
+            "p95": 0.603,
+            "max": 0.603
           }
         }
       }
@@ -4661,44 +4640,44 @@
       {
         "timeoutSeconds": 1,
         "budgetMs": 1000,
-        "observedParallelP95Ms": 1958.241,
-        "marginMs": -958.241,
+        "observedParallelP95Ms": 6004.534,
+        "marginMs": -5004.534,
         "passesObservedBudget": false
       },
       {
         "timeoutSeconds": 2,
         "budgetMs": 2000,
-        "observedParallelP95Ms": 1958.241,
-        "marginMs": 41.759000000000015,
-        "passesObservedBudget": true
+        "observedParallelP95Ms": 6004.534,
+        "marginMs": -4004.5339999999997,
+        "passesObservedBudget": false
       },
       {
         "timeoutSeconds": 3,
         "budgetMs": 3000,
-        "observedParallelP95Ms": 1958.241,
-        "marginMs": 1041.759,
-        "passesObservedBudget": true
+        "observedParallelP95Ms": 6004.534,
+        "marginMs": -3004.5339999999997,
+        "passesObservedBudget": false
       },
       {
         "timeoutSeconds": 4,
         "budgetMs": 4000,
-        "observedParallelP95Ms": 1958.241,
-        "marginMs": 2041.759,
-        "passesObservedBudget": true
+        "observedParallelP95Ms": 6004.534,
+        "marginMs": -2004.5339999999997,
+        "passesObservedBudget": false
       },
       {
         "timeoutSeconds": 5,
         "budgetMs": 5000,
-        "observedParallelP95Ms": 1958.241,
-        "marginMs": 3041.759,
-        "passesObservedBudget": true
+        "observedParallelP95Ms": 6004.534,
+        "marginMs": -1004.5339999999997,
+        "passesObservedBudget": false
       },
       {
         "timeoutSeconds": 6,
         "budgetMs": 6000,
-        "observedParallelP95Ms": 1958.241,
-        "marginMs": 4041.759,
-        "passesObservedBudget": true
+        "observedParallelP95Ms": 6004.534,
+        "marginMs": -4.533999999999651,
+        "passesObservedBudget": false
       }
     ]
   },
@@ -4731,11 +4710,11 @@
       5,
       6
     ],
-    "observedParallelP95Ms": 1958.241,
+    "observedParallelP95Ms": 6004.534,
     "recommendation": {
       "candidateK": "retain-200-until-quality-qrels",
       "rrfK": "retain-60-until-quality-qrels",
-      "timeoutSeconds": "retain-6s"
+      "timeoutSeconds": "not-validated-timeout-observed"
     }
   },
   "runtime": {
