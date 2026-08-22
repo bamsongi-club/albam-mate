@@ -64,12 +64,21 @@ public class MatchRequestCommandExecutor {
 			}
 			return new MatchRequestCommandService.CreateResult(null, true);
 		}
-		if (requestRepository.findCurrentByUserId(userId).isPresent()
-			|| participantRepository.existsCurrentPreparingOrActivePartyByUserId(userId)) {
+		MatchRequest currentRequest = requestRepository.findCurrentByUserId(userId).orElse(null);
+		if (currentRequest != null && currentRequest.getStatus() != MatchRequestStatus.PAUSED) {
 			throw new BusinessException(ErrorCode.MATCH_REQUEST_ALREADY_ACTIVE);
 		}
-		MatchRequest request = requestRepository.save(MatchRequest.create(
-			userId, command.minPlayers(), command.maxPlayers(), MatchRequestStatus.WAITING, operationTime));
+		if (participantRepository.existsCurrentPreparingOrActivePartyByUserId(userId)) {
+			throw new BusinessException(ErrorCode.MATCH_REQUEST_ALREADY_ACTIVE);
+		}
+		MatchRequest request;
+		if (currentRequest == null) {
+			request = requestRepository.save(MatchRequest.create(
+				userId, command.minPlayers(), command.maxPlayers(), MatchRequestStatus.WAITING, operationTime));
+		} else {
+			currentRequest.startNewWaitingAttempt(operationTime);
+			request = currentRequest;
+		}
 		if (record == null) {
 			idempotencyRecordRepository.save(MatchIdempotencyRecord.create(
 				userId, idempotencyKey, MatchIdempotencyOperation.MATCH_REQUEST_CREATE,
