@@ -61,6 +61,13 @@ test('T2 workflow는 SHA pin과 OIDC로 같은 revision의 ARM64 immutable diges
     assert.match(contents, /imagetools inspect/);
     assert.match(contents, /backend.*digest|digest.*backend/);
     assert.match(contents, /web.*digest|digest.*web/);
+    assert.match(contents, /if ! docker buildx build --platform linux\/arm64[\s\S]*return 1/);
+    assert.match(contents, /if ! digest="\$\(aws ecr describe-images[\s\S]*return 1/);
+    assert.match(contents, /if ! verify_image[\s\S]*return 1/);
+    assert.match(contents, /if ! backend_digest="\$\(resolve_or_publish/);
+    assert.match(contents, /if ! web_digest="\$\(resolve_or_publish/);
+    assert.match(contents, /require_digest backend "\$backend_digest"/);
+    assert.match(contents, /require_digest web "\$web_digest"/);
     for (const action of contents.matchAll(/^\s*uses:\s*[^\n]+/gm)) {
         assert.match(action[0], /@[0-9a-f]{40}(?:\s|$)/, `full SHA pin is required: ${action[0]}`);
     }
