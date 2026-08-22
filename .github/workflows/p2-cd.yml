@@ -178,7 +178,7 @@ jobs:
             local backend_digest="$5"
             local web_digest="$6"
             local command_id
-            command_id="$(aws ssm send-command --document-name "$SSM_DOCUMENT" --instance-ids "$instance_id" --parameters "operation=${operation},source_sha=${release_sha},backend_digest=${backend_digest},web_digest=${web_digest}" --comment "P2 CD ${label} ${release_sha}" --query 'Command.CommandId' --output text)"
+            command_id="$(aws ssm send-command --document-name "$SSM_DOCUMENT" --instance-ids "$instance_id" --parameters "operation=${operation},sourceSha=${release_sha},backendDigest=${backend_digest},webDigest=${web_digest}" --comment "P2 CD ${label} ${release_sha}" --query 'Command.CommandId' --output text)"
             receipt "phase=${label} source_sha=${release_sha} target=${instance_id} command_id=${command_id} status=started"
             if wait_for_command "$command_id" "$instance_id"; then
               receipt "phase=${label} source_sha=${release_sha} target=${instance_id} command_id=${command_id} status=success"
