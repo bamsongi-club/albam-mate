@@ -58,7 +58,7 @@ SEARCH-04 평가 corpus의 deterministic membership, pinned snapshot/version, 1,
 ### 포함 범위
 
 - 게임명만이 아니라 승인 manifest의 `approvedFields`에 포함된 게임 설명·별칭·카테고리·테마·메커니즘과 정규화된 인원·시간·복잡도·최소 연령을 이용한 의도 검색 후보 생성. 아래 필드명은 후보 목록이며 manifest allowlist를 대신하지 않는다.
-- lexical·semantic·hybrid 후보 생성 방식의 평가를 같은 fixture에서 보존한다. runtime primary candidate generation은 [ADR-0087](../adr/game/0087-search-04-cloudflare-managed-bge-m3-serving.md)에 따라 Cloudflare managed BGE-M3 direct REST와 그 provider/provenance에 묶인 새 pgvector index version만 사용하며, Hybrid/RRF·다른 provider는 이 runtime에 섞지 않는다.
+- lexical·semantic·hybrid 후보 생성 방식의 평가를 같은 fixture에서 보존한다. runtime primary candidate generation은 [ADR-0087](../adr/game/0087-search-04-cloudflare-managed-bge-m3-serving.md)에 따라 Cloudflare managed BGE-M3 direct REST와 그 provider/provenance에 묶인 새 pgvector index version만 사용한다. [ADR-0088](../adr/game/0088-search-04-hybrid-rrf-parallel-candidate-generation.md)이 SEARCH-04 후속 serving으로 Dense + structured/sparse 독립 병렬 후보 생성과 RRF 결합을 승인했으며, 이 결합 방식과 candidate K·RRF `k`·timeout 확정값은 [SEARCH-04e(#983)](https://github.com/bamsongi-club/albam-mate/issues/983)가 구현·검증한다.
 - 후보 생성 뒤 `SEARCH-01`~`SEARCH-03`의 hard filter, 공개 게임 범위, `playedFilter` 권한과 페이지 경계를 적용하는 규칙.
 - 의미 검색 결과의 결정적 관련도 정렬, 동일 결과 중복 제거, 빈 결과와 fallback 상태 표시.
 - 기존 필터·Sparse·Dense·Hybrid 후보를 같은 질의와 fixture로 비교하는 단계별 평가 게이트.

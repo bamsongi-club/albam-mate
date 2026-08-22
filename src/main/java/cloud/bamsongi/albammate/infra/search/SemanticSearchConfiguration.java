@@ -13,6 +13,7 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import cloud.bamsongi.albammate.game.contract.DenseCandidateSource;
+import cloud.bamsongi.albammate.game.contract.SparseCandidateSource;
 import tools.jackson.databind.ObjectMapper;
 
 @Configuration
@@ -23,6 +24,12 @@ class SemanticSearchConfiguration {
 	@ConditionalOnMissingBean(DenseCandidateSource.class)
 	DenseCandidateSource unavailableSemanticGameCandidateSource() {
 		return new UnavailableSemanticGameCandidateSource();
+	}
+
+	@Bean
+	@ConditionalOnMissingBean(SparseCandidateSource.class)
+	SparseCandidateSource structuredSparseCandidateSource(DataSource dataSource) {
+		return new StructuredSparseCandidateSource(new JdbcTemplate(dataSource));
 	}
 
 	@Bean
