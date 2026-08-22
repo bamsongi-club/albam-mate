@@ -77,6 +77,12 @@ jobs:
             test "$(docker image inspect "$reference" --format '{{ index .Config.Entrypoint 0 }}')" = "$expected_entrypoint"
           }
 
+          require_digest() {
+            local label="$1"
+            local digest="$2"
+            [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "invalid ${label} ECR digest" >&2; return 1; }
+          }
+
           resolve_or_publish() {
             local repository="$1"
             local context_directory="$2"
@@ -86,11 +92,17 @@ jobs:
             error_file="$(mktemp)"
             if digest="$(aws ecr describe-images --repository-name "${repository#${ECR_REGISTRY}/}" --image-ids "imageTag=${SOURCE_SHA}" --query 'imageDetails[0].imageDigest' --output text 2>"$error_file")"; then
               rm -f -- "$error_file"
-              test "$digest" != 'None'
+              if [[ "$digest" == 'None' ]]; then
+                echo "ECR returned no digest for immutable tag ${SOURCE_SHA}." >&2
+                return 1
+              fi
               echo 'immutable tag already exists; verifying digest, platform, and revision.' >&2
-              verify_image "$repository" "$digest" "$expected_entrypoint"
+              if ! verify_image "$repository" "$digest" "$expected_entrypoint"; then
+                echo "immutable image verification failed for ${repository}:${SOURCE_SHA}." >&2
+                return 1
+              fi
               printf '%s\n' "$digest"
-              return
+              return 0
             fi
             status="$?"
             if ! grep -Fq 'ImageNotFoundException' "$error_file"; then
@@ -99,14 +111,40 @@ jobs:
               return "$status"
             fi
             rm -f -- "$error_file"
-            docker buildx build --platform linux/arm64 --build-arg "ALBAM_MATE_REVISION=${SOURCE_SHA}" --label "org.opencontainers.image.revision=${SOURCE_SHA}" --file "$dockerfile" --tag "${repository}:${SOURCE_SHA}" --push "$context_directory" >&2
-            digest="$(aws ecr describe-images --repository-name "${repository#${ECR_REGISTRY}/}" --image-ids "imageTag=${SOURCE_SHA}" --query 'imageDetails[0].imageDigest' --output text)"
-            verify_image "$repository" "$digest" "$expected_entrypoint"
+            if ! docker buildx build --platform linux/arm64 --build-arg "ALBAM_MATE_REVISION=${SOURCE_SHA}" --label "org.opencontainers.image.revision=${SOURCE_SHA}" --file "$dockerfile" --tag "${repository}:${SOURCE_SHA}" --push "$context_directory" >&2; then
+              echo "immutable image build/push failed for ${repository}:${SOURCE_SHA}." >&2
+              return 1
+            fi
+            if ! digest="$(aws ecr describe-images --repository-name "${repository#${ECR_REGISTRY}/}" --image-ids "imageTag=${SOURCE_SHA}" --query 'imageDetails[0].imageDigest' --output text 2>"$error_file")"; then
+              cat "$error_file" >&2
+              rm -f -- "$error_file"
+              return 1
+            fi
+            rm -f -- "$error_file"
+            if [[ "$digest" == 'None' ]]; then
+              echo "ECR returned no digest after publishing ${repository}:${SOURCE_SHA}." >&2
+              return 1
+            fi
+            if ! verify_image "$repository" "$digest" "$expected_entrypoint"; then
+              echo "published image verification failed for ${repository}:${SOURCE_SHA}." >&2
+              return 1
+            fi
             printf '%s\n' "$digest"
+            return 0
           }
 
-          backend_digest="$(resolve_or_publish "$BACKEND_REPOSITORY" . Dockerfile /app/backend-entrypoint.sh)"
-          web_digest="$(resolve_or_publish "$WEB_REPOSITORY" frontend frontend/Dockerfile.production /usr/local/bin/albam-mate-entrypoint)"
+          if ! backend_digest="$(resolve_or_publish "$BACKEND_REPOSITORY" . Dockerfile /app/backend-entrypoint.sh)"; then
+            echo 'backend image publish/verification failed.' >&2
+            exit 1
+          fi
+          require_digest backend "$backend_digest"
+
+          if ! web_digest="$(resolve_or_publish "$WEB_REPOSITORY" frontend frontend/Dockerfile.production /usr/local/bin/albam-mate-entrypoint)"; then
+            echo 'web image publish/verification failed.' >&2
+            exit 1
+          fi
+          require_digest web "$web_digest"
+
           {
             echo "backend_digest=$backend_digest"
             echo "web_digest=$web_digest"
