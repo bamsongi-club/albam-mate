@@ -10,6 +10,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -22,6 +23,7 @@ import cloud.bamsongi.albammate.game.contract.DenseCandidateSource;
 import cloud.bamsongi.albammate.game.contract.SemanticGameSearchMode;
 import cloud.bamsongi.albammate.game.contract.SemanticGameSearchQuery;
 import cloud.bamsongi.albammate.game.contract.SemanticSearchUnavailableException;
+import cloud.bamsongi.albammate.game.contract.SparseCandidateSource;
 import cloud.bamsongi.albammate.game.dto.GameListRequest;
 import cloud.bamsongi.albammate.game.dto.PlayedFilter;
 import cloud.bamsongi.albammate.game.entity.Game;
@@ -65,6 +67,18 @@ class SemanticGameSearchPostgresTest extends SharedPostgresIntegrationSupport {
 	private UserPlayedGameRepository userPlayedGameRepository;
 	@MockitoBean
 	private DenseCandidateSource candidateSource;
+	@MockitoBean
+	private SparseCandidateSource sparseCandidateSource;
+
+	/**
+	 * 이 파일의 기존 테스트는 #983 이전 dense-only 계약을 그대로 검증한다. sparse candidate를 기본
+	 * 실패로 두어 dense-only 경로(순수 relevance 정렬)를 그대로 재현하고, hybrid 결합 자체는
+	 * 별도 postgresTest가 검증한다.
+	 */
+	@BeforeEach
+	void sparseCandidateFailsByDefault() {
+		when(sparseCandidateSource.findCandidates(anyString())).thenThrow(new SemanticSearchUnavailableException());
+	}
 
 	@Test
 	void T1_dense_후보에_P1_hard_filter와_현재사용자_playedFilter를_PostgreSQL에서_재검증한다() {
