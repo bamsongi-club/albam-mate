@@ -4,6 +4,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.Statement;
+import java.time.Duration;
 import java.util.List;
 
 import javax.sql.DataSource;
@@ -12,6 +17,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.PreparedStatementSetter;
+import org.springframework.jdbc.core.RowMapper;
 import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
@@ -118,8 +125,56 @@ class StructuredSparseCandidateSourcePostgresTest extends SharedPostgresIntegrat
 			() -> source().findCandidates("비공개메커니즘고유어휘"));
 	}
 
+	@Test
+	void ISSUE_1001_T1_남은_deadline을_statement_timeout으로_적용해_잠긴_조회가_취소된다() throws Exception {
+		try (Connection lockConnection = dataSource.getConnection();
+			Statement lockStatement = lockConnection.createStatement()) {
+			lockConnection.setAutoCommit(false);
+			lockStatement.execute("lock table games in access exclusive mode");
+
+			long startedAtNanos = System.nanoTime();
+			assertThrows(SemanticSearchUnavailableException.class,
+				() -> source().findCandidates("timeout 고유 토큰", Duration.ofMillis(200)));
+			long elapsedMillis = (System.nanoTime() - startedAtNanos) / 1_000_000;
+
+			assertTrue(elapsedMillis < 1_000,
+				"잠긴 sparse JDBC 조회는 공통 deadline에 맞춰 취소되어 1초 statement timeout까지 기다리면 안 됩니다.");
+			lockConnection.rollback();
+			assertEquals(0, waitingSparseQueries(), "timeout 뒤 잠긴 sparse JDBC 작업이 남아 있으면 안 됩니다.");
+		}
+	}
+
+	@Test
+	void ISSUE_1001_T1_statement_timeout은_남은_deadline을_초단위로_설정한다() throws Exception {
+		JdbcTemplate jdbcTemplate = org.mockito.Mockito.mock(JdbcTemplate.class);
+		PreparedStatement statement = org.mockito.Mockito.mock(PreparedStatement.class);
+		org.mockito.Mockito.when(jdbcTemplate.query(org.mockito.ArgumentMatchers.anyString(),
+			org.mockito.ArgumentMatchers.any(PreparedStatementSetter.class),
+			org.mockito.ArgumentMatchers.any(RowMapper.class))).thenAnswer(invocation -> {
+				PreparedStatementSetter setter = invocation.getArgument(1);
+				setter.setValues(statement);
+				return List.of(new DenseCandidateSource.Candidate(1L, 1.0));
+			});
+
+		new StructuredSparseCandidateSource(jdbcTemplate).findCandidates("timeout 테스트", Duration.ofMillis(200));
+
+		org.mockito.Mockito.verify(statement).setQueryTimeout(1);
+	}
+
 	private StructuredSparseCandidateSource source() {
 		return new StructuredSparseCandidateSource(new JdbcTemplate(dataSource));
+	}
+
+	private int waitingSparseQueries() throws Exception {
+		try (Connection connection = dataSource.getConnection();
+			Statement statement = connection.createStatement();
+			ResultSet resultSet = statement.executeQuery("""
+				select count(*) from pg_stat_activity
+				where datname = current_database() and wait_event_type = 'Lock' and query like '%%with tokens%%'
+				""")) {
+			resultSet.next();
+			return resultSet.getInt(1);
+		}
 	}
 
 	private GameCategory category(String code) {

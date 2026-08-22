@@ -1,9 +1,17 @@
 package cloud.bamsongi.albammate.infra.search;
 
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.time.Duration;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -21,7 +29,7 @@ import cloud.bamsongi.albammate.game.contract.SparseCandidateSource;
  * candidate 개수 상한과 field 가중치는 실험값이며, 근거는
  * docs/measurements/search-04e-hybrid-rrf-regression.md를 따른다.
  */
-final class StructuredSparseCandidateSource implements SparseCandidateSource {
+final class StructuredSparseCandidateSource implements SparseCandidateSource.DeadlineAware {
 
 	private static final Pattern TOKEN_SPLIT = Pattern.compile("[^\\p{L}\\p{Nd}]+");
 	private static final int MIN_TOKEN_LENGTH = 2;
@@ -29,6 +37,12 @@ final class StructuredSparseCandidateSource implements SparseCandidateSource {
 	private static final double NAME_FIELD_WEIGHT = 3.0;
 	private static final double STRUCTURED_FIELD_WEIGHT = 2.0;
 	private static final double DESCRIPTION_FIELD_WEIGHT = 1.0;
+	private static final ScheduledExecutorService QUERY_CANCELLER = Executors
+		.newSingleThreadScheduledExecutor(runnable -> {
+			Thread thread = new Thread(runnable, "semantic-search-sparse-query-canceller");
+			thread.setDaemon(true);
+			return thread;
+		});
 
 	private final JdbcTemplate jdbcTemplate;
 
@@ -38,15 +52,45 @@ final class StructuredSparseCandidateSource implements SparseCandidateSource {
 
 	@Override
 	public List<DenseCandidateSource.Candidate> findCandidates(String rawQuery) {
+		return findCandidates(rawQuery, Duration.ofSeconds(6));
+	}
+
+	@Override
+	public List<DenseCandidateSource.Candidate> findCandidates(String rawQuery, Duration remainingTimeout) {
 		List<String> tokens = tokenize(rawQuery);
-		if (tokens.isEmpty()) {
+		if (tokens.isEmpty() || remainingTimeout.isZero() || remainingTimeout.isNegative()) {
 			throw new SemanticSearchUnavailableException();
 		}
+		long deadlineNanos = System.nanoTime() + remainingTimeout.toNanos();
 		try {
-			List<DenseCandidateSource.Candidate> candidates = jdbcTemplate.query(sql(tokens.size()),
-				(resultSet, rowNum) -> new DenseCandidateSource.Candidate(resultSet.getLong("game_id"),
-					resultSet.getDouble("score")),
-				queryArguments(tokens));
+			Object[] arguments = queryArguments(tokens);
+			AtomicReference<ScheduledFuture<?>> cancellation = new AtomicReference<>();
+			List<DenseCandidateSource.Candidate> candidates;
+			try {
+				candidates = jdbcTemplate.query(sql(tokens.size()), statement -> {
+					long remainingNanos = deadlineNanos - System.nanoTime();
+					if (remainingNanos <= 0) {
+						throw new SemanticSearchUnavailableException();
+					}
+					statement.setQueryTimeout(queryTimeoutSeconds(Duration.ofNanos(remainingNanos)));
+					for (int index = 0; index < arguments.length; index++) {
+						statement.setObject(index + 1, arguments[index]);
+					}
+					long executionRemainingNanos = deadlineNanos - System.nanoTime();
+					if (executionRemainingNanos <= 0) {
+						throw new SemanticSearchUnavailableException();
+					}
+					cancellation.set(QUERY_CANCELLER.schedule(() -> cancel(statement), executionRemainingNanos,
+						TimeUnit.NANOSECONDS));
+				},
+					(resultSet, rowNum) -> new DenseCandidateSource.Candidate(resultSet.getLong("game_id"),
+						resultSet.getDouble("score")));
+			} finally {
+				ScheduledFuture<?> scheduledCancellation = cancellation.get();
+				if (scheduledCancellation != null) {
+					scheduledCancellation.cancel(false);
+				}
+			}
 			if (candidates.isEmpty()) {
 				throw new SemanticSearchUnavailableException();
 			}
@@ -56,6 +100,22 @@ final class StructuredSparseCandidateSource implements SparseCandidateSource {
 		} catch (DataAccessException exception) {
 			throw new SemanticSearchUnavailableException();
 		}
+	}
+
+	private void cancel(Statement statement) {
+		try {
+			statement.cancel();
+		} catch (SQLException ignored) {
+			// JDBC query timeout이 이미 취소한 경우다.
+		}
+	}
+
+	private int queryTimeoutSeconds(Duration remainingTimeout) {
+		long seconds = remainingTimeout.toSeconds();
+		if (remainingTimeout.minusSeconds(seconds).isPositive()) {
+			seconds++;
+		}
+		return (int)Math.min(Math.max(seconds, 1), Integer.MAX_VALUE);
 	}
 
 	private Object[] queryArguments(List<String> tokens) {

@@ -1,5 +1,6 @@
 package cloud.bamsongi.albammate.game.contract;
 
+import java.time.Duration;
 import java.util.List;
 
 /**
@@ -12,4 +13,12 @@ import java.util.List;
 public interface SparseCandidateSource {
 
 	List<DenseCandidateSource.Candidate> findCandidates(String rawQuery);
+
+	/**
+	 * 공통 candidate deadline을 JDBC 같은 동기 I/O 경계까지 전달할 수 있는 sparse source다.
+	 */
+	interface DeadlineAware extends SparseCandidateSource {
+
+		List<DenseCandidateSource.Candidate> findCandidates(String rawQuery, Duration remainingTimeout);
+	}
 }

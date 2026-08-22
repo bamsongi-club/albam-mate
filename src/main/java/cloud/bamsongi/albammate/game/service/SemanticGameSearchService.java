@@ -10,6 +10,9 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -55,7 +58,7 @@ public class SemanticGameSearchService implements SemanticGameSearch {
 	private final SparseCandidateSource sparseCandidateSource;
 	private final Duration hybridCandidateTimeout;
 	private final ExecutorService denseExecutor = newDaemonPool("semantic-search-dense", CANDIDATE_POOL_SIZE);
-	private final ExecutorService sparseExecutor = newDaemonPool("semantic-search-sparse", CANDIDATE_POOL_SIZE);
+	private final ExecutorService sparseExecutor = newBoundedDaemonPool("semantic-search-sparse", CANDIDATE_POOL_SIZE);
 
 	public SemanticGameSearchService(
 		GameRepository gameRepository,
@@ -71,14 +74,14 @@ public class SemanticGameSearchService implements SemanticGameSearch {
 
 	@Override
 	public SemanticGameSearchResult search(SemanticGameSearchQuery query) {
+		long deadlineNanos = System.nanoTime() + hybridCandidateTimeout.toNanos();
 		Future<List<DenseCandidateSource.Candidate>> denseFuture = denseExecutor
 			.submit(() -> candidateSource.findCandidates(query.rawQuery()));
-		Future<List<DenseCandidateSource.Candidate>> sparseFuture = sparseExecutor
-			.submit(() -> sparseCandidateSource.findCandidates(query.rawQuery()));
-
-		long deadlineNanos = System.nanoTime() + hybridCandidateTimeout.toNanos();
+		Future<List<DenseCandidateSource.Candidate>> sparseFuture = submitSparseCandidates(query.rawQuery(),
+			deadlineNanos);
 		CandidateOutcome dense = await(denseFuture, deadlineNanos);
-		CandidateOutcome sparse = await(sparseFuture, deadlineNanos);
+		CandidateOutcome sparse = sparseFuture == null ? CandidateOutcome.failure()
+			: await(sparseFuture, deadlineNanos);
 
 		if (dense.succeeded() && sparse.succeeded()) {
 			return semanticResult(query, fuseByReciprocalRank(dense.candidates(), sparse.candidates()),
@@ -119,6 +122,25 @@ public class SemanticGameSearchService implements SemanticGameSearch {
 			Thread.currentThread().interrupt();
 			throw new IllegalStateException(exception);
 		}
+	}
+
+	private Future<List<DenseCandidateSource.Candidate>> submitSparseCandidates(String rawQuery, long deadlineNanos) {
+		try {
+			return sparseExecutor.submit(() -> findSparseCandidates(rawQuery, deadlineNanos));
+		} catch (RejectedExecutionException ignored) {
+			return null;
+		}
+	}
+
+	private List<DenseCandidateSource.Candidate> findSparseCandidates(String rawQuery, long deadlineNanos) {
+		if (sparseCandidateSource instanceof SparseCandidateSource.DeadlineAware deadlineAware) {
+			long remainingNanos = deadlineNanos - System.nanoTime();
+			if (remainingNanos <= 0) {
+				throw new SemanticSearchUnavailableException();
+			}
+			return deadlineAware.findCandidates(rawQuery, Duration.ofNanos(remainingNanos));
+		}
+		return sparseCandidateSource.findCandidates(rawQuery);
 	}
 
 	/**
@@ -204,6 +226,16 @@ public class SemanticGameSearchService implements SemanticGameSearch {
 			thread.setDaemon(true);
 			return thread;
 		});
+	}
+
+	private static ExecutorService newBoundedDaemonPool(String threadNamePrefix, int poolSize) {
+		AtomicInteger threadCount = new AtomicInteger();
+		return new ThreadPoolExecutor(poolSize, poolSize, 0, TimeUnit.MILLISECONDS, new SynchronousQueue<>(),
+			runnable -> {
+				Thread thread = new Thread(runnable, threadNamePrefix + "-" + threadCount.incrementAndGet());
+				thread.setDaemon(true);
+				return thread;
+			}, new ThreadPoolExecutor.AbortPolicy());
 	}
 
 	private record CandidateOutcome(List<DenseCandidateSource.Candidate> candidates, boolean succeeded) {

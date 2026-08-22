@@ -2,6 +2,7 @@ package cloud.bamsongi.albammate.game.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -9,14 +10,18 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -312,6 +317,33 @@ class SemanticGameSearchServiceTest {
 	}
 
 	@Test
+	void ISSUE_1001_T1_이미_만료된_deadline은_deadlineAware_sparse_source를_호출하지_않는다() {
+		AtomicInteger sparseCalls = new AtomicInteger();
+		SparseCandidateSource sparseCandidateSource = new SparseCandidateSource.DeadlineAware() {
+			@Override
+			public List<DenseCandidateSource.Candidate> findCandidates(String rawQuery) {
+				throw new AssertionError("만료된 deadline에서는 legacy sparse 경로를 호출하면 안 됩니다.");
+			}
+
+			@Override
+			public List<DenseCandidateSource.Candidate> findCandidates(String rawQuery, Duration remainingTimeout) {
+				sparseCalls.incrementAndGet();
+				return List.of();
+			}
+		};
+		SemanticGameSearchService service = service(org.mockito.Mockito.mock(GameRepository.class),
+			org.mockito.Mockito.mock(DenseCandidateSource.class), sparseCandidateSource);
+		try {
+			assertThrows(SemanticSearchUnavailableException.class,
+				() -> ReflectionTestUtils.invokeMethod(service, "findSparseCandidates", "만료된 검색",
+					System.nanoTime() - 1));
+			assertEquals(0, sparseCalls.get());
+		} finally {
+			service.shutdown();
+		}
+	}
+
+	@Test
 	void HYBRID_T5_동시_요청_두_건의_dense_조회는_서로를_차단하지_않고_병렬로_처리된다() throws Exception {
 		GameRepository gameRepository = org.mockito.Mockito.mock(GameRepository.class);
 		DenseCandidateSource candidateSource = org.mockito.Mockito.mock(DenseCandidateSource.class);
@@ -386,11 +418,172 @@ class SemanticGameSearchServiceTest {
 			() -> service(gameRepository, candidateSource).search(query("전략 게임")));
 	}
 
+	@Test
+	void ISSUE_1001_T2_sparseExecutor는_포화된_작업을_즉시_거부한다() throws Exception {
+		SemanticGameSearchService service = service(org.mockito.Mockito.mock(GameRepository.class),
+			org.mockito.Mockito.mock(DenseCandidateSource.class),
+			org.mockito.Mockito.mock(SparseCandidateSource.class));
+		CountDownLatch started = new CountDownLatch(sparseExecutor(service).getMaximumPoolSize());
+		CountDownLatch release = new CountDownLatch(1);
+		try {
+			occupySparseWorkers(service, started, release);
+			assertTrue(started.await(2, TimeUnit.SECONDS), "모든 sparse worker가 점유되어야 합니다.");
+
+			assertThrows(RejectedExecutionException.class, () -> sparseExecutor(service).submit(() -> {}),
+				"포화된 sparse 작업은 무한 대기열에 쌓이지 않고 즉시 거부되어야 합니다.");
+		} finally {
+			release.countDown();
+			service.shutdown();
+		}
+	}
+
+	@Test
+	void ISSUE_1001_T3_interrupt를_무시하는_worker가_점유돼도_후속_요청은_대기열없이_lexicalFallback으로_수렴한다()
+		throws Exception {
+		GameRepository gameRepository = org.mockito.Mockito.mock(GameRepository.class);
+		DenseCandidateSource denseCandidateSource = org.mockito.Mockito.mock(DenseCandidateSource.class);
+		SparseCandidateSource sparseCandidateSource = org.mockito.Mockito.mock(SparseCandidateSource.class);
+		when(denseCandidateSource.findCandidates(anyString())).thenThrow(new SemanticSearchUnavailableException());
+		when(sparseCandidateSource.findCandidates(anyString())).thenThrow(new SemanticSearchUnavailableException());
+		when(gameRepository.findLexicalFallbackSummaries(any(Specification.class), any()))
+			.thenReturn(new SliceImpl<>(List.of(), PageRequest.of(0, 10), false));
+		SemanticGameSearchService service = service(gameRepository, denseCandidateSource, sparseCandidateSource,
+			Duration.ofMillis(150));
+		CountDownLatch started = new CountDownLatch(sparseExecutor(service).getMaximumPoolSize());
+		CountDownLatch release = new CountDownLatch(1);
+		try {
+			occupySparseWorkers(service, started, release);
+			assertTrue(started.await(2, TimeUnit.SECONDS), "모든 sparse worker가 점유되어야 합니다.");
+
+			long startedAtNanos = System.nanoTime();
+			SemanticGameSearchResult result = service.search(query("후속 요청"));
+			long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAtNanos);
+
+			assertEquals(SemanticGameSearchMode.LEXICAL_FALLBACK, result.mode());
+			assertTrue(elapsedMillis < 500, "후속 요청은 timeout budget 안에서 fallback으로 응답해야 합니다.");
+			assertEquals(0, sparseExecutor(service).getQueue().size(), "거부된 sparse 작업은 대기열에 남지 않아야 합니다.");
+		} finally {
+			release.countDown();
+			service.shutdown();
+		}
+	}
+
+	@Test
+	void ISSUE_1001_T4_worker가_해제된_뒤_남은_deadline으로_sparse_작업을_다시_처리한다() throws Exception {
+		GameRepository gameRepository = org.mockito.Mockito.mock(GameRepository.class);
+		DenseCandidateSource denseCandidateSource = org.mockito.Mockito.mock(DenseCandidateSource.class);
+		AtomicReference<Duration> observedTimeout = new AtomicReference<>();
+		SparseCandidateSource sparseCandidateSource = deadlineAwareSparseCandidateSource((rawQuery, timeout) -> {
+			observedTimeout.set(timeout);
+			return List.of(new DenseCandidateSource.Candidate(1001L, 1.0));
+		});
+		Game sparseGame = game(1001L, 10_001L, "복구된 sparse 게임");
+		when(denseCandidateSource.findCandidates(anyString())).thenThrow(new SemanticSearchUnavailableException());
+		when(gameRepository.findAll(any(Specification.class))).thenReturn(List.of(sparseGame));
+		SemanticGameSearchService service = service(gameRepository, denseCandidateSource, sparseCandidateSource,
+			Duration.ofSeconds(1));
+		CountDownLatch started = new CountDownLatch(sparseExecutor(service).getMaximumPoolSize());
+		CountDownLatch release = new CountDownLatch(1);
+		try {
+			occupySparseWorkers(service, started, release);
+			assertTrue(started.await(2, TimeUnit.SECONDS), "모든 sparse worker가 점유되어야 합니다.");
+			release.countDown();
+			awaitSparseWorkersToBecomeIdle(sparseExecutor(service));
+
+			SemanticGameSearchResult result = service.search(query("복구 요청"));
+
+			assertEquals(SemanticGameSearchMode.SPARSE_FALLBACK, result.mode());
+			assertEquals(List.of(sparseGame.getId()), result.content().stream().map(GameSummary::id).toList());
+			assertNotNull(observedTimeout.get(), "복구된 sparse 작업에도 남은 공통 deadline이 전달되어야 합니다.");
+			assertTrue(observedTimeout.get().isPositive());
+		} finally {
+			release.countDown();
+			service.shutdown();
+		}
+	}
+
+	@Test
+	void ISSUE_1001_T5_정상_dense와_sparse_결과를_기존_SEMANTIC_경로로_결합한다() {
+		GameRepository gameRepository = org.mockito.Mockito.mock(GameRepository.class);
+		DenseCandidateSource denseCandidateSource = org.mockito.Mockito.mock(DenseCandidateSource.class);
+		AtomicReference<Duration> observedTimeout = new AtomicReference<>();
+		SparseCandidateSource sparseCandidateSource = deadlineAwareSparseCandidateSource((rawQuery, timeout) -> {
+			observedTimeout.set(timeout);
+			return List.of(new DenseCandidateSource.Candidate(1002L, 1.0));
+		});
+		Game denseGame = game(1001L, 10_001L, "Dense 게임");
+		Game sparseGame = game(1002L, 10_002L, "Sparse 게임");
+		when(denseCandidateSource.findCandidates(anyString()))
+			.thenReturn(List.of(new DenseCandidateSource.Candidate(denseGame.getId(), 1.0)));
+		when(gameRepository.findAll(any(Specification.class))).thenReturn(List.of(denseGame, sparseGame));
+
+		SemanticGameSearchResult result = service(gameRepository, denseCandidateSource, sparseCandidateSource)
+			.search(query("정상 결합"));
+
+		assertEquals(SemanticGameSearchMode.SEMANTIC, result.mode());
+		assertEquals(List.of(denseGame.getId(), sparseGame.getId()),
+			result.content().stream().map(GameSummary::id).toList());
+		assertNotNull(observedTimeout.get(), "정상 sparse 경로에도 남은 공통 deadline이 전달되어야 합니다.");
+		assertTrue(observedTimeout.get().isPositive());
+	}
+
 	private SemanticGameSearchService service(
 		GameRepository gameRepository, DenseCandidateSource candidateSource) {
 		SparseCandidateSource sparseCandidateSource = org.mockito.Mockito.mock(SparseCandidateSource.class);
 		when(sparseCandidateSource.findCandidates(anyString())).thenThrow(new SemanticSearchUnavailableException());
 		return service(gameRepository, candidateSource, sparseCandidateSource);
+	}
+
+	private ThreadPoolExecutor sparseExecutor(SemanticGameSearchService service) {
+		return (ThreadPoolExecutor)ReflectionTestUtils.getField(service, "sparseExecutor");
+	}
+
+	private void occupySparseWorkers(SemanticGameSearchService service, CountDownLatch started,
+		CountDownLatch release) {
+		for (int index = 0; index < sparseExecutor(service).getMaximumPoolSize(); index++) {
+			sparseExecutor(service).submit(() -> {
+				started.countDown();
+				awaitIgnoringInterrupts(release);
+			});
+		}
+	}
+
+	private void awaitIgnoringInterrupts(CountDownLatch release) {
+		boolean interrupted = false;
+		while (release.getCount() > 0) {
+			try {
+				release.await();
+			} catch (InterruptedException exception) {
+				interrupted = true;
+			}
+		}
+		if (interrupted) {
+			Thread.currentThread().interrupt();
+		}
+	}
+
+	private void awaitSparseWorkersToBecomeIdle(ThreadPoolExecutor executor) throws InterruptedException {
+		long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+		while (executor.getActiveCount() > 0 && System.nanoTime() < deadlineNanos) {
+			Thread.yield();
+		}
+		assertEquals(0, executor.getActiveCount(), "worker가 해제된 뒤 executor가 idle 상태가 되어야 합니다.");
+	}
+
+	private SparseCandidateSource deadlineAwareSparseCandidateSource(
+		java.util.function.BiFunction<String, Duration, List<DenseCandidateSource.Candidate>> finder) {
+		try {
+			Class<?> deadlineAwareType = Class.forName(SparseCandidateSource.class.getName() + "$DeadlineAware");
+			return (SparseCandidateSource)java.lang.reflect.Proxy.newProxyInstance(getClass().getClassLoader(),
+				new Class<?>[] {deadlineAwareType}, (proxy, method, arguments) -> {
+					if (method.getName().equals("findCandidates") && arguments.length == 2) {
+						return finder.apply((String)arguments[0], (Duration)arguments[1]);
+					}
+					throw new AssertionError("sparse 후보 조회는 deadline-aware 계약을 사용해야 합니다.");
+				});
+		} catch (ClassNotFoundException exception) {
+			throw new AssertionError("sparse 후보 조회에 남은 deadline을 전달하는 계약이 없습니다.", exception);
+		}
 	}
 
 	private SemanticGameSearchService service(
