@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "measuredGitCommitSha": "aeed5093e09309f966241272047fb3fff61b68fd",
+  "outcome": "PASSED",
+  "id": "MATCH-01-T8",
+  "task": "postgresTest",
+  "selectors": [
+    "cloud.bamsongi.albammate.chat.match.MatchChatAdapterTransactionPostgresTest.T8_A_CLOSED_Party는_실제_접근_관계와_보존_메시지가_있어도_이력과_전송을_같은_FORBIDDEN으로_차단한다",
+    "cloud.bamsongi.albammate.chat.match.MatchChatAdapterTransactionPostgresTest.T8_B_CLOSED_실제_시각부터_7일_이내의_URL_메시지는_cleanup_뒤에도_보존된다",
+    "cloud.bamsongi.albammate.chat.match.MatchChatAdapterTransactionPostgresTest.T8_C_CLOSED_실제_시각부터_7일을_넘긴_파티는_채팅방_메시지_참가자_접근_관계까지_물리_삭제한다",
+    "cloud.bamsongi.albammate.chat.match.MatchChatAdapterTransactionPostgresTest.T8_E_채팅_정리_직후_실패해도_롤백되고_재실행은_MATCH만_삭제해_수렴한다"
+  ],
+  "purpose": "실제 MATCH due candidate 조회의 7일 경계, CLOSED 접근 차단, 물리 삭제, cleanup 내부 실패 롤백·재실행 수렴과 P1 ROOM 격리를 검증한다."
+}

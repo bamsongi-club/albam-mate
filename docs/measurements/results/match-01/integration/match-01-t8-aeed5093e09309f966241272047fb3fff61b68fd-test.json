@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "measuredGitCommitSha": "aeed5093e09309f966241272047fb3fff61b68fd",
+  "outcome": "PASSED",
+  "id": "MATCH-01-T8",
+  "task": "test",
+  "selectors": [
+    "cloud.bamsongi.albammate.chat.match.MatchChatWebSocketHandlerTest.T8_A_CLOSED_접근으로_바뀐_연결은_새_메시지_전송_직전에_종료되어_본문을_받지_않는다",
+    "cloud.bamsongi.albammate.chat.match.MatchChatWebSocketHandlerTest.T8_D_URL_원문_사용자_식별자_메시지_본문은_성공_전달과_sender_누락_실패의_로그와_MATCH_metric_label에_남지_않는다"
+  ],
+  "purpose": "CLOSED 접근 상실 직전의 메시지 차단과 URL·사용자 식별자·본문의 root log 및 MATCH metric tag 비노출을 검증한다."
+}
