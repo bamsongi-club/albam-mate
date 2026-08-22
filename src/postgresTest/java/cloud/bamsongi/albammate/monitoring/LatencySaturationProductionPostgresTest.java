@@ -148,18 +148,18 @@ class LatencySaturationProductionPostgresTest {
 	}
 
 	@Test
-	void T1_정상과_느린_HTTP_요청은_같은_timer의_정규화_route와_배포_dimension으로_export된다()
+	void T1_정상과_느린_HTTP_요청은_같은_timer의_정규화_route와_OTLP_resource로_export된다()
 		throws Exception {
 		assertEquals(200, request("/monitoring-contract/normal/711?requestId=private-id").statusCode());
 		assertEquals(200, request("/monitoring-contract/slow/712?query=private-value").statusCode());
 
-		assertTrue(await(() -> httpRequestPoints().stream().anyMatch(point -> pointHas(point,
-			Map.of("method", "GET", "uri", "/monitoring-contract/normal/{id}", "status", "200",
-				"outcome", "SUCCESS")))));
-		assertTrue(await(() -> httpRequestPoints().stream().anyMatch(point -> pointHas(point,
-			Map.of("method", "GET", "uri", "/monitoring-contract/slow/{id}", "status", "200",
-				"outcome", "SUCCESS")))));
-		assertTrue(httpRequestPoints().stream().anyMatch(this::hasDeploymentTags));
+		assertTrue(await(() -> httpRequestExportedWithDeploymentResource(Map.of(
+			"method", "GET", "uri", "/monitoring-contract/normal/{id}", "status", "200",
+			"outcome", "SUCCESS"))));
+		assertTrue(await(() -> httpRequestExportedWithDeploymentResource(Map.of(
+			"method", "GET", "uri", "/monitoring-contract/slow/{id}", "status", "200",
+			"outcome", "SUCCESS"))));
+		assertFalse(httpRequestPoints().stream().anyMatch(this::hasDeploymentPointTag));
 		assertFalse(httpRequestPoints().stream().flatMap(point -> attributes(point).keySet().stream())
 			.anyMatch(
 				key -> key.equals("requestId") || key.equals("query") || key.equals("userId") || key.equals("roomId")
@@ -207,7 +207,9 @@ class LatencySaturationProductionPostgresTest {
 		assertNotNull(awaitPayloadAfter(pendingPayload.sequence(),
 			payload -> payloadHasGaugeValue(payload, "hikaricp.connections.pending", value -> value == 0.0)));
 		assertEquals(200, request("/monitoring-contract/normal/731").statusCode());
-		assertTrue(await(() -> httpRequestPoints().stream().anyMatch(this::hasDeploymentTags)));
+		assertTrue(await(() -> httpRequestExportedWithDeploymentResource(Map.of(
+			"method", "GET", "uri", "/monitoring-contract/normal/{id}", "status", "200",
+			"outcome", "SUCCESS"))));
 	}
 
 	private HttpResponse<String> request(String path) throws IOException, InterruptedException {
@@ -257,11 +259,12 @@ class LatencySaturationProductionPostgresTest {
 
 	private boolean payloadHasGaugeValue(OtlpPayload payload, String metricName, DoublePredicate expected) {
 		return parseRequest(payload).getResourceMetricsList().stream()
+			.filter(this::hasDeploymentResourceAttributes)
 			.flatMap(resourceMetrics -> resourceMetrics.getScopeMetricsList().stream())
 			.flatMap(scopeMetrics -> scopeMetrics.getMetricsList().stream())
 			.filter(metric -> metricName.equals(metric.getName()))
 			.flatMap(metric -> metric.getGauge().getDataPointsList().stream())
-			.anyMatch(point -> hasDeploymentTags(point) && expected.test(gaugeValue(point)));
+			.anyMatch(point -> !hasDeploymentPointTag(point) && expected.test(gaugeValue(point)));
 	}
 
 	private Collection<MessageOrBuilder> httpRequestPoints() {
@@ -302,8 +305,19 @@ class LatencySaturationProductionPostgresTest {
 		return expected.entrySet().stream().allMatch(entry -> entry.getValue().equals(attributes.get(entry.getKey())));
 	}
 
-	private boolean hasDeploymentTags(MessageOrBuilder point) {
-		return pointHas(point, DEPLOYMENT_TAGS);
+	private boolean httpRequestExportedWithDeploymentResource(Map<String, String> expected) {
+		return metricRequests().stream()
+			.flatMap(request -> request.getResourceMetricsList().stream())
+			.filter(this::hasDeploymentResourceAttributes)
+			.flatMap(resourceMetrics -> resourceMetrics.getScopeMetricsList().stream())
+			.flatMap(scopeMetrics -> scopeMetrics.getMetricsList().stream())
+			.filter(metric -> "http.server.requests".equals(metric.getName()))
+			.flatMap(metric -> metric.getHistogram().getDataPointsList().stream())
+			.anyMatch(point -> pointHas(point, expected));
+	}
+
+	private boolean hasDeploymentPointTag(MessageOrBuilder point) {
+		return attributes(point).keySet().stream().anyMatch(DEPLOYMENT_TAGS::containsKey);
 	}
 
 	private double gaugeValue(MessageOrBuilder point) {
@@ -311,13 +325,15 @@ class LatencySaturationProductionPostgresTest {
 	}
 
 	private boolean hasDeploymentResourceAttributes(ExportMetricsServiceRequest request) {
-		return request.getResourceMetricsList().stream().allMatch(resourceMetrics -> {
-			Map<String, String> attributes = resourceMetrics.getResource().getAttributesList().stream()
-				.collect(java.util.stream.Collectors.toMap(KeyValue::getKey,
-					attribute -> attribute.getValue().getStringValue(), (first, second) -> first));
-			return DEPLOYMENT_TAGS.entrySet().stream()
-				.allMatch(entry -> entry.getValue().equals(attributes.get(entry.getKey())));
-		});
+		return request.getResourceMetricsList().stream().allMatch(this::hasDeploymentResourceAttributes);
+	}
+
+	private boolean hasDeploymentResourceAttributes(io.opentelemetry.proto.metrics.v1.ResourceMetrics resourceMetrics) {
+		Map<String, String> attributes = resourceMetrics.getResource().getAttributesList().stream()
+			.collect(java.util.stream.Collectors.toMap(KeyValue::getKey,
+				attribute -> attribute.getValue().getStringValue(), (first, second) -> first));
+		return DEPLOYMENT_TAGS.entrySet().stream()
+			.allMatch(entry -> entry.getValue().equals(attributes.get(entry.getKey())));
 	}
 
 	private Map<String, String> attributes(MessageOrBuilder point) {

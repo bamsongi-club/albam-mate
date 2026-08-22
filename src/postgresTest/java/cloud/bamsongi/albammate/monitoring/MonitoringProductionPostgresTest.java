@@ -144,6 +144,7 @@ class MonitoringProductionPostgresTest {
 		registry.add("ALBAM_MATE_REDIS_HOST", APP_REDIS::getHost);
 		registry.add("ALBAM_MATE_REDIS_PORT", () -> APP_REDIS.getMappedPort(6379));
 		registry.add("app.monitoring.dependency-health.poll-interval", () -> "1h");
+		registry.add("management.metrics.enable." + OTLP_PROBE_METRIC, () -> "true");
 		registry.add("management.otlp.metrics.export.step", () -> "500ms");
 		registry.add("management.otlp.metrics.export.connect-timeout", () -> "50ms");
 		registry.add("management.otlp.metrics.export.read-timeout", () -> "50ms");

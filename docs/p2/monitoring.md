@@ -17,7 +17,7 @@ P2 대시보드는 인프라가 켜져 있다는 사실만 보여주지 않는�
 | `OPS-01` | 서비스가 살아 있는가 | health, 인스턴스·컨테이너, PostgreSQL·Redis 연결, 관측 공백 |
 | `OPS-02` | 느려졌는가 | API p50·p95·p99, Tomcat·HikariCP 대기, 외부 API·AI 지연 |
 | `OPS-03` | 실패하는가 | 5xx·timeout, scheduler·의존성 실패, AI·Tool Calling 오류 |
-| `OPS-04` | 돈을 많이 쓰는가 | AI 요청·token·provider·model별 사용량과 추정 비용, 관측 데이터 수집량 |
+| `OPS-04` | 돈을 많이 쓰는가 | AI 요청·token·status별 사용량과 추정 비용, 관측 데이터 수집량. provider·model은 event contract에만 남기고 metric label로 전송하지 않음 |
 | `OPS-05` | 기능이 실제로 동작하는가 | 알림, 채팅, 참가 대기열의 시도부터 최종 업무 결과까지 |
 
 화면 존재, Terraform 선언, Actuator endpoint와 테스트 metric 증가는 완료가 아니다. 같은 release의 정상·장애·복구 시나리오에서 지표·로그·경고·업무 결과를 확인해야 한다.
@@ -54,7 +54,7 @@ P2 대시보드는 인프라가 켜져 있다는 사실만 보여주지 않는�
 
 | 대상 | 적용 시점 | 상태 판정 |
 | --- | --- | --- |
-| AI 요청·token·모델별 비용·Tool Calling | AI 기능의 provider·model·호출 경계가 확정되고 실제 환경에 배포된 뒤 | 연동 전에는 값 없음을 명시하고 `OPS-04`를 완료로 표시하지 않는다. 다른 운영 관측 기반의 전달은 막지 않는다. |
+| AI 요청·token·status별 비용·Tool Calling | AI 기능의 provider·model·호출 경계가 확정되고 실제 환경에 배포된 뒤 | provider·model·feature·prompt/schema version은 event contract에만 남기고, metric은 `status`·`token_type`으로 집계한다. 연동 전에는 값 없음을 명시하고 `OPS-04`를 완료로 표시하지 않는다. 다른 운영 관측 기반의 전달은 막지 않는다. |
 | 외부 API·AI 지연과 오류 | 해당 외부 호출을 사용하는 기능이 배포된 뒤 | 내부 처리시간과 외부 응답시간을 분리해 추가한다. 호출이 없던 기간을 성공이나 비용 `0`의 증거로 쓰지 않는다. |
 | API·HikariCP·AI 경고 임계값 | 정상 실행과 통제 장애의 초기 측정을 마친 뒤 | 측정값으로 초기 운영 기준을 정하고 SLA로 표현하지 않는다. 측정 전에는 임의의 확정값을 넣지 않는다. |
 
@@ -254,8 +254,8 @@ AI 기능의 외부 처리·provider·model·호출 예산 경계는 완료된 [
 
 ### 기능 규칙
 
-- provider·model·feature별 AI 요청 수와 success·fallback·failure
-- 입력·출력·전체 token과 모델별 누적 사용량
+- AI 요청 수와 success·fallback·failure별 제한된 `status` 집계. provider·model·feature·prompt/schema version은 event contract에만 남기고 반복 metric label로 전송하지 않는다.
+- 입력·출력 token별 누적 사용량과 이 둘을 재계산한 `total` 누적값. 공유 event의 `totalTokens`는 그대로 전송하지 않으며 같은 `status`·`token_type` 조합마다 하나의 series만 만든다.
 - Tool별 호출 수·성공·실패·실행시간. Tool 이름은 허용 목록만 사용
 - 실제 외부 provider 호출 수 × USD `0.10`의 기간별 고정 예약 비용과 앱 월 `$5` cap·`$4` warning 사용량
 - provider 공식 가격표 snapshot을 이용한 token 기반 참고 추정값. 이는 고정 예약 cap의 계산값이 아님
@@ -265,13 +265,13 @@ AI 기능의 외부 처리·provider·model·호출 예산 경계는 완료된 [
 
 ### 완료 기준
 
-- `OPS-04-AC1` AI 호출 경계가 요청 수와 입력·출력 token을 provider·model·feature의 제한된 label로 기록한다.
+- `OPS-04-AC1` AI 호출 경계가 요청 수와 입력·출력 token을 제한된 `status`·`token_type` label로 기록하며 provider·model·feature·prompt/schema version은 metric label로 전송하지 않는다.
 - `OPS-04-AC2` 프롬프트·응답·Tool 인자·사용자 ID 없이 success·fallback·failure와 Tool 결과를 집계한다.
 - `OPS-04-AC3` 실제 외부 provider 호출 수와 USD `0.10`으로 고정 예약 비용·월 cap·warning 사용량을 재현하고, 공식 가격표 snapshot·통화·적용일·계산식의 token 기반 참고 추정값을 별도 표시할 수 있다.
-- `OPS-04-AC4` dashboard가 기간·provider·model별 token, 고정 예약 예산 사용량과 참고 추정값을 서로 구분해 보여주며 어느 값도 청구 확정액으로 표현하지 않는다.
+- `OPS-04-AC4` dashboard가 기간·status별 token, 고정 예약 예산 사용량과 참고 추정값을 서로 구분해 보여주며 어느 값도 청구 확정액으로 표현하지 않는다.
 - `OPS-04-AC5` metric·log 수집량과 보존기간으로 P2 관측 자체의 비용 증가 요인을 설명할 수 있다.
 - `OPS-04-AC6` AI 기능·provider·model은 확정됐지만, 실제 배포·관측·가격 snapshot이 없는 상태에서는 `OPS-04`를 완료로 표시하지 않는다.
-- `OPS-04-AC7` P2가 추가하는 애플리케이션 OTLP metric·중앙 로그·신규 alarm의 예상 월 비용은 USD 10 이하이며 기존 host 관측 비용을 별도로 표시한다.
+- `OPS-04-AC7` 기존 CloudWatch 계정 기준선과 P2 증분을 합친 예상 월 비용은 USD 10 이하이며, 기준선·가정·필수 입력이 빠지면 비용 0이나 통과가 아니라 `NO_OBSERVATION`으로 표시한다.
 - `OPS-04-AC8` 예상 월 비용이 USD 10을 넘으면 수집 간격·label·로그 범위를 조정하거나 사용자 재승인을 받기 전까지 비용 검증을 통과로 기록하지 않는다.
 
 ### 제외 범위

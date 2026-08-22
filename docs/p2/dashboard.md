@@ -13,7 +13,7 @@ P2 대시보드는 CloudWatch에 그래프를 나열하는 화면이 아니다. 
 | 1 | 서비스가 살아 있는가 | health, EC2·container·Spring, PostgreSQL·Redis 연결, 마지막 수집 시각 | `OPS-01` |
 | 2 | 느려졌는가 | API p50·p95·p99, Nginx upstream, Tomcat·HikariCP, 외부 API·AI 응답시간 | `OPS-02` |
 | 3 | 실패하는가 | 5xx·timeout, dependency·scheduler·AI·Tool Calling 오류 | `OPS-03` |
-| 4 | 돈을 많이 쓰는가 | AI 요청·token·provider·model별 사용량·추정 비용, metric·log 수집량 | `OPS-04` |
+| 4 | 돈을 많이 쓰는가 | AI 요청·token·status별 사용량·추정 비용, metric·log 수집량 | `OPS-04` |
 | 5 | 기능이 실제로 동작하는가 | 알림·채팅·참가 대기열의 기술 수락·업무 결과·사용자 가시 결과 | `OPS-05` |
 
 P2는 다섯 질문을 모두 지원한다. AI 결과가 유용한지, 근거가 적절한지와 사용자 만족도는 별도 제품 품질 평가로 남긴다.
@@ -74,7 +74,7 @@ P2는 같은 지표·로그를 재사용하는 CloudWatch dashboard 두 개를 �
 
 #### 4. 사용량과 추정 비용
 
-- provider·model·feature별 AI 요청과 입력·출력 token
+- 제한된 `status`별 AI 요청과 입력·출력 token. provider·model·feature·prompt/schema version은 event contract에만 남기고 metric label로 전송하지 않는다.
 - success·fallback·failure별 사용량
 - 실제 외부 provider 호출 수 × USD `0.10`의 고정 예약 비용과 앱 월 `$5` cap·`$4` warning 사용량
 - 공식 가격표 snapshot을 적용한 token 기반 참고 추정 비용
@@ -84,7 +84,7 @@ P2는 같은 지표·로그를 재사용하는 CloudWatch dashboard 두 개를 �
 
 배포 검증 전에 공식 provider 가격과 버전 관리 snapshot을 비교하고 변경됐을 때만 `jiho`가 갱신한다. 가격 snapshot은 USD `0.10` 고정 예약값의 적정성 재검토와 참고 추정에만 쓰며, 앱 월 `$5` cap을 token 가격으로 다시 계산하지 않는다. 과거 실행 결과는 당시 snapshot 식별자를 유지한다.
 
-P2가 추가하는 애플리케이션 OTLP metric·중앙 로그·신규 alarm의 예상 월 비용은 USD 10 이하로 제한하고 기존 host 관측 비용은 별도로 표시한다. 초과하면 수집 간격·label·로그 범위를 줄이거나 사용자 재승인을 받기 전까지 비용 검증을 통과로 기록하지 않는다.
+CloudWatch 비용 계산은 계정 전체 기준선을 한 번 적용한 뒤 조정된 P2 증분을 더한다. 기준선·가정·필수 입력이 하나라도 없으면 비용 0이나 `PASS`가 아니라 `NO_OBSERVATION`이며, 완성된 월 추정치가 USD 10을 넘으면 `BLOCKED_REAPPROVAL`이다. 새 AI release의 배포 후 실제 값은 #872의 미완료 실측 입력으로 남기며 사전 비용 gate의 `PASS`에 합치지 않는다.
 
 #### 5. 핵심 업무 기능 결과
 
