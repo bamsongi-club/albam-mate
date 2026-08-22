@@ -252,7 +252,7 @@ class AssistantIntentExtractorTest {
 		return new AiProviderSettings(
 			"local-openai", true, true, true, true, "AI-02-POLICY-V1", "https://example.test/ai-policy",
 			"gpt-5.6-luna", Duration.ofSeconds(10), 0, false, "TEST-PRICING-V1", new BigDecimal("1.00"),
-			new BigDecimal("1.00"), 4096, 256, new BigDecimal("0.10"));
+			new BigDecimal("1.00"), 4096, 256, new BigDecimal("0.10"), "zero-data-retention");
 	}
 
 	private static final class CapturingAssistantProvider implements AiProviderClient {

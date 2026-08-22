@@ -74,6 +74,8 @@ class ProductionProfileConfigurationTest {
 		assertEquals("${ALBAM_MATE_ASSISTANT_PROVIDER:fake}", properties.getProperty("app.assistant.provider"));
 		assertEquals("${ALBAM_MATE_ASSISTANT_PROVIDER_CONFIGURED:false}",
 			properties.getProperty("app.assistant.provider-configured"));
+		assertEquals("${ALBAM_MATE_ASSISTANT_RETENTION_MODE:unverified}",
+			properties.getProperty("app.assistant.retention-mode"));
 		assertEquals("${ALBAM_MATE_ASSISTANT_POLICY_VERSION:}",
 			properties.getProperty("app.assistant.policy-version"));
 		assertEquals("${ALBAM_MATE_ASSISTANT_PRICING_SNAPSHOT:}",

@@ -43,6 +43,7 @@ app:
     store: false
     policy-version: ${ALBAM_MATE_ASSISTANT_POLICY_VERSION:}
     policy-url: ${ALBAM_MATE_ASSISTANT_POLICY_URL:}
+    retention-mode: unverified
     pricing-snapshot: ${ALBAM_MATE_ASSISTANT_PRICING_SNAPSHOT:}
     input-token-price-usd-per-million: ${ALBAM_MATE_ASSISTANT_INPUT_TOKEN_PRICE_USD_PER_MILLION:0}
     output-token-price-usd-per-million: ${ALBAM_MATE_ASSISTANT_OUTPUT_TOKEN_PRICE_USD_PER_MILLION:0}

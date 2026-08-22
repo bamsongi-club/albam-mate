@@ -38,7 +38,8 @@ public class AssistantConsentService implements AssistantConsentGate {
 			.orElseGet(() -> AssistantConsentResponse.notGranted(
 				properties.getConsentVersion(),
 				properties.responsePolicyVersion(),
-				properties.responsePolicyUrl()));
+				properties.responsePolicyUrl(),
+				properties.getRetentionMode()));
 	}
 
 	@Transactional
@@ -85,7 +86,8 @@ public class AssistantConsentService implements AssistantConsentGate {
 			properties.getPolicyVersion(),
 			properties.getPolicyUrl(),
 			now);
-		return AssistantConsentResponse.from(consentRepository.saveAndFlush(consent));
+		return AssistantConsentResponse.from(
+			consentRepository.saveAndFlush(consent), properties.getRetentionMode());
 	}
 
 	private AssistantConsentResponse toCurrentPolicyResponse(AssistantConsent consent) {
@@ -94,6 +96,7 @@ public class AssistantConsentService implements AssistantConsentGate {
 			properties.getConsentVersion(),
 			properties.responsePolicyVersion(),
 			properties.responsePolicyUrl(),
+			properties.getRetentionMode(),
 			isCurrentGrant(consent));
 	}
 

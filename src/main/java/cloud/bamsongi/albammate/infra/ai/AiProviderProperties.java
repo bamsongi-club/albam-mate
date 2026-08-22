@@ -16,6 +16,7 @@ class AiProviderProperties {
 	private boolean store;
 	private String policyVersion = "";
 	private String policyUrl = "";
+	private String retentionMode = "unverified";
 	private String model = "gpt-5.6-luna";
 	private Duration timeout = Duration.ofSeconds(10);
 	private int retryCount;
@@ -88,6 +89,14 @@ class AiProviderProperties {
 
 	void setPolicyUrl(String policyUrl) {
 		this.policyUrl = policyUrl;
+	}
+
+	String getRetentionMode() {
+		return retentionMode;
+	}
+
+	void setRetentionMode(String retentionMode) {
+		this.retentionMode = retentionMode;
 	}
 
 	String getModel() {

@@ -11,17 +11,19 @@ public record AssistantConsentResponse(
 	String consentVersion,
 	String policyVersion,
 	String policyUrl,
+	String retentionMode,
 	boolean store,
 	Instant grantedAt,
 	Instant revokedAt) {
 
-	public static AssistantConsentResponse from(AssistantConsent consent) {
+	public static AssistantConsentResponse from(AssistantConsent consent, String retentionMode) {
 		return new AssistantConsentResponse(
 			toResponseStatus(consent.getStatus()),
 			consent.getProvider(),
 			consent.getConsentVersion(),
 			consent.getPolicyVersion(),
 			consent.getPolicyUrl(),
+			retentionMode,
 			consent.isStore(),
 			consent.getStatus() == cloud.bamsongi.albammate.assistant.entity.AssistantConsentStatus.GRANTED
 				? consent.getGrantedAt()
@@ -34,6 +36,7 @@ public record AssistantConsentResponse(
 		String consentVersion,
 		String policyVersion,
 		String policyUrl,
+		String retentionMode,
 		boolean grantIsCurrent) {
 		AssistantConsentStatus status = toResponseStatus(consent.getStatus());
 		if (status == AssistantConsentStatus.GRANTED && !grantIsCurrent) {
@@ -45,6 +48,7 @@ public record AssistantConsentResponse(
 			consentVersion,
 			policyVersion,
 			policyUrl,
+			retentionMode,
 			status == AssistantConsentStatus.GRANTED && consent.isStore(),
 			status == AssistantConsentStatus.GRANTED ? consent.getGrantedAt() : null,
 			status == AssistantConsentStatus.REVOKED ? consent.getRevokedAt() : null);
@@ -58,13 +62,15 @@ public record AssistantConsentResponse(
 	public static AssistantConsentResponse notGranted(
 		String consentVersion,
 		String policyVersion,
-		String policyUrl) {
+		String policyUrl,
+		String retentionMode) {
 		return new AssistantConsentResponse(
 			AssistantConsentStatus.NOT_GRANTED,
 			AssistantConsent.PROVIDER,
 			consentVersion,
 			policyVersion,
 			policyUrl,
+			retentionMode,
 			false,
 			null,
 			null);

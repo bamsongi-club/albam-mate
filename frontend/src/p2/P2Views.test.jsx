@@ -44,6 +44,7 @@ function stubApi({ authenticated = true } = {}) {
     consentVersion: 'AI-01-CONSENT-V1',
     policyVersion: 'OPENAI-2026-08',
     policyUrl: 'https://example.com/provider-policy',
+    retentionMode: 'default-30d',
     store: false,
     grantedAt: '2026-08-20T09:00:00Z',
     revokedAt: null

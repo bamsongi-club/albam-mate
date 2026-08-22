@@ -9,7 +9,7 @@
 ## 검증 원칙
 
 - 기본 runner는 결정적 fake provider를 사용한다. 같은 입력·schema version·fixture hash는 같은 구조화 결과와 오류를 반환해야 한다.
-- 실제 provider는 [ADR-0074](../adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md)·[ADR-0085](../adr/platform/0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md)의 실행 권한, model ID 확인, payload allowlist와 고정 예약 상한 확인 뒤 별도 수동 smoke에서만 사용한다.
+- 실제 provider는 [ADR-0074](../adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md)·[ADR-0088](../adr/platform/0088-p2-ai-openai-default-retention-and-smoke-gate.md)·[ADR-0085](../adr/platform/0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md)의 실행 권한, model ID 확인, retention mode, payload allowlist와 고정 예약 상한 확인 뒤 별도 수동 smoke에서만 사용한다.
 - 테스트는 `AI-01a`·`AI-01b`·`AI-02a`·`AI-03a`의 계약을 기능별로 분리해 판정하고, setup 실패·관측 누락·generator 포화는 기능 실패가 아닌 `INVALID`로 기록한다.
 - prompt·응답·Tool 인자·게임 후보·사용자 ID·세션·비밀값을 결과 파일·metric label·central log에 남기지 않는다.
 
@@ -43,7 +43,7 @@ manifest hash는 `manifestSha256` 필드를 제외한 전체 manifest를 JSON ob
 ## 계약 검증
 
 1. 인증·동의·CSRF·feature flag가 호출 경계에서 판정되는지 확인한다.
-2. fake provider에 전달되는 필드가 allowlist와 schema version을 벗어나지 않는지, PII·secret 탐지 후 승인된 마스킹 또는 fail-closed가 적용되는지, provider no-retention·no-training 조건이 확인되는지 검사한다.
+2. fake provider에 전달되는 필드가 allowlist와 schema version을 벗어나지 않는지, PII·secret 탐지 후 승인된 마스킹 또는 fail-closed가 적용되는지, provider retention mode·no-training 조건이 확인되는지 검사한다.
 3. 모델이 반환한 구조화 조건을 서버가 다시 검증하고, provider 기반 후보 조회가 모든 조건을 AND로 적용한 뒤 내부 `RANK-01` 순서로 정렬하며, 후보·지역·Room 쓰기 권한을 모델에 위임하지 않는지 확인한다. 유일한 정확 게임명은 provider·quota ledger·비용 예약 없이 `game.contract`만으로 반환되고 0건·복수건은 provider 기반 흐름으로 가는지도 확인한다.
 4. 확인 전 Room·ChatRoom·참가 관계가 생성되지 않는지 확인한다.
 5. 유효한 새 초안 confirm이 성공 응답과 Room 정확히 1개·ChatRoom 정확히 1개를 만들고, 두 ID가 같은 생성 결과를 가리키는지 확인한다.
@@ -83,4 +83,4 @@ manifest hash는 `manifestSha256` 필드를 제외한 전체 manifest를 JSON ob
 
 ## 실행 게이트
 
-이 설계의 정책 전제는 완료된 [#795](https://github.com/bamsongi-club/albam-mate/issues/795)·[#796](https://github.com/bamsongi-club/albam-mate/issues/796), [#944](https://github.com/bamsongi-club/albam-mate/issues/944)와 승인된 ADR-0074~0076·0085으로 확정됐다. 다만 구현 이슈가 runner 경로·cwd·shell·시간 측정·결과 경로를 고정하기 전에는 실행 계약으로 승격하지 않는다. 이번 전달 범위에서는 자동 부하테스트 runner를 실행하지 않으며, 필요한 경우 별도 승인 뒤 fake provider 계약 검증과 부하 실행을 재개한다.
+이 설계의 정책 전제는 완료된 [#795](https://github.com/bamsongi-club/albam-mate/issues/795)·[#796](https://github.com/bamsongi-club/albam-mate/issues/796), [#944](https://github.com/bamsongi-club/albam-mate/issues/944)와 승인된 ADR-0074~0076·0085·0086으로 확정됐다. 다만 구현 이슈가 runner 경로·cwd·shell·시간 측정·결과 경로를 고정하기 전에는 실행 계약으로 승격하지 않는다. 이번 전달 범위에서는 자동 부하테스트 runner를 실행하지 않으며, 필요한 경우 별도 승인 뒤 fake provider 계약 검증과 부하 실행을 재개한다.

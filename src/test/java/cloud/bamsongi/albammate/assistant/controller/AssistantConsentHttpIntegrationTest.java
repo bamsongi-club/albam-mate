@@ -48,10 +48,11 @@ import cloud.bamsongi.albammate.user.repository.UserRepository;
 
 @SpringBootTest(properties = {
 	"app.assistant.enabled=true",
-	"app.assistant.no-retention-verified=true",
+	"app.assistant.no-retention-verified=false",
 	"app.assistant.no-training-verified=true",
 	"app.assistant.policy-version=OPENAI-POLICY-2026-08",
 	"app.assistant.policy-url=https://openai.com/policies/api-data-usage-policies",
+	"app.assistant.retention-mode=default-30d",
 	"app.assistant.store=false"
 })
 @AutoConfigureMockMvc
@@ -115,6 +116,7 @@ class AssistantConsentHttpIntegrationTest {
 			.andExpect(jsonPath("$.data.provider").value("OPENAI"))
 			.andExpect(jsonPath("$.data.policyVersion").value("OPENAI-POLICY-2026-08"))
 			.andExpect(jsonPath("$.data.policyUrl").value("https://openai.com/policies/api-data-usage-policies"))
+			.andExpect(jsonPath("$.data.retentionMode").value("default-30d"))
 			.andExpect(jsonPath("$.data.store").value(false));
 
 		assertEquals(1, countConsentRows(user.getId()));
