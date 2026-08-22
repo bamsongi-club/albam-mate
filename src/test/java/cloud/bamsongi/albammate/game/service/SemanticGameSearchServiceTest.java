@@ -317,6 +317,33 @@ class SemanticGameSearchServiceTest {
 	}
 
 	@Test
+	void ISSUE_1001_T1_이미_만료된_deadline은_deadlineAware_sparse_source를_호출하지_않는다() {
+		AtomicInteger sparseCalls = new AtomicInteger();
+		SparseCandidateSource sparseCandidateSource = new SparseCandidateSource.DeadlineAware() {
+			@Override
+			public List<DenseCandidateSource.Candidate> findCandidates(String rawQuery) {
+				throw new AssertionError("만료된 deadline에서는 legacy sparse 경로를 호출하면 안 됩니다.");
+			}
+
+			@Override
+			public List<DenseCandidateSource.Candidate> findCandidates(String rawQuery, Duration remainingTimeout) {
+				sparseCalls.incrementAndGet();
+				return List.of();
+			}
+		};
+		SemanticGameSearchService service = service(org.mockito.Mockito.mock(GameRepository.class),
+			org.mockito.Mockito.mock(DenseCandidateSource.class), sparseCandidateSource);
+		try {
+			assertThrows(SemanticSearchUnavailableException.class,
+				() -> ReflectionTestUtils.invokeMethod(service, "findSparseCandidates", "만료된 검색",
+					System.nanoTime() - 1));
+			assertEquals(0, sparseCalls.get());
+		} finally {
+			service.shutdown();
+		}
+	}
+
+	@Test
 	void HYBRID_T5_동시_요청_두_건의_dense_조회는_서로를_차단하지_않고_병렬로_처리된다() throws Exception {
 		GameRepository gameRepository = org.mockito.Mockito.mock(GameRepository.class);
 		DenseCandidateSource candidateSource = org.mockito.Mockito.mock(DenseCandidateSource.class);
