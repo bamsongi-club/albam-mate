@@ -1,6 +1,6 @@
 # P2 운영 관측 런북
 
-> **문서 상태: active · 계약 정본 · OPS-01 구현·AWS 실측 완료 · 최종 검증일: 2026-08-18**
+> **문서 상태: active · 계약 정본 · OPS-01 구현·AWS 실측 완료 · OPS-04 부분 구현·부분 로컬 검증 · 최종 검증일: 2026-08-20**
 >
 > 이 문서는 `OPS-01`~`OPS-05`의 metric·log 허용 목록, 경고 대응과 전체 스택 계획 종료·재기동 계약을 소유한다. `OPS-01-AC1`~`AC3`은 [#730](https://github.com/bamsongi-club/albam-mate/issues/730), `OPS-01-AC4`~`AC7`은 [#731](https://github.com/bamsongi-club/albam-mate/issues/731)의 앱·운영 CLI·인프라와 AWS 수용 실행에서 검증됐다.
 
@@ -11,10 +11,10 @@
 | 구분 | 현재 판정 | 완료 증거 |
 | --- | --- | --- |
 | 이 문서의 metric·log·alarm·상태 전이 계약 | 확정 | 이 문서와 연결 정본의 링크·회귀 검사 |
-| 애플리케이션 OTLP·JSON logging | `OPS-01-AC1`~`AC3` 구현·자동 검증 완료, OPS-02 HTTP·JVM·Tomcat·Hikari·Nginx timing 원천 범위 부분 구현·자동 검증 | OPS-01 앱 [#764](https://github.com/bamsongi-club/albam-mate/pull/764), merge `0fa8285a019fafbb1d7caa65baa30cc8446e2c89`; OPS-02 production 설정·자동 검증 |
-| 인프라 수집·상태 정본·경고 제어·Scheduler | `OPS-01-AC1`~`AC7` 구현·자동 검증 완료, OPS-02 infra 미구현 | `albam-mate-infra` [#14](https://github.com/bamsongi-club/albam-mate-infra/pull/14)·[#16](https://github.com/bamsongi-club/albam-mate-infra/pull/16)·[#17](https://github.com/bamsongi-club/albam-mate-infra/pull/17)·[#18](https://github.com/bamsongi-club/albam-mate-infra/pull/18)·[#19](https://github.com/bamsongi-club/albam-mate-infra/pull/19)·[#20](https://github.com/bamsongi-club/albam-mate-infra/pull/20)·[#22](https://github.com/bamsongi-club/albam-mate-infra/pull/22), main `ce8913c01937b7db71264008bd24a851a1c6d4d4` |
-| AWS 배포와 실제 수집 | `OPS-01-AC1`~`AC7` 임시 배포·실측·철거 완료, OPS-02 미배포·미측정 | OPS-01 #730 앱 release `8e25bbc6ee2c1b68aa28247b9c2fdbf7b8e88784`, 아래 #730·#731 T1~T3와 Terraform teardown; OPS-02는 같은 release의 metric·log 도착과 수집 공백 검사 필요 |
-| 경고·복구 | #731 OPS-01 범위 실측 완료, OPS-02 미측정 | OPS-01 대표 alarm `OK → ALARM → OK`, SNS 경고·복구 실제 수신, 최종 receipt `79bc6489-994a-4ba5-80ae-b43b075d8020`; OPS-02 실측 필요 |
+| 애플리케이션 OTLP·JSON logging | `OPS-01-AC1`~`AC3` 구현·자동 검증 완료, OPS-02 HTTP·JVM·Tomcat·Hikari·Nginx timing 원천 범위 부분 구현·자동 검증, OPS-04 usage·cost-warning meter 구현·자동 검증 완료. 단, 요청별 가격 적격성 신호는 미구현 | OPS-01 앱 [#764](https://github.com/bamsongi-club/albam-mate/pull/764), merge `0fa8285a019fafbb1d7caa65baa30cc8446e2c89`; OPS-02 production 설정·자동 검증; OPS-04 #852 소비 결과와 #872 계산기 검증 |
+| 인프라 수집·상태 정본·경고 제어·Scheduler | `OPS-01-AC1`~`AC7` 구현·자동 검증 완료, OPS-02 infra 미구현, OPS-04 숫자 비용 제거·기본 비활성 dashboard/alarm·전체 P2 비용 및 cardinality 배포 gate 구현·로컬 검증 완료. 가격 적격성 앱 신호·실측 입력·재승인은 미완료 | `albam-mate-infra` [#14](https://github.com/bamsongi-club/albam-mate-infra/pull/14)·[#16](https://github.com/bamsongi-club/albam-mate-infra/pull/16)·[#17](https://github.com/bamsongi-club/albam-mate-infra/pull/17)·[#18](https://github.com/bamsongi-club/albam-mate-infra/pull/18)·[#19](https://github.com/bamsongi-club/albam-mate-infra/pull/19)·[#20](https://github.com/bamsongi-club/albam-mate-infra/pull/20)·[#22](https://github.com/bamsongi-club/albam-mate-infra/pull/22), main `ce8913c01937b7db71264008bd24a851a1c6d4d4`; OPS-04 [#42](https://github.com/bamsongi-club/albam-mate-infra/pull/42)·후속 [#43](https://github.com/bamsongi-club/albam-mate-infra/pull/43), merge `f3334479a9b0a97a02c34cc1ad15708a5eeccec1` |
+| AWS 배포와 실제 수집 | `OPS-01-AC1`~`AC7` 임시 배포·실측·철거 완료, OPS-02·OPS-04 미배포·미측정 | OPS-01 #730 앱 release `8e25bbc6ee2c1b68aa28247b9c2fdbf7b8e88784`, 아래 #730·#731 T1~T3와 Terraform teardown; OPS-02·OPS-04는 같은 release의 metric·log 도착과 수집 공백 검사 필요 |
+| 경고·복구 | #731 OPS-01 범위 실측 완료, OPS-02·OPS-04 미측정 | OPS-01 대표 alarm `OK → ALARM → OK`, SNS 경고·복구 실제 수신, 최종 receipt `79bc6489-994a-4ba5-80ae-b43b075d8020`; OPS-02와 OPS-04 `$4` warning·복구 실측 필요 |
 
 이 계약은 App1·App2·PostgreSQL·Redis로 구성한 하나의 `stackId` 전체에만 적용한다. 애플리케이션 배포, 한 컨테이너 재시작, rolling restart와 부분 유지보수는 `PLANNED_STOP`이 아니며 `ACTIVE` 상태와 배포 grace 안에서 관측한다.
 
@@ -148,12 +148,27 @@ source는 첫 두 meter가 `AuthenticationRequestLimiterMetrics`, WebSocket 네 
 | `room.status.correction.runs` | counter | `outcome=completed|failed|skipped|batch_limit` | 15분 `Sum`·보정 결과 | `completed|failed|batch_limit` 현재 코드·export 필요, `skipped` 추가 구현 필요 |
 | `room.status.correction.duration` | timer | 없음 | 실행별 p95·180초 warning | 현재 코드·export 필요, CloudWatch 배포·실측 필요 |
 | `room.waitlist.operations` | counter | `operation=join|cancel|promote`, `outcome=accepted|rejected|failed` | 배포 fixture별 `Sum`·최종 업무 결과 | 현재 코드·H2·PostgreSQL 자동 검증 완료, CloudWatch 배포·실측 필요 |
+| `assistant.usage.events` | counter | `provider=fake|openai|unknown`, `model=gpt-5.6-luna|unknown`, `feature=AI-02|unknown`, 승인된 `prompt_version`·`schema_version`·`status` 또는 `unknown` | 같은 release의 요청 수를 provider·model·feature·status별 `Sum` | 현재 코드·자동 검증 완료, CloudWatch 배포·실측 필요 |
+| `assistant.usage.tokens` | distribution summary | 위 usage tag와 `token_type=input|output|total` | 같은 release의 token 합계와 공식 가격 snapshot 기반 추정 비용 | 현재 코드·자동 검증 완료, CloudWatch 배포·실측 필요 |
+| `assistant.usage.latency` | timer | usage event와 같은 유한 tag | provider·model·feature별 count·p95 | 현재 코드·자동 검증 완료, CloudWatch 배포·실측 필요 |
+| `assistant.usage.cost.usd` | distribution summary | usage event와 같은 유한 tag | ADR-0085의 실제 외부 provider 호출당 USD `0.10` 고정 예약값; token 가격 추정이나 청구서로 사용 금지 | 현재 코드·자동 검증 완료, CloudWatch 배포·실측 필요 |
+| `assistant.cost.warning.events` | counter | `quota_month=YYYY-MM`, `warning_threshold_usd=4.00|unknown` | 월별 중복 없는 `$4` warning, SNS warning·OK 복구 | 현재 코드·자동 검증 완료, CloudWatch 배포·실측 필요 |
 
 `notification.relay.delivery.duration`은 outbox의 `recordedAt`부터 Notification 기록 시각까지의 `deliveryDelayMs`를 기록한다. `notification.relay.oldest.processable.age`는 batch 종료 뒤 PostgreSQL 조회의 밀리초 값을 초 단위 gauge로 기록하고, 처리 가능한 적체가 없으면 0이다. `processingDurationMs`는 구조화 로그의 진단 필드일 뿐 meter에 기록하지 않는다.
 
+### OPS-04 가격·비용 계산과 경고 경계
+
+[ADR-0085](../adr/platform/0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md)의 앱 월 `$5` hard cap과 `$4` warning은 실제 외부 provider 호출당 USD `0.10` 고정 예약값으로 계산한다. OpenAI `gpt-5.6-luna` standard short-context 가격은 [OPS-04 가격 snapshot](../measurements/ops-04/README.md)에 별도로 고정하고, 정제된 요청별 입력에서 `cachedInputTokens`가 명시적인 정수 `0`이고 input이 272,000 token 이하일 때만 입력 USD 0.20/1M token과 출력 USD 1.20/1M token으로 참고 추정한다. 이 token 추정값은 고정 예약 hard cap을 다시 계산하지 않으며, 가격 적격성을 확인하지 못하면 임의의 요율이나 비용 `0` 대신 `NO_OBSERVATION`으로 남긴다.
+
+#872 승인 T1의 `outcome` 축은 #852가 고정한 실제 bounded tag `status`로 조회한다. OPS-04가 같은 의미의 `outcome` tag를 중복 추가하거나 공유 meter 계약을 확장하지 않는다.
+
+현재 공유 meter는 요청별 cached input과 long-context 가격 적격성을 전달하지 않는다. [인프라 #43](https://github.com/bamsongi-club/albam-mate-infra/pull/43)은 #42의 집계 token 기반 숫자 비용 panel을 제거하고 dashboard·`$4` alarm을 기본 비활성화했으며, 가격 적격성·전체 P2 비용 입력·cardinality precondition을 통과하기 전에는 배포를 차단한다. 따라서 현재 dashboard 비용은 `NO_OBSERVATION`이고 cost-warning alarm의 SNS warning·OK action과 통제된 `OK → ALARM → OK`는 미배포·미측정이다. 앱의 `assistant.cost.warning` meter는 애플리케이션 상태 신호일 뿐 실제 청구서나 CloudWatch alarm을 대체하지 않는다.
+
+인프라 #43은 P2 신규 application OTLP metric의 meter별 series·datapoint, 중앙 로그 수집량·14일 보존, alarm·dashboard를 목록화하고 기존 host 관측 비용을 별도 항목으로 분리했다. 현재 알려진 application series 3,278개는 승인 상한 128개를 넘고 알려진 월 비용 하한 USD 83.51도 예산 `$10`을 넘는다. 공통 meter 일부, 중앙 로그 ingestion과 alarm query sample은 미측정이라 최종 합계는 `null`이며 판정은 `BLOCKED_REAPPROVAL`이다. 가격 적격성 신호와 미측정 입력을 갖추고 조정·재승인하기 전에는 배포하거나 T5 PASS를 주장하지 않는다.
+
 채팅 보존의 복구 판정은 앱 인스턴스 메모리나 domain meter가 합성하지 않는다. release 전체의 `failures`와 `completed` 신호를 함께 평가하는 비공개 infra alarm이 소유하며, 그 alarm 구현·배포·실측은 미완료다.
 
-마지막 여섯 meter는 현재 구조화 log·업무 결과에 값이 있거나 검증 경계가 있지만 지속 alarm·업무 결과용 meter는 없는 항목의 구현 이름을 고정한다. 구현 중 다른 이름이나 Logs metric filter가 더 적합하다고 판단하면 코드만 다르게 만들지 않고 이 inventory와 alarm query를 같은 변경에서 갱신한다.
+`notification.relay.events`부터 `room.waitlist.operations`까지의 여섯 meter는 현재 구조화 log·업무 결과에 값이 있거나 검증 경계가 있지만 지속 alarm·업무 결과용 meter는 없는 항목의 구현 이름을 고정한다. 구현 중 다른 이름이나 Logs metric filter가 더 적합하다고 판단하면 코드만 다르게 만들지 않고 이 inventory와 alarm query를 같은 변경에서 갱신한다.
 
 ## 중앙 log 허용 목록
 
@@ -288,4 +303,4 @@ health가 성공했더라도 alarm action 활성화, schedule 삭제 또는 `ACT
 
 상태 조회·계획 종료·연장·재기동·복구 명령은 [`albam-mate-infra`](https://github.com/bamsongi-club/albam-mate-infra/tree/ce8913c01937b7db71264008bd24a851a1c6d4d4)의 단일 운영 CLI가 소유한다. 반복 subcommand와 필수 인자는 [COMMANDS](../COMMANDS.md#운영-compose)에 등록하며, 세부 bootstrap·배포·receipt 절차는 인프라 저장소 README를 따른다.
 
-> 문서 관리: 소유자 `밤송이클럽 개발·운영 팀` · 최종 검증일 `2026-08-18` · 폐기 조건 `상태 전이·경고 대응 계약을 검증된 단일 운영 CLI의 생성형 문서가 완전히 대체할 때`
+> 문서 관리: 소유자 `밤송이클럽 개발·운영 팀` · 최종 검증일 `2026-08-20` · 폐기 조건 `상태 전이·경고 대응 계약을 검증된 단일 운영 CLI의 생성형 문서가 완전히 대체할 때`

@@ -21,6 +21,10 @@
 - 같은 release의 대표 5xx·Redis 불능·scheduler 실패·복구와 실제 경고 수신: [OPS-03 실패·이상 AWS 제한 실측](ops-03-failure-anomaly-observability-2026-08-19.md)
 - 비식별화한 실행 SHA·집계·철거 판정: [OPS-03 Run #03 manifest](results/ops-03/ops03-20260819-03.json)
 
+## AI 사용량·추정 비용
+
+- OpenAI 공식 가격 snapshot, 재현 계산기와 `NO_OBSERVATION` 경계: [OPS-04 AI 사용량·추정 비용 증거 계약](ops-04/README.md)
+
 ## 원자료
 
 - ROOM-09·10 기준선의 보존 결과: [results](results/)
