@@ -233,7 +233,9 @@ export function validateLiveEvidence(evidence, options = {}) {
     assertEqual(evidence.schemaVersion, LIVE_EVIDENCE_SCHEMA_VERSION, `schemaVersion은 ${LIVE_EVIDENCE_SCHEMA_VERSION}이어야 합니다.`);
     assertEqual(evidence.kind, LIVE_EVIDENCE_KIND, "kind가 올바르지 않습니다.");
     assertEqual(evidence.issue, 1002, "issue는 1002여야 합니다.");
-    assertEqual(evidence.status, "completed", "실패한 실행은 evidence로 기록할 수 없습니다.");
+    if (!["completed", "timeout-observed"].includes(evidence.status)) {
+        throw new Error("evidence status는 completed 또는 timeout-observed여야 합니다.");
+    }
 
     const input = evidence.input;
     assertObject(input, "input");
@@ -295,10 +297,9 @@ export function validateLiveEvidence(evidence, options = {}) {
         "Dense READY index row 수가 1,000이 아닙니다.");
     assertEqual(execution.dense?.queryEmbeddings?.requestCount, QUERY_FIXTURES.length * MEASURE_ROUNDS,
         "Dense query embedding 요청 수가 8개 질의×5회가 아닙니다.");
-    assertEqual(execution.dense?.queryEmbeddings?.successCount, execution.dense?.queryEmbeddings?.requestCount,
-        "Dense query embedding 요청이 모두 성공하지 않았습니다.");
-    assertEqual(execution.dense?.queryEmbeddings?.failureCount, 0,
-        "Dense query embedding 실패가 기록되었습니다.");
+    assertEqual(execution.dense?.queryEmbeddings?.successCount
+        + execution.dense?.queryEmbeddings?.failureCount, execution.dense?.queryEmbeddings?.requestCount,
+        "Dense query embedding 성공·실패 요청 수가 맞지 않습니다.");
     assertEqual(execution.dense?.queryRounds, MEASURE_ROUNDS, "Dense query 반복 횟수가 5회가 아닙니다.");
     assertEqual(execution.dense?.source, DENSE_EVIDENCE_SOURCE,
         "Dense source가 승인된 Cloudflare direct REST 경로가 아닙니다.");
@@ -306,7 +307,7 @@ export function validateLiveEvidence(evidence, options = {}) {
         "Dense pgvector 후보 조회 source가 production SQL 경로가 아닙니다.");
     assertEqual(execution.dense?.candidateQueries?.candidateLimit, DENSE_CANDIDATE_LIMIT,
         "Dense pgvector 후보 조회 상한이 production 값과 다릅니다.");
-    assertEqual(execution.dense?.candidateQueries?.queryCount, EXECUTION_REQUEST_COUNT,
+    assertEqual(execution.dense?.candidateQueries?.requestCount, EXECUTION_REQUEST_COUNT,
         "Dense pgvector 후보 조회 요청 수가 8개 질의×5회가 아닙니다.");
     assertEqual(execution.sparse?.serving?.source, SPARSE_EVIDENCE_SOURCE,
         "Sparse serving source가 production SQL shape 경로가 아닙니다.");
@@ -314,7 +315,7 @@ export function validateLiveEvidence(evidence, options = {}) {
         "Sparse serving은 전체 games scope여야 합니다.");
     assertEqual(execution.sparse?.serving?.candidateLimit, SERVING_SPARSE_CANDIDATE_LIMIT,
         "Sparse serving candidate limit이 production 값과 다릅니다.");
-    assertEqual(execution.sparse?.serving?.queryCount, EXECUTION_REQUEST_COUNT,
+    assertEqual(execution.sparse?.serving?.requestCount, EXECUTION_REQUEST_COUNT,
         "Sparse serving query 수가 8개 질의×5회가 아닙니다.");
     assertEqual(execution.sparse?.corpus?.scope, "approved-search-text-corpus",
         "Sparse corpus 비교 scope가 다릅니다.");
@@ -335,9 +336,8 @@ export function validateLiveEvidence(evidence, options = {}) {
         "공통 deadline은 6초여야 합니다.");
     assertEqual(execution.parallel?.requestCount, EXECUTION_REQUEST_COUNT,
         "동시 실행 request 수가 8개 질의×5회가 아닙니다.");
-    assertEqual(execution.parallel?.completedCount, EXECUTION_REQUEST_COUNT,
-        "동시 실행 완료 request 수가 부족합니다.");
-    assertEqual(execution.parallel?.timeoutCount, 0, "동시 실행에서 timeout request가 발생했습니다.");
+    assertEqual(execution.parallel?.completedCount + execution.parallel?.timeoutCount, EXECUTION_REQUEST_COUNT,
+        "동시 실행 완료·timeout request 수가 맞지 않습니다.");
     if (!Array.isArray(execution.requests) || execution.requests.length !== EXECUTION_REQUEST_COUNT) {
         throw new Error("요청별 동시 실행 결과 40개를 모두 보존해야 합니다.");
     }
@@ -351,15 +351,40 @@ export function validateLiveEvidence(evidence, options = {}) {
         }
         assertEqual(request.deadlineMs, COMMON_DEADLINE_MS, `${request.queryId}.deadlineMs가 다릅니다.`);
         assertEqual(request.providerTimeoutMs, PROVIDER_TIMEOUT_MS, `${request.queryId}.providerTimeoutMs가 다릅니다.`);
-        assertEqual(request.dense?.status, "success", `${request.queryId} Dense branch가 성공하지 않았습니다.`);
-        assertEqual(request.sparse?.status, "success", `${request.queryId} Sparse branch가 성공하지 않았습니다.`);
-        assertEqual(request.completedWithinDeadline, true,
-            `${request.queryId} request가 공통 deadline 안에 완료되지 않았습니다.`);
+        if (!["success", "timeout", "failure"].includes(request.dense?.status)) {
+            throw new Error(`${request.queryId} Dense branch 상태가 올바르지 않습니다.`);
+        }
+        if (!["success", "timeout", "failure"].includes(request.sparse?.status)) {
+            throw new Error(`${request.queryId} Sparse branch 상태가 올바르지 않습니다.`);
+        }
+        if (request.completedWithinDeadline !== (request.dense.status === "success"
+            && request.sparse.status === "success")) {
+            throw new Error(`${request.queryId} branch 상태와 deadline 결과가 다릅니다.`);
+        }
         assertPositiveNumber(request.parallelElapsedMs, `${request.queryId}.parallelElapsedMs`);
-        assertPositiveNumber(request.dense?.embeddingElapsedMs, `${request.queryId}.dense.embeddingElapsedMs`);
-        assertPositiveNumber(request.dense?.candidateQueryElapsedMs, `${request.queryId}.dense.candidateQueryElapsedMs`);
-        assertPositiveNumber(request.sparse?.sqlElapsedMs, `${request.queryId}.sparse.sqlElapsedMs`);
-        assertPositiveNumber(request.fusionElapsedMs, `${request.queryId}.fusionElapsedMs`);
+        if (request.dense.status === "success") {
+            assertPositiveNumber(request.dense.embeddingElapsedMs, `${request.queryId}.dense.embeddingElapsedMs`);
+            assertPositiveNumber(request.dense.candidateQueryElapsedMs, `${request.queryId}.dense.candidateQueryElapsedMs`);
+        }
+        if (request.sparse.status === "success") {
+            assertPositiveNumber(request.sparse.sqlElapsedMs, `${request.queryId}.sparse.sqlElapsedMs`);
+        }
+        if (request.dense.status !== "success" || request.sparse.status !== "success") {
+            assertEqual(request.fusionElapsedMs, 0, `${request.queryId} 실패 request의 fusion은 0이어야 합니다.`);
+        } else {
+            assertPositiveNumber(request.fusionElapsedMs, `${request.queryId}.fusionElapsedMs`);
+        }
+    }
+    const timeoutRequestCount = execution.requests.filter((request) => !request.completedWithinDeadline).length;
+    assertEqual(execution.parallel.timeoutCount, timeoutRequestCount,
+        "parallel timeoutCount와 요청별 timeout 수가 다릅니다.");
+    assertEqual(execution.parallel.completedCount, EXECUTION_REQUEST_COUNT - timeoutRequestCount,
+        "parallel completedCount와 요청별 완료 수가 다릅니다.");
+    if (evidence.status === "completed" && timeoutRequestCount !== 0) {
+        throw new Error("timeout request가 있는 실행을 completed로 기록할 수 없습니다.");
+    }
+    if (evidence.status === "timeout-observed" && timeoutRequestCount === 0) {
+        throw new Error("timeout-observed evidence에는 timeout request가 있어야 합니다.");
     }
 
     const queries = execution.queries;
@@ -409,7 +434,7 @@ export function validateLiveEvidence(evidence, options = {}) {
     assertEqual(evidence.parameters?.selected?.timeoutSeconds, SELECTED_TIMEOUT_SECONDS,
         "공통 timeout 확정값은 현재 6초여야 합니다.");
     assertPositiveNumber(evidence.parameters?.observedParallelP95Ms, "parameters.observedParallelP95Ms");
-    if (evidence.parameters.observedParallelP95Ms >= 6000) {
+    if (evidence.status === "completed" && evidence.parameters.observedParallelP95Ms >= COMMON_DEADLINE_MS) {
         throw new Error("관찰된 parallel p95가 6초 budget을 초과합니다.");
     }
     assertEqual(execution.resultSha256, pinned.manifest.result.sha256,
@@ -485,12 +510,14 @@ async function runMeasurement(args) {
             });
             rounds.push(roundEvidence);
             requests.push(roundEvidence.request);
-            denseEmbeddingLatencies.push(roundEvidence.request.dense.embeddingElapsedMs);
-            denseCandidateQueryLatencies.push(roundEvidence.request.dense.candidateQueryElapsedMs);
+            if (roundEvidence.request.dense.status === "success") {
+                denseEmbeddingLatencies.push(roundEvidence.request.dense.embeddingElapsedMs);
+                denseCandidateQueryLatencies.push(roundEvidence.request.dense.candidateQueryElapsedMs);
+            }
             denseBranchLatencies.push(roundEvidence.request.dense.branchElapsedMs);
             sparseServingLatencies.push(roundEvidence.request.sparse.sqlElapsedMs);
             parallelLatencies.push(roundEvidence.request.parallelElapsedMs);
-            fusionLatencies.push(roundEvidence.request.fusionElapsedMs);
+            if (roundEvidence.request.fusionElapsedMs > 0) fusionLatencies.push(roundEvidence.request.fusionElapsedMs);
         }
         const corpusMeasurement = await measureSparseCandidates(
             fixture.query,
@@ -500,8 +527,10 @@ async function runMeasurement(args) {
             SEARCH_TEXT_ROW_COUNT,
         );
         sparseCorpusLatencies.push(corpusMeasurement.elapsedMs);
-        const denseCandidates = rounds[0].denseCandidates;
-        const servingSparseCandidates = rounds[0].servingSparseCandidates;
+        const successfulRound = rounds.find((round) => round.denseCandidates && round.servingSparseCandidates);
+        if (!successfulRound) throw new Error(`${fixture.id}에서 Dense·Sparse serving 성공 round를 확보하지 못했습니다.`);
+        const denseCandidates = successfulRound.denseCandidates;
+        const servingSparseCandidates = successfulRound.servingSparseCandidates;
         const sparseCandidates = corpusMeasurement.candidates;
         const referenceHybrid = fuse(denseCandidates, sparseCandidates, SELECTED_RRF_K);
         const hybridK200 = fuse(denseCandidates, sparseCandidates.slice(0, SELECTED_CANDIDATE_K), SELECTED_RRF_K);
@@ -567,13 +596,15 @@ async function runMeasurement(args) {
         marginMs: timeoutSeconds * 1000 - observedParallelP95Ms,
         passesObservedBudget: observedParallelP95Ms < timeoutSeconds * 1000,
     }));
+    const timeoutCount = requests.filter((request) => !request.completedWithinDeadline).length;
+    const evidenceStatus = timeoutCount === 0 ? "completed" : "timeout-observed";
 
     const evidence = {
         schemaVersion: LIVE_EVIDENCE_SCHEMA_VERSION,
         kind: LIVE_EVIDENCE_KIND,
         issue: 1002,
         featureId: "SEARCH-04",
-        status: "completed",
+        status: evidenceStatus,
         sourceGitHead: gitHead(),
         runner: runnerProvenance(),
         input: {
@@ -636,15 +667,18 @@ async function runMeasurement(args) {
                 indexRows: games.length,
                 queryEmbeddings: {
                     requestCount: EXECUTION_REQUEST_COUNT,
-                    successCount: EXECUTION_REQUEST_COUNT,
-                    failureCount: 0,
+                    successCount: denseEmbeddingLatencies.length,
+                    failureCount: EXECUTION_REQUEST_COUNT - denseEmbeddingLatencies.length,
                     latencyMs: phaseLatency.denseEmbedding,
                 },
                 queryRounds: MEASURE_ROUNDS,
                 candidateQueries: {
                     source: DENSE_QUERY_SOURCE,
                     candidateLimit: DENSE_CANDIDATE_LIMIT,
+                    requestCount: EXECUTION_REQUEST_COUNT,
                     queryCount: EXECUTION_REQUEST_COUNT,
+                    successCount: denseCandidateQueryLatencies.length,
+                    failureCount: EXECUTION_REQUEST_COUNT - denseCandidateQueryLatencies.length,
                     latencyMs: phaseLatency.denseCandidateQuery,
                 },
                 branchLatency: phaseLatency.denseBranch,
@@ -654,7 +688,10 @@ async function runMeasurement(args) {
                     source: SPARSE_EVIDENCE_SOURCE,
                     scope: "all-games",
                     candidateLimit: SERVING_SPARSE_CANDIDATE_LIMIT,
+                    requestCount: EXECUTION_REQUEST_COUNT,
                     queryCount: EXECUTION_REQUEST_COUNT,
+                    successCount: requests.filter((request) => request.sparse.status === "success").length,
+                    timeoutCount,
                     executionMs: phaseLatency.sparseServingSql,
                 },
                 corpus: {
@@ -700,7 +737,7 @@ async function runMeasurement(args) {
             recommendation: {
                 candidateK: "retain-200-until-quality-qrels",
                 rrfK: "retain-60-until-quality-qrels",
-                timeoutSeconds: "retain-6s",
+                timeoutSeconds: timeoutCount === 0 ? "retain-6s" : "not-validated-timeout-observed",
             },
         },
         runtime: {
@@ -796,33 +833,41 @@ async function measureConcurrentRound(fixture, round, context) {
         settleWithinDeadline(sparsePromise, startedAt, controller),
     ]);
     const parallelElapsedMs = performance.now() - startedAt;
-    if (denseOutcome.status !== "success" || sparseOutcome.status !== "success") {
-        const denseReason = denseOutcome.status === "success" ? "success" : denseOutcome.error?.message || denseOutcome.status;
-        const sparseReason = sparseOutcome.status === "success" ? "success" : sparseOutcome.error?.message || sparseOutcome.status;
-        throw new Error(`${fixture.id} ${round}회 concurrent serving 실패: dense=${denseReason}, sparse=${sparseReason}`);
+    const denseValue = denseOutcome.status === "success" ? denseOutcome.value : null;
+    const sparseValue = sparseOutcome.status === "success" ? sparseOutcome.value : null;
+    let fusionElapsedMs = 0;
+    if (denseValue && sparseValue) {
+        const fusionStarted = performance.now();
+        fuse(denseValue.dense.candidates, sparseValue.candidates, SELECTED_RRF_K);
+        fusionElapsedMs = performance.now() - fusionStarted;
     }
-    const fusionStarted = performance.now();
-    fuse(denseOutcome.value.dense.candidates, sparseOutcome.value.candidates, SELECTED_RRF_K);
-    const fusionElapsedMs = performance.now() - fusionStarted;
+    const elapsedForFailedBranch = Math.max(parallelElapsedMs, 0.001);
+    const requestSucceeded = denseOutcome.status === "success"
+        && sparseOutcome.status === "success"
+        && parallelElapsedMs < COMMON_DEADLINE_MS;
     return {
-        denseCandidates: denseOutcome.value.dense.candidates,
-        servingSparseCandidates: sparseOutcome.value.candidates,
+        denseCandidates: denseValue?.dense.candidates ?? null,
+        servingSparseCandidates: sparseValue?.candidates ?? null,
         request: {
             queryId: fixture.id,
             round,
             deadlineMs: COMMON_DEADLINE_MS,
             providerTimeoutMs: PROVIDER_TIMEOUT_MS,
             parallelElapsedMs,
-            completedWithinDeadline: parallelElapsedMs < COMMON_DEADLINE_MS,
+            completedWithinDeadline: requestSucceeded,
             dense: {
-                status: "success",
-                embeddingElapsedMs: denseOutcome.value.embedding.latencyMs,
-                candidateQueryElapsedMs: denseOutcome.value.dense.elapsedMs,
-                branchElapsedMs: denseOutcome.value.branchElapsedMs,
+                status: denseOutcome.status,
+                reasonCode: denseOutcome.status === "success" ? null
+                    : denseOutcome.status === "timeout" ? "COMMON_DEADLINE" : "BRANCH_FAILURE",
+                embeddingElapsedMs: denseValue?.embedding.latencyMs ?? null,
+                candidateQueryElapsedMs: denseValue?.dense.elapsedMs ?? null,
+                branchElapsedMs: denseValue?.branchElapsedMs ?? elapsedForFailedBranch,
             },
             sparse: {
-                status: "success",
-                sqlElapsedMs: sparseOutcome.value.elapsedMs,
+                status: sparseOutcome.status,
+                reasonCode: sparseOutcome.status === "success" ? null
+                    : sparseOutcome.status === "timeout" ? "COMMON_DEADLINE" : "BRANCH_FAILURE",
+                sqlElapsedMs: sparseValue?.elapsedMs ?? elapsedForFailedBranch,
                 candidateLimit: SERVING_SPARSE_CANDIDATE_LIMIT,
                 scope: "all-games",
             },
