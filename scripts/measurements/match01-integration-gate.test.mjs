@@ -114,6 +114,40 @@ test("정상 동일 SHA candidate 입력과 분리된 response·T12 consumer만 
   assert.equal(gate.integrationEvidence.some((entry) => entry.id === "MATCH-01-RESPONSE-COMPLETION"), false);
 });
 
+test("측정 이후 커밋되거나 미커밋된 MATCH 검증 대상 코드 변경은 INVALID다", () => {
+  const repository = createRepository();
+  const gate = completeGate(repository);
+  const changedPath = path.join(
+    repository,
+    "src/main/java/cloud/bamsongi/albammate/matching/MatchRequest.java",
+  );
+  mkdirSync(path.dirname(changedPath), { recursive: true });
+  writeFileSync(changedPath, "changed\n");
+
+  const uncommittedResult = evaluateIntegrationGate(repository, gate);
+
+  assert.equal(uncommittedResult.outcome, "INVALID");
+  assert.match(uncommittedResult.reason, /검증 대상 코드/u);
+
+  execFileSync("git", ["-C", repository, "add", "."]);
+  execFileSync("git", ["-C", repository, "commit", "--quiet", "-m", "change match source"]);
+
+  const committedResult = evaluateIntegrationGate(repository, gate);
+
+  assert.equal(committedResult.outcome, "INVALID");
+  assert.match(committedResult.reason, /검증 대상 코드/u);
+});
+
+test("측정 이후 문서 전용 변경은 evidence provenance를 무효화하지 않는다", () => {
+  const repository = createRepository();
+  const gate = completeGate(repository);
+  writeFileSync(path.join(repository, "docs/after-measurement.md"), "docs\n");
+  execFileSync("git", ["-C", repository, "add", "."]);
+  execFileSync("git", ["-C", repository, "commit", "--quiet", "-m", "change docs"]);
+
+  assert.deepEqual(evaluateIntegrationGate(repository, gate), { outcome: "ACCEPTED" });
+});
+
 test("필수 evidence 누락·중복 ID·상대 경로 이탈·commit/blob/digest 불일치는 INVALID다", () => {
   const repository = createRepository();
   const gate = completeGate(repository);

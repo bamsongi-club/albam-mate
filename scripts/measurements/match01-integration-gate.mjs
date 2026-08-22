@@ -9,6 +9,16 @@ const RESPONSE_EVIDENCE_ID = "MATCH-01-RESPONSE-COMPLETION";
 const CURRENT_STATE_EVIDENCE_ID = "MATCH-01-T12";
 const COMMIT_SHA_PATTERN = /^[0-9a-f]{40}$/u;
 const DIGEST_PATTERN = /^[0-9a-f]{64}$/u;
+const MATCH_VERIFICATION_SOURCE_PATH_PREFIXES = [
+  "src/main/java/cloud/bamsongi/albammate/matching/",
+  "src/main/java/cloud/bamsongi/albammate/chat/match/",
+  "src/main/java/cloud/bamsongi/albammate/infra/redis/RedisMatchChat",
+  "src/test/java/cloud/bamsongi/albammate/matching/",
+  "src/test/java/cloud/bamsongi/albammate/chat/match/",
+  "src/test/java/cloud/bamsongi/albammate/infra/redis/RedisMatchChat",
+  "src/postgresTest/java/cloud/bamsongi/albammate/matching/",
+  "src/postgresTest/java/cloud/bamsongi/albammate/chat/match/",
+];
 const EXPECTED_PATH_PREFIXES = new Map([
   [CANDIDATE_EVIDENCE_ID, "docs/measurements/results/match-01/candidate-claim/"],
   ["MATCH-01-T1", "docs/measurements/results/match-01/integration/"],
@@ -68,6 +78,34 @@ function gitCommitIsInRepositoryHistory(repository, commitSha) {
   } catch {
     return false;
   }
+}
+
+function gitChangedPathsFromCommitToWorktree(repository, commitSha) {
+  const committedAndWorkingTreeChanges = execFileSync("git", [
+    "-C",
+    repository,
+    "diff",
+    "--name-only",
+    "--no-renames",
+    commitSha,
+  ], { encoding: "utf8" });
+  const untrackedFiles = execFileSync("git", [
+    "-C",
+    repository,
+    "ls-files",
+    "--others",
+    "--exclude-standard",
+  ], { encoding: "utf8" });
+  return [...new Set(`${committedAndWorkingTreeChanges}\n${untrackedFiles}`
+    .split(/\r?\n/u)
+    .filter(Boolean)
+    .map((changedPath) => changedPath.replaceAll("\\", "/")))];
+}
+
+function changedMatchVerificationSourcePaths(repository, commitSha) {
+  return gitChangedPathsFromCommitToWorktree(repository, commitSha)
+    .filter((changedPath) => MATCH_VERIFICATION_SOURCE_PATH_PREFIXES
+      .some((prefix) => changedPath.startsWith(prefix)));
 }
 
 function artifactOutcome(artifact, evidenceId) {
@@ -183,6 +221,12 @@ export function evaluateIntegrationGate(repository, gate) {
   }
   if (!gitCommitIsInRepositoryHistory(repository, gate.measuredGitCommitSha)) {
     return invalid("gate measuredGitCommitSha가 현재 저장소 이력에 없습니다.");
+  }
+  const changedSourcePaths = changedMatchVerificationSourcePaths(repository, gate.measuredGitCommitSha);
+  if (changedSourcePaths.length > 0) {
+    return invalid(
+      `gate measuredGitCommitSha 이후 MATCH 검증 대상 코드가 변경되었습니다: ${changedSourcePaths.join(", ")}`,
+    );
   }
 
   const evidenceById = new Map([
