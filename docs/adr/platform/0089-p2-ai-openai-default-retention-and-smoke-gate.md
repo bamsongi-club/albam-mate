@@ -1,4 +1,4 @@
-# ADR-0088: P2 OpenAI 기본 보존 수용과 실제 smoke gate
+# ADR-0089: P2 OpenAI 기본 보존 수용과 실제 smoke gate
 
 - 상태: 승인됨
 - 작성일: 2026-08-22

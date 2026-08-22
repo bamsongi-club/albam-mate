@@ -9,7 +9,7 @@
 ## 검증 원칙
 
 - 기본 runner는 결정적 fake provider를 사용한다. 같은 입력·schema version·fixture hash는 같은 구조화 결과와 오류를 반환해야 한다.
-- 실제 provider는 [ADR-0074](../adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md)·[ADR-0088](../adr/platform/0088-p2-ai-openai-default-retention-and-smoke-gate.md)·[ADR-0085](../adr/platform/0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md)의 실행 권한, model ID 확인, retention mode, payload allowlist와 고정 예약 상한 확인 뒤 별도 수동 smoke에서만 사용한다.
+- 실제 provider는 [ADR-0074](../adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md)·[ADR-0089](../adr/platform/0089-p2-ai-openai-default-retention-and-smoke-gate.md)·[ADR-0085](../adr/platform/0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md)의 실행 권한, model ID 확인, retention mode, payload allowlist와 고정 예약 상한 확인 뒤 별도 수동 smoke에서만 사용한다.
 - 테스트는 `AI-01a`·`AI-01b`·`AI-02a`·`AI-03a`의 계약을 기능별로 분리해 판정하고, setup 실패·관측 누락·generator 포화는 기능 실패가 아닌 `INVALID`로 기록한다.
 - prompt·응답·Tool 인자·게임 후보·사용자 ID·세션·비밀값을 결과 파일·metric label·central log에 남기지 않는다.
 
@@ -83,4 +83,4 @@ manifest hash는 `manifestSha256` 필드를 제외한 전체 manifest를 JSON ob
 
 ## 실행 게이트
 
-이 설계의 정책 전제는 완료된 [#795](https://github.com/bamsongi-club/albam-mate/issues/795)·[#796](https://github.com/bamsongi-club/albam-mate/issues/796), [#944](https://github.com/bamsongi-club/albam-mate/issues/944)와 승인된 ADR-0074~0076·0085·0088으로 확정됐다. 다만 구현 이슈가 runner 경로·cwd·shell·시간 측정·결과 경로를 고정하기 전에는 실행 계약으로 승격하지 않는다. 이번 전달 범위에서는 자동 부하테스트 runner를 실행하지 않으며, 필요한 경우 별도 승인 뒤 fake provider 계약 검증과 부하 실행을 재개한다.
+이 설계의 정책 전제는 완료된 [#795](https://github.com/bamsongi-club/albam-mate/issues/795)·[#796](https://github.com/bamsongi-club/albam-mate/issues/796), [#944](https://github.com/bamsongi-club/albam-mate/issues/944)와 승인된 ADR-0074~0076·0085·0089으로 확정됐다. 다만 구현 이슈가 runner 경로·cwd·shell·시간 측정·결과 경로를 고정하기 전에는 실행 계약으로 승격하지 않는다. 이번 전달 범위에서는 자동 부하테스트 runner를 실행하지 않으며, 필요한 경우 별도 승인 뒤 fake provider 계약 검증과 부하 실행을 재개한다.
