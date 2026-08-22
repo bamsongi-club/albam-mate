@@ -2,7 +2,7 @@
 
 ## 범위
 
-이 문서는 Issue #786의 `ROOM-LOCK-CMP-T1`부터 `ROOM-LOCK-CMP-T7`까지를 실행 가능한 비교 계약으로 정리한다. 대상은 #785가 고정한 세 후보이다.
+이 문서는 Issue #786의 `ROOM-LOCK-CMP-T1`부터 `ROOM-LOCK-CMP-T7`까지의 기존 비교 계약과 Issue #1026의 후속 full campaign 계약을 정리한다. 대상은 #785가 고정한 세 후보이다.
 
 | 후보 | 의미 | 측정 시 식별자 |
 | --- | --- | --- |
@@ -26,7 +26,51 @@
 
 `docs/measurements/results/room-lock-strategy-comparison/campaign-plan.json`과 `campaign-report.json`이 이 승인 범위와 포함·제외 사유의 정본이다. 이 제한된 T1 결과는 T2 또는 ROOM 전체의 잠금 전략을 자동 선택하지 않는다.
 
-## 기존 전체 실행 matrix (이번 timeboxed 실행에서는 보류)
+## 2026-08-23 #1026 후속 full campaign 계약
+
+이 절은 2026-08-20 timeboxed 결과를 수정하지 않고, 공통 기준점에서 A/B/C를 다시 비교하기 위한 실행 plan·bundle·판정 계약이다. 원격 campaign 결과가 아니며, 실행 전 후보 SHA·환경·fixture·provenance를 다시 고정한다.
+
+### 핵심 비교 matrix
+
+핵심 비교는 `ROOM 시나리오 T1`과 `ROOM 시나리오 T2`를 별도로 판정한다.
+
+| condition | 실행 모델 | ROOM 분포 | 동시성 | 반복 |
+| --- | --- | --- | --- | ---: |
+| `barrier-hot` | 기존 wave barrier | hot 최악 경합 | c2·c4·c8·c16 | 10 paired run |
+| `barrier-spread` | 기존 wave barrier | spread 대조군 | c2·c4·c8·c16 | 10 paired run |
+| `constant-hot` | `constant-arrival-rate` | hot 최악 경합 | c2·c4·c8·c16 req/s | 10 paired run |
+| `constant-mixed` | `constant-arrival-rate` | hot 50% + spread 50% | c2·c4·c8·c16 req/s | 10 paired run |
+
+constant-arrival-rate의 rate는 기존 값을 유지한다.
+
+- rate: 동시성 수준과 같은 초당 요청 수 `c` — c2=2, c4=4, c8=8, c16=16 req/s
+- c2/c4 baseline: 60초, 최소 유효 표본 `c × 60` — 각각 120·240 요청
+- `constant-hot`·`constant-mixed`의 c8/c16 tail: 실행당 최소 5,000 요청을 위해 `ceil(5000 / c)`초 — c8=625초·5,000 요청, c16=313초·5,008 요청
+- c16의 pre-allocated VU `32`, max VU `64`를 유지하고, 다른 수준도 rate의 2배·4배 headroom 규칙을 적용한다.
+- 모든 constant-arrival 실행은 `http_reqs`가 `minimumValidSamples`와 정확히 같고 `dropped_iterations=0`이어야 한다. VU 부족이나 요청 수 불일치는 `INVALID`다.
+- fixture 준비·로그인·정리 비용은 측정 요청 지연에 포함하지 않으며, 실행 시간 창은 k6 `run-manifest.json`의 UTC 시작·종료 시각으로 고정한다.
+
+`constant-mixed`는 하나의 fixture 안에서 요청 절반을 같은 hot ROOM에, 나머지 절반을 서로 다른 spread ROOM에 배치한다. 따라서 hot 경합과 spread 대조군이 같은 release·환경·실행 창에 존재한다.
+
+핵심 실행 단위는 후보 3개 × 시나리오 2개 × condition 4개 × 동시성 4개 × 반복 10개 = **960회**이며, 각 paired run의 후보 실행 순서는 seed 기반으로 섞는다. A→B→C 고정 순서는 사용하지 않는다.
+
+### 회귀·배경 실행
+
+T3 15회, T4 15회, T5 90회로 총 **120회**를 기존 portable bundle read-only runner로 실행한다. 회귀 반복은 후보별 5회 기준을 유지하며, 핵심 비교와 합쳐 전체 campaign plan은 **1,080회** 실행 단위다.
+
+### 비교·정합성 판정
+
+- 기존 정합성 기준을 유지한다: unexpected 4xx=0, 5xx=0, contract failure=0, before/after fixture 저장 불변식 통과, outcome count 합계가 실제 요청 수와 일치, provenance·raw·digest 완전성.
+- 계약상 예상된 `ROOM_CONCURRENT_MODIFICATION` 409는 unexpected failure와 분리해 business outcome·retry/lock cost로 기록한다.
+- 실행별 성공/전체 p50·p95·p99, throughput/RPS, 409 conflict, retry/exhaustion, lock wait, transaction/query, Hikari pending, App/PostgreSQL CPU를 같은 UTC window로 수집한다.
+- 각 실행의 percentile을 먼저 계산한 뒤, 유효한 10회 paired run의 중앙값과 변동성을 비교한다. 전체 요청을 pooled percentile로 합쳐 후보를 순위화하지 않는다.
+- `FAIL`·`INVALID`는 raw evidence와 사유를 보존하지만 후보 성능 순위와 winner에서 제외한다. 이 계약은 절대 SLO/SLA나 최종 lock 전략을 자동 확정하지 않는다.
+
+### provenance 고정
+
+공통 기준 SHA, A/B/C candidate SHA, bundle source revision, fixture schema, release/image revision, infra branch, seed, 실행 순서와 각 artifact SHA-256을 plan·manifest에 고정한다. 이슈 #1026의 infra 참조 브랜치는 `albam-mate-infra`의 `codex/room-k6-local-runner`이며, 해당 저장소는 실행 참조만 하고 commit·push·PR을 만들지 않는다.
+
+## 기존 전체 실행 matrix (2026-08-20 timeboxed 당시 보류)
 
 핵심 비교는 `ROOM 시나리오 T1`과 `ROOM 시나리오 T2`를 별도로 판정한다.
 
@@ -50,7 +94,7 @@ constant-arrival-rate의 공통값은 다음과 같다.
 
 핵심 비교는 후보 3개 × 시나리오 2개 × condition 4개 × 동시성 4개 × 반복 5개 = **480회**이며, 각 paired run의 후보 실행 순서는 seed 기반으로 섞는다. A→B→C 고정 순서는 사용하지 않는다.
 
-### 기존 회귀·배경 실행 (이번 timeboxed 실행에서는 보류)
+### 기존 회귀·배경 실행 (2026-08-20 timeboxed 당시 보류)
 
 모든 후보에 다음을 같은 후보 순서·fixture·release 설정으로 적용한다.
 
@@ -100,7 +144,7 @@ FAIL/INVALID 중 하나라도 있으면 해당 candidate/condition의 성능 순
 
 ## tail latency gate
 
-`p95`와 `p99`는 `constant-arrival-rate` open-model 실행에서 최소 유효 표본 `c × 60`을 충족한 경우에만 후보 우열의 입력으로 사용할 수 있다.
+`p95`와 `p99`는 `constant-arrival-rate` open-model 실행에서 해당 run의 `minimumValidSamples`를 충족한 경우에만 후보 우열의 입력으로 사용할 수 있다. #1026에서는 c2/c4가 `c × 60`, c8/c16 `constant-hot`·`constant-mixed`가 각각 5,000 이상이 되도록 설정된 `c × durationSeconds`를 사용한다.
 
 다음 결과로는 winner를 만들지 않는다.
 
@@ -111,7 +155,7 @@ FAIL/INVALID 중 하나라도 있으면 해당 candidate/condition의 성능 순
 
 786의 campaign report는 정규화 metric과 eligible/excluded 상태를 만들지만 최종 winner를 자동 선택하지 않는다. 최종 선택은 이 원자료를 확인한 뒤 별도 결정으로 남긴다.
 
-이번 timeboxed report에서 A/B의 4회는 제한된 T1 metric 증거로만 표시한다. 원래 5회 전체 matrix의 winner gate를 충족했다고 해석하지 않으며, A/B의 최종 선택·ADR은 이 이슈 밖의 사람 결정으로 남긴다.
+이번 timeboxed report에서 A/B의 4회는 제한된 T1 metric 증거로만 표시한다. 원래 전체 matrix나 #1026의 10회 winner gate를 충족했다고 해석하지 않으며, A/B의 최종 선택·ADR은 이 이슈 밖의 사람 결정으로 남긴다.
 
 ## 운영 게이트
 

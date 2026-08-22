@@ -39,9 +39,13 @@ const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const SAFE_IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 const CANDIDATE_LABELS = ['A', 'B', 'C'];
 const CONCURRENCY_LEVELS = [2, 4, 8, 16];
-const MIN_PAIRED_RUNS = 5;
+const CORE_PAIRED_RUNS = 10;
+const REGRESSION_PAIRED_RUNS = 5;
 const BARRIER_ROUNDS = 5;
-const CONSTANT_DURATION_SECONDS = 60;
+const CONSTANT_BASELINE_DURATION_SECONDS = 60;
+const CONSTANT_TAIL_REQUEST_TARGET = 5000;
+const CONSTANT_TAIL_CONDITIONS = new Set(['constant-hot', 'constant-mixed']);
+const CONSTANT_TAIL_CONCURRENCY_LEVELS = new Set([8, 16]);
 const CORE_SCENARIOS = ['t1', 't2'];
 const DISTRIBUTIONS = ['hot', 'spread', 'mixed'];
 const EXECUTION_MODELS = ['barrier', 'constant-arrival-rate'];
@@ -91,13 +95,13 @@ const CONDITION_TEMPLATES = [
     id: 'constant-hot',
     executionModel: 'constant-arrival-rate',
     distribution: 'hot',
-    durationSeconds: CONSTANT_DURATION_SECONDS,
+    durationSeconds: CONSTANT_BASELINE_DURATION_SECONDS,
   },
   {
     id: 'constant-mixed',
     executionModel: 'constant-arrival-rate',
     distribution: 'mixed',
-    durationSeconds: CONSTANT_DURATION_SECONDS,
+    durationSeconds: CONSTANT_BASELINE_DURATION_SECONDS,
   },
 ];
 
@@ -396,14 +400,25 @@ function conditionFor(id, concurrency) {
     fail(`지원하지 않는 비교 condition: ${id}`);
   }
   const arrivalRate = concurrency;
+  const isConstantArrival = template.executionModel === 'constant-arrival-rate';
+  const isTailCondition = isConstantArrival
+    && CONSTANT_TAIL_CONDITIONS.has(id)
+    && CONSTANT_TAIL_CONCURRENCY_LEVELS.has(concurrency);
+  let durationSeconds = null;
+  if (isConstantArrival) {
+    durationSeconds = isTailCondition
+      ? Math.ceil(CONSTANT_TAIL_REQUEST_TARGET / arrivalRate)
+      : CONSTANT_BASELINE_DURATION_SECONDS;
+  }
   return {
     ...template,
     concurrency,
     arrivalRate,
-    durationSeconds: template.durationSeconds || null,
-    rounds: template.rounds || template.durationSeconds,
-    minimumValidSamples: template.executionModel === 'constant-arrival-rate'
-      ? arrivalRate * template.durationSeconds
+    durationSeconds,
+    rounds: isConstantArrival ? durationSeconds : template.rounds,
+    tailRequestTarget: isTailCondition ? CONSTANT_TAIL_REQUEST_TARGET : null,
+    minimumValidSamples: isConstantArrival
+      ? arrivalRate * durationSeconds
       : null,
   };
 }
@@ -442,7 +457,7 @@ export function buildCampaignPlan({ campaignId, candidates, seed = campaignId })
     for (const conditionTemplate of CONDITION_TEMPLATES) {
       for (const concurrency of CONCURRENCY_LEVELS) {
         const condition = conditionFor(conditionTemplate.id, concurrency);
-        for (let repetition = 1; repetition <= MIN_PAIRED_RUNS; repetition += 1) {
+        for (let repetition = 1; repetition <= CORE_PAIRED_RUNS; repetition += 1) {
           const pairId = `${normalizedCampaignId}-${scenario}-${condition.id}-c${concurrency}-r${repetition}`;
           const order = seededOrder(`${seed}:${pairId}`, CANDIDATE_LABELS);
           order.forEach((candidate, sequenceIndex) => {
@@ -482,7 +497,7 @@ export function buildCampaignPlan({ campaignId, candidates, seed = campaignId })
       const caseSuffix = regressionCase
         ? `-${regressionCase.role}-s${regressionCase.scale}`
         : '';
-      for (let repetition = 1; repetition <= MIN_PAIRED_RUNS; repetition += 1) {
+      for (let repetition = 1; repetition <= REGRESSION_PAIRED_RUNS; repetition += 1) {
         const pairId = `${normalizedCampaignId}-${regression.id}${caseSuffix}-r${repetition}`;
         const order = seededOrder(`${seed}:${pairId}`, CANDIDATE_LABELS);
         order.forEach((candidate, sequenceIndex) => {
@@ -513,21 +528,31 @@ export function buildCampaignPlan({ campaignId, candidates, seed = campaignId })
     }
   }
 
+  const coreRunCount = runs.filter((run) => run.runner === 'room-lock-comparison').length;
+  const regressionRunCount = runs.filter((run) => run.runner === 'portable').length;
+
   return {
     schemaVersion: 1,
     campaignId: normalizedCampaignId,
     seed: safeIdentifier(seed, 'seed'),
     candidates: normalizedCandidates,
     contract: {
-      minPairedRuns: MIN_PAIRED_RUNS,
+      corePairedRuns: CORE_PAIRED_RUNS,
+      regressionPairedRuns: REGRESSION_PAIRED_RUNS,
+      coreRunCount,
+      regressionRunCount,
+      totalRunCount: runs.length,
       concurrencyLevels: CONCURRENCY_LEVELS,
       barrierRounds: BARRIER_ROUNDS,
-      constantArrivalDurationSeconds: CONSTANT_DURATION_SECONDS,
+      constantArrivalBaselineDurationSeconds: CONSTANT_BASELINE_DURATION_SECONDS,
+      constantArrivalDurationSeconds: CONSTANT_BASELINE_DURATION_SECONDS,
+      constantArrivalTailRequestTarget: CONSTANT_TAIL_REQUEST_TARGET,
+      constantArrivalTailConditions: [...CONSTANT_TAIL_CONDITIONS],
+      constantArrivalTailConcurrencyLevels: [...CONSTANT_TAIL_CONCURRENCY_LEVELS],
       constantArrivalRate: 'concurrency-per-second',
       mixedDistribution: 'hot-50-percent-spread-50-percent',
       p95P99WinnerGate: 'constant-arrival-rate-only',
       regressionRunner: 'existing-portable-bundle-read-only',
-      regressionRunCount: 120,
     },
     runs,
   };
@@ -611,6 +636,9 @@ function normalizedComparisonInput(input) {
     durationSeconds,
     rounds,
     minimumValidSamples: condition.minimumValidSamples,
+    ...(condition.tailRequestTarget
+      ? { tailRequestTarget: condition.tailRequestTarget }
+      : {}),
   };
   const options = {
     scenario,
@@ -768,6 +796,7 @@ function createComparisonFixturePlan(input) {
     durationSeconds: options.durationSeconds,
     rounds: options.rounds,
     minimumValidSamples: options.minimumValidSamples,
+    tailRequestTarget: options.tailRequestTarget || null,
     options: fixtureOptions,
     comparison: fixtureOptions.comparison,
     users: planner.users,
@@ -1357,6 +1386,12 @@ function aggregateCampaign(values) {
   if (plan.schemaVersion !== 1 || !Array.isArray(plan.runs)) {
     fail('campaign plan 형식이 올바르지 않습니다.');
   }
+  let requiredCoreRuns = CORE_PAIRED_RUNS;
+  if (Number.isSafeInteger(plan.contract?.corePairedRuns)) {
+    requiredCoreRuns = plan.contract.corePairedRuns;
+  } else if (Number.isSafeInteger(plan.contract?.minPairedRuns)) {
+    requiredCoreRuns = plan.contract.minPairedRuns;
+  }
   const candidateRoots = values.candidateRootsFile
     ? candidateRootMap(values.candidateRootsFile)
     : Object.fromEntries(CANDIDATE_LABELS.map((candidate) => [candidate, sourceRepositoryRoot]));
@@ -1430,7 +1465,7 @@ function aggregateCampaign(values) {
     const finalResult = readJson(finalPath, 'final result');
     const conditionId = `${run.scenario}/${run.condition.id}/c${run.condition.concurrency}`;
     const conditionReport = report.candidates[run.candidate].conditions[conditionId]
-      || { requiredRuns: MIN_PAIRED_RUNS, runs: [], eligibleForTailRanking: false, metrics: [] };
+      || { requiredRuns: requiredCoreRuns, runs: [], eligibleForTailRanking: false, metrics: [] };
     let summary = null;
     const summaryPath = path.join(bundlePath, ARTIFACTS.summary);
     if (existsSync(summaryPath)) {
@@ -1451,7 +1486,7 @@ function aggregateCampaign(values) {
         : false,
     };
     conditionReport.runs.push(metric);
-    const eligibleStatuses = conditionReport.runs.length === MIN_PAIRED_RUNS
+    const eligibleStatuses = conditionReport.runs.length === requiredCoreRuns
       && conditionReport.runs.every((item) => item.status === 'PASS');
     conditionReport.eligibleForTailRanking = eligibleStatuses
       && run.condition.executionModel === 'constant-arrival-rate'
@@ -1463,7 +1498,7 @@ function aggregateCampaign(values) {
     }
   }
   if (Object.values(report.candidates).some((candidate) => Object.values(candidate.conditions)
-    .some((condition) => condition.runs.length < MIN_PAIRED_RUNS))) {
+    .some((condition) => condition.runs.length < requiredCoreRuns))) {
     report.status = 'INVALID';
   }
   if (report.regressions.some((regression) => regression.status !== 'PASS')) {
