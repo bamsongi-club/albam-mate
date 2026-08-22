@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "measuredGitCommitSha": "a6661c0db3cddd610136d4cbf05843bb1bc11d02",
+  "workingTree": "test evidence changes present",
+  "outcome": "PASSED",
+  "id": "MATCH-01-T6",
+  "relatedGateIssue": "#746",
+  "task": "test and postgresTest",
+  "selectors": [
+    "cloud.bamsongi.albammate.chat.match.MatchChatMessageControllerTest.MATCH_전송_제한_저장소_장애는_Retry_After_없는_SERVICE_UNAVAILABLE_오류_봉투로_변환된다",
+    "cloud.bamsongi.albammate.chat.match.MatchChatMessageRateLimitPostgresTest.T6_A_Redis_rate_limit_저장소_장애면_실제_HTTP_전송은_저장과_signal과_quota_소비_전에_503으로_끝난다",
+    "cloud.bamsongi.albammate.chat.match.MatchChatMessageRateLimitPostgresTest.T6_B_Redis_장애_응답은_고정_503_오류_봉투이고_메시지_row와_signal을_만들지_않는다",
+    "cloud.bamsongi.albammate.chat.match.MatchChatMessageRateLimitPostgresTest.T6_C_Redis_복구_뒤_ACTIVE_참가자의_실제_HTTP_전송은_저장_quota_응답을_정상_처리한다",
+    "cloud.bamsongi.albammate.chat.match.MatchChatMessageRateLimitPostgresTest.T6_D_인증_권한_상태_CSRF_거부는_Redis_장애와_무관하게_기존_HTTP_계약을_유지한다"
+  ],
+  "purpose": "실제 PostgreSQL·HTTP 경계에서 Testcontainers Redis를 pause/unpause해 rate-limit 저장소 장애·복구를 재현하고, 저장 전 503, 고정 오류 봉투, row·signal·quota 불변, ACTIVE 복구 전송, 인증·권한·상태·CSRF 우선순위를 검증한다.",
+  "artifacts": {
+    "postgresTestResultSha256": "4F3F58ECE1223C4BC980F1CADBFE0E4217495475C2525630AA0CAA3F99F495DF",
+    "testResultSha256": "6E6F0233B1DACB9E990062EAAF602262F3DFADF900282E48A9E15F4883805493",
+    "postgresTestSourceSha256": "3E3B14C76C056039658E1D601DC9460C48490FA6BA8F2F06ECDABB5BA33E95AA",
+    "testSourceSha256": "A5E9E1C4E20B7184D9C66B70642CBE9F5EBDDD5CF655937B7EFC809ED0B6F052"
+  }
+}

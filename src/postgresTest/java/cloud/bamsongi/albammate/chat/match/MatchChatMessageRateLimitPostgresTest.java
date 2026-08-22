@@ -6,25 +6,40 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.net.CookieManager;
+import java.net.CookiePolicy;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
+import org.springframework.core.env.Environment;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
+import org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration;
+import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
@@ -33,6 +48,7 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.DockerClientFactory;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
@@ -44,8 +60,19 @@ import cloud.bamsongi.albammate.chat.match.service.MatchChatMessageSendResult;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.global.exception.RateLimitExceededException;
+import cloud.bamsongi.albammate.infra.redis.ChatMessageRateLimitProperties;
+import cloud.bamsongi.albammate.infra.redis.MatchChatMessageRateLimitProperties;
 import cloud.bamsongi.albammate.infra.redis.RedisChatMessageRateLimiter;
 import cloud.bamsongi.albammate.infra.redis.RedisMatchChatMessageRateLimiter;
+import cloud.bamsongi.albammate.user.contract.CreateUserAccountCommand;
+import cloud.bamsongi.albammate.user.contract.RawPassword;
+import cloud.bamsongi.albammate.user.contract.UserAccountService;
+import cloud.bamsongi.albammate.user.contract.UserEmail;
+import cloud.bamsongi.albammate.user.contract.UserNickname;
+import io.lettuce.core.ClientOptions;
+import io.lettuce.core.SocketOptions;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * CHAT-T5 — MATCH 채팅 전송의 사용자 5건·Party 30건/10초 quota를 실제 PostgreSQL 트랜잭션과 Redis 원자 판정으로
@@ -57,8 +84,13 @@ import cloud.bamsongi.albammate.infra.redis.RedisMatchChatMessageRateLimiter;
  * release되는지를 함께 확인한다.
  */
 @Testcontainers
-@ActiveProfiles("local")
-@SpringBootTest(properties = "app.notification.relay.enabled=false")
+@ActiveProfiles("test")
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
+	"app.notification.relay.enabled=false",
+	"app.security.cookie.secure=false",
+	"spring.flyway.locations=classpath:db/migration,classpath:db/vendor-migration/postgresql",
+	"spring.jpa.hibernate.ddl-auto=validate"
+})
 @Import(MatchChatMessageRateLimitPostgresTest.TestBeans.class)
 class MatchChatMessageRateLimitPostgresTest {
 
@@ -66,6 +98,8 @@ class MatchChatMessageRateLimitPostgresTest {
 		.postgres18();
 	private static final String REDIS_IMAGE = "redis:8.4-alpine";
 	private static final String RATE_LIMIT_PREFIX = "albam-mate:local:ratelimit";
+	private static final String PASSWORD = "123456789012345";
+	private static final Pattern CSRF_TOKEN_PATTERN = Pattern.compile("\\\"token\\\":\\\"([^\\\"]+)\\\"");
 	private static final Instant NOW = Instant.parse("2026-08-19T00:00:00Z");
 
 	@Container
@@ -92,18 +126,28 @@ class MatchChatMessageRateLimitPostgresTest {
 	private RecordingMatchChatRealtimePublisher realtimePublisher;
 	@Autowired
 	private TransactionTemplate transactionTemplate;
+	@Autowired
+	private UserAccountService userAccountService;
+	@Autowired
+	private ObjectMapper objectMapper;
+	@LocalServerPort
+	private int serverPort;
+	private boolean redisPaused;
 
 	@DynamicPropertySource
-	static void localMultiProperties(DynamicPropertyRegistry registry) {
+	static void testContainerProperties(DynamicPropertyRegistry registry) {
 		registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
 		registry.add("spring.datasource.username", POSTGRES::getUsername);
 		registry.add("spring.datasource.password", POSTGRES::getPassword);
-		registry.add("app.redis.host", REDIS::getHost);
-		registry.add("app.redis.port", () -> REDIS.getMappedPort(6379));
+		registry.add("spring.data.redis.host", REDIS::getHost);
+		registry.add("spring.data.redis.port", () -> REDIS.getMappedPort(6379));
 	}
 
 	@AfterEach
 	void tearDown() {
+		if (redisPaused) {
+			startRedis();
+		}
 		redis().getConnectionFactory().getConnection().serverCommands().flushDb();
 		realtimePublisher.clear();
 		jdbcTemplate.execute(
@@ -296,6 +340,118 @@ class MatchChatMessageRateLimitPostgresTest {
 		assertEquals(5, realtimePublisher.events().size());
 	}
 
+	@Test
+	void T6_A_Redis_rate_limit_저장소_장애면_실제_HTTP_전송은_저장과_signal과_quota_소비_전에_503으로_끝난다()
+		throws Exception {
+		String email = uniqueEmail("t6-a");
+		long userId = createAccount(email, "T6 A 사용자");
+		long partyId = insertActivePartyWithParticipants(userId);
+		HttpClient client = authenticatedClient(email);
+		String csrfToken = csrfToken(client);
+		redis().opsForValue().set(userKey(userId), "2", 10, TimeUnit.SECONDS);
+		redis().opsForValue().set(partyKey(partyId), "4", 10, TimeUnit.SECONDS);
+
+		stopRedis();
+		HttpResponse<String> response = postMessage(client, partyId, "t6-a-outage", csrfToken);
+
+		assertEquals(503, response.statusCode(), response.body());
+		startRedis();
+		assertEquals(0, messageCount(partyId));
+		assertTrue(realtimePublisher.events().isEmpty());
+		assertEquals("2", redis().opsForValue().get(userKey(userId)));
+		assertEquals("4", redis().opsForValue().get(partyKey(partyId)));
+	}
+
+	@Test
+	void T6_B_Redis_장애_응답은_고정_503_오류_봉투이고_메시지_row와_signal을_만들지_않는다() throws Exception {
+		String email = uniqueEmail("t6-b");
+		long userId = createAccount(email, "T6 B 사용자");
+		long partyId = insertActivePartyWithParticipants(userId);
+		HttpClient client = authenticatedClient(email);
+		String csrfToken = csrfToken(client);
+
+		stopRedis();
+		HttpResponse<String> response = postMessage(client, partyId, "t6-b-outage", csrfToken);
+
+		assertEquals(503, response.statusCode(), response.body());
+		JsonNode body = objectMapper.readTree(response.body());
+		assertEquals(503, body.path("status").asInt(), response.body());
+		assertEquals(ErrorCode.SERVICE_UNAVAILABLE.getCode(), body.path("code").asString(), response.body());
+		assertEquals(ErrorCode.SERVICE_UNAVAILABLE.getMessage(), body.path("message").asString(), response.body());
+		assertTrue(body.path("data").isNull(), response.body());
+		assertTrue(response.headers().firstValue("Retry-After").isEmpty());
+		startRedis();
+		assertEquals(0, messageCount(partyId));
+		assertTrue(realtimePublisher.events().isEmpty());
+	}
+
+	@Test
+	void T6_C_Redis_복구_뒤_ACTIVE_참가자의_실제_HTTP_전송은_저장_quota_응답을_정상_처리한다() throws Exception {
+		String email = uniqueEmail("t6-c");
+		long userId = createAccount(email, "T6 C 사용자");
+		long partyId = insertActivePartyWithParticipants(userId);
+		HttpClient client = authenticatedClient(email);
+		String csrfToken = csrfToken(client);
+
+		stopRedis();
+		assertEquals(503, postMessage(client, partyId, "t6-c-outage", csrfToken).statusCode());
+		startRedis();
+		HttpResponse<String> response = postMessage(client, partyId, "t6-c-recovered", csrfToken);
+
+		assertEquals(201, response.statusCode(), response.body());
+		JsonNode body = objectMapper.readTree(response.body());
+		assertEquals(201, body.path("status").asInt(), response.body());
+		assertEquals("t6-c-recovered", body.path("data").path("clientMessageId").asString(), response.body());
+		assertEquals(1, messageCount(partyId));
+		assertEquals(1, realtimePublisher.events().size());
+		assertEquals("1", redis().opsForValue().get(userKey(userId)));
+		assertEquals("1", redis().opsForValue().get(partyKey(partyId)));
+	}
+
+	@Test
+	void T6_D_인증_권한_상태_CSRF_거부는_Redis_장애와_무관하게_기존_HTTP_계약을_유지한다() throws Exception {
+		String activeEmail = uniqueEmail("t6-d-active");
+		long activeUserId = createAccount(activeEmail, "T6 D 활성 사용자");
+		long activePartyId = insertActivePartyWithParticipants(activeUserId);
+		String strangerEmail = uniqueEmail("t6-d-stranger");
+		long strangerUserId = createAccount(strangerEmail, "T6 D 비참가 사용자");
+		String preparingEmail = uniqueEmail("t6-d-preparing");
+		long preparingUserId = createAccount(preparingEmail, "T6 D 준비 사용자");
+		long preparingPartyId = insertPartyWithParticipant("PREPARING", preparingUserId);
+		String closedEmail = uniqueEmail("t6-d-closed");
+		long closedUserId = createAccount(closedEmail, "T6 D 종료 사용자");
+		long closedPartyId = insertPartyWithParticipant("CLOSED", closedUserId);
+
+		HttpClient activeClient = authenticatedClient(activeEmail);
+		String activeCsrfToken = csrfToken(activeClient);
+		HttpClient strangerClient = authenticatedClient(strangerEmail);
+		String strangerCsrfToken = csrfToken(strangerClient);
+		HttpClient preparingClient = authenticatedClient(preparingEmail);
+		String preparingCsrfToken = csrfToken(preparingClient);
+		HttpClient closedClient = authenticatedClient(closedEmail);
+		String closedCsrfToken = csrfToken(closedClient);
+		HttpClient anonymousClient = HttpClient.newHttpClient();
+
+		stopRedis();
+		assertError(anonymousClient, activePartyId, "t6-d-anonymous", null, ErrorCode.UNAUTHENTICATED);
+		assertError(strangerClient, activePartyId, "t6-d-forbidden", strangerCsrfToken, ErrorCode.FORBIDDEN);
+		assertError(preparingClient, preparingPartyId, "t6-d-preparing", preparingCsrfToken,
+			ErrorCode.MATCH_CHAT_NOT_ACTIVE);
+		assertError(closedClient, closedPartyId, "t6-d-closed", closedCsrfToken, ErrorCode.FORBIDDEN);
+		assertError(activeClient, activePartyId, "t6-d-csrf", null, ErrorCode.CSRF_TOKEN_INVALID);
+
+		startRedis();
+		assertEquals(0, messageCount(activePartyId));
+		assertEquals(0, messageCount(preparingPartyId));
+		assertEquals(0, messageCount(closedPartyId));
+		assertTrue(realtimePublisher.events().isEmpty());
+		assertFalse(Boolean.TRUE.equals(redis().hasKey(userKey(activeUserId))));
+		assertFalse(Boolean.TRUE.equals(redis().hasKey(userKey(strangerUserId))));
+		assertFalse(Boolean.TRUE.equals(redis().hasKey(userKey(preparingUserId))));
+		assertFalse(Boolean.TRUE.equals(redis().hasKey(userKey(closedUserId))));
+		assertFalse(Boolean.TRUE.equals(redis().hasKey(partyKey(activePartyId))));
+	}
+
 	private MatchChatMessageSendResult send(long userId, long partyId, String clientMessageId) {
 		return send(userId, partyId, clientMessageId, "본문 " + clientMessageId);
 	}
@@ -303,6 +459,112 @@ class MatchChatMessageRateLimitPostgresTest {
 	private MatchChatMessageSendResult send(long userId, long partyId, String clientMessageId, String content) {
 		return matchChatMessageCommandService.send(
 			userId, partyId, new MatchChatMessageSendRequest(clientMessageId, content));
+	}
+
+	private HttpClient authenticatedClient(String email) throws Exception {
+		CookieManager cookieManager = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+		HttpClient client = HttpClient.newBuilder().cookieHandler(cookieManager).build();
+		String csrfToken = csrfToken(client);
+		HttpResponse<String> response = post(
+			client, serverUri("/api/auth/login"), loginBody(email), csrfToken);
+		assertEquals(200, response.statusCode(), response.body());
+		return client;
+	}
+
+	private String csrfToken(HttpClient client) throws Exception {
+		HttpResponse<String> response = get(client, serverUri("/api/auth/csrf"));
+		assertEquals(200, response.statusCode(), response.body());
+		Matcher matcher = CSRF_TOKEN_PATTERN.matcher(response.body());
+		assertTrue(matcher.find(), response.body());
+		return matcher.group(1);
+	}
+
+	private HttpResponse<String> postMessage(
+		HttpClient client, long partyId, String clientMessageId, String csrfToken) throws Exception {
+		return post(
+			client,
+			serverUri("/api/matches/parties/" + partyId + "/chat/messages"),
+			"{\"clientMessageId\":\"" + clientMessageId + "\",\"content\":\"본문\"}",
+			csrfToken);
+	}
+
+	private void assertError(
+		HttpClient client, long partyId, String clientMessageId, String csrfToken, ErrorCode errorCode) throws Exception {
+		HttpResponse<String> response = postMessage(client, partyId, clientMessageId, csrfToken);
+		assertEquals(errorCode.getStatus(), response.statusCode(), response.body());
+		JsonNode body = objectMapper.readTree(response.body());
+		assertEquals(errorCode.getStatus(), body.path("status").asInt(), response.body());
+		assertEquals(errorCode.getCode(), body.path("code").asString(), response.body());
+	}
+
+	private HttpResponse<String> get(HttpClient client, URI uri) throws Exception {
+		return client.send(
+			HttpRequest.newBuilder(uri).GET().build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+	}
+
+	private HttpResponse<String> post(HttpClient client, URI uri, String body, String csrfToken) throws Exception {
+		HttpRequest.Builder request = HttpRequest.newBuilder(uri)
+			.header("Content-Type", "application/json")
+			.POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8));
+		if (csrfToken != null) {
+			request.header("X-XSRF-TOKEN", csrfToken);
+		}
+		return client.send(request.build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+	}
+
+	private URI serverUri(String path) {
+		return URI.create("http://localhost:" + serverPort + path);
+	}
+
+	private String loginBody(String email) {
+		return "{\"email\":\"" + email + "\",\"password\":\"" + PASSWORD + "\"}";
+	}
+
+	private String uniqueEmail(String prefix) {
+		return "match-chat-rate-limit-" + prefix + "-" + UUID.randomUUID() + "@example.com";
+	}
+
+	private long createAccount(String email, String nickname) {
+		return userAccountService.createAccount(new CreateUserAccountCommand(
+			UserEmail.from(email).orElseThrow(),
+			RawPassword.from(PASSWORD).orElseThrow(),
+			UserNickname.from(nickname).orElseThrow())).id();
+	}
+
+	private void stopRedis() {
+		DockerClientFactory.instance().client().pauseContainerCmd(REDIS.getContainerId()).exec();
+		redisPaused = true;
+	}
+
+	private void startRedis() {
+		DockerClientFactory.instance().client().unpauseContainerCmd(REDIS.getContainerId()).exec();
+		redisPaused = false;
+		assertTrue(REDIS.isRunning());
+		for (int attempt = 0; attempt < 10; attempt++) {
+			try {
+				redis().opsForValue().set("match-chat-rate-limit-recovery-probe", "ready");
+				redis().delete("match-chat-rate-limit-recovery-probe");
+				return;
+			} catch (RuntimeException exception) {
+				if (attempt == 9) {
+					throw exception;
+				}
+				try {
+					Thread.sleep(Duration.ofMillis(100));
+				} catch (InterruptedException interruptedException) {
+					Thread.currentThread().interrupt();
+					throw new IllegalStateException("Redis 복구 대기 중 인터럽트되었습니다.", interruptedException);
+				}
+			}
+		}
+	}
+
+	private int messageCount(long partyId) {
+		return jdbcTemplate.queryForObject(
+			"select count(*) from match_chat_messages message join match_chat_rooms room "
+				+ "on room.id = message.match_chat_room_id where room.party_id = ?",
+			Integer.class,
+			partyId);
 	}
 
 	private void assertRateLimited(org.junit.jupiter.api.function.Executable executable) {
@@ -329,6 +591,22 @@ class MatchChatMessageRateLimitPostgresTest {
 			addParticipant(partyId, userId);
 		}
 		return partyId;
+	}
+
+	private long insertPartyWithParticipant(String status, long userId) {
+		long partyId = insertActivePartyWithParticipants(userId);
+		if ("PREPARING".equals(status)) {
+			jdbcTemplate.update("update match_parties set status = 'PREPARING' where id = ?", partyId);
+			return partyId;
+		}
+		if ("CLOSED".equals(status)) {
+			jdbcTemplate.update(
+				"update match_parties set status = 'CLOSED', closed_at = current_timestamp, "
+					+ "purge_after = current_timestamp + interval '7 days' where id = ?",
+				partyId);
+			return partyId;
+		}
+		throw new IllegalArgumentException("지원하지 않는 MATCH party 상태입니다: " + status);
 	}
 
 	private void addParticipant(long partyId, long userId) {
@@ -377,6 +655,45 @@ class MatchChatMessageRateLimitPostgresTest {
 
 	@TestConfiguration(proxyBeanMethods = false)
 	static class TestBeans {
+
+		@Bean
+		@Primary
+		LettuceConnectionFactory redisConnectionFactory() {
+			ClientOptions clientOptions = ClientOptions.builder()
+				.autoReconnect(true)
+				.disconnectedBehavior(ClientOptions.DisconnectedBehavior.REJECT_COMMANDS)
+				.socketOptions(SocketOptions.builder().connectTimeout(Duration.ofSeconds(1)).build())
+				.build();
+			LettuceClientConfiguration clientConfiguration = LettuceClientConfiguration.builder()
+				.clientOptions(clientOptions)
+				.commandTimeout(Duration.ofSeconds(2))
+				.build();
+			LettuceConnectionFactory connectionFactory = new LettuceConnectionFactory(
+				new RedisStandaloneConfiguration(REDIS.getHost(), REDIS.getMappedPort(6379)),
+				clientConfiguration);
+			connectionFactory.setShareNativeConnection(true);
+			return connectionFactory;
+		}
+
+		@Bean
+		@Primary
+		RedisChatMessageRateLimiter roomRateLimiter(
+			RedisConnectionFactory redisConnectionFactory, Environment environment) {
+			return new RedisChatMessageRateLimiter(
+				redisConnectionFactory,
+				environment,
+				new ChatMessageRateLimitProperties(50, 100, Duration.ofSeconds(10)));
+		}
+
+		@Bean
+		@Primary
+		RedisMatchChatMessageRateLimiter matchChatMessageRateLimiter(
+			RedisConnectionFactory redisConnectionFactory, Environment environment) {
+			return new RedisMatchChatMessageRateLimiter(
+				redisConnectionFactory,
+				environment,
+				new MatchChatMessageRateLimitProperties(5, 30, Duration.ofSeconds(10)));
+		}
 
 		@Bean
 		@Primary
