@@ -11,7 +11,11 @@ import static org.mockito.Mockito.when;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.junit.jupiter.api.Test;
@@ -305,6 +309,69 @@ class SemanticGameSearchServiceTest {
 
 		assertEquals(SemanticGameSearchMode.LEXICAL_FALLBACK, result.mode());
 		assertEquals(List.of(lexicalMatch.id()), result.content().stream().map(GameSummary::id).toList());
+	}
+
+	@Test
+	void HYBRID_T5_동시_요청_두_건의_dense_조회는_서로를_차단하지_않고_병렬로_처리된다() throws Exception {
+		GameRepository gameRepository = org.mockito.Mockito.mock(GameRepository.class);
+		DenseCandidateSource candidateSource = org.mockito.Mockito.mock(DenseCandidateSource.class);
+		SparseCandidateSource sparseCandidateSource = org.mockito.Mockito.mock(SparseCandidateSource.class);
+		when(sparseCandidateSource.findCandidates(anyString())).thenThrow(new SemanticSearchUnavailableException());
+		when(gameRepository.findAll(any(Specification.class))).thenReturn(List.of());
+		CountDownLatch bothDenseCallsStarted = new CountDownLatch(2);
+		AtomicInteger overlappedStartCount = new AtomicInteger();
+		when(candidateSource.findCandidates(anyString())).thenAnswer(invocation -> {
+			bothDenseCallsStarted.countDown();
+			if (bothDenseCallsStarted.await(1, TimeUnit.SECONDS)) {
+				overlappedStartCount.incrementAndGet();
+			}
+			return List.of(new DenseCandidateSource.Candidate(1L, 0.9));
+		});
+		SemanticGameSearchService service = service(gameRepository, candidateSource, sparseCandidateSource);
+
+		ExecutorService callers = Executors.newFixedThreadPool(2);
+		try {
+			Future<?> first = callers.submit(() -> service.search(query("전략 게임")));
+			Future<?> second = callers.submit(() -> service.search(query("전략 게임")));
+			first.get(5, TimeUnit.SECONDS);
+			second.get(5, TimeUnit.SECONDS);
+		} finally {
+			callers.shutdownNow();
+		}
+
+		assertEquals(2, overlappedStartCount.get(),
+			"동시에 들어온 두 요청의 dense 조회가 서로를 기다리지 않고 겹쳐서 시작해야 한다. 겹친 횟수: "
+				+ overlappedStartCount.get());
+	}
+
+	@Test
+	void HYBRID_T6_dense와_sparse가_모두_공통_timeout에_근접하면_전체_대기시간이_budget_하나에_수렴한다() {
+		GameRepository gameRepository = org.mockito.Mockito.mock(GameRepository.class);
+		DenseCandidateSource candidateSource = org.mockito.Mockito.mock(DenseCandidateSource.class);
+		SparseCandidateSource sparseCandidateSource = org.mockito.Mockito.mock(SparseCandidateSource.class);
+		when(candidateSource.findCandidates(anyString())).thenAnswer(invocation -> {
+			Thread.sleep(300);
+			return List.of(new DenseCandidateSource.Candidate(1L, 0.9));
+		});
+		when(sparseCandidateSource.findCandidates(anyString())).thenAnswer(invocation -> {
+			Thread.sleep(300);
+			return List.of(new DenseCandidateSource.Candidate(2L, 5.0));
+		});
+		GameSummary lexicalMatch = new GameSummary(41L, 1041L, "budget 폴백 게임");
+		when(gameRepository.findLexicalFallbackSummaries(any(Specification.class), any()))
+			.thenReturn(new SliceImpl<>(List.of(lexicalMatch), PageRequest.of(0, 10), false));
+		long hybridTimeoutMillis = 100;
+
+		long startedAtNanos = System.nanoTime();
+		SemanticGameSearchResult result = service(gameRepository, candidateSource, sparseCandidateSource,
+			java.time.Duration.ofMillis(hybridTimeoutMillis)).search(query("전략 게임"));
+		long elapsedMillis = (System.nanoTime() - startedAtNanos) / 1_000_000;
+
+		assertEquals(SemanticGameSearchMode.LEXICAL_FALLBACK, result.mode());
+		assertEquals(List.of(lexicalMatch.id()), result.content().stream().map(GameSummary::id).toList());
+		assertTrue(elapsedMillis < hybridTimeoutMillis * 3 / 2,
+			"총 대기시간이 공통 timeout budget 하나에 수렴해야 한다. 실제: " + elapsedMillis + "ms (budget: "
+				+ hybridTimeoutMillis + "ms)");
 	}
 
 	private SemanticGameSearchService service(
