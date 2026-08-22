@@ -495,6 +495,12 @@ jobs:
       - name: Test SEARCH-04 candidate comparison
         run: node --test scripts/search-evaluation/search-candidate-comparison.test.mjs
 
+      - name: Test SEARCH-04e live evidence contract
+        run: node --test scripts/measurements/search-04e-hybrid-rrf-live.test.mjs
+
+      - name: Check SEARCH-04e live evidence
+        run: node scripts/measurements/search-04e-hybrid-rrf-live.mjs --validate docs/measurements/search-04e-hybrid-rrf-live.json
+
       - name: Test monitoring contract checker
         run: node --test scripts/docs/check-monitoring-contract.test.mjs
 
