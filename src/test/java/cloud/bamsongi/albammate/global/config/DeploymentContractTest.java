@@ -88,10 +88,11 @@ class DeploymentContractTest {
 	}
 
 	@Test
-	void T5_P2_CD는_host_local_인증_smoke_입력을_출력하지_않는다() throws IOException {
+	void T5_P2_CD는_host_local_인증_smoke를_호출하지_않는다() throws IOException {
 		String workflow = file(".github/workflows/p2-cd.yml");
-		assertTrue(workflow.contains("deployment-verification.env itself"));
-		assertFalse(workflow.contains("deployment-verification.env cat"));
+		assertTrue(workflow.contains("invoke verify-app1-candidate verify-app1"));
+		assertFalse(workflow.toLowerCase().contains("smoke"));
+		assertFalse(workflow.contains("deployment-verification.env"));
 		assertFalse(workflow.toLowerCase().contains("csrf"));
 	}
 
