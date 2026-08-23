@@ -576,6 +576,7 @@ function AssistantStart({ initialMemory, onMemoryChange, onCreateDraft, onConsen
     setModalCandidate(null);
     setPending(true);
     setError('');
+    onMemoryChange(null);
     try {
       const next = await api.recommendAssistant(currentMessage, previousConditions);
       const automaticCandidate = requestsRoomCreation(currentMessage)
@@ -592,6 +593,12 @@ function AssistantStart({ initialMemory, onMemoryChange, onCreateDraft, onConsen
       const reply = botReplyText(next);
       if (reply) setHistory((entries) => [...entries, { role: 'theirs', text: reply }]);
     } catch (requestError) {
+      setHistory((entries) => {
+        const lastEntry = entries.at(-1);
+        return lastEntry?.role === 'mine' && lastEntry.text === currentMessage
+          ? entries.slice(0, -1)
+          : entries;
+      });
       setMessage(currentMessage);
       if (isConsentRequiredError(requestError)) onConsentRequired();
       else setError(assistantErrorMessage(requestError));
