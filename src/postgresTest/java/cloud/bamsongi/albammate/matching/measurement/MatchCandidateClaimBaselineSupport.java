@@ -668,7 +668,7 @@ public final class MatchCandidateClaimBaselineSupport {
 
 	private static String workerDiagnostic(WorkerProcess worker) {
 		try {
-			String output = Files.readString(worker.outputFile(), StandardCharsets.UTF_8);
+			String output = new String(Files.readAllBytes(worker.outputFile()), StandardCharsets.UTF_8);
 			String diagnosticOutput = output.length() <= 12_000
 				? output
 				: output.substring(0, 6_000) + " ... [중략] ... " + output.substring(output.length() - 6_000);
