@@ -9,8 +9,10 @@ import { changedPathsIn } from './ci/classify-postgres-requirement.mjs';
 
 const PRODUCTION_JAVA_PATH = /^src\/main\/java\/.+\.java$/u;
 const PACKAGE_DECLARATION = /^\s*package\s+([\w.]+)\s*;/mu;
+const H2_COVERAGE_MAP_START = /^\s*def\s+h2GlobalCoverage\s*=\s*\[\s*$/u;
 const COVERAGE_MAP_START = /^\s*def\s+gatedBranchCoverage\s*=\s*\[\s*$/u;
 const COVERAGE_MAP_END = /^\s*\]\s*$/u;
+const H2_COVERAGE_MAP_ENTRY = /^\s*'(BRANCH|LINE)'\s*:\s*(\d+(?:\.\d+)?)\s*,?\s*$/u;
 const COVERAGE_MAP_ENTRY = /^\s*'([\w.]+)'\s*:\s*(\d+(?:\.\d+)?)\s*,?\s*$/u;
 
 function ratio(counter) {
@@ -37,6 +39,32 @@ function findCounter(fragment, type) {
 
 export function coverageRulesFromBuildFile(buildFileText) {
     const lines = buildFileText.split(/\r?\n/u);
+    const h2Start = lines.findIndex((line) => H2_COVERAGE_MAP_START.test(line));
+    if (h2Start === -1) {
+        throw new Error('build.gradle에서 h2GlobalCoverage 맵을 찾을 수 없습니다.');
+    }
+
+    const h2GlobalMinimums = new Map();
+    let h2End = -1;
+    for (let index = h2Start + 1; index < lines.length; index += 1) {
+        if (COVERAGE_MAP_END.test(lines[index])) {
+            h2End = index;
+            break;
+        }
+        const trimmed = lines[index].trim();
+        if (trimmed === '' || trimmed.startsWith('//')) {
+            continue;
+        }
+        const entry = H2_COVERAGE_MAP_ENTRY.exec(lines[index]);
+        if (!entry) {
+            throw new Error(`h2GlobalCoverage 항목을 해석할 수 없습니다: ${trimmed}`);
+        }
+        h2GlobalMinimums.set(entry[1], Number(entry[2]));
+    }
+    if (h2End === -1 || !h2GlobalMinimums.has('BRANCH') || !h2GlobalMinimums.has('LINE')) {
+        throw new Error('h2GlobalCoverage에는 BRANCH와 LINE 최소선이 모두 필요합니다.');
+    }
+
     const start = lines.findIndex((line) => COVERAGE_MAP_START.test(line));
     if (start === -1) {
         throw new Error('build.gradle에서 gatedBranchCoverage 맵을 찾을 수 없습니다.');
@@ -85,7 +113,7 @@ export function coverageRulesFromBuildFile(buildFileText) {
         globalMinimums.set(type, Number(match[1]));
     }
 
-    return { globalMinimums, packageMinimums };
+    return { h2GlobalMinimums, globalMinimums, packageMinimums };
 }
 
 export function coverageFromJacocoXml(xmlText) {
@@ -155,10 +183,23 @@ export function verifyChangedH2Coverage({ buildFileText, reportXml, changedPacka
     const coverage = coverageFromJacocoXml(reportXml);
     const problems = [];
     const checkedPackages = [];
-    // H2-only execution data cannot satisfy the global rule that includes PostgreSQL tests.
-    // The merged Coverage Gate applies global BRANCH/LINE minimums; this fast gate only
-    // protects the changed package's H2 branch ratchet.
-    const globalChecked = false;
+    const globalChecked = changedPackages.length > 0;
+
+    if (globalChecked) {
+        for (const [type, minimum] of rules.h2GlobalMinimums) {
+            const counter = coverage.totals[type.toLowerCase()];
+            if (!counter) {
+                problems.push(`JaCoCo 리포트에 H2 전체 ${type} counter가 없습니다.`);
+                continue;
+            }
+            const actual = ratio(counter);
+            if (actual < minimum) {
+                problems.push(
+                    `H2 전체 ${type} 커버리지가 ${percentage(actual)}로 최소선 ${percentage(minimum)}보다 낮습니다.`,
+                );
+            }
+        }
+    }
 
     for (const packageName of [...new Set(changedPackages)].sort()) {
         const minimum = rules.packageMinimums.get(packageName);
@@ -226,11 +267,11 @@ function runCli() {
 
         const checked = result.checkedPackages.map((entry) => entry.packageName).join(', ');
         if (changedPackages.length === 0) {
-            console.log('변경된 프로덕션 Java 패키지가 없어 H2 패키지 래칫 검증을 건너뛰었다.');
+            console.log('변경된 프로덕션 Java 패키지가 없어 H2 전체 및 패키지 래칫 검증을 건너뛰었다.');
         } else if (checked === '') {
-            console.log('변경 패키지에 개별 H2 BRANCH 규칙이 없다.');
+            console.log('H2 전체 최소선을 통과했고 변경 패키지에 개별 BRANCH 규칙이 없다.');
         } else {
-            console.log(`변경 패키지 H2 BRANCH 최소선을 통과했다: ${checked}`);
+            console.log(`H2 전체 최소선과 변경 패키지 BRANCH 최소선을 통과했다: ${checked}`);
         }
     } catch (error) {
         console.error(`변경 패키지 H2 커버리지 검증 실패: ${error.message}`);

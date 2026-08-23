@@ -16,6 +16,11 @@ import {
 const scriptPath = fileURLToPath(new URL('./verify-changed-h2-coverage.mjs', import.meta.url));
 
 const buildFile = [
+    'def h2GlobalCoverage = [',
+    "    'BRANCH': 0.72,",
+    "    'LINE': 0.865,",
+    ']',
+    '',
     'def gatedBranchCoverage = [',
     "    'example.dto': 0.80,",
     "    'example.database': 0.90,",
@@ -64,6 +69,7 @@ function reportXml({ globalBranch = [10, 90], globalLine = [5, 95] } = {}) {
 
 test('build.gradle의 전체 및 패키지 최소선을 읽는다', () => {
     const rules = coverageRulesFromBuildFile(buildFile);
+    assert.deepEqual(Object.fromEntries(rules.h2GlobalMinimums), { BRANCH: 0.72, LINE: 0.865 });
     assert.deepEqual(Object.fromEntries(rules.globalMinimums), { BRANCH: 0.72, LINE: 0.92 });
     assert.deepEqual(Object.fromEntries(rules.packageMinimums), {
         'example.dto': 0.8,
@@ -111,16 +117,28 @@ test('변경된 프로덕션 패키지가 없으면 전체 최소선 미달도 �
     assert.equal(result.globalChecked, false);
 });
 
-test('H2 전용 리포트는 전체 합산 최소선 대신 변경 패키지 래칫만 검사한다', () => {
+test('H2 전용 최소선은 합산 LINE 기준보다 낮은 현재 baseline을 별도 래칫으로 지킨다', () => {
     const result = verifyChangedH2Coverage({
         buildFileText: buildFile,
-        reportXml: reportXml({ globalBranch: [30, 70], globalLine: [10, 90] }),
+        reportXml: reportXml({ globalBranch: [25, 75], globalLine: [10, 90] }),
         changedPackages: ['example.dto'],
     });
 
     assert.deepEqual(result.problems, []);
-    assert.equal(result.globalChecked, false);
+    assert.equal(result.globalChecked, true);
     assert.deepEqual(result.checkedPackages.map((entry) => entry.packageName), ['example.dto']);
+});
+
+test('H2 전용 branch 또는 line baseline 미달은 변경 패키지와 함께 실패한다', () => {
+    const result = verifyChangedH2Coverage({
+        buildFileText: buildFile,
+        reportXml: reportXml({ globalBranch: [30, 70], globalLine: [14, 86] }),
+        changedPackages: ['example.dto'],
+    });
+
+    assert.equal(result.problems.length, 2);
+    assert.match(result.problems[0], /H2 전체 BRANCH.*70\.00%.*72\.00%/u);
+    assert.match(result.problems[1], /H2 전체 LINE.*86\.00%.*86\.50%/u);
 });
 
 function createGitWorktree(t) {
