@@ -90,9 +90,10 @@ function canonicalize(value) {
   return value;
 }
 
-function measurementDigestPayload({ measuredGitCommitSha, environmentProfile, externalProvenance,
+function measurementDigestPayload({ executionMode, measuredGitCommitSha, environmentProfile, externalProvenance,
   mixedRangeSmoke, fixture, warmUp, measured }) {
   return {
+    executionMode,
     measuredGitCommitSha,
     environmentProfile,
     externalProvenance,
@@ -109,7 +110,9 @@ function measurementDigestFromPayload(payload) {
 
 export function calculateRawMeasurementSha256(input) {
   const measuredGitCommitSha = input?.measuredGitCommitSha ?? input?.warmUp?.measuredGitCommitSha;
+  const executionMode = input?.executionMode ?? (isExternalProvenance(input?.externalProvenance) ? "external" : "local");
   return measurementDigestFromPayload(measurementDigestPayload({
+    executionMode,
     measuredGitCommitSha,
     environmentProfile: input?.environmentProfile,
     externalProvenance: input?.externalProvenance,
@@ -122,6 +125,7 @@ export function calculateRawMeasurementSha256(input) {
 
 function reportMeasurementDigest(report) {
   return measurementDigestFromPayload({
+    executionMode: report?.executionMode,
     measuredGitCommitSha: report?.measuredGitCommitSha,
     environmentProfile: report?.environmentProfile,
     externalProvenance: report?.externalProvenance,
@@ -136,7 +140,9 @@ export function buildCandidateBaselineReport(input) {
   const { fixture, warmUp, measured } = input ?? {};
   const measuredRounds = Array.isArray(measured) ? measured.map(reportRound) : [];
   const measuredGitCommitSha = input?.measuredGitCommitSha ?? warmUp?.measuredGitCommitSha;
+  const executionMode = input?.executionMode ?? (isExternalProvenance(input?.externalProvenance) ? "external" : "local");
   const rawMeasurementSha256 = measurementDigestFromPayload(measurementDigestPayload({
+    executionMode,
     measuredGitCommitSha,
     environmentProfile: input?.environmentProfile,
     externalProvenance: input?.externalProvenance,
@@ -151,6 +157,7 @@ export function buildCandidateBaselineReport(input) {
     : [];
   return {
     schemaVersion: 1,
+    executionMode,
     measuredGitCommitSha,
     environmentProfile: input?.environmentProfile,
     externalProvenance: input?.externalProvenance,
@@ -358,8 +365,37 @@ function hasIntegrityMismatch(round) {
     .some((field) => integrity[field] !== correctnessInput[field]);
 }
 
+function isExternalProvenance(provenance) {
+  if (!provenance || typeof provenance !== "object" || Array.isArray(provenance)) return false;
+  const keys = Object.keys(provenance).sort();
+  const environmentProfile = provenance.environmentProfile;
+  const profileKeys = environmentProfile && typeof environmentProfile === "object" && !Array.isArray(environmentProfile)
+    ? Object.keys(environmentProfile)
+    : [];
+  const allowedProfileKeys = new Set(["stackId", "region", "accountAlias", "databaseRole", "runner", "ephemeral", "releaseSha"]);
+  const profileValuesAreScalars = profileKeys.every((key) =>
+    typeof environmentProfile[key] === "string"
+      || typeof environmentProfile[key] === "number"
+      || typeof environmentProfile[key] === "boolean");
+  return JSON.stringify(keys) === JSON.stringify(["environmentProfile", "runner", "target"])
+    && provenance.runner === "MATCH-01-T10-EXTERNAL-POSTGRESQL-V1"
+    && provenance.target === "external-postgresql"
+    && environmentProfile !== null
+    && typeof environmentProfile === "object"
+    && profileKeys.every((key) => allowedProfileKeys.has(key))
+    && profileValuesAreScalars
+    && typeof environmentProfile.stackId === "string"
+    && environmentProfile.stackId.length > 0
+    && environmentProfile.runner === provenance.runner
+    && typeof environmentProfile.databaseRole === "string"
+    && environmentProfile.databaseRole.length > 0
+    && environmentProfile.ephemeral === true
+    && typeof environmentProfile.releaseSha === "string"
+    && /^[a-f0-9]{40}$/u.test(environmentProfile.releaseSha);
+}
+
 function isExternalMeasurement(report) {
-  return report?.externalProvenance?.runner === "MATCH-01-T10-EXTERNAL-POSTGRESQL-V1";
+  return report?.executionMode === "external";
 }
 
 function hasCompleteMixedRangeSmoke(smoke, measuredGitCommitSha) {
@@ -411,6 +447,15 @@ function hasCompleteMixedRangeSmoke(smoke, measuredGitCommitSha) {
 }
 
 export function evaluateCandidateBaseline(report) {
+	if (report?.executionMode !== "local" && report?.executionMode !== "external") {
+		return { outcome: "INVALID", reason: "execution mode가 local 또는 external이 아닙니다." };
+	}
+	if (report.executionMode === "local" && report.externalProvenance !== undefined) {
+		return { outcome: "INVALID", reason: "external provenance가 local report로 강등되었습니다." };
+	}
+	if (isExternalMeasurement(report) && !isExternalProvenance(report.externalProvenance)) {
+		return { outcome: "INVALID", reason: "external provenance가 완결되지 않았습니다." };
+	}
   if (!report || typeof report !== "object" || !hasCompleteFixture(report.fixture)) {
     return { outcome: "INVALID", reason: "fixture input 또는 materialized manifest가 완결되지 않았습니다." };
   }
@@ -451,6 +496,7 @@ if (process.argv[1]?.endsWith("match01-candidate-baseline-report.mjs")) {
   }
   const inputPath = process.argv[inputIndex + 1];
   let input = JSON.parse(readFileSync(inputPath, "utf8"));
+	input = { ...input, executionMode: process.argv.includes("--external") ? "external" : "local" };
   if (process.argv.includes("--embed-raw-digest")) {
     input = { ...input, rawMeasurementSha256: calculateRawMeasurementSha256(input) };
     writeFileSync(inputPath, JSON.stringify(input, null, 2));

@@ -190,7 +190,13 @@ test("외부 T10 raw measurement digest가 원자료 변경을 INVALID로 판정
     externalProvenance: {
       runner: "MATCH-01-T10-EXTERNAL-POSTGRESQL-V1",
       target: "external-postgresql",
-      environmentProfile: { stackId: "perf-test", ephemeral: true },
+      environmentProfile: {
+        stackId: "perf-test",
+        databaseRole: "measurement",
+        runner: "MATCH-01-T10-EXTERNAL-POSTGRESQL-V1",
+        ephemeral: true,
+        releaseSha: "a".repeat(40),
+      },
     },
     mixedRangeSmoke: completeMixedRangeSmoke(),
     fixture,
@@ -222,6 +228,149 @@ test("외부 T10 raw measurement digest가 원자료 변경을 INVALID로 판정
     rawMeasurementSha256: calculateRawMeasurementSha256(tamperedSmokeManifestHash),
   });
   assert.equal(evaluateCandidateBaseline(selfConsistentTampering).outcome, "INVALID");
+});
+
+test("명시적 external CLI mode는 provenance 누락을 local report로 강등하지 않고 INVALID로 거절한다", () => {
+  const directory = mkdtempSync(join(tmpdir(), "match01-external-provenance-"));
+  const inputPath = join(directory, "input.json");
+  const outputPath = join(directory, "output.json");
+  writeFileSync(inputPath, JSON.stringify({}));
+  try {
+    const result = spawnSync(process.execPath, [
+      "scripts/measurements/match01-candidate-baseline-report.mjs",
+      "--input", inputPath, "--output", outputPath, "--external",
+    ]);
+    assert.equal(result.status, 0, result.stderr.toString());
+    const output = JSON.parse(readFileSync(outputPath, "utf8"));
+    assert.equal(output.report.executionMode, "external");
+    assert.equal(output.decision.outcome, "INVALID");
+    assert.match(output.decision.reason, /external provenance/u);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("명시적 external CLI mode는 mixed-range smoke와 raw digest를 항상 요구한다", () => {
+  const fixture = completeFixture();
+  const input = {
+    measuredGitCommitSha: "a".repeat(40),
+    environmentProfile: { stackId: "perf-test", ephemeral: true },
+    executionMode: "external",
+    externalProvenance: {
+      runner: "MATCH-01-T10-EXTERNAL-POSTGRESQL-V1",
+      target: "external-postgresql",
+      environmentProfile: {
+        stackId: "perf-test",
+        databaseRole: "measurement",
+        runner: "MATCH-01-T10-EXTERNAL-POSTGRESQL-V1",
+        ephemeral: true,
+        releaseSha: "a".repeat(40),
+      },
+    },
+    fixture,
+    warmUp: completeRound(0, fixture),
+    measured: [completeRound(1, fixture), completeRound(2, fixture), completeRound(3, fixture)],
+    mixedRangeSmoke: completeMixedRangeSmoke(),
+  };
+  input.rawMeasurementSha256 = calculateRawMeasurementSha256(input);
+  const directory = mkdtempSync(join(tmpdir(), "match01-external-gates-"));
+  const inputPath = join(directory, "input.json");
+  const outputPath = join(directory, "output.json");
+  try {
+    const runExternal = (value) => {
+      writeFileSync(inputPath, JSON.stringify(value));
+      const result = spawnSync(process.execPath, [
+        "scripts/measurements/match01-candidate-baseline-report.mjs",
+        "--input", inputPath, "--output", outputPath, "--external",
+      ]);
+      assert.equal(result.status, 0, result.stderr.toString());
+      return JSON.parse(readFileSync(outputPath, "utf8"));
+    };
+
+    const accepted = runExternal(input);
+    assert.equal(accepted.report.executionMode, "external");
+    assert.equal(accepted.decision.outcome, "BASELINE_ACCEPTED");
+
+    const alteredProvenance = structuredClone(input);
+    alteredProvenance.externalProvenance.runner = "untrusted-runner";
+    alteredProvenance.rawMeasurementSha256 = calculateRawMeasurementSha256(alteredProvenance);
+    const alteredProvenanceOutput = runExternal(alteredProvenance);
+    assert.equal(alteredProvenanceOutput.decision.outcome, "INVALID");
+    assert.match(alteredProvenanceOutput.decision.reason, /external provenance/u);
+
+    const missingSmoke = structuredClone(input);
+    delete missingSmoke.mixedRangeSmoke;
+    const missingSmokeOutput = runExternal(missingSmoke);
+    assert.equal(missingSmokeOutput.decision.outcome, "INVALID");
+    assert.match(missingSmokeOutput.decision.reason, /혼합 범위 correctness smoke|mixed-range smoke/u);
+
+    const missingRawDigest = structuredClone(input);
+    delete missingRawDigest.rawMeasurementSha256;
+    const missingRawOutput = runExternal(missingRawDigest);
+    assert.equal(missingRawOutput.decision.outcome, "INVALID");
+    assert.match(missingRawOutput.decision.reason, /raw measurement digest/u);
+
+    const tamperedRaw = structuredClone(input);
+    tamperedRaw.measured[0].logicalClaims[0].durationNanos += 1;
+    const tamperedRawOutput = runExternal(tamperedRaw);
+    assert.equal(tamperedRawOutput.decision.outcome, "INVALID");
+    assert.match(tamperedRawOutput.decision.reason, /raw measurement digest/u);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("external provenance가 있는 입력을 local CLI로 강등하지 않는다", () => {
+  const fixture = completeFixture();
+  const input = {
+    measuredGitCommitSha: "a".repeat(40),
+    environmentProfile: { stackId: "perf-test", ephemeral: true },
+    externalProvenance: {
+      runner: "MATCH-01-T10-EXTERNAL-POSTGRESQL-V1",
+      target: "external-postgresql",
+      environmentProfile: {
+        stackId: "perf-test",
+        databaseRole: "measurement",
+        runner: "MATCH-01-T10-EXTERNAL-POSTGRESQL-V1",
+        ephemeral: true,
+        releaseSha: "a".repeat(40),
+      },
+    },
+    mixedRangeSmoke: completeMixedRangeSmoke(),
+    fixture,
+    warmUp: completeRound(0, fixture),
+    measured: [completeRound(1, fixture), completeRound(2, fixture), completeRound(3, fixture)],
+  };
+  const directory = mkdtempSync(join(tmpdir(), "match01-provenance-downgrade-"));
+  const inputPath = join(directory, "input.json");
+  const outputPath = join(directory, "output.json");
+  writeFileSync(inputPath, JSON.stringify(input));
+  try {
+    const result = spawnSync(process.execPath, [
+      "scripts/measurements/match01-candidate-baseline-report.mjs",
+      "--input", inputPath, "--output", outputPath,
+    ]);
+    assert.equal(result.status, 0, result.stderr.toString());
+    const output = JSON.parse(readFileSync(outputPath, "utf8"));
+    assert.equal(output.report.executionMode, "local");
+    assert.equal(output.decision.outcome, "INVALID");
+    assert.match(output.decision.reason, /강등/u);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("local CLI mode는 기존 fixture와 round correctness gate를 유지한다", () => {
+  const fixture = completeFixture();
+  const report = buildCandidateBaselineReport({
+    measuredGitCommitSha: "a".repeat(40),
+    fixture,
+    warmUp: completeRound(0, fixture),
+    measured: [completeRound(1, fixture), completeRound(2, fixture), completeRound(3, fixture)],
+  });
+
+  assert.equal(report.executionMode, "local");
+  assert.equal(evaluateCandidateBaseline(report).outcome, "BASELINE_ACCEPTED");
 });
 
 test("실행 SHA와 실제 candidate claim query plan 증거가 없거나 다르면 INVALID다", () => {

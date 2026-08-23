@@ -47,6 +47,7 @@ public final class MatchCandidateClaimBaselineSupport {
 	private static final String MIXED_RANGE_FIXTURE_GENERATOR = "MATCH-01-CANDIDATE-MIXED-RANGE-V1";
 	private static final String WORKER_CLASSPATH_PROPERTY = "match01.external.worker-classpath";
 	private static final String WORKER_CLASSPATH_FILE_PROPERTY = "match01.external.worker-classpath-file";
+	private static final String WORKER_CONNECTION_INIT_SQL_ARGUMENT = "--connection-init-sql";
 	private static final int MATCHER_COUNT = 2;
 	private static final int PROCESS_TIMEOUT_SECONDS = 300;
 
@@ -254,7 +255,7 @@ public final class MatchCandidateClaimBaselineSupport {
 		MaterializedFixture materialized,
 		int claimAttempts) throws Exception {
 		return runMatcherProcesses(jdbcUrl, jdbcUsername, jdbcPassword, fixture, materialized, claimAttempts,
-			currentGitSha(), () -> {});
+			currentGitSha(), null, () -> {});
 	}
 
 	static ProcessOrchestration runMatcherProcesses(
@@ -266,7 +267,20 @@ public final class MatchCandidateClaimBaselineSupport {
 		int claimAttempts,
 		String measuredGitSha) throws Exception {
 		return runMatcherProcesses(jdbcUrl, jdbcUsername, jdbcPassword, fixture, materialized, claimAttempts,
-			measuredGitSha, () -> {});
+			measuredGitSha, null, () -> {});
+	}
+
+	static ProcessOrchestration runMatcherProcesses(
+		String jdbcUrl,
+		String jdbcUsername,
+		String jdbcPassword,
+		CandidateFixture fixture,
+		MaterializedFixture materialized,
+		int claimAttempts,
+		String measuredGitSha,
+		String workerConnectionInitSql) throws Exception {
+		return runMatcherProcesses(jdbcUrl, jdbcUsername, jdbcPassword, fixture, materialized, claimAttempts,
+			measuredGitSha, workerConnectionInitSql, () -> {});
 	}
 
 	private static ProcessOrchestration runMatcherProcesses(
@@ -277,6 +291,7 @@ public final class MatchCandidateClaimBaselineSupport {
 		MaterializedFixture materialized,
 		int claimAttempts,
 		String measuredGitSha,
+		String workerConnectionInitSql,
 		Runnable barrierReleased) throws Exception {
 		verifyWorkerInput(fixture, materialized, fixture.fixtureInputSha256());
 		if (!isGitSha(measuredGitSha)) {
@@ -290,7 +305,7 @@ public final class MatchCandidateClaimBaselineSupport {
 			barrier.setSoTimeout(PROCESS_TIMEOUT_SECONDS * 1_000);
 			for (int index = 0; index < MATCHER_COUNT; index++) {
 				workers.add(startWorker(jdbcUrl, jdbcUsername, jdbcPassword, barrier.getLocalPort(), fixture,
-					measuredGitSha, configurationSha, claimAttempts));
+					measuredGitSha, configurationSha, claimAttempts, workerConnectionInitSql));
 			}
 			List<BarrierClient> clients = new ArrayList<>();
 			Map<BarrierClient, Long> matcherPidsByClient = new HashMap<>();
@@ -368,6 +383,18 @@ public final class MatchCandidateClaimBaselineSupport {
 		CandidateFixture fixture,
 		MaterializedFixture materialized,
 		String measuredGitSha) throws Exception {
+		return runSingleMatcherProcess(jdbcUrl, jdbcUsername, jdbcPassword, fixture, materialized,
+			measuredGitSha, null);
+	}
+
+	static WorkerEntryExecution runSingleMatcherProcess(
+		String jdbcUrl,
+		String jdbcUsername,
+		String jdbcPassword,
+		CandidateFixture fixture,
+		MaterializedFixture materialized,
+		String measuredGitSha,
+		String workerConnectionInitSql) throws Exception {
 		verifyWorkerInput(fixture, materialized, fixture.fixtureInputSha256());
 		if (!isGitSha(measuredGitSha)) {
 			throw new IllegalArgumentException("측정 Git SHA는 40자리 소문자 hex여야 합니다.");
@@ -377,7 +404,7 @@ public final class MatchCandidateClaimBaselineSupport {
 		try (ServerSocket barrier = new ServerSocket(0)) {
 			barrier.setSoTimeout(PROCESS_TIMEOUT_SECONDS * 1_000);
 			worker = startWorker(jdbcUrl, jdbcUsername, jdbcPassword, barrier.getLocalPort(), fixture,
-				measuredGitSha, configurationSha, 1);
+				measuredGitSha, configurationSha, 1, workerConnectionInitSql);
 			BarrierClient client;
 			try {
 				client = awaitConnected(barrier);
@@ -449,6 +476,21 @@ public final class MatchCandidateClaimBaselineSupport {
 		FixtureReportInput fixtureReport,
 		int claimAttempts,
 		String measuredGitSha) throws Exception {
+		return collectSmallRound(jdbcUrl, jdbcUsername, jdbcPassword, jdbcTemplate, fixture, materialized,
+			fixtureReport, claimAttempts, measuredGitSha, null);
+	}
+
+	static SmallRoundReport collectSmallRound(
+		String jdbcUrl,
+		String jdbcUsername,
+		String jdbcPassword,
+		JdbcTemplate jdbcTemplate,
+		CandidateFixture fixture,
+		MaterializedFixture materialized,
+		FixtureReportInput fixtureReport,
+		int claimAttempts,
+		String measuredGitSha,
+		String workerConnectionInitSql) throws Exception {
 		jdbcTemplate.execute("create extension if not exists pg_stat_statements");
 		jdbcTemplate.execute("select pg_stat_statements_reset()");
 		LockSampler lockSampler = new LockSampler(jdbcTemplate);
@@ -456,7 +498,7 @@ public final class MatchCandidateClaimBaselineSupport {
 		try {
 			orchestration = runMatcherProcesses(
 				jdbcUrl, jdbcUsername, jdbcPassword, fixture, materialized, claimAttempts, measuredGitSha,
-				lockSampler::start);
+				workerConnectionInitSql, lockSampler::start);
 		} finally {
 			lockSampler.stop();
 		}
@@ -613,11 +655,25 @@ public final class MatchCandidateClaimBaselineSupport {
 		String gitSha,
 		String configurationSha,
 		int claimAttempts) throws IOException {
+		return startWorker(jdbcUrl, jdbcUsername, jdbcPassword, barrierPort, fixture, gitSha, configurationSha,
+			claimAttempts, null);
+	}
+
+	private static WorkerProcess startWorker(
+		String jdbcUrl,
+		String jdbcUsername,
+		String jdbcPassword,
+		int barrierPort,
+		CandidateFixture fixture,
+		String gitSha,
+		String configurationSha,
+		int claimAttempts,
+		String workerConnectionInitSql) throws IOException {
 		String javaExecutable = System.getProperty("java.home") + System.getProperty("file.separator") + "bin"
 			+ System.getProperty("file.separator") + "java";
 		return startWorker(
 			jdbcUrl, jdbcUsername, jdbcPassword, barrierPort, fixture, gitSha, configurationSha, claimAttempts,
-			javaExecutable, "issue775-matcher-");
+			javaExecutable, "issue775-matcher-", workerConnectionInitSql);
 	}
 
 	static WorkerProcess startWorker(
@@ -631,7 +687,23 @@ public final class MatchCandidateClaimBaselineSupport {
 		int claimAttempts,
 		String javaExecutable,
 		String temporaryFilePrefix) throws IOException {
-		List<String> arguments = List.of(
+		return startWorker(jdbcUrl, jdbcUsername, jdbcPassword, barrierPort, fixture, gitSha, configurationSha,
+			claimAttempts, javaExecutable, temporaryFilePrefix, null);
+	}
+
+	static WorkerProcess startWorker(
+		String jdbcUrl,
+		String jdbcUsername,
+		String jdbcPassword,
+		int barrierPort,
+		CandidateFixture fixture,
+		String gitSha,
+		String configurationSha,
+		int claimAttempts,
+		String javaExecutable,
+		String temporaryFilePrefix,
+		String workerConnectionInitSql) throws IOException {
+		List<String> arguments = new ArrayList<>(List.of(
 			"-cp",
 			workerClasspath(),
 			MatchCandidateClaimBaselineSupport.class.getName(),
@@ -642,7 +714,11 @@ public final class MatchCandidateClaimBaselineSupport {
 			"--fixture-sha", fixture.fixtureInputSha256(),
 			"--git-sha", gitSha,
 			"--configuration-sha", configurationSha,
-			"--claim-attempts", String.valueOf(claimAttempts));
+			"--claim-attempts", String.valueOf(claimAttempts)));
+		if (workerConnectionInitSql != null && !workerConnectionInitSql.isBlank()) {
+			arguments.add(WORKER_CONNECTION_INIT_SQL_ARGUMENT);
+			arguments.add(workerConnectionInitSql);
+		}
 		Path argumentFile = null;
 		Path outputFile = null;
 		try {
@@ -856,6 +932,7 @@ public final class MatchCandidateClaimBaselineSupport {
 		String expectedGitSha = required(values, "--git-sha");
 		String fixtureSha = required(values, "--fixture-sha");
 		String configurationSha = required(values, "--configuration-sha");
+		String workerConnectionInitSql = values.get(WORKER_CONNECTION_INIT_SQL_ARGUMENT);
 		if (!workerGitSha().equals(expectedGitSha)) {
 			throw new IllegalArgumentException("worker Git SHA가 부모 실행과 다릅니다.");
 		}
@@ -866,28 +943,35 @@ public final class MatchCandidateClaimBaselineSupport {
 				new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))) {
 			writer.write("CONNECTED\n");
 			writer.flush();
-			verifyWorkerDatabaseConnection(required(values, "--jdbc-url"), required(values, "--jdbc-username"));
+			verifyWorkerDatabaseConnection(
+				required(values, "--jdbc-url"), required(values, "--jdbc-username"), workerConnectionInitSql);
 			List<String> durations = new ArrayList<>();
+			Map<String, Object> applicationProperties = new LinkedHashMap<>();
+			applicationProperties.put("spring.datasource.url", required(values, "--jdbc-url"));
+			applicationProperties.put("spring.datasource.username", required(values, "--jdbc-username"));
+			applicationProperties.put("spring.datasource.password", "${ISSUE775_JDBC_PASSWORD}");
+			applicationProperties.put("spring.jpa.hibernate.ddl-auto", "none");
+			applicationProperties.put("spring.flyway.enabled", "false");
+			applicationProperties.put("spring.task.scheduling.enabled", "false");
+			applicationProperties.put("app.notification.relay.enabled", "false");
+			applicationProperties.put("app.chat.retention.enabled", "false");
+			List<String> applicationArguments = new ArrayList<>(List.of(
+				"--server.port=0",
+				"--spring.datasource.url=" + required(values, "--jdbc-url"),
+				"--spring.datasource.username=" + required(values, "--jdbc-username"),
+				"--spring.datasource.password=${ISSUE775_JDBC_PASSWORD}",
+				"--spring.jpa.hibernate.ddl-auto=none",
+				"--spring.task.scheduling.enabled=false",
+				"--app.notification.relay.enabled=false",
+				"--app.chat.retention.enabled=false"));
+			if (workerConnectionInitSql != null && !workerConnectionInitSql.isBlank()) {
+				applicationProperties.put("spring.datasource.hikari.connection-init-sql", workerConnectionInitSql);
+				applicationArguments.add("--spring.datasource.hikari.connection-init-sql=" + workerConnectionInitSql);
+			}
 			try (ConfigurableApplicationContext context = new SpringApplicationBuilder(AlbamMateApplication.class)
 				.web(WebApplicationType.SERVLET)
-				.properties(Map.of(
-					"spring.datasource.url", required(values, "--jdbc-url"),
-					"spring.datasource.username", required(values, "--jdbc-username"),
-					"spring.datasource.password", "${ISSUE775_JDBC_PASSWORD}",
-					"spring.jpa.hibernate.ddl-auto", "none",
-					"spring.flyway.enabled", "false",
-					"spring.task.scheduling.enabled", "false",
-					"app.notification.relay.enabled", "false",
-					"app.chat.retention.enabled", "false"))
-				.run(
-					"--server.port=0",
-					"--spring.datasource.url=" + required(values, "--jdbc-url"),
-					"--spring.datasource.username=" + required(values, "--jdbc-username"),
-					"--spring.datasource.password=${ISSUE775_JDBC_PASSWORD}",
-					"--spring.jpa.hibernate.ddl-auto=none",
-					"--spring.task.scheduling.enabled=false",
-					"--app.notification.relay.enabled=false",
-					"--app.chat.retention.enabled=false")) {
+				.properties(applicationProperties)
+				.run(applicationArguments.toArray(String[]::new))) {
 				MatchProposalCoordinator coordinator = context.getBean(MatchProposalCoordinator.class);
 				writer.write("READY|" + ProcessHandle.current().pid() + "|" + fixtureSha + "|" + expectedGitSha
 					+ "|" + configurationSha + "\n");
@@ -912,12 +996,21 @@ public final class MatchCandidateClaimBaselineSupport {
 	}
 
 	private static void verifyWorkerDatabaseConnection(String jdbcUrl, String jdbcUsername) throws SQLException {
+		verifyWorkerDatabaseConnection(jdbcUrl, jdbcUsername, null);
+	}
+
+	private static void verifyWorkerDatabaseConnection(
+		String jdbcUrl, String jdbcUsername, String workerConnectionInitSql) throws SQLException {
 		try (Connection connection = DriverManager.getConnection(
 			jdbcUrl, jdbcUsername, System.getenv("ISSUE775_JDBC_PASSWORD"));
-			var statement = connection.createStatement();
-			var resultSet = statement.executeQuery("select 1")) {
-			if (!resultSet.next() || resultSet.getInt(1) != 1) {
-				throw new SQLException("worker PostgreSQL 연결 확인 query가 실패했습니다.");
+			var statement = connection.createStatement()) {
+			if (workerConnectionInitSql != null && !workerConnectionInitSql.isBlank()) {
+				statement.execute(workerConnectionInitSql);
+			}
+			try (var resultSet = statement.executeQuery("select 1")) {
+				if (!resultSet.next() || resultSet.getInt(1) != 1) {
+					throw new SQLException("worker PostgreSQL 연결 확인 query가 실패했습니다.");
+				}
 			}
 		}
 	}

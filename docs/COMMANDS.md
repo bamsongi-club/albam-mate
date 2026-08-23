@@ -95,12 +95,24 @@ measurement target에 연결한다. baseline 부하를 시작하기 전에 혼�
 `accountAlias`, `databaseRole`, `runner`, `ephemeral`, `releaseSha` allowlist 안의 scalar만 사용한
 비밀값 없는 전용 임시 환경 기록이어야 한다.
 
+실행 전에 provisioner는 `match01_control.match01_external_target_metadata`에 해당 target의
+database·role·user, 실제 `inet_server_addr()`·`inet_server_port()`와 동일한 JDBC endpoint, stack ID,
+runner ID, `ephemeral`, release SHA를 기록해야 한다. JDBC URL은 DNS alias·failover/load-balancing
+endpoint가 아니라 metadata의 실제 server address와 port를 직접 사용해야 한다. schema와 table은
+login 불가 provisioner role이 소유하고, runner role에는 `USAGE`와 `SELECT`만 부여한다. runner는 이
+metadata가 없거나 owner가 login 가능하거나 `INSERT`·`UPDATE`·`DELETE`·`TRUNCATE` 권한이 있으면
+측정 table을 변경하지 않고 중단한다. Java runner는 preflight에 성공한 단일 물리 connection을
+`JdbcTemplate`의 측정·mutation 전체에서 재사용하고, 독립 matcher worker에도 같은 trusted-target
+connection-init 검증을 전달한다. worker pool이 새 물리 connection을 만들 때마다 identity·metadata·권한을
+다시 확인하며, Node report는 `--external` mode로 실행되어 외부 provenance·mixed-range smoke·raw digest를
+필수로 판정한다.
+
 ```powershell
 $env:ISSUE775_JDBC_PASSWORD = '<비밀번호>'
 .\gradlew.bat matchCandidateExternalMeasurement `
   -Dissue775.measurement=true `
   -Dmatch01.external.allow-mutation=true `
-  -Dmatch01.external.jdbc-url='jdbc:postgresql://<host>:5432/<database>' `
+  -Dmatch01.external.jdbc-url='jdbc:postgresql://<server-address>:5432/<database>' `
   -Dmatch01.external.jdbc-username='<username>' `
   -Dmatch01.external.measured-git-sha='<40자 SHA>' `
   -Dmatch01.external.output='build/reports/measurements/match01-t10-external-input.json' `
