@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { FilterIcon } from './ui';
+import { CloseIcon, FilterIcon } from './ui';
 import { useSheetDragClose } from './sheetDrag';
 
 // 한 값만 고르는 조건은 라디오로 그린다. 값이 빈 문자열인 선택지가 조건 없음이다.
@@ -169,11 +169,13 @@ export function FilterPanel({ title = '필터', chips = [], quickSlot, onReset, 
               {/* 바깥 영역을 눌러야 닫힌다는 것을 바로 알아차리지 못하므로 닫는 방법을 머리글에 드러낸다. */}
               <div className="sheet-head-actions">
                 <button type="button" className="sheet-reset" onClick={onReset}>초기화</button>
-                <button type="button" className="sheet-reset" aria-label={title + ' 닫기'} onClick={() => setIsOpen(false)}>닫기</button>
+                <button type="button" className="sheet-close" aria-label={title + ' 닫기'} onClick={() => setIsOpen(false)}><CloseIcon size={17} /></button>
               </div>
             </div>
             <div className="filter-groups">{children}</div>
-            <button type="button" className="btn cta sheet-cta" onClick={() => setIsOpen(false)}>{ctaLabel || '결과 보기'}</button>
+            <div className="sheet-footer">
+              <button type="button" className="btn cta sheet-cta" onClick={() => setIsOpen(false)}>{ctaLabel || '결과 보기'}</button>
+            </div>
           </section>
         </div>
       )}

@@ -350,7 +350,7 @@ function ThemeFilterGroup({ options, selected, onToggle, match, onMatchChange })
   );
 }
 
-export function GameFilters({ filters, onChange, quickSlot }) {
+export function GameFilters({ filters, onChange, quickSlot, resultCount }) {
   const mechanismOptions = useGameMechanisms();
   const categoryOptions = useGameOptions(api.getGameCategories);
   const themeOptions = useGameOptions(api.getGameThemes);
@@ -388,7 +388,7 @@ export function GameFilters({ filters, onChange, quickSlot }) {
       chips={gameFilterChips(filters, onChange, mechanismOptions, categoryOptions, themeOptions)}
       onReset={() => onChange(EMPTY_GAME_FILTERS)}
       quickSlot={quickSlot}
-      ctaLabel="게임 보기"
+      ctaLabel={Number.isFinite(resultCount) ? resultCount + '개 게임 보기' : '게임 보기'}
     >
       {/* 해 본 게임 조건은 칩 줄에서 고른다. 시트에서 같은 조건을 두 번 묻지 않는다. */}
       <FilterCheckGroup label="모임" checked={filters.upcomingOnly} onChange={(upcomingOnly) => update({ upcomingOnly })} text="예정 모임 있는 게임만" />

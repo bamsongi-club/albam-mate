@@ -14,28 +14,30 @@ export function BrandMark({ size = 32, tone = '#0A0A0A', hole = '#fff' }) {
   );
 }
 
-function Stroke({ size = 21, width = 2, children, fill = 'none' }) {
+// 아이콘은 Lucide 한 벌로 통일한다. 굵기 1.85, 크기는 20/22/24만 쓴다.
+function Stroke({ size = 21, width = 1.85, children, fill = 'none' }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke="currentColor" strokeWidth={width} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{children}</svg>
   );
 }
 
-export const BellIcon = ({ size }) => <Stroke size={size} width={1.8}><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0" /></Stroke>;
-export const ChatIcon = ({ size }) => <Stroke size={size} width={1.8}><path d="M21 12a8 8 0 0 1-11.5 7.2L4 21l1.8-5A8 8 0 1 1 21 12z" /></Stroke>;
-export const BackIcon = ({ size }) => <Stroke size={size}><path d="m14 6-6 6 6 6" /></Stroke>;
-export const CloseIcon = ({ size }) => <Stroke size={size}><path d="M18 6 6 18M6 6l12 12" /></Stroke>;
-export const ArrowIcon = ({ size = 17 }) => <Stroke size={size} width={2.2}><path d="m10 6 6 6-6 6" /></Stroke>;
-export const SearchIcon = ({ size = 18 }) => <Stroke size={size}><circle cx="11" cy="11" r="7" /><path d="m20 20-3.6-3.6" /></Stroke>;
-export const PlusIcon = ({ size = 16 }) => <Stroke size={size} width={2.6}><path d="M12 5v14M5 12h14" /></Stroke>;
+export const BellIcon = ({ size }) => <Stroke size={size}><path d="M10.268 21a2 2 0 0 0 3.464 0" /><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326" /></Stroke>;
+export const ChatIcon = ({ size }) => <Stroke size={size}><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" /></Stroke>;
+export const BackIcon = ({ size }) => <Stroke size={size}><path d="m15 18-6-6 6-6" /></Stroke>;
+export const CloseIcon = ({ size }) => <Stroke size={size} width={2}><path d="M18 6 6 18M6 6l12 12" /></Stroke>;
+export const ArrowIcon = ({ size = 17 }) => <Stroke size={size} width={2}><path d="m9 18 6-6-6-6" /></Stroke>;
+export const SearchIcon = ({ size = 18 }) => <Stroke size={size}><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></Stroke>;
+export const PlusIcon = ({ size = 16 }) => <Stroke size={size} width={2.4}><path d="M12 5v14M5 12h14" /></Stroke>;
 export const CheckIcon = ({ size = 12, width = 3.4 }) => <Stroke size={size} width={width}><path d="M20 6 9 17l-5-5" /></Stroke>;
-export const FilterIcon = ({ size = 14 }) => <Stroke size={size} width={2.2}><path d="M3 6h18M7 12h10M11 18h2" /></Stroke>;
-export const InfoIcon = ({ size = 19 }) => <Stroke size={size}><circle cx="12" cy="12" r="9" /><path d="M12 16v-4M12 8h.01" /></Stroke>;
-export const SendIcon = ({ size = 19 }) => <Stroke size={size} width={2.2}><path d="M4 12 20 4l-7 16-2-7z" /></Stroke>;
-export const CameraIcon = ({ size = 12 }) => <Stroke size={size} width={2.2}><path d="M4 8.5h3l1.4-2h7.2L17 8.5h3v10H4zM12 16a3.2 3.2 0 1 1 0-6.4 3.2 3.2 0 0 1 0 6.4" /></Stroke>;
-export const EyeIcon = ({ size = 18 }) => <Stroke size={size}><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" /><circle cx="12" cy="12" r="3" /></Stroke>;
-export const MatchIcon = ({ size = 21 }) => <Stroke size={size} width={1.9}><path d="M4 6h16v10H4zM9 20h6M12 16v4" /></Stroke>;
-export const EditIcon = ({ size = 19 }) => <Stroke size={size} width={1.9}><path d="M17 3a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z" /></Stroke>;
-export const EyeOffIcon = ({ size = 18 }) => <Stroke size={size}><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a18.6 18.6 0 0 1 4.22-5.06M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 7 11 7a18.6 18.6 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><path d="M1 1l22 22" /></Stroke>;
+export const FilterIcon = ({ size = 14 }) => <Stroke size={size} width={2}><path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4" /></Stroke>;
+export const InfoIcon = ({ size = 19 }) => <Stroke size={size}><circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" /></Stroke>;
+export const SendIcon = ({ size = 19 }) => <Stroke size={size} width={2}><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z" /><path d="m21.854 2.147-10.94 10.939" /></Stroke>;
+export const CameraIcon = ({ size = 12 }) => <Stroke size={size} width={2}><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" /><circle cx="12" cy="13" r="3" /></Stroke>;
+export const EyeIcon = ({ size = 18 }) => <Stroke size={size}><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" /><circle cx="12" cy="12" r="3" /></Stroke>;
+export const MatchIcon = ({ size = 21 }) => <Stroke size={size}><rect x="2" y="10" width="12" height="12" rx="2" /><path d="m17.92 14 3.5-3.5a2.24 2.24 0 0 0 0-3l-5-4.92a2.24 2.24 0 0 0-3 0L10 6M6 18h.01M10 14h.01M15 6h.01M18 9h.01" /></Stroke>;
+export const EditIcon = ({ size = 19 }) => <Stroke size={size}><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" /><path d="m15 5 4 4" /></Stroke>;
+export const EyeOffIcon = ({ size = 18 }) => <Stroke size={size}><path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49" /><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242" /><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143" /><path d="m2 2 20 20" /></Stroke>;
+export const MailIcon = ({ size = 19 }) => <Stroke size={size} width={1.9}><rect x="2" y="4" width="20" height="16" rx="2" /><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" /></Stroke>;
 
 /** 뒤로가기 바. 아이콘 옆에 title을 두면 같은 줄에서 제목을 보여준다. 오른쪽 보조 조작은 action으로 넘긴다. */
 export function TopBar({ onBack, backLabel = '뒤로 가기', title, action }) {

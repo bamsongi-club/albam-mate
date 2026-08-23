@@ -2,6 +2,7 @@ import React from 'react';
 import { api } from '../api';
 import { normalizeGameSummary, normalizeRoom } from '../game';
 import { useRequest } from '../shared/async';
+import defaultGameCover from '../../assets/default-game-cover.jpg';
 import { ArrowIcon, ChatIcon, Cover, ErrorBox, Meeples, MatchIcon, RankSkeletons, RoomSkeletons, SeatCount } from '../shared/ui';
 
 const HOME_LIST_SIZE = 3;
@@ -54,6 +55,14 @@ export function nextUpcomingRoom(rooms, now = Date.now()) {
 
 function seatsOf(room) {
   return { filled: room.participantCount, total: room.recruitmentCapacity + 1 };
+}
+
+function countdownLabel(startsAt, now = Date.now()) {
+  const diffMs = Date.parse(startsAt) - now;
+  if (!Number.isFinite(diffMs) || diffMs <= 0) return '';
+  const minutes = Math.round(diffMs / 60000);
+  if (minutes < 60) return ' · ' + Math.max(1, minutes) + '분 뒤';
+  return ' · ' + Math.round(minutes / 60) + '시간 뒤';
 }
 
 /**
@@ -144,22 +153,20 @@ function NextRoomCard({ dataVersion, open }) {
   if (loading && !data) return <section className="home-next" aria-label="다음 내 모임"><p className="section-label">내 모임을 확인하고 있어요.</p></section>;
   if (!nextRoom) return <EmptyHero open={open} me />;
 
-  const seats = seatsOf(nextRoom);
   return (
-    <section className="home-next" aria-label="다음 내 모임">
-      <div className="home-next-lead">
-        <span>다음 내 모임</span>
-        <a className="section-link" href="#/my">내 모임 전체</a>
-      </div>
-      <a className="home-next-title" href={'#/session/' + nextRoom.id}>{nextRoom.title}</a>
-      <p className="home-next-meta">{formatUpcomingStartsAt(nextRoom.startsAt)} · {nextRoom.place || nextRoom.region || '장소 미정'}</p>
-      <div className="home-next-seats">
-        <Meeples filled={seats.filled} total={seats.total} size="md" />
-        <SeatCount filled={seats.filled} total={seats.total} size="lg" />
-      </div>
-      <div className="btn-row">
-        <a className="btn" href={'#/session/' + nextRoom.id}>상세 보기</a>
-        <a className="btn-square" href={'#/chat/' + nextRoom.id} aria-label="모임 채팅"><ChatIcon size={20} /></a>
+    <section className="home-next" aria-label="다음 내 모임" style={{ backgroundImage: 'url(' + (nextRoom.game?.imageUrl || defaultGameCover) + ')' }}>
+      <div className="home-next-scrim" />
+      <div className="home-next-body">
+        <div className="home-next-lead">
+          <span>다음 내 모임{countdownLabel(nextRoom.startsAt)}</span>
+          <a className="section-link" href="#/my">내 모임 전체</a>
+        </div>
+        <a className="home-next-title" href={'#/session/' + nextRoom.id}>{nextRoom.title}</a>
+        <p className="home-next-meta">{formatUpcomingStartsAt(nextRoom.startsAt)} · {nextRoom.place || nextRoom.region || '장소 미정'}</p>
+        <div className="btn-row">
+          <a className="btn" href={'#/session/' + nextRoom.id}>상세 보기</a>
+          <a className="btn-square" href={'#/chat/' + nextRoom.id} aria-label="모임 채팅"><ChatIcon size={20} /></a>
+        </div>
       </div>
     </section>
   );

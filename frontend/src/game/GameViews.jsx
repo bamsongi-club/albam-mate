@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../api';
 import poweredByBgg from '../../assets/powered-by-bgg.svg';
-import { BggAttribution, CheckIcon, Cover, ErrorBox, PlusIcon, Pagination, RoomSkeletons, ScreenTitle, SearchIcon, StateBlock, TopBar } from '../shared/ui';
+import { ArrowIcon, BackIcon, BggAttribution, CheckIcon, Cover, ErrorBox, PlusIcon, Pagination, RoomSkeletons, ScreenTitle, SearchIcon, StateBlock, TopBar } from '../shared/ui';
 import { usePaginatedRequest, useRequest } from '../shared/async';
 import { GAME_LIST_PAGE_SIZE, ROOM_LIST_PAGE_SIZE, EMPTY_GAME_FILTERS, PLAYED_FILTER_OPTIONS, DEFAULT_GAME_COVER_URL } from './constants';
 import { gameFilterParameters } from './filterLogic';
@@ -71,9 +71,9 @@ function GameSlicePagination({ page, hasNext, loading, onChange }) {
   if (page <= 0 && !hasNext) return null;
   return (
     <nav className="pagination" aria-label="페이지 이동">
-      <button className="page-btn" type="button" disabled={loading || page <= 0} onClick={() => onChange(page - 1)} aria-label="이전 페이지">이전</button>
-      <span className="page-btn on" aria-current="page">{page + 1}페이지</span>
-      <button className="page-btn" type="button" disabled={loading || !hasNext} onClick={() => onChange(page + 1)} aria-label="다음 페이지">다음</button>
+      <button className="page-btn round" type="button" disabled={loading || page <= 0} onClick={() => onChange(page - 1)} aria-label="이전 페이지"><BackIcon size={18} /></button>
+      <span className="page-btn on" aria-current="page">{page + 1}</span>
+      <button className="page-btn round" type="button" disabled={loading || !hasNext} onClick={() => onChange(page + 1)} aria-label="다음 페이지"><ArrowIcon size={18} /></button>
     </nav>
   );
 }
