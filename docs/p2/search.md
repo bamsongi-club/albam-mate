@@ -10,7 +10,7 @@
 - 이 문서가 소유하지 않는 API·ERD·아키텍처·기술 결정: HTTP 경로·요청/응답 타입, 테이블·컬럼·제약, 모듈 의존과 트랜잭션 구조, embedding 모델·vector 저장소·검색 엔진 선택. Cloudflare managed BGE-M3 direct REST·pgvector·fallback 경계는 [ADR-0087](../adr/game/0087-search-04-cloudflare-managed-bge-m3-serving.md)가 소유하며, 각 내용은 해당 정본과 승인 ADR이 소유한다.
 - 연결할 P1 종료 계약과 P2 공통 규칙: [P1 검색 종료 명세](../archive/p1/search.md)의 `SEARCH-01`~`SEARCH-03`, [P1 검색 성능·인덱스 가이드](../guides/P1_SEARCH_PERFORMANCE.md)의 측정 경계, [P1 기능 종료 상태](../archive/p1/README.md#기능별-종료-상태), 현재 [P2 공통 명세](../P2-spec.md)와 [P2 기능 상태](README.md#기능별-현재-상태).
 
-현재 `GET /api/games?keyword=...`의 이름 부분일치 의미와 RANK-02의 `popularity_score DESC, name ASC, id ASC` 기본 정렬은 P1·3차 MVP 계약으로 유지한다. `SEARCH-04`는 기존 요청을 조용히 의미 검색으로 바꾸지 않고 별도 검색 계약으로 추가한다. 이 문서의 기능 ID·경로·현재 상태는 [P2 기능 상태](README.md#기능별-현재-상태)와 [P2 공통 명세](../P2-spec.md)에 함께 등록한다. 문서 작성은 계약 준비·구현·검증 완료를 뜻하지 않는다.
+현재 `GET /api/games?keyword=...`는 1·2글자 부분일치와 3글자 이상 `pg_trgm` 오타 유사 검색의 이름 검색 계약을 유지한다. 3글자 이상은 정확 일치·부분 일치 우선 뒤 유사도, `name`, `id`로 정렬하고, 나머지 목록은 RANK-02의 `popularity_score DESC, name ASC, id ASC` 기본 정렬을 유지한다. `SEARCH-04`는 기존 요청을 조용히 의미 검색으로 바꾸지 않고 별도 검색 계약으로 추가한다. 이 문서의 기능 ID·경로·현재 상태는 [P2 기능 상태](README.md#기능별-현재-상태)와 [P2 공통 명세](../P2-spec.md)에 함께 등록한다. 문서 작성은 계약 준비·구현·검증 완료를 뜻하지 않는다.
 
 BGG 기반 검색 입력은 정책 승인된 [데이터셋의 AI·embedding 사용 범위](../game-catalog/2026-08-14-bgg-ai-embedding-approval.md)와 [ADR-0060](../adr/game/0060-approved-catalog-ai-embedding-scope.md)의 정확한 catalog release·필드·가공 allowlist를 따른다. 먼저 `catalog-dataset-release` manifest가 고정 dataset profile·field provenance·실제 artifact/SQL coverage를 통과해야 하고, 실행 manifest는 그 release의 `releaseId`·`datasetId`·manifest SHA-256을 `datasetRelease`로 참조해야 한다. `prepare-game-catalog.mjs`는 dataset-only manifest의 직접 실행을 차단한 뒤 참조 SHA/ID와 기존 `validateApprovedReleaseManifest`의 입출력 checksum·행 수·`approval.references`를 차례로 검증한다. 현재 저장소에는 실행 가능한 구체 release manifest가 등록되지 않았으므로 BGG 기반 AI·embedding 입력을 실행 승인으로 간주하지 않으며, API·ERD·아키텍처·모델 선택과 품질 검증도 완료된 것이 아니다.
 
@@ -43,7 +43,7 @@ SEARCH-04 평가 corpus의 deterministic membership, pinned snapshot/version, 1,
 ### 초안 인터페이스 경계
 
 - P2는 별도 의미 검색 read contract를 추가한다. 공개 경로는 `GET /api/games/search`이며, 실제 DTO·오류 코드는 [API](../API.md)와 필요한 ADR에서 확정한다.
-- 의미 검색 contract는 `query`, `page`, `size`와 P1에서 이미 확정한 hard filter만 받는다. 기존 `GET /api/games`의 `keyword` 동작과 응답 호환성을 변경하지 않는다.
+- 의미 검색 contract는 `query`, `page`, `size`와 P1에서 이미 확정한 hard filter만 받는다. 기존 `GET /api/games`의 `keyword` 이름 검색 계약을 의미 검색으로 바꾸거나 Slice 응답 호환성을 변경하지 않는다.
 - 결과 카드의 기본 필드는 기존 `GameListItem`을 재사용할 수 있지만, 관련도 점수·embedding·내부 검색어·구현 방식(Dense/Sparse/Lexical)을 사용자 응답에 노출하지 않는다.
 
 ### 자연어 조건 해석 규칙
@@ -68,7 +68,7 @@ SEARCH-04 평가 corpus의 deterministic membership, pinned snapshot/version, 1,
 ### 제외 범위와 재검토 조건
 
 - 이번 단계에서 하지 않는 것:
-  - 현재 `GET /api/games?keyword=...`의 검색 의미·최소 검색어 길이·기본 정렬 변경
+  - 현재 `GET /api/games?keyword=...`의 확정된 이름 검색 경계를 의미 검색으로 대체하거나, 별도 최소 검색어 길이·정렬 정책을 도입하는 변경
   - 사용자 검색 이력·ROOM 제목·참가자 정보·채팅·프롬프트 원문을 검색 문서에 포함
   - 승인 manifest의 release·필드·가공 allowlist 밖 BGG raw XML이나 원문을 embedding·LLM 입력으로 사용
   - 개인화 랭킹, 인기 검색어, 외부 점수 결합, 자동 리뷰·추천 문구 생성
@@ -99,7 +99,7 @@ SEARCH-04 평가 corpus의 deterministic membership, pinned snapshot/version, 1,
 2. `Game`의 출처가 확인된 필드로 deterministic한 `search_text`를 만들고 누락·중복·변경 감지 기준을 확인한다. 이 단계에서는 운영 migration이나 전체 backfill을 하지 않는다.
 3. 기존 구조화·이름 검색을 baseline으로 저장한 뒤 Sparse/FTS와 `pg_trgm`을 비교한다. `pg_trgm` 결과를 의미 검색 품질로 표현하지 않는다.
 4. Dense offline PoC는 모델·차원·비용·지연·재생성 부담을 비교한다. #897의 local `dense-bge-m3` selection은 historical offline evidence이며, Cloudflare managed production provider/index delivery는 [ADR-0087](../adr/game/0087-search-04-cloudflare-managed-bge-m3-serving.md)과 #942 T1~T5의 별도 승인 범위다. 둘 다 Final Quality Evaluation·general production 품질 승인을 뜻하지 않는다.
-5. Dense가 채택되면 별도 semantic mode/endpoint로 최소 구현하고, 명시 조건은 hard filter와 Sparse로 계속 보호한다. 기존 P1 목록 API의 정렬 의미는 바꾸지 않는다.
+5. Dense가 채택되면 별도 semantic mode/endpoint로 최소 구현하고, 명시 조건은 hard filter와 Sparse로 계속 보호한다. 기존 P1 목록 API의 확정된 이름 검색·정렬 계약은 바꾸지 않는다.
 6. Dense·Sparse 후보를 결합할 때 RRF는 순위 결합으로만 사용하며 hard filter를 대체하지 않는다. reranker는 상위 후보의 품질 개선 근거가 있을 때만 후속 검토한다.
 7. 운영 반영·API·ADR·Issue 갱신은 대표 질의와 확장 fixture에서 baseline 대비 개선이 재현된 뒤 진행한다. 그 다음 단계에서만 대화형 게임 탐색 도우미를 연결한다.
 

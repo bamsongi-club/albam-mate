@@ -36,6 +36,7 @@ import org.springframework.data.domain.SliceImpl;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor.SpecificationFluentQuery;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import cloud.bamsongi.albammate.game.contract.UpcomingRoomCountQuery;
@@ -74,6 +75,9 @@ class GameQueryServiceListTest {
 	@Mock
 	private GameThemeRepository gameThemeRepository;
 
+	@Mock
+	private JdbcTemplate jdbcTemplate;
+
 	private GameQueryService gameQueryService;
 
 	@BeforeEach
@@ -83,7 +87,8 @@ class GameQueryServiceListTest {
 			Clock.fixed(NOW, ZoneOffset.UTC),
 			upcomingRoomCountQuery,
 			userPlayedGameRepository,
-			new GameFilterValidator(gameMechanismRepository, gameCategoryRepository, gameThemeRepository));
+			new GameFilterValidator(gameMechanismRepository, gameCategoryRepository, gameThemeRepository),
+			jdbcTemplate);
 	}
 
 	@Test
@@ -425,7 +430,8 @@ class GameQueryServiceListTest {
 			clock,
 			upcomingRoomCountQuery,
 			userPlayedGameRepository,
-			new GameFilterValidator(gameMechanismRepository, gameCategoryRepository, gameThemeRepository));
+			new GameFilterValidator(gameMechanismRepository, gameCategoryRepository, gameThemeRepository),
+			jdbcTemplate);
 	}
 
 	private static final class RequestStartClock extends Clock {
