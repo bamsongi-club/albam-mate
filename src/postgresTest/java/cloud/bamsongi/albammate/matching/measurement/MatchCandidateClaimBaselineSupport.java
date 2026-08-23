@@ -874,6 +874,7 @@ public final class MatchCandidateClaimBaselineSupport {
 					"spring.datasource.url", required(values, "--jdbc-url"),
 					"spring.datasource.username", required(values, "--jdbc-username"),
 					"spring.datasource.password", "${ISSUE775_JDBC_PASSWORD}",
+					"spring.jpa.hibernate.ddl-auto", "none",
 					"spring.flyway.enabled", "false",
 					"spring.task.scheduling.enabled", "false",
 					"app.notification.relay.enabled", "false",
@@ -883,6 +884,7 @@ public final class MatchCandidateClaimBaselineSupport {
 					"--spring.datasource.url=" + required(values, "--jdbc-url"),
 					"--spring.datasource.username=" + required(values, "--jdbc-username"),
 					"--spring.datasource.password=${ISSUE775_JDBC_PASSWORD}",
+					"--spring.jpa.hibernate.ddl-auto=none",
 					"--spring.task.scheduling.enabled=false",
 					"--app.notification.relay.enabled=false",
 					"--app.chat.retention.enabled=false")) {
