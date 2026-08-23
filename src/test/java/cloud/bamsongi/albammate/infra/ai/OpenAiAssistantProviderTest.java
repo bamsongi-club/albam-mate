@@ -42,7 +42,9 @@ class OpenAiAssistantProviderTest {
 		assertEquals(1, options.getToolCallbacks().size());
 		assertEquals("propose_game_room_intent",
 			options.getToolCallbacks().getFirst().getToolDefinition().name());
-		assertTrue(options.getToolCallbacks().getFirst().getToolDefinition().inputSchema().contains("gameStyles"));
+		String inputSchema = options.getToolCallbacks().getFirst().getToolDefinition().inputSchema();
+		assertTrue(inputSchema.contains("gameStyles"));
+		assertFalse(inputSchema.contains("uniqueItems"));
 		assertTrue(String.valueOf(options.getToolChoice()).contains("propose_game_room_intent"));
 		assertTrue(prompt.getInstructions().getFirst() instanceof SystemMessage);
 		assertTrue(prompt.getSystemMessage().getText().contains("exactly once"));
