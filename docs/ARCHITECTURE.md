@@ -133,12 +133,28 @@ AI-01~AI-03 협력 계약은 책임을 소유한 모듈의 `contract`에 둔다.
 |---|---|---|---|
 | `AssistantIntentExtractor` (AI-02) | `assistant.contract` | `assistant`의 추천 Service가 호출하고 `infra.ai`가 구현 | 현재 한 번의 사용자 문장과 서버가 허용한 schema만 provider에 전달해 `AssistantConditionSummary` 후보를 반환한다. 게임 조회·Room 쓰기·tool loop·원문 저장은 하지 않는다. 기본 구현은 deterministic fake provider다. |
 | `AssistantGameCandidateQuery` (AI-02) | `game.contract` | `assistant`가 호출하고 `game`이 구현 | provider 기반 일반 추천의 카테고리·메커니즘·테마 배열은 각각 목록 안 `ANY`로 고정 결합하고, 이 셋과 난이도 상한·플레이 시간 상한·이미 확인된 총 인원·게임 선택은 서로 `AND`로 적용하며 내부 `RANK-01` 순서로 후보를 반환한다. 정렬 뒤 상위 10건만 반환하고 동점은 게임 ID 오름차순으로 끊으며 pagination은 제공하지 않는다. `assistant`는 game repository·catalog를 직접 읽지 않는다. |
-| `AssistantExactGameNameQuery` (AI-02, ADR-0085) | `game.contract` | `assistant`가 호출하고 `game`이 구현 | 단독 입력과 `Game.name`을 NFKC·trim·연속 공백 축약·`Locale.ROOT` 대소문자 정규화 뒤 비교해 유일한 정식명만 `AssistantRecommendationCandidate`로 반환한다. `game`은 id·name projection으로 유일성을 먼저 판정한 뒤 그 ID의 후보 상세를 조회한다. 부분 일치·별칭·영문명·BGG ID·문장부호 제거·기본판/확장판 자동 통합은 하지 않으며 0건·복수건은 미매치다. `assistant`는 game repository·catalog를 직접 읽지 않는다. |
+| `AssistantExactGameNameQuery` (AI-02, ADR-0085) | `game.contract` | `assistant`가 호출하고 `game`이 구현 | 요청 문장과 `Game.name`을 NFKC·trim·연속 공백 축약·`Locale.ROOT` 대소문자 정규화한 뒤 공백 경계로 완전히 일치하는 유일한 정식명을 `AssistantRecommendationCandidate`로 반환한다. `카탄 모임 만들어줘`처럼 문장 안에 게임명이 있어도 연결하며, `game`은 id·name projection으로 언급된 게임 ID의 유일성을 먼저 판정한 뒤 그 ID의 후보 상세를 조회한다. 부분 이름·별칭·영문명·BGG ID·문장부호 제거·기본판/확장판 자동 통합은 하지 않으며 게임명이 없거나 서로 다른 게임이 복수면 미매치다. `assistant`는 game repository·catalog를 직접 읽지 않는다. |
 | `AssistantRoomCreationCommand` (AI-03) | `room.contract` | `assistant`의 Confirm Executor가 호출하고 `room`이 구현 | 현재 인증 사용자 컨텍스트와 초안 입력을 받아 기존 Room 생성 불변식과 `RoomCreated → ChatRoom` 원자성을 적용하고 `roomId`·`chatRoomId` 생성 결과를 반환한다. 사용자 ID를 요청 body에서 받지 않는다. |
 
 `AssistantRoomCreationCommand`는 `room`이 `chat` Entity·Repository를 직접 참조해 `chatRoomId`를 얻는 구조가 아니다. 확인형 command는 `room.contract`가 정의한 동기 `RoomCreated` handoff를 같은 트랜잭션에서 발행하고, `chat`의 listener가 `CHAT_ROOMS`를 저장한 뒤 생성된 ID를 handoff에 채운다. listener가 결과를 채우기 전에 실패하거나 ID가 없으면 command도 실패하고 Room·ChatRoom·초안 결과를 함께 롤백한다. 따라서 컴파일 의존은 `assistant → room.contract`와 `chat → room.contract`로 유지되며 `room → chat` 직접 의존은 생기지 않는다.
 
 `AssistantIntentExtractor`는 버전이 지정된 `propose_game_room_intent` schema만 사용한다. `assistant`는 provider가 반환한 game ID·조건을 신뢰하지 않고 구조화 검증 뒤 `AssistantGameCandidateQuery`로 재조회한다. 유일한 정확 게임명은 `AssistantExactGameNameQuery`로 provider 전에 처리한다. provider는 게임 후보·BGG 원문·prompt hash·Room command 권한을 받지 않는다.
+
+### 자연어 추천·UI·provider 책임 분리
+
+자연어 추천은 “문장을 provider에 넘기고 provider가 게임을 검색한다”는 단일 책임이 아니다. 사용자의 표현은 서버가 카탈로그 공식 code로 정규화하고, 후보·인기 정렬·Room 쓰기와 화면 표현은 각각 소유 모듈의 계약으로 분리한다.
+
+| 경계 | 소유 책임 | 금지된 책임 |
+|---|---|---|
+| 클라이언트 `#/assistant` | 사용자 말풍선을 요청 직후 표시, `Enter` 전송·`Shift+Enter` 줄바꿈, 후보 카드 목록·정확 게임명 확인 모달·재시도/수동 생성 안내 | provider 응답 원문 해석, 확인 전 draft·Room·ChatRoom 쓰기 |
+| `assistant` | 현재 문장과 누적 `conditions` 검증·병합, `RECOMMEND`/`CREATE_ROOM` 분기, 상태·누락 필드 반환 | `game` repository 직접 조회, 사용자 확인 없는 Room 생성 |
+| `game.contract` | 공식 카테고리·테마 code 조건, 총 인원 범위, 정확 게임명 resolver, 후보 필터와 내부 `RANK-01`·상위 10건 정렬 | provider 호출, Room·ChatRoom 상태 변경 |
+| `infra.ai` | 허용된 현재 문장·schema를 provider adapter에 전달하고 구조화 결과 반환 | 의미 기반 게임 검색, 공개 인기 순위 결정, tool loop, Room command 호출 |
+| `room.contract` | 확인된 초안에 대해서만 Room·ChatRoom 원자성·멱등성 적용 | 자연어 추천 단계의 후보 조회 |
+
+예를 들어 `전략 게임 추천해 줘`는 카탈로그의 `categories=["STRATEGY"]`, `공포 테마 추천해 줘`는 `themes=["HORROR"]`로 정규화한다. `전략 테마로 4명이서 가볍게`는 전략 공식 분류·`playerCount=4`·승인된 난이도 상한을 함께 적용하며, 조건 종류 사이에는 `AND`를 사용한다. `playerCount`는 주최자를 포함하고 `min_players <= N <= max_players`로 판정하며, 내부 `RANK-01`은 후보 정렬에만 사용한다. 이는 공개 랭킹 endpoint나 provider의 게임 검색 tool을 호출하는 의미 기반 검색으로 대체하지 않는다. `가볍게`의 구체 난이도 상한은 별도 정책 승인 전까지 계약값으로 확정하지 않는다.
+
+후속 문장이 새 테마·카테고리로 “다시 추천”을 요청하면 해당 조건과 이전 정확 `gameId`·후보를 교체하고, 일부 조건만 정제하면 언급하지 않은 조건을 유지한다. `conditions` 생략 또는 `새 대화`는 이전 조건을 폐기한다. 정확 게임명 후보는 클라이언트가 카드 한 건과 확인 모달로 표현하고, 모달 확인 뒤에만 `room.contract`를 호출한다. 따라서 UI의 카드·모달 동작과 provider adapter의 내부 구조화 호출은 서로 대체하거나 공개 계약으로 섞지 않는다.
 
 ### AI 기능군 처리·잠금 흐름
 

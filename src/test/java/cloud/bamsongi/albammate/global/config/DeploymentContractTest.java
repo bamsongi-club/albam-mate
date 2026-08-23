@@ -88,10 +88,11 @@ class DeploymentContractTest {
 	}
 
 	@Test
-	void T5_P2_CD는_host_local_인증_smoke_입력을_출력하지_않는다() throws IOException {
+	void T5_P2_CD는_host_local_인증_smoke를_호출하지_않는다() throws IOException {
 		String workflow = file(".github/workflows/p2-cd.yml");
-		assertTrue(workflow.contains("deployment-verification.env itself"));
-		assertFalse(workflow.contains("deployment-verification.env cat"));
+		assertTrue(workflow.contains("invoke verify-app1-candidate verify-app1"));
+		assertFalse(workflow.toLowerCase().contains("smoke"));
+		assertFalse(workflow.contains("deployment-verification.env"));
 		assertFalse(workflow.toLowerCase().contains("csrf"));
 	}
 
@@ -251,7 +252,7 @@ class DeploymentContractTest {
 	}
 
 	@Test
-	void App1과_App2_Spring은_512m과_256m_heap을_사용하고_이미지_JAVA_TOOL_OPTIONS를_보존한다()
+	void App1과_App2_Spring은_1g과_256m_heap을_사용하고_이미지_JAVA_TOOL_OPTIONS를_보존한다()
 		throws IOException {
 		assertSpringMemoryContract(file("compose.production.yml"));
 		assertSpringMemoryContract(file("compose.app2.yml"));
@@ -353,7 +354,7 @@ class DeploymentContractTest {
 	}
 
 	private void assertSpringMemoryContract(String compose) {
-		assertTrue(compose.contains("mem_limit: 512m"));
+		assertTrue(compose.contains("mem_limit: 1g"));
 		assertTrue(compose.contains("JDK_JAVA_OPTIONS: -Xmx256m"));
 	}
 

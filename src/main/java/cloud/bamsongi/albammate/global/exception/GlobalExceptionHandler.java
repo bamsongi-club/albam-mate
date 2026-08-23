@@ -118,6 +118,7 @@ public class GlobalExceptionHandler {
 
 	@ExceptionHandler(Exception.class)
 	public ResponseEntity<ApiResponse<Void>> handleUnhandledException(Exception exception) {
+		// 게임 API 실패는 structured event로 별도 기록하므로 같은 예외를 generic error 로그로 중복 기록하지 않는다.
 		if (gameFailureEvent(currentRequest()) == null) {
 			log.error(
 				"처리하지 않은 예외를 INTERNAL_SERVER_ERROR로 변환합니다. exceptionType={}",
@@ -200,6 +201,7 @@ public class GlobalExceptionHandler {
 		return null;
 	}
 
+	// 게임 API의 요청 경로와 메서드를 운영 로그 계약의 실패 이벤트로 매핑한다.
 	private GameFailureEvent gameFailureEvent(HttpServletRequest request) {
 		if (request == null) {
 			return null;

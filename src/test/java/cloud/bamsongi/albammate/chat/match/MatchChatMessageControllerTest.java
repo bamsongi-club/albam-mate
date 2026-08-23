@@ -7,6 +7,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -135,6 +136,20 @@ class MatchChatMessageControllerTest {
 		assertPostErrorEnvelope(403L, ErrorCode.FORBIDDEN);
 		assertPostErrorEnvelope(409L, ErrorCode.MATCH_CHAT_NOT_ACTIVE);
 		assertPostErrorEnvelope(400L, ErrorCode.VALIDATION_ERROR);
+	}
+
+	@Test
+	void MATCH_전송_제한_저장소_장애는_Retry_After_없는_SERVICE_UNAVAILABLE_오류_봉투로_변환된다() throws Exception {
+		when(matchChatMessageCommandService.send(42L, 503L, request()))
+			.thenThrow(new BusinessException(ErrorCode.SERVICE_UNAVAILABLE));
+
+		mockMvc.perform(messagePost(503L).with(authenticationFor(42L)).with(csrf()))
+			.andExpect(status().isServiceUnavailable())
+			.andExpect(jsonPath("$.status").value(503))
+			.andExpect(jsonPath("$.code").value(ErrorCode.SERVICE_UNAVAILABLE.getCode()))
+			.andExpect(jsonPath("$.message").value(ErrorCode.SERVICE_UNAVAILABLE.getMessage()))
+			.andExpect(jsonPath("$.data").isEmpty())
+			.andExpect(header().doesNotExist("Retry-After"));
 	}
 
 	@Test

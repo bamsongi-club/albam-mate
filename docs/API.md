@@ -231,7 +231,7 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 | 6.1 | P1 | [AUTH-04](#auth-04-프로필-이미지-업로드) · [정본](archive/p1/social-login.md) | POST | `/api/users/me/profile-image` | Y | Y | 200 |
 | 6.2 | P1 | [AUTH-04](#auth-04-프로필-이미지-삭제) · [정본](archive/p1/social-login.md) | DELETE | `/api/users/me/profile-image` | Y | Y | 200 |
 | 7 | P0·P1·P2 | [GAME-01](#game-01-게임-목록검색) · [RANK-02 정본](p2/game-popularity.md#rank-02) · [P0 완료 기록](archive/p0/game-catalog.md#game-01-게임-목록검색) · [SEARCH-01 정본](archive/p1/search.md#search-01-게임-조건-검색) · [SEARCH-03 정본](archive/p1/search.md#search-03-사용자별-해-본-게임) | GET | `/api/games` | 선택 | N | 200 |
-| 7.1 | P2 | [SEARCH-04](#search-04-게임-의미-기반-검색) · [정본](p2/search.md#search-04) | GET | `/api/games/semantic-search` | 선택 | N | 200 |
+| 7.1 | P2 | [SEARCH-04](#search-04-게임-의미-기반-검색) · [정본](p2/search.md#search-04) | GET | `/api/games/search` | 선택 | N | 200 |
 | 8 | P0·P1 | [GAME-02](#game-02-게임-상세-조회) · [P0 완료 기록](archive/p0/game-catalog.md#game-02-게임-상세-조회) · [SEARCH-01 정본](archive/p1/search.md#search-01-게임-조건-검색) · [SEARCH-03 정본](archive/p1/search.md#search-03-사용자별-해-본-게임) | GET | `/api/games/{gameId}` | 선택 | N | 200 |
 | 9 | P0 | [ROOM-03](#room-03-방-생성) · [P0 완료 기록](archive/p0/room.md#room-03-방-생성) | POST | `/api/rooms` | Y | Y | 201 |
 | 10 | P0·P1 | [ROOM-01](#room-01-방-목록-조회) · [P0 완료 기록](archive/p0/room.md#room-01-방-탐색) · [SEARCH-02 정본](archive/p1/search.md#search-02-방-조건-검색) · [ROOM-08 정본](archive/p1/room.md#room-08-방-상태와-직접-참가대기-가능-여부-분리) | GET | `/api/rooms` | 선택 | N | 200 |
@@ -1048,7 +1048,7 @@ PostgreSQL에 커밋된 매칭 요청·제안·성공 파티·채팅 접근 관�
 
 `categories`·`mechanisms`·`themes`·`complexityMax`·`playTimeMax`는 승인된 게임 목록 검색의 같은 code 집합과 값 범위를 그대로 쓴다. 세 배열은 각각 목록 안 `ANY`로 결합하고 서로 다른 조건 종류끼리는 `AND`로 결합한다. AI 경로는 게임 목록 검색의 `mechanismMatch`·`themeMatch`에 해당하는 선택지를 노출하지 않고 항상 `ANY`로 고정하므로, 후보를 좁히는 판단은 결합 모드가 아니라 조건 종류를 늘리는 방식으로만 한다. **provider 기반 일반 추천 경로**는 `categories`·`mechanisms`·`themes` 가운데 하나 이상이 있어야 후보를 조회하며, 하나도 없으면 `GAME_STYLE`만 담은 `NEEDS_INPUT`으로 끝낸다. `complexityMax`·`playTimeMax`는 선택 정제 조건이라 누락으로 요구하지 않는다. 이미 확인된 `gameId`·`playerCount`는 후보 조회의 추가 `AND` 필터로 쓸 수 있지만 `RECOMMEND`의 누락 조건으로 요구하지 않는다.
 
-[ADR-0085](adr/platform/0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md)의 정확 게임명 직접 경로는 위 일반 추천의 예외다. 정규화한 단독 입력이 카탈로그 `Game.name` 하나와 유일하게 일치하면 서버가 그 ID를 `gameId`에 넣고 후보 한 건을 반환한다. 이 경로는 스타일 조건·`RANK-01` 필터를 적용하지 않는다. `conditions`는 서버가 같은 schema로 다시 검증하며, 유일 매치가 아닌 경우에는 `gameId`를 이 경로에서 설정하지 않는다.
+[ADR-0085](adr/platform/0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md)의 정확 게임명 직접 경로는 위 일반 추천의 예외다. 정규화한 요청 문장 안에서 카탈로그 `Game.name` 하나가 공백 경계로 완전히 일치하고 유일한 게임 ID에 연결되면 서버가 그 ID를 `gameId`에 넣고 후보 한 건을 반환한다. 입력 전체가 게임명인 경우도 포함하며, `카탄 모임 만들어줘`도 `카탄` 후보로 연결된다. 이 경로는 스타일 조건·`RANK-01` 필터를 적용하지 않는다. `conditions`는 서버가 같은 schema로 다시 검증하며, 유일 매치가 아닌 경우에는 `gameId`를 이 경로에서 설정하지 않는다.
 
 ### 4.36 AssistantRecommendationResponse
 
@@ -1519,11 +1519,11 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 
 | 항목 | 값 |
 |---|---|
-| Method / Path | `GET /api/games/semantic-search` |
+| Method / Path | `GET /api/games/search` |
 | 인증 / CSRF | 선택 / 불필요. 유효한 `playedFilter` 사용 시 인증 필요 |
-| 성공 | `200 OK`, `data`: `SemanticGameSearchResponse` |
+| 성공 | `200 OK`, `data`: `GameSearchResponse` |
 
-기능 동작·완료 기준의 정본은 [SEARCH-04](p2/search.md#search-04)다. 이 절은 HTTP 요청·응답·오류 계약만 소유하며, [GAME-01](#game-01-게임-목록검색)의 `keyword` 의미와 응답 계약은 이 계약으로 바꾸지 않는다.
+기능 동작·완료 기준의 정본은 [SEARCH-04](p2/search.md#search-04)다. 이 절은 HTTP 요청·응답·오류 계약만 소유하며, [GAME-01](#game-01-게임-목록검색)의 `keyword` 의미와 응답 계약은 이 계약으로 바꾸지 않는다. 검색 구현 방식(Dense/Sparse/Lexical)은 서버 내부에서 처리하며 공개 응답에 노출하지 않는다.
 
 #### Query Parameters
 
@@ -1538,15 +1538,14 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 - `playedFilter`를 비로그인으로 사용하면 `401 UNAUTHENTICATED`다. `query`만 있는 비로그인 검색은 허용한다.
 - 모든 hard filter를 적용한 결과가 없으면 조건을 자동 완화하지 않고 `200 OK` 빈 페이지를 반환한다.
 
-#### SemanticGameSearchResponse
+#### GameSearchResponse
 
 | 필드 | 타입 | 설명 |
 |---|---|---|
-| `content` | GameListItem[] | 현재 페이지 항목. [GAME-01의 GameListItem](#game-01-게임-목록검색) 필드를 그대로 사용하며 relevance 점수·embedding·검색어는 포함하지 않는다 |
+| `content` | GameListItem[] | 현재 페이지 항목. [GAME-01의 GameListItem](#game-01-게임-목록검색) 필드를 그대로 사용하며 relevance 점수·embedding·검색어·구현 방식은 포함하지 않는다 |
 | `page` | integer | 0부터 시작하는 현재 페이지 번호 |
 | `size` | integer | 적용된 페이지 크기 |
 | `hasNext` | boolean | 다음 페이지 존재 여부 |
-| `searchMode` | string | `SEMANTIC` 또는 `LEXICAL_FALLBACK`. 의미 검색 index·provider 장애로 키워드 검색으로 대체됐으면 `LEXICAL_FALLBACK`이다 |
 
 `content`는 hard filter를 모두 만족한 결과를 `relevance DESC, name ASC, id ASC` 순으로 담는다. `totalElements`, `totalPages`는 포함하지 않는다.
 
@@ -2085,9 +2084,26 @@ Vary: Cookie
 | `message` | string | Y | N | 앞뒤 공백 제거 후 1~2000자, 제어문자 금지. 현재 한 번의 사용자 입력만 전달 |
 | `conditions` | AssistantConditionSummary | N | Y | 직전 응답이 반환한 누적 조건. 첫 요청이나 새 대화에서는 `null` |
 
-공통 인증·CSRF·feature gate·유효한 외부 처리 동의를 통과한 뒤, 서버는 provider 전에 `game.contract`의 정확 게임명 resolver를 수행한다. 직접 조회는 `message` 전체가 단독 게임명일 때만 적용하며 `Game.name`과 Unicode NFKC, 앞뒤 공백 제거, 연속 공백 하나로 축약, `Locale.ROOT` 대소문자 정규화 뒤 유일하게 같은지를 판정한다. 문장 부호 제거, 부분 일치, 별칭·영문명·BGG ID, 기본판과 확장판의 자동 통합은 하지 않는다. 유일 매치면 `RECOMMENDED`·후보 1건·해당 `conditions.gameId`를 반환하고 provider 호출, provider quota·비용 예약, provider usage event, 초안·Room·ChatRoom 생성은 모두 0건이다. 0건 또는 복수 매치면 이 직접 경로는 성공으로 처리하지 않고 아래 provider 기반 일반 추천으로 계속한다.
+공통 인증·CSRF·feature gate·유효한 외부 처리 동의를 통과한 뒤, 서버는 provider 전에 `game.contract`의 정확 게임명 resolver를 수행한다. 직접 조회는 `message` 안에서 `Game.name`이 공백 경계로 완전히 일치하고, 언급된 정식 게임명이 정확히 하나의 게임 ID에만 연결될 때 적용한다. 입력 전체가 단독 게임명인 경우도 포함한다. 비교에는 Unicode NFKC, 앞뒤 공백 제거, 연속 공백 하나로 축약, `Locale.ROOT` 대소문자 정규화를 적용하며 문장 부호 제거, 부분 이름, 별칭·영문명·BGG ID, 기본판과 확장판의 자동 통합은 하지 않는다. 유일 매치면 `RECOMMENDED`·후보 1건·해당 `conditions.gameId`를 반환하고 provider 호출, provider quota·비용 예약, provider usage event, 초안·Room·ChatRoom 생성은 모두 0건이다. 예를 들어 `카탄 모임 만들어줘`는 `카탄` 후보로 연결된다. 게임명이 없거나 서로 다른 게임이 복수 매치되면 이 직접 경로는 성공으로 처리하지 않고 아래 provider 기반 일반 추천으로 계속한다.
 
-일반 추천에서 서버는 provider 호출 전에 PII·secret·지원하지 않는 지시를 검사한다. provider에는 버전이 지정된 instruction·강제 `propose_game_room_intent` schema·기준 시각·현재 문장·서버가 식별한 누락 필드만 allowlist로 전달하며, 원문 응답·대화 이력·prompt hash는 저장하지 않는다. 서버는 대화 이력과 추천 상태를 저장하지 않으므로 다회 입력 흐름은 클라이언트가 잇는다. `NEEDS_INPUT`을 받은 클라이언트는 다음 요청에 직전 응답의 `conditions`를 그대로 담아 보내고, 서버는 이를 신뢰할 수 없는 구조화 입력으로 다시 검증한 뒤 필드 단위로 병합한다. 이번 문장에서 값을 추출한 필드만 대체하고, 배열이 비어 있거나 스칼라가 `null`인 필드는 이번 문장이 그 조건을 언급하지 않은 것으로 보아 이전 값을 그대로 유지한다. 따라서 후속 문장이 게임 스타일을 다시 말하지 않아도 앞 턴에서 확보한 `categories`·`mechanisms`·`themes`가 지워지지 않는다. 조건을 비우려면 `conditions`를 생략해 새 대화로 시작한다. `conditions`를 생략하면 이번 문장만으로 판정하므로 이전 조건은 이어지지 않는다. provider에는 병합 결과가 아니라 현재 문장과 서버가 식별한 누락 필드만 전달한다. `NEEDS_INPUT`과 `UNSUPPORTED`는 HTTP 성공 결과이며 Room·ChatRoom·초안을 만들지 않는다. 후보가 있으면 서버가 모든 구조화 조건을 `AND`로 적용하고 내부 `RANK-01` 순서로 정렬한다.
+일반 추천에서 서버는 provider 호출 전에 PII·secret·지원하지 않는 지시를 검사한다. provider에는 버전이 지정된 instruction·강제 `propose_game_room_intent` schema·기준 시각·현재 문장·서버가 식별한 누락 필드만 allowlist로 전달하며, 원문 응답·대화 이력·prompt hash는 저장하지 않는다. 서버는 대화 이력과 추천 상태를 저장하지 않으므로 다회 입력 흐름은 클라이언트가 잇는다. `NEEDS_INPUT`을 받은 클라이언트는 다음 요청에 직전 응답의 `conditions`를 그대로 담아 보내고, 서버는 이를 신뢰할 수 없는 구조화 입력으로 다시 검증한 뒤 필드 단위로 병합한다. 이번 문장에서 값을 추출한 필드만 대체하고, 배열이 비어 있거나 스칼라가 `null`인 필드는 이번 문장이 그 조건을 언급하지 않은 것으로 보아 이전 값을 그대로 유지한다. 따라서 후속 문장이 게임 스타일을 다시 말하지 않아도 앞 턴에서 확보한 `categories`·`mechanisms`·`themes`가 지워지지 않는다. 단, 새 카테고리·테마로 다시 추천하는 문장은 이전 정확 게임 `gameId`와 후보를 교체하는 새 추천 범위로 처리한다. 조건을 비우려면 `conditions`를 생략해 새 대화로 시작한다. `conditions`를 생략하면 이번 문장만으로 판정하므로 이전 조건은 이어지지 않는다. provider에는 병합 결과가 아니라 현재 문장과 서버가 식별한 누락 필드만 전달한다. `NEEDS_INPUT`과 `UNSUPPORTED`는 HTTP 성공 결과이며 Room·ChatRoom·초안을 만들지 않는다. 후보가 있으면 서버가 모든 구조화 조건을 `AND`로 적용하고 내부 `RANK-01` 순서로 정렬한다.
+
+#### 자연어 조건 매핑과 상태 전이
+
+자연어 입력은 공개 검색 endpoint나 provider의 의미 기반 검색 결과가 아니라 서버가 검증한 카탈로그 조건으로 변환한다. 대표 매핑은 다음과 같다.
+
+| 사용자 입력 | `conditions`에 반영되는 값 | 기대 응답 |
+| --- | --- | --- |
+| `전략 게임 추천해 줘` | `categories=["STRATEGY"]` | 전략 공식 분류 후보 목록, 내부 `RANK-01` 기준 상위 10건 |
+| `공포 테마 추천해 줘` | `themes=["HORROR"]` | 공포 테마 code를 가진 후보 목록 |
+| `전략 테마로 4명이서 가볍게 할 수 있는 게임 추천해 줘` | 전략 공식 분류, `playerCount=4`, `complexityMax=<승인된 가벼움 상한>` | 세 조건을 모두 만족하는 후보 목록. `가볍게`의 숫자 상한은 별도 정책 승인 전까지 정하지 않음 |
+| `카탄 모임 만들어줘` | 문장 안 유일한 정식명으로 `gameId`를 확정 | `RECOMMENDED` 후보 1건. 초안·Room·ChatRoom은 생성하지 않음 |
+
+`categories`·`mechanisms`·`themes` 각 배열 안은 `ANY`, 서로 다른 조건 종류와 `playerCount`·`complexityMax`·`playTimeMax`·`gameId`는 `AND`다. `playerCount`는 주최자를 포함한 총 인원이고 후보 게임은 `min_players <= playerCount <= max_players`를 만족해야 한다. 후보는 필터 후 내부 `RANK-01` 순서로 정렬하고 상위 10건만 반환하며 동점은 게임 ID 오름차순으로 처리한다. 이는 공개 인기 랭킹의 노출 순서나 provider 순서를 계약으로 복사하는 것이 아니다.
+
+후속 요청에서 같은 조건 종류를 새로 말하면 그 종류를 교체한다. `공포 테마로 다시 추천해줘`는 이전 `카탄`의 정확 `gameId`와 후보를 제거하고 공포 테마 후보를 다시 조회한다. 반대로 `조금 더 가볍게`처럼 한 조건만 정제하면 언급한 필드만 갱신하고 전략·인원 등 언급하지 않은 조건은 유지한다. 요청의 `conditions`가 생략되거나 `null`이면, 또는 클라이언트가 `새 대화`를 시작하면 이전 조건·후보를 전달하지 않는 새 대화다. 이때 `null`·빈 배열은 누적 조건 객체 안의 개별 필드를 지우는 명령으로 단순 병합하지 않는다.
+
+이 endpoint의 HTTP 응답은 제품 UI의 표현 방식과 분리된다. 클라이언트는 요청을 보내기 전에 사용자 `message`를 화면에 추가하고, 조합 중이 아닌 `Enter`를 전송·`Shift+Enter`를 줄바꿈으로 처리한다. `RECOMMENDED`의 여러 후보는 카드 목록으로, 정확 게임명 후보 한 건은 확인 모달로 표시한다. 모달 확인 전에는 AI 추천 endpoint가 초안·Room·ChatRoom을 만들지 않으며, 확인 이후의 쓰기는 AI-03 계약으로 넘긴다. `NEEDS_INPUT`·`NO_CANDIDATES`·provider 실패는 각각 추가 조건 질문·조건 수정·재시도 또는 수동 생성 안내로 표시한다. provider 내부 adapter 호출이나 schema 추출은 공개 HTTP 응답·UI 카드·모달의 tool 호출로 노출하지 않는다.
 
 ### AI-03 초안 생성
 

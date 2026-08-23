@@ -21,12 +21,10 @@ flowchart LR
     PRECHECK --> MIGRATE["App2 one-shot Flyway\nvalidate + migrate 1회"]
     MIGRATE --> APP2["App2 교체·health·upstream"]
     APP2 --> APP1["App1 교체·health·upstream"]
-    APP1 --> SMOKE["인증 read-only smoke"]
-    SMOKE --> LKG["새 LKG manifest 기록"]
+    APP1 --> LKG["새 LKG manifest 기록"]
     MIGRATE -->|"실패"| KEEP["기존 앱 유지"]
     APP2 -->|"실패"| ROLLBACK["LKG App2만 복귀"]
     APP1 -->|"실패"| ROLLBACKALL["LKG App1 → App2 복귀"]
-    SMOKE -->|"실패"| ROLLBACKALL
 ```
 
 여기서 배포 실패는 새 release의 실패다. migration 전에 기존 App1·App2를 내리지 않는다. 다만 migration SQL의 lock·실행시간은 데이터베이스 요청에 영향을 줄 수 있으므로 release마다 expand 호환성과 실행시간을 검토한다.
@@ -41,7 +39,7 @@ flowchart LR
 | 실행 권한 | GitHub Actions OIDC의 짧은 수명 image-publish role과 deploy role | trust policy, workflow permission, ECR/SSM 실행 결과 |
 | 배포 대상 | 운영자가 승인한 기존 4노드의 고정 App2 뒤 App1 | deployment contract의 instance ID와 대상별 release SHA |
 | 직렬화 | 한 P2 deploy만 실행하고 실행 중 run은 취소하지 않음 | 겹치지 않는 deployment sequence와 최신 성공 pending |
-| last-known-good | `/albam-mate/p2/last-known-good`의 비밀이 아닌 단일 release manifest | Parameter version, source SHA, 두 앱 SHA·digest, health/smoke 성공 기록 |
+| last-known-good | `/albam-mate/p2/last-known-good`의 비밀이 아닌 단일 release manifest | Parameter version, source SHA, 두 앱 SHA·digest, health·upstream 성공 기록 |
 
 CD workflow는 PR head, default branch SHA/ref, 배포 직전에 다시 읽은 branch tip을 source input으로 쓰지 않는다. `workflow_run`의 source SHA 하나를 checkout·image build·SSM input으로 고정한다. 아직 성공하지 않았거나 실패한 최신 commit은 마지막 성공 SHA를 건너뛰게 하지 않는다.
 
@@ -51,9 +49,9 @@ backend image에는 같은 SHA의 Compose asset을 포함한다. App host의 고
 
 ### last-known-good bootstrap
 
-자동 CD를 활성화하기 전에 운영자는 현재 P2 App1·App2가 같은 release SHA·backend/web digest로 동작하고 health·upstream·인증 기능 smoke를 통과하는지 확인한 뒤 `/albam-mate/p2/last-known-good` manifest를 수동으로 기록한다. Terraform은 빈 LKG를 만들지 않는다. manifest가 없거나 현재 두 앱의 release·digest와 일치하지 않으면 workflow는 migrator, 앱 교체, LKG 쓰기를 시작하지 않는다.
+자동 CD를 활성화하기 전에 운영자는 현재 P2 App1·App2가 같은 release SHA·backend/web digest로 동작하고 health·upstream을 통과하는지 확인한 뒤 `/albam-mate/p2/last-known-good` manifest를 수동으로 기록한다. Terraform은 빈 LKG를 만들지 않는다. manifest가 없거나 현재 두 앱의 release·digest와 일치하지 않으면 workflow는 migrator, 앱 교체, LKG 쓰기를 시작하지 않는다.
 
-배포가 성공하면 두 앱의 health·upstream·기능 smoke·digest를 모두 확인한 뒤 source SHA, backend·web digest, 두 앱의 검증 SHA, 성공 시각과 Parameter version을 새 manifest로 기록한다. App rollback은 이 manifest의 한 release만 사용하고 DB migration은 rollback하지 않는다.
+배포가 성공하면 두 앱의 health·upstream·digest를 모두 확인한 뒤 source SHA, backend·web digest, 두 앱의 검증 SHA, 성공 시각과 Parameter version을 새 manifest로 기록한다. App rollback은 이 manifest의 한 release만 사용하고 DB migration은 rollback하지 않는다.
 
 ## 직렬 배포 규칙
 
@@ -92,14 +90,13 @@ Flyway 실패는 데이터베이스가 전혀 바뀌지 않았다는 뜻이 아�
 
 ### 정상 순서
 
-1. `/albam-mate/p2/last-known-good` manifest를 읽고 현재 App1·App2의 동일 SHA·digest와 health/smoke 기록을 확인한다. 없거나 불일치하면 migrator 전에 실패시킨다.
+1. `/albam-mate/p2/last-known-good` manifest를 읽고 현재 App1·App2의 동일 SHA·digest와 health·upstream 기록을 확인한다. 없거나 불일치하면 migrator 전에 실패시킨다.
 2. App2에서 one-shot migrator를 실행한다.
 3. App2를 새 digest로 바꾸고, container health·release SHA·App1에서 보이는 upstream 응답을 확인한다.
 4. App1을 새 digest로 바꾸고, Nginx를 통한 App1·App2 upstream 응답과 각 release SHA를 확인한다.
-5. App1 host-local `/etc/albam-mate/deployment-verification.env`의 일반 계정으로 CSRF→login→`GET /api/users/me` read-only smoke를 실행한다. 파일 누락·권한 오류·인증 실패는 배포 실패다.
-6. 성공한 SHA·image digest를 새로운 LKG manifest로 기록한다.
+5. 성공한 SHA·image digest를 새로운 LKG manifest로 기록한다.
 
-`deployment-verification.env`의 password, cookie, CSRF는 어떤 stdout·SSM·GitHub summary·Parameter에도 남기지 않는다. 임의 가입이나 쓰기 fixture 생성으로 smoke를 대체하지 않는다.
+자동 CD는 사용자 계정으로 로그인하는 인증 smoke를 실행하지 않는다. 배포 성공 조건은 migration과 두 앱의 container health·release SHA·upstream 응답까지이며, 로그인 계정이나 host-local 인증 입력 파일은 CD의 성공 조건이 아니다. 사용자 흐름 확인이 필요하면 배포 뒤 별도 수동 검증으로 남긴다.
 
 ### 실패 매트릭스
 
@@ -109,7 +106,7 @@ Flyway 실패는 데이터베이스가 전혀 바뀌지 않았다는 뜻이 아�
 | LKG 없음·불일치 | 그대로 유지 | bootstrap 또는 일치 검증 전에는 migrator·앱 교체를 시작하지 않음 | 변경 없음 |
 | migrator validate/migrate | App1·App2 컨테이너 유지 | 새 release 실패 | 이미 성공한 앞 migration은 남을 수 있음; 자동 rollback 없음 |
 | App2 health/upstream | App1과 기존 또는 복귀한 App2가 서빙 | App2만 LKG SHA·digest로 자동 복귀 | expand schema 유지 |
-| App1 health/upstream 또는 기능 smoke | 복귀 과정 중 짧은 재연결 가능 | App1까지 바뀌었으면 App1 → App2 순서로 모두 LKG로 복귀하고 재검증 | expand schema 유지 |
+| App1 health/upstream | 복귀 과정 중 짧은 재연결 가능 | App1까지 바뀌었으면 App1 → App2 순서로 모두 LKG로 복귀하고 재검증 | expand schema 유지 |
 
 P2는 traffic drain, standby slot, ALB health cutover를 제공하지 않는다. App1 교체 중 짧은 HTTP 재시도·WebSocket 재연결은 발생할 수 있으나, 무중단 배포라고 표현하지 않는다.
 
@@ -120,7 +117,7 @@ P2는 traffic drain, standby slot, ALB health cutover를 제공하지 않는다.
 - source SHA, CI run URL, backend·web digest, 시작·종료 시각
 - OIDC role과 P2 SSM 대상·command ID(비밀값 제외)
 - migrator validate/migrate 판정과 단계별 App2·App1 health/upstream·release SHA
-- 기능 smoke의 성공·실패 판정, 성공한 LKG SHA 또는 rollback SHA와 실패 지점
+- 각 단계의 성공·실패 판정, 성공한 LKG SHA 또는 rollback SHA와 실패 지점
 - LKG Parameter version과 manifest 기록
 
 로그·알림에는 DB 비밀번호, verification credential, session cookie, CSRF, OIDC token, 환경 파일 원문을 남기지 않는다.

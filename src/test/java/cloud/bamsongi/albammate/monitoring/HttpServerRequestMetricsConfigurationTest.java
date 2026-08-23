@@ -26,22 +26,13 @@ class HttpServerRequestMetricsConfigurationTest {
 
 		assertEquals(false, enabled.get("all"));
 		assertEquals(Set.of(
-			"http.server.requests", "jvm.memory.used", "jvm.memory.max", "jvm.gc.pause", "jvm.threads.live",
-			"tomcat.threads.busy", "tomcat.threads.current", "tomcat.threads.config.max",
-			"hikaricp.connections.active", "hikaricp.connections.idle", "hikaricp.connections.pending",
-			"hikaricp.connections.max", "hikaricp.connections.timeout", "albam.dependency.health",
-			"auth.request.limiter.rejections", "auth.request.limiter.capacity.utilization",
-			"chat.websocket.connections.active", "chat.websocket.delivery.latency",
-			"chat.websocket.delivery.failures", "chat.websocket.recovery.messages",
-			"chat.message.delivery.duration", "chat.message.delivery.failures", "chat.message.operations",
-			"chat.message.retention.lock.skipped", "chat.message.retention.rooms.purged",
-			"chat.message.retention.messages.deleted", "chat.message.retention.failures",
-			"chat.message.retention.lease.guard.aborted", "chat.message.retention.backlog.remaining",
-			"chat.message.retention.execution.duration", "chat.message.retention.delay",
+			"http.server.requests", "jvm.memory.used", "jvm.memory.max", "tomcat.threads.busy",
+			"tomcat.threads.config.max", "hikaricp.connections.pending", "hikaricp.connections.max",
+			"albam.dependency.health",
 			"notification.relay.events", "notification.relay.delivery.duration",
-			"notification.relay.oldest.processable.age", "room.status.correction.runs",
-			"room.status.correction.duration", "room.waitlist.operations", "assistant.usage.events",
-			"assistant.usage.tokens", "assistant.usage.latency", "assistant.cost.warning.events"),
+			"notification.relay.oldest.processable.age", "chat.message.operations", "room.waitlist.operations",
+			"assistant.usage.events", "assistant.usage.tokens", "assistant.usage.latency",
+			"assistant.cost.warning.events"),
 			enabled.keySet().stream().filter(key -> !key.equals("all")).collect(java.util.stream.Collectors.toSet()));
 		assertTrue(enabled.entrySet().stream()
 			.filter(entry -> !entry.getKey().equals("all"))

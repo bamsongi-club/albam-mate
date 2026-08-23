@@ -87,6 +87,29 @@ Provider endpoint·secret/config·release·migration·feature gate·rollback과 
 
 `게임 추천해줘`처럼 `RECOMMEND` 검색 조건이 전혀 없으면 후보 조회를 호출하지 않고 `NEEDS_INPUT`으로 필요한 검색 조건만 되묻는다. 조건이 유효하지만 후보가 0건인 경우의 `NO_CANDIDATES`와 구분한다.
 
+### 자연어 조건·대화 상태·제품 결과
+
+자연어는 provider가 임의로 게임을 고르는 입력이 아니라, 서버가 허용한 카탈로그 code와 `AssistantConditionSummary`로 정규화하는 입력이다. 카테고리·테마의 표기는 사용자가 자연스럽게 말할 수 있지만 실제 필터에는 카탈로그의 공식 field와 code만 사용한다.
+
+| 대표 입력 | 서버가 확정하는 조건 | 제품 결과 |
+| --- | --- | --- |
+| `전략 게임 추천해 줘` | 카탈로그의 전략 공식 분류를 `categories=["STRATEGY"]`로 정규화 | `RECOMMEND` 후보 목록. 공개 인기 순위를 그대로 노출하지 않고 내부 `RANK-01`로 정렬 |
+| `공포 테마 추천해 줘` | `themes=["HORROR"]` | 공포 테마 code를 가진 후보만 `RECOMMEND`로 반환 |
+| `전략 테마로 4명이서 가볍게 할 수 있는 게임 추천해 줘` | 전략 공식 분류, `playerCount=4`, `complexityMax=<승인된 가벼움 상한>` | 전략 조건·총 인원·난이도 상한을 모두 적용한 후보 목록. `가볍게`의 숫자 상한은 별도 정책 승인 전까지 확정하지 않음 |
+| `카탄 모임 만들어줘` | 문장 안 유일한 정식 게임명 `카탄`을 `gameId` 후보로 확정 | 후보 한 건과 확인 모달을 표시하고, 확인 전에는 초안·Room·ChatRoom을 만들지 않음 |
+
+조건 배열의 같은 종류 안에서는 `ANY`, 서로 다른 종류와 `playerCount`·난이도·플레이 시간·확정 `gameId` 사이에서는 `AND`를 적용한다. `playerCount=4`는 주최자를 포함한 총 인원이며, 후보 게임은 `min_players <= 4 <= max_players`를 만족해야 한다. 실제 방 생성으로 전환할 때만 개설자 제외 `recruitmentCapacity = playerCount - 1`로 바꾼다. 후보는 유효한 모든 조건을 적용한 뒤 내부 `RANK-01` 인기 기준으로 정렬하고 상위 10건으로 자르며, 동점은 게임 ID 오름차순으로 처리한다. 이 정렬은 공개 랭킹 순서나 provider의 반환 순서를 의미하지 않는다. 이 조건들은 의미 기반 검색이나 provider의 게임 검색 tool로 대체하지 않는다.
+
+후속 입력은 다음 규칙으로 대화 상태를 갱신한다.
+
+- `공포 테마로 다시 추천해줘`처럼 새 추천 조건을 명시하면 기존 테마·카테고리 조건은 새 값으로 교체하고, 이전에 선택된 정확 게임 `gameId`와 후보는 제거한다. 따라서 첫 입력이 `카탄`이어도 이 후속 요청은 카탄을 고정하지 않고 공포 테마 후보를 다시 조회한다.
+- `조금 더 가볍게`, `4명이서 할 수 있게`처럼 일부 조건만 정제하면 언급한 필드만 바꾸고 언급하지 않은 조건은 유지한다. 예를 들어 전략 조건을 유지한 채 난이도 상한만 낮출 수 있다.
+- 요청의 `conditions`가 생략되거나 `null`인 경우와 화면의 `새 대화`는 이전 조건·후보·선택 상태를 폐기하고 새 대화로 시작한다. 조건 객체 안의 `null` 또는 빈 배열을 단순 병합해 개별 조건을 지우는 방식은 사용하지 않는다.
+
+제품 화면은 서버 응답과 별도의 책임으로 다음 상태를 표현한다. 사용자의 원문은 요청을 보내는 즉시 사용자 말풍선으로 추가하고, 입력창에서 조합 중이 아닌 `Enter`는 전송하며 `Shift+Enter`는 줄바꿈으로 처리한다. 일반 추천은 후보 카드를 목록으로 표시하고, 유일한 정확 게임명 결과는 후보 한 건을 확인 모달로 표시한다. 모달 확인 뒤에만 초안·Room 생성 경로로 이동하며, `NEEDS_INPUT`·`NO_CANDIDATES`·provider 오류는 각각 필요한 조건 질문·검색 조건 수정·재시도 또는 수동 생성 안내로 표시한다.
+
+provider 내부 호출은 현재 문장과 서버가 허용한 구조화 schema를 추출하는 adapter 경계일 뿐이다. provider는 카탈로그 조회·의미 기반 검색·Room 쓰기·tool loop 권한을 갖지 않으며, 카드·목록·모달·키보드·오류 메시지는 `assistant` API 계약을 소비하는 클라이언트가 소유한다.
+
 ### 추천 후보 선택과 초안 전환
 
 - 후보 카드의 이미지와 게임명은 기존 게임 상세 `#/game/:id`로만 이동한다. 이 동작은 초안·Room·ChatRoom을 만들지 않는다. “이 게임으로 모임 만들기” CTA는 카드 링크와 분리하고 확인 모달만 연다.
@@ -155,7 +178,7 @@ Provider endpoint·secret/config·release·migration·feature gate·rollback과 
 - 로그인 사용자만 `AI-01`을 사용할 수 있으며 기존 인증·인가·CSRF·Room 업무 불변식을 그대로 통과한다.
 - provider에는 고정 instruction·강제 schema·기준 시각·서버가 최소화한 사용자 문장·서버가 확인한 누락 필드만 전달한다. 호출 전에 전화번호·주소·연락처·자격증명·token 같은 PII·secret을 탐지해 승인된 방식으로 마스킹하고, 안전하게 마스킹할 수 없으면 provider 호출을 fail-closed로 거절한다. `default-30d`는 OpenAI 기본 abuse-monitoring 보존(최대 30일)을 동의에 공개하고, `zero-data-retention`은 ZDR/MAM 확인이 없으면 호출하지 않는다. 두 mode 모두 no-training·store=false가 필요하며 게임 ID·Room 쓰기 권한·임의 SQL/DSL은 provider에 위임하지 않는다.
 - provider 기반 추천 후보 조회는 `AI-02`가 소유하는 별도 서버 읽기 흐름으로 두고, `AI-01`은 그 구조화 추천 결과를 제품 흐름에서 orchestration·소비하기만 한다. 구조화된 추천 조건은 모두 AND로 적용한 뒤 내부 `RANK-01` 순서로 정렬하며, 공개 `RANK-01` API의 상위 10개 결과나 provider가 정한 순서를 사용하지 않는다. [API](../API.md)·[아키텍처](../ARCHITECTURE.md)의 `game.contract` AI-02 후보 조회 port를 통해서만 호출하며, `DISCOVERY-01`의 `SEARCH-04` tool을 호출하거나 `game` repository·catalog를 직접 읽지 않는다.
-- 정확 게임명 직접 조회도 `game.contract`가 소유한다. `message` 전체와 `Game.name`을 Unicode NFKC·앞뒤 공백 제거·연속 공백 축약·`Locale.ROOT` 대소문자 정규화 뒤 비교해 유일한 정식명만 성공으로 한다. 부분 일치·별칭·영문명·BGG ID·문장부호 제거·기본판과 확장판 자동 통합은 하지 않고, 0건·복수건은 provider 기반 흐름으로 돌아간다. 이 직접 경로는 provider·quota·비용 예약·usage event를 만들지 않는다.
+- 정확 게임명 직접 조회도 `game.contract`가 소유한다. `message`와 `Game.name`을 Unicode NFKC·앞뒤 공백 제거·연속 공백 축약·`Locale.ROOT` 대소문자 정규화한 뒤, 요청 문장 안에서 공백 경계로 완전히 일치하는 정식 게임명이 정확히 하나의 게임 ID에만 연결되는지 판정한다. 입력 전체가 게임명인 경우도 이 규칙에 포함한다. 부분 이름·별칭·영문명·BGG ID·문장부호 제거·기본판과 확장판 자동 통합은 하지 않고, 게임명이 없거나 서로 다른 게임이 여러 개 언급되면 provider 기반 흐름으로 돌아간다. 이 직접 경로는 provider·quota·비용 예약·usage event를 만들지 않는다.
 - 현재 존재하는 `GameQuery` 요약 계약은 서버가 이미 확정한 game ID를 보강하는 공개 계약으로만 취급하며, `AI-02`가 소유하는 후보 선택·필터·정렬을 대신하지 않는다. 후보 응답 필드는 [API](../API.md)의 `AssistantRecommendationResponse`와 `AssistantRecommendationCandidate`로 승인했고, AND 필터와 내부 `RANK-01` 정렬은 provider 기반 일반 추천의 고정 규칙으로 유지한다.
 - 추천 후보와 Room 생성 가능 여부는 서버가 소유한 검증·권한 경계를 따른다. 모델 출력은 신뢰할 수 없는 구조화 입력으로 검증한다.
 - `RECOMMEND`의 `missingFields`에는 추천에 필요한 검색 조건만 포함한다. 방 생성 전용 필드를 함께 채우도록 요구하지 않으며, 검색 조건이 전혀 없으면 후보 조회를 하지 않고 `NEEDS_INPUT`으로 끝낸다.

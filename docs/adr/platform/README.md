@@ -30,3 +30,4 @@
 | [0084](0084-github-actions-develop-p1-continuous-deployment.md) | develop 기준 P1 GitHub Actions 연속 배포 경계 | 승인됨 | 2026-08-20 | 미검증 |
 | [0085](0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md) | P2 AI 호출 quota·고정 예약 비용과 정확 게임명 직접 조회 | 승인됨 | 2026-08-21 | 미검증 |
 | [0089](0089-p2-ai-openai-default-retention-and-smoke-gate.md) | P2 OpenAI 기본 보존 수용과 실제 smoke gate | 승인됨 | 2026-08-22 | 미검증 |
+| [0090](0090-p2-app-t4g-small-and-1gib-memory.md) | P2 App 계층을 t4g.small로 상향하고 Spring 컨테이너 한도를 1GiB로 설정 | 승인됨 | 2026-08-23 | 검증됨 |
