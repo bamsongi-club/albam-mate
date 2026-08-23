@@ -5,7 +5,6 @@ import java.util.Objects;
 import cloud.bamsongi.albammate.assistant.contract.AssistantCostWarningEvent;
 import cloud.bamsongi.albammate.assistant.contract.AssistantUsageEvent;
 import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.Timer;
@@ -54,9 +53,9 @@ class AssistantUsageEventMetrics {
 	}
 
 	private void recordTokens(AssistantUsageEvent event) {
-		DistributionSummary.builder(USAGE_TOKENS).tag("token_type", "input")
-			.register(meterRegistry).record(event.inputTokens());
-		DistributionSummary.builder(USAGE_TOKENS).tag("token_type", "output")
-			.register(meterRegistry).record(event.outputTokens());
+		Counter.builder(USAGE_TOKENS).tag("token_type", "input")
+			.register(meterRegistry).increment(event.inputTokens());
+		Counter.builder(USAGE_TOKENS).tag("token_type", "output")
+			.register(meterRegistry).increment(event.outputTokens());
 	}
 }
