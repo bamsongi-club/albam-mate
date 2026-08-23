@@ -237,6 +237,15 @@ export function openChatListWebSocket() {
   return new WebSocket(url.toString());
 }
 
+export function openMatchChatWebSocket(partyId, { afterMessageId } = {}) {
+  const url = new URL(endpoint('/api/matches/parties/' + partyId + '/chat/ws'), window.location.href);
+  if (afterMessageId !== undefined && afterMessageId !== null) {
+    url.searchParams.set('afterMessageId', String(afterMessageId));
+  }
+  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+  return new WebSocket(url.toString());
+}
+
 export function clearCsrfToken() {
   csrfToken = undefined;
 }
@@ -486,7 +495,36 @@ export const api = {
   cancelParticipation: (roomId) => mutate('/api/rooms/' + roomId + '/participants/me', { method: 'DELETE' }),
   joinWaitlist: (roomId) => mutate('/api/rooms/' + roomId + '/waitlist', { method: 'POST' }),
   getMyWaitlist: (roomId, signal) => request('/api/rooms/' + roomId + '/waitlist/me', { signal }),
-  cancelWaitlist: (roomId) => mutate('/api/rooms/' + roomId + '/waitlist/me', { method: 'DELETE' })
+  cancelWaitlist: (roomId) => mutate('/api/rooms/' + roomId + '/waitlist/me', { method: 'DELETE' }),
+  getCurrentMatch: (signal) => request('/api/matches/current', { signal }),
+  createMatchRequest: (matchRequest, idempotencyKey) => mutate(
+    '/api/matches/requests',
+    { method: 'POST', body: matchRequest, headers: { 'Idempotency-Key': idempotencyKey } }
+  ),
+  cancelMatchRequest: () => mutate('/api/matches/requests/me', { method: 'DELETE' }),
+  respondToMatchProposal: (proposalId, action, idempotencyKey) => mutate(
+    '/api/matches/proposals/' + proposalId + '/responses',
+    { method: 'POST', body: { action }, headers: { 'Idempotency-Key': idempotencyKey } }
+  ),
+  getMatchChatMessages: (partyId, { beforeMessageId, size } = {}, signal) =>
+    request('/api/matches/parties/' + partyId + '/chat/messages' + query({ beforeMessageId, size }), { signal }),
+  openMatchChatWebSocket,
+  sendMatchChatMessage: (partyId, message) => mutate(
+    '/api/matches/parties/' + partyId + '/chat/messages',
+    { method: 'POST', body: message }
+  ),
+  leaveMatchParty: (partyId) => mutate('/api/matches/parties/' + partyId + '/participants/me', { method: 'DELETE' }),
+  getMatchBlocks: ({ page = 0, size = 10 } = {}, signal) =>
+    request('/api/matches/blocks' + query({ page, size }), { signal }),
+  blockMatchParticipant: (partyId, participantRef) => mutate(
+    '/api/matches/parties/' + partyId + '/participants/' + encodeURIComponent(participantRef) + '/block',
+    { method: 'PUT' }
+  ),
+  unblockMatchUser: (blockId) => mutate('/api/matches/blocks/' + blockId, { method: 'DELETE' }),
+  reportMatchParticipant: (partyId, report) => mutate(
+    '/api/matches/parties/' + partyId + '/reports',
+    { method: 'POST', body: report }
+  )
 };
 
 export function messageForError(error, fallback = '요청을 처리하지 못했어요.') {

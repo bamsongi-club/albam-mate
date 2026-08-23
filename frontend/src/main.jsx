@@ -42,7 +42,7 @@ import { selectNotificationAndNavigate } from './notification/notificationNaviga
 import { NOTIFICATION_POLL_INTERVAL_MS, useNotificationPolling } from './notification/useNotificationPolling';
 import { useNotificationReadSync } from './notification/useNotificationReadSync';
 import { MobileBottomNavigation, ROOT_ROUTES } from './mobile/MobileNavigation';
-import { AssistantSettingsView, AssistantView, MatchView, OnlineRoomView } from './p2';
+import { AssistantSettingsView, AssistantView, MatchBlockListView, MatchChatView, MatchView } from './p2';
 import './styles.css';
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -55,7 +55,7 @@ const TYPE_LABEL = { GAME_FOCUSED: '게임 중심', PERSON_FOCUSED: '사람 중�
 const STATUS_LABEL = { RECRUITING: '모집 중', CLOSED: '모집 마감', CANCELED: '취소됨', FINISHED: '종료됨' };
 const MAX_CAPACITY = 10;
 // 하위 화면은 하단 탭바 없이 뒤로가기로만 돌아간다.
-const SUB_ROUTES = ['game', 'game-rankings', 'session', 'create', 'edit', 'my', 'chat', 'chats', 'notifications', 'social-link', 'auth', 'signup', 'assistant', 'assistant-settings', 'bot', 'match', 'online-room'];
+const SUB_ROUTES = ['game', 'game-rankings', 'session', 'create', 'edit', 'my', 'chat', 'chats', 'notifications', 'social-link', 'auth', 'signup', 'assistant', 'assistant-settings', 'bot', 'match', 'match-chat', 'match-blocks'];
 const loadFirstNotificationPage = (signal) => api.getNotifications({ page: 0, size: 10 }, signal);
 export const CHAT_SEND_REQUEST_DEADLINE_MS = 3_000;
 export const WAITLIST_POLL_INTERVAL_MS = 10_000;
@@ -2001,6 +2001,7 @@ export function ProfileView({ me, onSave, onLogout, socialProviders = [], onUplo
           <a className="menu-row" href="#/my"><span className="menu-row-label">내 모임</span><span className="rowarrow"><ArrowIcon size={16} /></span></a>
           <a className="menu-row" href="#/assistant-settings"><span className="menu-row-label">AI 설정</span><span className="rowarrow"><ArrowIcon size={16} /></span></a>
           <a className="menu-row" href="#/game-list/played"><span className="menu-row-label">해 본 게임</span><span className="rowarrow"><ArrowIcon size={16} /></span></a>
+          <a className="menu-row" href="#/match-blocks"><span className="menu-row-label">차단 목록</span><span className="rowarrow"><ArrowIcon size={16} /></span></a>
           {socialProviders.length > 0 && (
             <a className="menu-row" href="#/social-link">
               <span className="menu-row-label">소셜 계정 연결</span>
@@ -2653,14 +2654,17 @@ export function App() {
       ? <AssistantSettingsView onBack={goBack} />
       : <LoginRequiredView message="AI 설정을 보려면 로그인해주세요." onBack={goBack} />;
   } else if (route === 'match') {
-    // 진행 단계는 서버가 없어 저절로 바뀌지 않으므로 주소로 확인한다(#/match/searching 등).
     content = me
-      ? <MatchView phase={arg} dataVersion={dataVersion} onBack={goBack} onNavigate={navigate} onToast={showToast} />
+      ? <MatchView onBack={goBack} onNavigate={navigate} onToast={showToast} />
       : <LoginRequiredView message="온라인 매칭을 쓰려면 로그인해주세요." onBack={goBack} />;
-  } else if (route === 'online-room') {
+  } else if (route === 'match-chat') {
     content = me
-      ? <OnlineRoomView dataVersion={dataVersion} onBack={goBack} onToast={showToast} />
-      : <LoginRequiredView message="온라인 방에 들어가려면 로그인해주세요." onBack={goBack} />;
+      ? <MatchChatView onBack={goBack} onNavigate={navigate} onToast={showToast} />
+      : <LoginRequiredView message="매칭 채팅을 보려면 로그인해주세요." onBack={goBack} />;
+  } else if (route === 'match-blocks') {
+    content = me
+      ? <MatchBlockListView onBack={goBack} onToast={showToast} />
+      : <LoginRequiredView message="차단 목록을 보려면 로그인해주세요." onBack={goBack} />;
   } else if (route === 'social-link') {
     content = me
       ? <SocialLinkView socialProviders={socialProviders} onSocialLink={handleSocialLink} onBack={goBack} />
