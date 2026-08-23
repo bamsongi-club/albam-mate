@@ -133,4 +133,13 @@ describe('T4 검색 결과 없음 안내 문구', () => {
     expect(screen.getByText('검색 결과가 없어요')).toBeTruthy();
     expect(screen.getByText('게임 이름의 일부만 넣어보세요.')).toBeTruthy();
   });
+
+  it('대체 검색인데 결과도 없으면 안내를 하나로 합쳐 보여준다', async () => {
+    getGamesSemanticSearch.mockResolvedValue({ ...EMPTY_PAGE, searchMode: 'LEXICAL_FALLBACK' });
+    await renderGamesView('아무도 없는 조건');
+
+    expect(screen.queryByText('키워드 검색 결과로 대신 보여드려요')).toBeNull();
+    expect(screen.getByText('검색 결과가 없어요')).toBeTruthy();
+    expect(screen.getByText('의미 검색을 잠시 사용할 수 없어 이름·조건 기반으로 찾아봤지만 결과가 없어요. 다른 표현이나 조건으로 다시 시도해보세요.')).toBeTruthy();
+  });
 });

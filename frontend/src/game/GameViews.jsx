@@ -141,7 +141,8 @@ export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, on
         />
       </form>
       <GameFilters filters={filters} onChange={setFilters} quickSlot={playedChips} />
-      {isFallback && !error && (
+      {/* 대체 검색 안내와 결과 없음 안내가 겹치면 하나로 합쳐 보여준다(아래 검색 결과가 없어요). */}
+      {isFallback && !error && (loading || !!games.length) && (
         <div style={{ marginTop: 18 }}>
           <StateBlock title="키워드 검색 결과로 대신 보여드려요" description="의미 검색을 잠시 사용할 수 없어 이름·조건 기반 결과로 대체했어요." />
         </div>
@@ -170,7 +171,14 @@ export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, on
       )}
       {!error && !loading && !games.length && (
         <div style={{ marginTop: 26 }}>
-          <StateBlock title="검색 결과가 없어요" description={isSearching ? '다른 표현이나 조건으로 다시 시도해보세요.' : '게임 이름의 일부만 넣어보세요.'} />
+          <StateBlock
+            title="검색 결과가 없어요"
+            description={
+              isFallback
+                ? '의미 검색을 잠시 사용할 수 없어 이름·조건 기반으로 찾아봤지만 결과가 없어요. 다른 표현이나 조건으로 다시 시도해보세요.'
+                : isSearching ? '다른 표현이나 조건으로 다시 시도해보세요.' : '게임 이름의 일부만 넣어보세요.'
+            }
+          />
         </div>
       )}
       {!error && data && (
