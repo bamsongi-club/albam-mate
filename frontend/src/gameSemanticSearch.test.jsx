@@ -100,17 +100,12 @@ describe('T2 검색어 제출', () => {
 });
 
 describe('T7 searchMode 미노출 — 구현 방식 배너를 보여주지 않는다', () => {
-  it('검색 결과를 받아도 fallback 배너가 없다', async () => {
-    getGameSearch.mockResolvedValue(SEARCH_HIT);
+  it('응답 데이터에 searchMode가 섞여 들어와도 프런트는 무시하고 화면에 표시하지 않는다', async () => {
+    getGameSearch.mockResolvedValue({ ...SEARCH_HIT, searchMode: 'LEXICAL_FALLBACK' });
     await renderGamesView('가벼운 파티 게임');
 
-    expect(screen.queryByText('키워드 검색 결과로 대신 보여드려요')).toBeNull();
-  });
-
-  it('검색어가 없을 때도 fallback 배너가 없다', async () => {
-    await renderGamesView();
-
-    expect(screen.queryByText('키워드 검색 결과로 대신 보여드려요')).toBeNull();
+    expect(screen.queryByText(/LEXICAL/)).toBeNull();
+    expect(screen.queryByText(/FALLBACK/)).toBeNull();
   });
 });
 

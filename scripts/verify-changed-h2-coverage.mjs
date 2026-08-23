@@ -158,9 +158,20 @@ export function verifyChangedH2Coverage({ buildFileText, reportXml, changedPacka
     const globalChecked = changedPackages.length > 0;
 
     if (globalChecked) {
-        console.log('H2 단독 리포트이므로 전체 최소선 검증을 생략합니다.');
+        for (const [type, minimum] of rules.globalMinimums) {
+            const counter = coverage.totals[type.toLowerCase()];
+            if (!counter) {
+                problems.push(`JaCoCo 리포트에 전체 ${type} counter가 없습니다.`);
+                continue;
+            }
+            const actual = ratio(counter);
+            if (actual < minimum) {
+                problems.push(
+                    `전체 ${type} 커버리지가 ${percentage(actual)}로 최소선 ${percentage(minimum)}보다 낮습니다.`,
+                );
+            }
+        }
     }
-
 
     for (const packageName of [...new Set(changedPackages)].sort()) {
         const minimum = rules.packageMinimums.get(packageName);

@@ -117,25 +117,32 @@ class GameSearchControllerTest {
 
 	@Test
 	void T3_정상_요청은_200이고_searchMode_필드가_없다() throws Exception {
+		cloud.bamsongi.albammate.game.dto.GameListItem mockItem = new cloud.bamsongi.albammate.game.dto.GameListItem(1L, 100L, "테스트 게임", "Test Game", "url", "2-4", "tag", "30-60", new java.math.BigDecimal("2.5"), 2024, 10, 0, false);
 		when(semanticGameSearchQueryService.search(any(SemanticGameSearchRequest.class),
 			org.mockito.ArgumentMatchers.isNull()))
-			.thenReturn(new SemanticGameSearchResponse(List.of(), 0, 10, false, SemanticGameSearchMode.SEMANTIC));
+			.thenReturn(new SemanticGameSearchResponse(List.of(mockItem), 0, 10, true, SemanticGameSearchMode.SEMANTIC));
 
 		mockMvc.perform(get("/api/games/search").param("query", "협력 게임"))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.content").isEmpty())
+			.andExpect(jsonPath("$.data.page").value(0))
+			.andExpect(jsonPath("$.data.size").value(10))
+			.andExpect(jsonPath("$.data.hasNext").value(true))
+			.andExpect(jsonPath("$.data.content[0].id").value(1))
+			.andExpect(jsonPath("$.data.content[0].name").value("테스트 게임"))
 			.andExpect(jsonPath("$.data.searchMode").doesNotExist());
 	}
 
 	@Test
-	void T4_no_result는_200이고_빈_content다() throws Exception {
+	void T4_LEXICAL_FALLBACK이더라도_공개_응답에는_searchMode가_없다() throws Exception {
 		when(semanticGameSearchQueryService.search(any(SemanticGameSearchRequest.class),
 			org.mockito.ArgumentMatchers.isNull()))
 			.thenReturn(
-				new SemanticGameSearchResponse(List.of(), 0, 10, false, SemanticGameSearchMode.LEXICAL_FALLBACK));
+				new SemanticGameSearchResponse(List.of(), 1, 20, false, SemanticGameSearchMode.LEXICAL_FALLBACK));
 
 		mockMvc.perform(get("/api/games/search").param("query", "결과없는검색어"))
 			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.page").value(1))
+			.andExpect(jsonPath("$.data.size").value(20))
 			.andExpect(jsonPath("$.data.content").isEmpty())
 			.andExpect(jsonPath("$.data.hasNext").value(false))
 			.andExpect(jsonPath("$.data.searchMode").doesNotExist());
