@@ -740,7 +740,11 @@ public final class MatchCandidateClaimBaselineSupport {
 	}
 
 	private static String argumentFileLine(String argument) {
-		return '"' + argument.replace("\"", "\\\"") + '"';
+		String normalized = argument.replace('\\', '/');
+		if (!normalized.contains(" ") && !normalized.contains("\t") && !normalized.startsWith("#")) {
+			return normalized;
+		}
+		return '"' + normalized.replace("\"", "\\\"") + '"';
 	}
 
 	private static BarrierClient awaitConnected(ServerSocket barrier) throws IOException {
