@@ -5,7 +5,7 @@
 - 결정일: 2026-08-06
 - 관련: [P1 실행 환경과 공용 인프라](../../archive/p1/P1-spec.md#실행-환경과-공용-인프라), [다중 인스턴스 실행](../../ARCHITECTURE.md#다중-인스턴스-실행), [P1 AWS 실행 설계](../../guides/AWS_MULTI_INSTANCE_INFRASTRUCTURE.md), [ADR-0021 P0 AWS EC2와 RDS 배포 기준선](0021-p0-aws-ec2-rds-deployment-baseline.md), [ADR-0038 다중 인스턴스 공용 세션과 스케줄 조정](0038-multi-instance-session-and-scheduler-coordination.md)
 - 대체 대상: [ADR-0038](0038-multi-instance-session-and-scheduler-coordination.md)의 `production` AWS 토폴로지와 운영 리소스 선택(ALB·ASG·RDS·Redis 제품)
-- 후속 ADR: 없음
+- 후속 ADR: [ADR-0090](0090-p1-app-t4g-small-sizing.md)의 App1·App2 인스턴스 유형 부분 후속
 
 ## 맥락
 
