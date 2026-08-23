@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import java.time.Duration;
+import java.util.List;
 import java.util.Set;
 
 import org.junit.jupiter.api.Test;
@@ -19,23 +20,45 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 class AssistantUsageEventMetricsTest {
 
 	@Test
-	void T1_usage_metric은_허용된_status와_token_type만_label로_사용한다() {
+	void T1_PROVIDER_INPUT_TOO_LARGE는_REJECTED이고_임의_미지_status는_unknown으로_남긴다() {
+		try (AnnotationConfigApplicationContext context = usageObservationContext()) {
+			AssistantUsageEventSink sink = context.getBean(AssistantUsageEventSink.class);
+			SimpleMeterRegistry meterRegistry = context.getBean(SimpleMeterRegistry.class);
+			sink.record(usage("PROVIDER_INPUT_TOO_LARGE", 1, 1, Duration.ofMillis(1), "0.01"));
+			sink.record(usage("unrecognized-future-status", 1, 1, Duration.ofMillis(1), "0.01"));
+
+			assertEquals(Set.of("REJECTED", "unknown"),
+				tagValues(meterRegistry, "assistant.usage.events", "status"));
+		}
+	}
+
+	@Test
+	void T1_usage_event만_승인된_status를_label로_사용하고_token_latency는_식별자를_남기지_않는다() {
 		try (AnnotationConfigApplicationContext context = usageObservationContext()) {
 			AssistantUsageEventSink sink = context.getBean(AssistantUsageEventSink.class);
 			SimpleMeterRegistry meterRegistry = context.getBean(SimpleMeterRegistry.class);
 			sink.record(usage("SUCCESS", 11, 17, Duration.ofMillis(101), "0.01"));
+			sink.record(usage("NOT_ENABLED", 1, 1, Duration.ofMillis(1), "0.01"));
+			sink.record(usage("CONSENT_REQUIRED", 1, 1, Duration.ofMillis(1), "0.01"));
+			sink.record(usage("SERVICE_UNAVAILABLE", 1, 1, Duration.ofMillis(1), "0.01"));
 			sink.record(new AssistantUsageEvent(
 				"provider=raw-user@example.com", "model-secret", "feature-user-991",
 				"prompt body", "schema-session-token", 1, 1, 2, Duration.ofMillis(1),
 				"status-secret", new BigDecimal("0.01")));
 
-			Set<String> allowedTagKeys = Set.of("status", "token_type");
+			assertEquals(Set.of("SUCCESS", "NOT_CALLED", "REJECTED", "FAILED", "unknown"),
+				tagValues(meterRegistry, "assistant.usage.events", "status"));
 			assertTrue(meterRegistry.getMeters().stream()
-				.filter(meter -> meter.getId().getName().startsWith("assistant.usage."))
-				.flatMap(meter -> meter.getId().getTags().stream())
-				.map(Tag::getKey)
-				.allMatch(allowedTagKeys::contains));
-			assertEquals(Set.of("SUCCESS", "unknown"), tagValues(meterRegistry, "assistant.usage.events", "status"));
+				.filter(meter -> meter.getId().getName().equals("assistant.usage.events"))
+				.allMatch(meter -> meter.getId().getTags()
+					.equals(List.of(Tag.of("status", meter.getId().getTag("status"))))));
+			assertTrue(meterRegistry.getMeters().stream()
+				.filter(meter -> meter.getId().getName().equals("assistant.usage.tokens"))
+				.allMatch(meter -> meter.getId().getTags()
+					.equals(List.of(Tag.of("token_type", meter.getId().getTag("token_type"))))));
+			assertTrue(meterRegistry.getMeters().stream()
+				.filter(meter -> meter.getId().getName().equals("assistant.usage.latency"))
+				.allMatch(meter -> meter.getId().getTags().isEmpty()));
 			assertFalse(meterRegistry.getMeters().stream()
 				.filter(meter -> meter.getId().getName().startsWith("assistant.usage."))
 				.flatMap(meter -> meter.getId().getTags().stream())
@@ -53,7 +76,7 @@ class AssistantUsageEventMetricsTest {
 	}
 
 	@Test
-	void T2_input_output_token은_분리_누적하고_total은_공유_event값_대신_재계산한다() {
+	void T2_input_output_token은_분리_누적하고_total_series없이_조회에서_재계산한다() {
 		try (AnnotationConfigApplicationContext context = usageObservationContext()) {
 			AssistantUsageEventSink sink = context.getBean(AssistantUsageEventSink.class);
 			SimpleMeterRegistry meterRegistry = context.getBean(SimpleMeterRegistry.class);
@@ -63,11 +86,19 @@ class AssistantUsageEventMetricsTest {
 				13, 19, 999, Duration.ofMillis(102), "SUCCESS", new BigDecimal("0.02")));
 
 			assertEquals(24.0, meterRegistry.get("assistant.usage.tokens")
-				.tags("status", "SUCCESS", "token_type", "input").summary().totalAmount());
+				.tags("token_type", "input").summary().totalAmount());
 			assertEquals(36.0, meterRegistry.get("assistant.usage.tokens")
-				.tags("status", "SUCCESS", "token_type", "output").summary().totalAmount());
+				.tags("token_type", "output").summary().totalAmount());
 			assertEquals(60.0, meterRegistry.get("assistant.usage.tokens")
-				.tags("status", "SUCCESS", "token_type", "total").summary().totalAmount());
+				.tags("token_type", "input").summary().totalAmount()
+				+ meterRegistry.get("assistant.usage.tokens").tags("token_type", "output").summary().totalAmount());
+			assertFalse(meterRegistry.getMeters().stream()
+				.anyMatch(meter -> meter.getId().getName().equals("assistant.usage.tokens")
+					&& "total".equals(meter.getId().getTag("token_type"))));
+			assertTrue(meterRegistry.getMeters().stream()
+				.filter(meter -> meter.getId().getName().equals("assistant.usage.tokens"))
+				.allMatch(meter -> meter.getId().getTags().equals(List.of(
+					Tag.of("token_type", meter.getId().getTag("token_type"))))));
 			assertFalse(meterRegistry.getMeters().stream()
 				.anyMatch(meter -> meter.getId().getName().equals("assistant.usage.cost.usd")));
 		}

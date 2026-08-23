@@ -97,18 +97,12 @@ class LatencySaturationProductionPostgresTest {
 		"release", "test-release");
 	private static final Set<String> REQUIRED_SATURATION_METERS = Set.of(
 		"jvm.memory.used",
-		"jvm.threads.live",
 		"tomcat.threads.busy",
-		"tomcat.threads.current",
 		"tomcat.threads.config.max",
-		"hikaricp.connections.active",
-		"hikaricp.connections.idle",
 		"hikaricp.connections.pending",
-		"hikaricp.connections.max",
-		"hikaricp.connections.timeout");
+		"hikaricp.connections.max");
 	private static final Set<String> TOMCAT_THREAD_METERS = Set.of(
 		"tomcat.threads.busy",
-		"tomcat.threads.current",
 		"tomcat.threads.config.max");
 	private static final ConcurrentLinkedQueue<OtlpPayload> OTLP_PAYLOADS = new ConcurrentLinkedQueue<>();
 	private static final AtomicLong OTLP_RECEIVER_SEQUENCE = new AtomicLong();

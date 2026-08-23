@@ -96,6 +96,8 @@ object key는 `receipts/v1/{environment}/{stackId}/{receiptId}/{sequence}-{stage
 
 아래 목록 밖의 application meter는 기본적으로 중앙 export하지 않는다. 새 meter는 이름·type·유한한 tag 값·query·예상 시계열 수를 이 표에 먼저 추가한다. P2가 추가하는 OTLP metric·중앙 로그·alarm 예상 월 비용은 기존 host 관측을 제외하고 USD 10 이하로 유지한다.
 
+정상 production OTLP 허용 목록은 아래 17개 meter만 전송한다: `http.server.requests`, `jvm.memory.used`, `jvm.memory.max`, `tomcat.threads.busy`, `tomcat.threads.config.max`, `hikaricp.connections.pending`, `hikaricp.connections.max`, `albam.dependency.health`, `notification.relay.events`, `notification.relay.delivery.duration`, `notification.relay.oldest.processable.age`, `chat.message.operations`, `room.waitlist.operations`, `assistant.usage.events`, `assistant.usage.tokens`, `assistant.usage.latency`, `assistant.cost.warning.events`. `albam.dependency.health`는 App1·App2의 PostgreSQL·Redis 연결 상태라는 OPS-01 완료 기준을 소유하므로 normal export에 유지하며, 배포 dimension과 `dependency=postgresql|redis`만으로 두 App 합계 4 series를 만든다. 표에 있는 나머지 앱 meter는 현재 dashboard·alarm·완료 기준 query가 없으므로 local registry에만 남기고 normal export에는 넣지 않는다. 새 query가 필요해지면 series 상한과 비용 gate를 다시 계산한 뒤 별도 승인으로 추가한다.
+
 ### 인프라·Spring 표준 meter
 
 | 이름 | type·source | 허용 dimension | 사용 query | 상태 |
@@ -149,9 +151,9 @@ source는 첫 두 meter가 `AuthenticationRequestLimiterMetrics`, WebSocket 네 
 | `room.status.correction.duration` | timer | 없음 | 실행별 p95·180초 warning | 현재 코드·export 필요, CloudWatch 배포·실측 필요 |
 | `room.waitlist.operations` | counter | `operation=join|cancel|promote`, `outcome=accepted|rejected|failed` | 배포 fixture별 `Sum`·최종 업무 결과 | 현재 코드·H2·PostgreSQL 자동 검증 완료, CloudWatch 배포·실측 필요 |
 | `assistant.usage.events` | counter | 승인된 `status` 또는 `unknown` | 같은 release의 요청 수를 status별 `Sum` | 현재 코드·자동 검증 완료, CloudWatch 배포·실측 필요 |
-| `assistant.usage.tokens` | distribution summary | `status`, `token_type=input|output|total` | 입력·출력 token 합계와 두 값을 재계산한 전체 token. 같은 tag 조합마다 하나의 series만 만듦 | 현재 코드·자동 검증 완료, CloudWatch 배포·실측 필요 |
-| `assistant.usage.latency` | timer | 승인된 `status` 또는 `unknown` | status별 count·p95 | 현재 코드·자동 검증 완료, CloudWatch 배포·실측 필요 |
-| `assistant.cost.warning.events` | counter | `warning_threshold_usd=4.00|unknown` | 중복 없는 `$4` warning. `quota_month` label은 만들지 않음 | 현재 코드·자동 검증 완료, CloudWatch 배포·실측 필요 |
+| `assistant.usage.tokens` | distribution summary | `token_type=input|output` | 입력·출력 token 합계와 두 값을 조회에서 재계산한 전체 token. `status`와 중복 `total` series는 만들지 않음 | 현재 코드·자동 검증 완료, CloudWatch 배포·실측 필요 |
+| `assistant.usage.latency` | timer | 없음 | count·p95. status별 요청 수는 별도 event meter가 소유 | 현재 코드·자동 검증 완료, CloudWatch 배포·실측 필요 |
+| `assistant.cost.warning.events` | counter | 없음 | 중복 없는 `$4` warning 상태 신호. 숫자 비용·`quota_month` label은 만들지 않음 | 현재 코드·자동 검증 완료, CloudWatch 배포·실측 필요 |
 
 `notification.relay.delivery.duration`은 outbox의 `recordedAt`부터 Notification 기록 시각까지의 `deliveryDelayMs`를 기록한다. `notification.relay.oldest.processable.age`는 batch 종료 뒤 PostgreSQL 조회의 밀리초 값을 초 단위 gauge로 기록하고, 처리 가능한 적체가 없으면 0이다. `processingDurationMs`는 구조화 로그의 진단 필드일 뿐 meter에 기록하지 않는다.
 
@@ -163,9 +165,9 @@ source는 첫 두 meter가 `AuthenticationRequestLimiterMetrics`, WebSocket 네 
 
 현재 공유 meter는 요청별 cached input과 long-context 가격 적격성을 전달하지 않는다. 숫자 비용 metric은 가격 적격성이 확인된 경우에만 별도 계산기로 만들 수 있으며, 현재 앱은 이를 전송하지 않는다. [인프라 #43](https://github.com/bamsongi-club/albam-mate-infra/pull/43)은 #42의 집계 token 기반 숫자 비용 panel을 제거하고 dashboard·`$4` alarm을 기본 비활성화했으며, 가격 적격성·전체 P2 비용 입력·cardinality precondition을 통과하기 전에는 배포를 차단한다. 따라서 현재 dashboard 비용은 `NO_OBSERVATION`이고 cost-warning alarm의 SNS warning·OK action과 통제된 `OK → ALARM → OK`는 미배포·미측정이다. 앱의 `assistant.cost.warning` meter는 애플리케이션 상태 신호일 뿐 실제 청구서나 CloudWatch alarm을 대체하지 않는다.
 
-인프라 #43은 P2 신규 application OTLP metric의 meter별 series·datapoint, 중앙 로그 수집량·14일 보존, alarm·dashboard를 목록화하고 기존 host 관측 비용을 별도 항목으로 분리했다. 기존 계산의 알려진 application series 3,278개와 월 비용 하한 USD 83.51은 조정 전 snapshot이며, 이 앱 변경만으로 새 전체 합계나 `PASS`를 선언하지 않는다. 계정 기준선·조정 후 P2 증분·가정·필수 입력을 모두 갖춘 계산만 무료 구간을 계정 전체에 한 번 적용하고 USD 10 이하를 `PASS`, 초과를 `BLOCKED_REAPPROVAL`로 판정한다. 하나라도 빠지면 `NO_OBSERVATION`이며, 새 AI release의 배포 후 실제 값은 #872 미완료 실측 입력이다.
+인프라 #43은 P2 신규 application OTLP metric의 meter별 series·datapoint, 중앙 로그 수집량·14일 보존, alarm·dashboard를 목록화하고 기존 host 관측 비용을 별도 항목으로 분리했다. 두 App instance에서 AI meter는 최대 18개 series다. 즉 제한된 관측 status 5개 event series는 10개, label 없는 input·output token은 4개, label 없는 latency는 2개, label 없는 cost-warning은 2개다. 이 값은 기존 계정 기준선과 P2 증분 정적 상한을 합산하는 비용 계산기의 재현 가능한 앱 입력이며, 기존 계산의 알려진 application series 3,278개와 월 비용 하한 USD 83.51은 조정 전 snapshot이다. 계정 기준선·조정 후 P2 증분·가정·필수 입력을 모두 갖춘 계산만 무료 구간을 계정 전체에 한 번 적용하고 USD 10 이하를 `PASS`, 초과를 `BLOCKED_REAPPROVAL`로 판정한다. 하나라도 빠지면 `NO_OBSERVATION`이며, 새 AI release의 배포 후 실제 값은 #872 미완료 실측 입력이다.
 
-production 기본 OTLP export는 5분이고 위 `인프라·Spring 표준 meter`와 `현재 생산 코드의 domain meter` 표에 이름이 있는 application meter만 exact allowlist로 전송한다. 1분 export는 통제된 측정에서만 `ALBAM_MATE_OTLP_METRICS_STEP=1m`를 명시해 일시적으로 사용하며, 측정이 끝나면 제거한다. 배포 식별자는 OTel resource attribute로 한 번만 붙이고 Micrometer common tag나 exporter resource attribute로 중복하지 않는다.
+production 기본 OTLP export는 5분이고 위 정상 production의 exact 17개 allowlist만 전송한다. 1분 export는 통제된 측정에서만 `ALBAM_MATE_OTLP_METRICS_STEP=1m`를 명시해 일시적으로 사용하며, 측정이 끝나면 제거한다. 배포 식별자는 OTel resource attribute로 한 번만 붙이고 Micrometer common tag나 exporter resource attribute로 중복하지 않는다. 이 자동 검증·배포 전 비용 gate는 #823 앱 배포·#824 AI 운영 실측·#872 dashboard·alarm·SNS 검증과 teardown을 대신하지 않는다.
 
 채팅 보존의 복구 판정은 앱 인스턴스 메모리나 domain meter가 합성하지 않는다. release 전체의 `failures`와 `completed` 신호를 함께 평가하는 비공개 infra alarm이 소유하며, 그 alarm 구현·배포·실측은 미완료다.
 

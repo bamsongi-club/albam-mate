@@ -74,7 +74,7 @@ P2는 같은 지표·로그를 재사용하는 CloudWatch dashboard 두 개를 �
 
 #### 4. 사용량과 추정 비용
 
-- 제한된 `status`별 AI 요청과 입력·출력 token. provider·model·feature·prompt/schema version은 event contract에만 남기고 metric label로 전송하지 않는다.
+- 제한된 관측 `status`별 AI 요청과 label 없이 기록한 입력·출력 token. total은 두 token series를 조회에서 재계산하며 provider·model·feature·prompt/schema version은 event contract에만 남기고 metric label로 전송하지 않는다.
 - success·fallback·failure별 사용량
 - 실제 외부 provider 호출 수 × USD `0.10`의 고정 예약 비용과 앱 월 `$5` cap·`$4` warning 사용량
 - 공식 가격표 snapshot을 적용한 token 기반 참고 추정 비용

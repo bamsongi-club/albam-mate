@@ -2,6 +2,7 @@ package cloud.bamsongi.albammate.infra.ai;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -45,6 +46,8 @@ class OpenAiAssistantProviderTest {
 		String inputSchema = options.getToolCallbacks().getFirst().getToolDefinition().inputSchema();
 		assertTrue(inputSchema.contains("gameStyles"));
 		assertFalse(inputSchema.contains("uniqueItems"));
+		assertThrows(UnsupportedOperationException.class,
+			() -> options.getToolCallbacks().getFirst().call("{}"));
 		assertTrue(String.valueOf(options.getToolChoice()).contains("propose_game_room_intent"));
 		assertTrue(prompt.getInstructions().getFirst() instanceof SystemMessage);
 		assertTrue(prompt.getSystemMessage().getText().contains("exactly once"));
