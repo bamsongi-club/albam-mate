@@ -376,7 +376,12 @@ public final class MatchCandidateClaimBaselineSupport {
 			barrier.setSoTimeout(PROCESS_TIMEOUT_SECONDS * 1_000);
 			worker = startWorker(jdbcUrl, jdbcUsername, jdbcPassword, barrier.getLocalPort(), fixture,
 				measuredGitSha, configurationSha, 1);
-			BarrierClient client = awaitConnected(barrier);
+			BarrierClient client;
+			try {
+				client = awaitConnected(barrier);
+			} catch (IOException exception) {
+				throw new IOException(exception.getMessage() + " " + workerDiagnostic(worker), exception);
+			}
 			try {
 				try {
 					awaitReady(client, fixture.fixtureInputSha256(), measuredGitSha, configurationSha);
