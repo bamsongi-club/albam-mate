@@ -118,7 +118,7 @@ logging:
 app:
   search:
     cloudflare:
-      enabled: ${ALBAM_MATE_SEARCH_CLOUDFLARE_ENABLED:false}
+      enabled: ${ALBAM_MATE_SEARCH_CLOUDFLARE_ENABLED:true}
       account-id: ${CLOUDFLARE_ACCOUNT_ID:}
       api-token: ${CLOUDFLARE_API_TOKEN:}
       timeout: 5s
@@ -127,9 +127,9 @@ app:
       manifest-sha256: ${ALBAM_MATE_SEARCH_MANIFEST_SHA256:}
       search-text-checksum: ${ALBAM_MATE_SEARCH_TEXT_CHECKSUM:}
   assistant:
-    enabled: ${ALBAM_MATE_ASSISTANT_ENABLED:false}
+    enabled: ${ALBAM_MATE_ASSISTANT_ENABLED:true}
     provider: ${ALBAM_MATE_ASSISTANT_PROVIDER:fake}
-    provider-configured: ${ALBAM_MATE_ASSISTANT_PROVIDER_CONFIGURED:false}
+    provider-configured: ${ALBAM_MATE_ASSISTANT_PROVIDER_CONFIGURED:true}
     no-retention-verified: ${ALBAM_MATE_ASSISTANT_NO_RETENTION_VERIFIED:false}
     no-training-verified: ${ALBAM_MATE_ASSISTANT_NO_TRAINING_VERIFIED:false}
     retention-mode: ${ALBAM_MATE_ASSISTANT_RETENTION_MODE:unverified}

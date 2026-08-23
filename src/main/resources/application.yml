@@ -24,7 +24,7 @@ app:
 
   search:
     cloudflare:
-      enabled: false
+      enabled: ${ALBAM_MATE_SEARCH_CLOUDFLARE_ENABLED:true}
       account-id: ${CLOUDFLARE_ACCOUNT_ID:}
       api-token: ${CLOUDFLARE_API_TOKEN:}
       timeout: 5s
@@ -34,9 +34,9 @@ app:
       search-text-checksum: ${ALBAM_MATE_SEARCH_TEXT_CHECKSUM:}
 
   assistant:
-    enabled: false
+    enabled: true
     provider: fake
-    provider-configured: ${ALBAM_MATE_ASSISTANT_PROVIDER_CONFIGURED:false}
+    provider-configured: ${ALBAM_MATE_ASSISTANT_PROVIDER_CONFIGURED:true}
     model: gpt-5.6-luna
     no-retention-verified: false
     no-training-verified: false
