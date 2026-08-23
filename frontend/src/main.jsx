@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import poweredByBgg from '../assets/powered-by-bgg.svg';
+import mascotCut from '../assets/mascot-cut.png';
 import { ApiError, api, clearCsrfToken, messageForError, setUnauthenticatedHandler, socialLoginUrl } from './api';
-import { isUnauthenticated, useCumulativeRequest, usePaginatedRequest, useRequest } from './shared/async';
+import { isUnauthenticated, usePaginatedRequest, useRequest } from './shared/async';
 import { FilterCheckGroup, FilterPanel, FilterRadioGroup } from './shared/filters';
 import {
   ArrowIcon,
@@ -13,6 +14,7 @@ import {
   BrandMark,
   CameraIcon,
   ChatIcon,
+  CheckIcon,
   CloseIcon,
   Cover,
   EditIcon,
@@ -20,6 +22,7 @@ import {
   EyeIcon,
   EyeOffIcon,
   InfoIcon,
+  MailIcon,
   Meeples,
   Pagination,
   PlusIcon,
@@ -529,7 +532,7 @@ function HomeView({ me, unreadCount, chatUnreadCount, onOpenNotifications, dataV
   return (
     <div className="screen">
       <div className="appbar">
-        <span className="appbar-brand"><BrandMark /><span>알밤메이트</span></span>
+        <span className="appbar-brand"><img className="appbar-mascot" src={mascotCut} alt="" /><span className="wordmark">알밤메이트</span></span>
         <HeaderActions unreadCount={unreadCount} chatUnreadCount={chatUnreadCount} onOpenNotifications={onOpenNotifications} />
       </div>
       <div className="screen-body pad-bottom">
@@ -652,14 +655,15 @@ export function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQue
   const today = useSeoulToday();
   const filterKey = roomFilterKey(roomFilters, today);
   const counts = useRoomTypeCounts(keyword, roomFilters, today, dataVersion);
-  const { items, total, hasNext, loading, error, loadMore, retry } = useCumulativeRequest(
+  const { data, loading, error, setPage, retry } = usePaginatedRequest(
     // 유형을 비우면 두 유형의 공개 방을 함께 받는다.
     (page, signal) => api.getRooms({ type: roomType, keyword, ...roomFilterParameters(roomFilters, today), page, size: ROOM_LIST_PAGE_SIZE }, signal),
     [roomType, keyword, filterKey, dataVersion]
   );
   // status는 서버가 페이지네이션 전에 거른다(roomFilterParameters). 기본값(전체)에서는 프런트가 상태로 다시 거르지 않아
   // 모집 마감이라도 대기 신청이 가능한 방의 진입점이 유지된다.
-  const rooms = items.map(normalizeRoom);
+  const rooms = (data?.content || []).map(normalizeRoom);
+  const total = data?.totalElements ?? 0;
   const resetFilters = () => {
     onRoomTypeChange('');
     onRoomQueryChange('');
@@ -670,11 +674,7 @@ export function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQue
     <div className="screen">
       <div className="screen-body pad-top pad-bottom">
         <ScreenTitle actions={(
-          <span className="appbar-actions">
-            <a className="icon-btn" href="#/create" aria-label="모임 만들기">
-              <span className="round-plus"><PlusIcon /></span>
-            </a>
-          </span>
+          <a className="btn sm create-room-btn" href="#/create"><PlusIcon size={14} />모임 만들기</a>
         )}
         >
           모임 찾기
@@ -689,11 +689,11 @@ export function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQue
           <input id="room-q" value={input} onChange={(event) => setInput(event.target.value)} placeholder="게임, 모임 제목, 지역" />
         </form>
         <RoomFilters filters={roomFilters} onChange={onRoomFiltersChange} today={today} roomType={roomType} onRoomTypeChange={onRoomTypeChange} counts={counts} resultCount={total} />
-        {!error && <p className="section-label" style={{ marginTop: 18 }}>{loading && !rooms.length ? '불러오는 중' : '모임 ' + total + '개'}</p>}
+        {!error && <p className="section-label" style={{ marginTop: 18 }}>{loading && !data ? '불러오는 중' : '모임 ' + total + '개'}</p>}
 
         <div style={{ marginTop: 18 }}>
           {error && <ErrorBox title="모임을 불러오지 못했어요" message={error} onRetry={retry} />}
-          {!error && loading && !rooms.length && <RoomSkeletons label="모임 목록을 불러오는 중" />}
+          {!error && loading && !data && <RoomSkeletons label="모임 목록을 불러오는 중" />}
           {!error && !!rooms.length && (
             <div className="roomlist">
               {rooms.map((room) => <RoomListItem key={room.id} room={room} />)}
@@ -707,10 +707,8 @@ export function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQue
               </div>
             </StateBlock>
           )}
-          {!error && hasNext && (
-            <button type="button" className="more-btn" style={{ marginTop: 22 }} disabled={loading} onClick={loadMore}>
-              {loading ? '불러오는 중…' : (total - rooms.length) + '개 더 보기'}
-            </button>
+          {!error && !!rooms.length && (
+            <Pagination page={data?.page ?? 0} totalPages={data?.totalPages ?? 0} loading={loading} onChange={setPage} className="tab-fab-clear" />
           )}
         </div>
       </div>
@@ -2037,7 +2035,6 @@ function signupPasswordError(password) {
 }
 
 export function AuthView({ onLogin, socialProviders = [], onSocialLogin, onBack }) {
-  const [showEmailForm, setShowEmailForm] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -2059,27 +2056,21 @@ export function AuthView({ onLogin, socialProviders = [], onSocialLogin, onBack 
     <div className="screen">
       {onBack && <TopBar onBack={onBack} />}
       <div className="auth">
-        <BrandMark size={62} />
-        <h1>오늘 열린 모임에<br />한 자리 맡아두세요</h1>
-        <p className="auth-lead">근처에서 열리는 보드게임 모임을 찾고,<br />직접 모임을 열어 사람을 모아요.</p>
-
-        {showEmailForm
-          ? (
-            <form onSubmit={submit}>
-              <div className="field">
-                <label className="sr-only" htmlFor="auth-email">이메일</label>
-                <input id="auth-email" className="field-input" type="email" autoComplete="email" placeholder="이메일" required value={email} onChange={(event) => setEmail(event.target.value)} />
-              </div>
-              <div className="field auth-password">
-                <label className="sr-only" htmlFor="auth-password">비밀번호</label>
-                <input id="auth-password" className="field-input" type={showPassword ? 'text' : 'password'} autoComplete="current-password" placeholder="비밀번호" required value={password} onChange={(event) => setPassword(event.target.value)} />
-                <button type="button" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}>{showPassword ? <EyeOffIcon /> : <EyeIcon />}</button>
-              </div>
-              {error && <p className="field-hint warn" role="alert">{error}</p>}
-              <button className="btn cta" disabled={submitting} type="submit">{submitting ? '처리 중…' : '로그인'}</button>
-            </form>
-          )
-          : <button className="btn cta" type="button" onClick={() => setShowEmailForm(true)}>이메일로 로그인</button>}
+        <p className="auth-lead">보드게임의 모든 것</p>
+        <h1 className="wordmark">알밤메이트</h1>
+        <form onSubmit={submit}>
+          <div className="field">
+            <label className="sr-only" htmlFor="auth-email">이메일</label>
+            <input id="auth-email" className="field-input" type="email" autoComplete="email" placeholder="이메일" required value={email} onChange={(event) => setEmail(event.target.value)} />
+          </div>
+          <div className="field auth-password">
+            <label className="sr-only" htmlFor="auth-password">비밀번호</label>
+            <input id="auth-password" className="field-input" type={showPassword ? 'text' : 'password'} autoComplete="current-password" placeholder="비밀번호" required value={password} onChange={(event) => setPassword(event.target.value)} />
+            <button type="button" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}>{showPassword ? <EyeOffIcon /> : <EyeIcon />}</button>
+          </div>
+          {error && <p className="field-hint warn" role="alert">{error}</p>}
+          <button className="btn cta" disabled={submitting} type="submit"><MailIcon size={19} />{submitting ? '처리 중…' : '이메일로 로그인'}</button>
+        </form>
 
         {socialProviders.length > 0 && (
           <>
@@ -2093,7 +2084,7 @@ export function AuthView({ onLogin, socialProviders = [], onSocialLogin, onBack 
             </div>
           </>
         )}
-        <a className="auth-switch" href="#/signup">계정이 없으신가요? <b>회원가입</b></a>
+        <a className="auth-switch" href="#/signup">처음이신가요? <b>회원가입</b></a>
       </div>
     </div>
   );
@@ -2106,6 +2097,7 @@ export function SignupView({ onSignup, onBack }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [agreed, setAgreed] = useState(false);
   const passwordRef = useRef(null);
   const passwordError = signupPasswordError(password);
   const submit = async (event) => {
@@ -2128,27 +2120,36 @@ export function SignupView({ onSignup, onBack }) {
   };
   return (
     <form className="screen sub" onSubmit={submit}>
-      <TopBar onBack={onBack} title="회원가입" />
+      <TopBar onBack={onBack} />
       <div className="screen-body pad-bottom">
-        <div className="field">
-          <label className="sr-only" htmlFor="signup-email">이메일</label>
-          <input id="signup-email" className="field-input" type="email" autoComplete="email" placeholder="이메일" required value={email} onChange={(event) => setEmail(event.target.value)} />
-        </div>
+        <h1>반가워요,<br />어떻게 부르면 될까요</h1>
+        <p className="screen-lead">닉네임은 모임 참가자 목록에 보여요.</p>
         <div className="field">
           <label className="sr-only" htmlFor="signup-nickname">닉네임</label>
-          <input id="signup-nickname" className="field-input" maxLength="50" placeholder="닉네임" required value={nickname} onChange={(event) => setNickname(event.target.value)} />
+          <input id="signup-nickname" className="field-input" maxLength="50" placeholder="예: 밤톨이" required value={nickname} onChange={(event) => setNickname(event.target.value)} />
+        </div>
+        <div className="field">
+          <label className="sr-only" htmlFor="signup-email">이메일</label>
+          <input id="signup-email" className="field-input" type="email" autoComplete="email" placeholder="you@example.com" required value={email} onChange={(event) => setEmail(event.target.value)} />
         </div>
         <div className="field auth-password">
           <label className="sr-only" htmlFor="signup-password">비밀번호</label>
-          <input id="signup-password" className="field-input" ref={passwordRef} type={showPassword ? 'text' : 'password'} autoComplete="new-password" minLength={PASSWORD_MIN_CODE_POINTS} placeholder="비밀번호" required value={password} onChange={(event) => setPassword(event.target.value)} aria-describedby="signup-password-hint" aria-invalid={passwordError ? true : undefined} />
+          <input id="signup-password" className="field-input" ref={passwordRef} type={showPassword ? 'text' : 'password'} autoComplete="new-password" minLength={PASSWORD_MIN_CODE_POINTS} placeholder="15자 이상" required value={password} onChange={(event) => setPassword(event.target.value)} aria-describedby="signup-password-hint" aria-invalid={passwordError ? true : undefined} />
           <button type="button" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}>{showPassword ? <EyeOffIcon /> : <EyeIcon />}</button>
         </div>
-        <p id="signup-password-hint" className={passwordError ? 'field-hint warn' : 'field-hint'} role={passwordError ? 'alert' : undefined}>{passwordError || '15자 이상, Unicode와 공백을 사용할 수 있어요.'}</p>
+        <p id="signup-password-hint" className={passwordError ? 'field-hint warn' : 'field-hint'} role={passwordError ? 'alert' : undefined}>{passwordError || '띄어쓰기와 한글도 쓸 수 있어요'}</p>
         {error && <p className="field-hint warn" role="alert">{error}</p>}
+        <div className="divider" style={{ marginTop: 20 }} />
+        <label className="signup-terms">
+          <input type="checkbox" checked={agreed} onChange={(event) => setAgreed(event.target.checked)} />
+          <span className="signup-terms-check" aria-hidden="true"><CheckIcon size={13} width={3} /></span>
+          이용약관 및 개인정보 처리방침 동의
+          <ArrowIcon size={18} />
+        </label>
         <a className="auth-switch" href="#/auth">이미 계정이 있으신가요? <b>로그인</b></a>
       </div>
       <div className="stickybar">
-        <button className="btn cta" disabled={submitting} type="submit">{submitting ? '처리 중…' : '회원가입'}</button>
+        <button className="btn cta" disabled={submitting} type="submit">{submitting ? '처리 중…' : '가입하고 시작하기'}<ArrowIcon size={18} /></button>
       </div>
     </form>
   );
@@ -2157,8 +2158,8 @@ export function SignupView({ onSignup, onBack }) {
 function Splash() {
   return (
     <div className="splash" role="status" aria-label="알밤메이트를 여는 중">
-      <BrandMark size={76} />
-      <span>알밤메이트</span>
+      <img className="splash-mascot" src={mascotCut} alt="" />
+      <span className="wordmark">알밤메이트</span>
     </div>
   );
 }
@@ -2687,7 +2688,7 @@ export function App() {
     <>
       {(!sessionChecked || !splashDone) && <Splash />}
       {content}
-      {showTabs && <a className="bot-fab" href="#/assistant" aria-label="알밤봇 열기"><BrandMark size={30} tone="#fff" hole="#0A0A0A" /></a>}
+      {showTabs && <a className="bot-fab" href="#/assistant" aria-label="알밤봇 열기"><BrandMark size={30} tone="#fff" hole="#2D1E17" /></a>}
       {showTabs && <MobileBottomNavigation route={route} authenticated={authenticated} />}
       <div id="toast" role="status" aria-live="polite" className={(toast.message ? 'show ' : '') + (toast.type === 'err' ? 'err' : '')}>{toast.message}</div>
     </>

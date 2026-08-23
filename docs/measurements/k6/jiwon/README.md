@@ -4,6 +4,23 @@ ROOM portable bundle k6 campaign의 목록과 상태를 관리한다. 공통 승
 
 Campaign ID 앞 숫자는 실행·복구·재측정 항목의 시간순을 나타낸다. 상세 결론·원인·한계는 각 보고서가, machine ledger·수치·gate는 각 campaign manifest가 소유한다. 캠페인 종료 상태와 측정 증거 판정은 서로 다른 축이며, 값의 의미는 [공통 상태 어휘](../README.md#상태-어휘)를 따른다.
 
+ROOM-PERF는 P2 사용자 기능이 아니라, P2 기능이 의존하는 P1 ROOM·참가·대기열 기반을 출시 품질 관점에서 확인하는 cross-cutting gate다. 이 문서는 해당 gate의 campaign 탐색 인덱스이며, 측정 계약·evidence·상태 어휘는 상위 문서가, 상세 결론과 수치는 각 report와 campaign manifest가 소유한다.
+
+관련 작업·검증 흐름은 다음 Issue를 기준으로 연결한다.
+
+| 단계 | 근거 |
+| --- | --- |
+| 원격 실행 bundle 계약 | [#709](https://github.com/bamsongi-club/albam-mate/issues/709) |
+| p99·outcome별 지연 증거 보완 | [#777](https://github.com/bamsongi-club/albam-mate/issues/777) |
+| T1·T2 반복 기준선 | [#778](https://github.com/bamsongi-club/albam-mate/issues/778) |
+| T5 반복 조회 기준선 | [#779](https://github.com/bamsongi-club/albam-mate/issues/779) |
+| ROOM 충돌 재시도 bounded jitter 전후 검증 | [#780](https://github.com/bamsongi-club/albam-mate/issues/780) |
+| T1 critical section 축소 실험 | [#781](https://github.com/bamsongi-club/albam-mate/issues/781) |
+| T2 version claim 경합 방식 결정 | [#782](https://github.com/bamsongi-club/albam-mate/issues/782) |
+| mixed ROOM constant-arrival profile | [#783](https://github.com/bamsongi-club/albam-mate/issues/783) |
+| T1 hot c10·T1 spread/T2 hot·spread c16 경합 한계 측정 | [#788](https://github.com/bamsongi-club/albam-mate/issues/788) |
+| 개선 후 공식 matrix·mixed soak 최종 gate | [#784](https://github.com/bamsongi-club/albam-mate/issues/784) |
+
 | Campaign ID | 캠페인 종료 상태 | 보고서 | 측정 증거 판정·근거 | 문서 상태·대체 관계 |
 | --- | --- | --- | --- | --- |
 | 01. `room-k6-matrix-2026-08-14` | `completed-with-limitations` | [초기 매트릭스 — INVALID (2026-08-14)](room-portable-bundle-01-initial-invalid-2026-08-14.md) | `INVALID` · `prepare=3`: users timestamp SQL 오류 · [campaign manifest](evidence/room-portable-bundle-01-initial-invalid-2026-08-14.json) | `superseded` · 02 재실행 전 오류 이력 · 기준선 제외 |
