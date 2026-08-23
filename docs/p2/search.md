@@ -42,9 +42,9 @@ SEARCH-04 평가 corpus의 deterministic membership, pinned snapshot/version, 1,
 
 ### 초안 인터페이스 경계
 
-- P2는 별도 의미 검색 read contract를 추가한다. 예시 경로는 `GET /api/games/semantic-search`이며, 실제 경로·DTO·오류 코드는 [API](../API.md)와 필요한 ADR에서 확정하기 전까지 현재 제공 API로 간주하지 않는다.
+- P2는 별도 의미 검색 read contract를 추가한다. 공개 경로는 `GET /api/games/search`이며, 실제 DTO·오류 코드는 [API](../API.md)와 필요한 ADR에서 확정한다.
 - 의미 검색 contract는 `query`, `page`, `size`와 P1에서 이미 확정한 hard filter만 받는다. 기존 `GET /api/games`의 `keyword` 동작과 응답 호환성을 변경하지 않는다.
-- 결과 카드의 기본 필드는 기존 `GameListItem`을 재사용할 수 있지만, 관련도 점수·embedding·내부 검색어를 사용자 응답에 노출하지 않는다. fallback 여부를 표시해야 한다면 별도 명시적 상태 필드로 계약하고 임의의 점수로 대신하지 않는다.
+- 결과 카드의 기본 필드는 기존 `GameListItem`을 재사용할 수 있지만, 관련도 점수·embedding·내부 검색어·구현 방식(Dense/Sparse/Lexical)을 사용자 응답에 노출하지 않는다.
 
 ### 자연어 조건 해석 규칙
 

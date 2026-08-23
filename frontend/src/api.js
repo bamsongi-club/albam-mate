@@ -323,7 +323,7 @@ export const api = {
       page,
       size
     }), { signal }),
-  getGamesSemanticSearch: (
+  getGameSearch: (
     {
       query: searchQuery,
       playerCountMin,
@@ -347,7 +347,7 @@ export const api = {
     },
     signal
   ) =>
-    request('/api/games/semantic-search' + query({
+    request('/api/games/search' + query({
       query: searchQuery,
       playerCountMin,
       playerCountMax,

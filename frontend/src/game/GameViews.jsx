@@ -93,13 +93,12 @@ export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, on
       // 검색어가 없으면 기존 인기순 목록(GAME-01)을 그대로 보여주고, 검색어가 있으면 의미 검색으로 넘긴다.
       // 탭 없이 한 검색창에서 이름·문장 검색을 모두 받기 위한 분기다.
       if (!query) return api.getGames({ ...parameters, page, size: GAME_LIST_PAGE_SIZE }, signal);
-      return api.getGamesSemanticSearch({ query, ...parameters, page, size: GAME_LIST_PAGE_SIZE }, signal);
+      return api.getGameSearch({ query, ...parameters, page, size: GAME_LIST_PAGE_SIZE }, signal);
     },
     [query, filterKey, dataVersion, playedRefreshKey]
   );
   const games = (data?.content || []).map(normalizeGameSummary);
   const isSearching = Boolean(query);
-  const isFallback = isSearching && data?.searchMode === 'LEXICAL_FALLBACK';
   useEffect(() => setInput(gameQuery), [gameQuery]);
 
   const playedChips = (
@@ -141,11 +140,6 @@ export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, on
         />
       </form>
       <GameFilters filters={filters} onChange={setFilters} quickSlot={playedChips} />
-      {isFallback && !error && (
-        <div style={{ marginTop: 18 }}>
-          <StateBlock title="키워드 검색 결과로 대신 보여드려요" description="의미 검색을 잠시 사용할 수 없어 이름·조건 기반 결과로 대체했어요." />
-        </div>
-      )}
       {!error && <p className="section-label" style={{ marginTop: 18 }}>{loading && !data ? '불러오는 중' : '게임 목록'}</p>}
       {error && (
         <div style={{ marginTop: 26 }}>
