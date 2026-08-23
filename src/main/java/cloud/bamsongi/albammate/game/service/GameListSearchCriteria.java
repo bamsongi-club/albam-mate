@@ -140,4 +140,30 @@ public final class GameListSearchCriteria {
 		return new GameListSearchCriteria(this, keyword.strip());
 	}
 
+	/**
+	 * 검색어·필터 조건이 하나도 없는 요청인지 판정한다.
+	 *
+	 * <p>이 경우에만 저장소 조회에서 전체 건수를 함께 계산한다({@code #1055} 결정). {@code page}·{@code size}는
+	 * 조건이 아니므로 판정에 포함하지 않는다.
+	 */
+	public boolean isFilterless() {
+		return keyword == null
+			&& !upcomingOnly
+			&& playerCount == null
+			&& playerCountMin == null
+			&& playerCountMax == null
+			&& !playerCountExact
+			&& exclusivePlayerCounts.isEmpty()
+			&& playTimes.isEmpty()
+			&& youngestPlayerAge == null
+			&& complexityMin == null
+			&& complexityMax == null
+			&& playedFilter == null
+			&& mechanisms.isEmpty()
+			&& categories.isEmpty()
+			&& themes.isEmpty()
+			&& recommendedPlayerCounts.isEmpty()
+			&& bestPlayerCounts.isEmpty();
+	}
+
 }

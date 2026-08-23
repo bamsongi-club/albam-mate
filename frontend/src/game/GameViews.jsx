@@ -139,7 +139,12 @@ export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, on
           maxLength={200}
         />
       </form>
-      <GameFilters filters={filters} onChange={setFilters} quickSlot={playedChips} />
+      <GameFilters
+        filters={filters}
+        onChange={setFilters}
+        quickSlot={playedChips}
+        resultCount={Number.isFinite(data?.totalElements) ? data.totalElements : undefined}
+      />
       {!error && <p className="section-label" style={{ marginTop: 18 }}>{loading && !data ? '불러오는 중' : '게임 목록'}</p>}
       {error && (
         <div style={{ marginTop: 26 }}>
@@ -168,7 +173,9 @@ export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, on
         </div>
       )}
       {!error && data && (
-        <GameSlicePagination page={data.page ?? 0} hasNext={Boolean(data.hasNext)} loading={loading} onChange={setPage} />
+        Number.isFinite(data.totalPages)
+          ? <Pagination page={data.page ?? 0} totalPages={data.totalPages} loading={loading} onChange={setPage} className="tab-fab-clear" />
+          : <GameSlicePagination page={data.page ?? 0} hasNext={Boolean(data.hasNext)} loading={loading} onChange={setPage} />
       )}
       </div>
     </>

@@ -201,7 +201,7 @@ P0와 P1은 서버 세션 인증을 사용한다. Bearer access token과 refresh
 | `totalPages` | integer | Y | N | 전체 페이지 수 |
 | `hasNext` | boolean | Y | N | 다음 페이지 존재 여부 |
 
-- `GET /api/games`도 같은 `page`·`size` 요청 파라미터를 사용하지만, 전체 건수 없이 다음 항목 존재 여부만 반환하는 `GameListSliceResponse<T>`를 사용한다. 응답에는 `content`, `page`, `size`, `hasNext`만 포함하며 `totalElements`와 `totalPages`는 없다. 상세 계약은 [GAME-01](#game-01-게임-목록검색)을 따른다.
+- `GET /api/games`도 같은 `page`·`size` 요청 파라미터를 사용하지만, 다음 항목 존재 여부를 담은 `GameListSliceResponse<T>`를 사용한다. 응답에는 `content`, `page`, `size`, `hasNext`가 항상 있다. 필터·검색어가 전혀 없는 요청에서만 `totalElements`·`totalPages`를 함께 포함하며, 그 외에는 없다. 상세 계약은 [GAME-01](#game-01-게임-목록검색)을 따른다.
 - 클라이언트 지정 `sort`와 응답 필드 `first`, `last`는 지원하지 않는다.
 - 목록 API는 아래 고정 정렬을 적용한다. 모든 정렬은 마지막에 내부 `id`를 고유 tie-breaker로 사용해 같은 DB 상태에서 페이지 이동 중 순서가 임의로 바뀌지 않게 한다.
 
@@ -1491,7 +1491,9 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 - `recommendedPlayerCount`와 `bestPlayerCount`는 각각 BGG 투표에서 정규화한 양의 인원을 반복 전달하며 같은 목록 안에서 OR다. 가능 인원과 다른 의미이며 `4+` 결과는 해당 게임의 검증된 최대 가능 인원까지 확장된 관계로 판정한다.
 - `themeMatch`와 `mechanismMatch`는 각각 생략하면 `ANY`이고 대응하는 선택 코드 없이 보내도 유효하다. 두 모드는 독립적이며 테마·메커니즘 그룹과 다른 필터 종류 사이는 `AND`로 결합한다. 중복되거나 잘못된 match 값, 존재하지 않는 category/theme code, 0 이하 인원은 일부 유효 값이 함께 있어도 전체 요청을 `VALIDATION_ERROR`로 거절한다.
 - 인원·시간·최연소 참여자 나이·복잡도·카테고리·테마·추천/베스트·메커니즘 필터를 적용하면 해당 조건을 판정할 검증값이나 관계가 없는 게임은 제외한다. 필터를 생략하면 누락값이나 관계 부재만으로 제외하지 않는다.
-- 모든 필터를 적용한 뒤 `popularity_score DESC, name ASC, id ASC` 고정 정렬과 페이지를 계산한다. 다음 항목 존재 여부는 size+1 Slice 조회의 `hasNext`로 반환하며 전체 건수는 계산하거나 노출하지 않는다. `popularity_score`는 응답에 노출하지 않는 저장 파생값이다.
+- 모든 필터를 적용한 뒤 `popularity_score DESC, name ASC, id ASC` 고정 정렬과 페이지를 계산한다. 다음 항목 존재 여부는 size+1 Slice 조회의 `hasNext`로 반환한다.
+- `keyword`, `upcomingOnly`, 인원·플레이시간·연령·복잡도·`playedFilter`·메커니즘·카테고리·테마·추천/베스트 인원 등 조건 파라미터가 하나도 없는 요청만 전체 건수를 함께 계산해 `totalElements`·`totalPages`를 응답에 포함한다(`page`·`size`는 조건이 아니다). 하나라도 있으면 이전과 같은 count 없는 Slice 조회를 유지한다. 검색 없는 필터 없는 요청은 `games_pkey` index-only scan을 타 count 비용이 낮지만, 검색·필터가 있는 요청은 WHERE 조건 때문에 count 비용이 커질 수 있어 분리했다(`#1055`·`#1056` 결정).
+- `popularity_score`는 응답에 노출하지 않는 저장 파생값이다.
 
 #### GameListSliceResponse
 
@@ -1501,8 +1503,10 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 | `page` | integer | 0부터 시작하는 현재 페이지 번호 |
 | `size` | integer | 적용된 페이지 크기 |
 | `hasNext` | boolean | 다음 페이지 존재 여부 |
+| `totalElements` | integer | 필터·검색어가 전혀 없는 요청에서만 포함하는 전체 항목 수 |
+| `totalPages` | integer | 필터·검색어가 전혀 없는 요청에서만 포함하는 전체 페이지 수 |
 
-`totalElements`와 `totalPages`는 게임 목록 응답에 포함하지 않는다. 이 게임 전용 계약은 공통 `PageResponse`와 비게임 목록 API를 변경하지 않는다.
+`totalElements`와 `totalPages`는 필터·검색어가 있는 게임 목록 응답에는 포함하지 않는다. 이 게임 전용 계약은 공통 `PageResponse`와 비게임 목록 API를 변경하지 않는다.
 
 `tag` 필터와 클라이언트 지정 `sort`는 지원하지 않는다.
 

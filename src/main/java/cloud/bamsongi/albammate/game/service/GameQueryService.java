@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
@@ -85,11 +87,16 @@ public class GameQueryService {
 		}
 
 		GameListSearchCriteria pageCriteria = criteria;
+		// 필터·검색어가 전혀 없는 요청만 전체 건수를 계산한다(#1055). 그 외에는 count 없는 Slice 조회를 유지한다.
+		boolean includeTotals = pageCriteria.isFilterless();
 		Slice<Game> games = gameRepository.findBy(
-			GameListSpecification.from(pageCriteria), query -> query.slice(pageable));
+			GameListSpecification.from(pageCriteria),
+			includeTotals ? query -> query.page(pageable) : query -> query.slice(pageable));
 		if (games.isEmpty()) {
 			// 조립할 게임이 없으므로 예정 모임 수와 해 본 게임 조회를 건너뛰고 페이지 메타데이터만 그대로 전달한다.
-			return new SliceImpl<>(List.of(), pageable, games.hasNext());
+			return games instanceof Page<Game> gamePage
+				? new PageImpl<>(List.of(), pageable, gamePage.getTotalElements())
+				: new SliceImpl<>(List.of(), pageable, games.hasNext());
 		}
 
 		if (!criteria.isUpcomingOnly()) {

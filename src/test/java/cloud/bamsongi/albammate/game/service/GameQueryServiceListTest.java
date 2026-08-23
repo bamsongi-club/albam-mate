@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -16,10 +18,12 @@ import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -31,6 +35,7 @@ import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.SliceImpl;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor.SpecificationFluentQuery;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import cloud.bamsongi.albammate.game.contract.UpcomingRoomCountQuery;
@@ -112,15 +117,41 @@ class GameQueryServiceListTest {
 	}
 
 	@Test
-	void 측정_runner가_호출할_기본게임목록도_count없는_Slice_경로를_사용한다() {
+	void T1_필터_검색어가_없는_기본_게임목록은_count를_포함한_Page_조회_경로를_사용한다() {
+		Pageable pageable = fixedPageRequest(0, 10);
+		when(gameRepository.findBy(any(Specification.class), any()))
+			.thenReturn(new PageImpl<>(List.of(), pageable, 0));
+
+		var result = gameQueryService.findPage(new GameListRequest(), null);
+
+		assertEquals(false, result.hasNext());
+		verifyQueryCallbackInvokes(true);
+	}
+
+	@Test
+	void T2_검색어가_있는_게임목록은_기존_count없는_Slice_조회_경로를_유지한다() {
 		Pageable pageable = fixedPageRequest(0, 10);
 		when(gameRepository.findBy(any(Specification.class), any()))
 			.thenReturn(new SliceImpl<>(List.of(), pageable, false));
 
-		var result = gameQueryService.findPage(new GameListRequest(), null);
+		gameQueryService.findPage(request("카탄", false, null, null, null, null), null);
 
-		verify(gameRepository).findBy(any(Specification.class), any());
-		assertEquals(false, result.hasNext());
+		verifyQueryCallbackInvokes(false);
+	}
+
+	@SuppressWarnings("unchecked")
+	private void verifyQueryCallbackInvokes(boolean expectsPage) {
+		ArgumentCaptor<Function> queryCallback = ArgumentCaptor.forClass(Function.class);
+		verify(gameRepository).findBy(any(Specification.class), queryCallback.capture());
+		SpecificationFluentQuery<Game> query = mock(SpecificationFluentQuery.class);
+		queryCallback.getValue().apply(query);
+		if (expectsPage) {
+			verify(query).page(any(Pageable.class));
+			verify(query, never()).slice(any(Pageable.class));
+		} else {
+			verify(query).slice(any(Pageable.class));
+			verify(query, never()).page(any(Pageable.class));
+		}
 	}
 
 	@Test
