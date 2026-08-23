@@ -59,7 +59,8 @@ management:
       "room.waitlist.operations": true
       "assistant.usage.events": true
       "assistant.usage.tokens": true
-      "assistant.usage.latency": true
+      # OTLP CloudWatch Agent는 Summary datapoint를 수용하지 않아 같은 배치의 Counter도 버린다.
+      "assistant.usage.latency": false
       "assistant.cost.warning.events": true
     distribution:
       percentiles:

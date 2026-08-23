@@ -12,12 +12,24 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
+import cloud.bamsongi.albammate.assistant.contract.AssistantCostWarningEvent;
 import cloud.bamsongi.albammate.assistant.contract.AssistantUsageEvent;
 import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
 class AssistantUsageEventMetricsTest {
+
+	@Test
+	void T3_warning_counter는_시작시_0으로_등록된다() {
+		try (AnnotationConfigApplicationContext context = usageObservationContext()) {
+			SimpleMeterRegistry registry = context.getBean(SimpleMeterRegistry.class);
+			assertEquals(0.0, registry.get("assistant.cost.warning.events").counter().count());
+			context.getBean(AiCostWarningEventSink.class).record(new AssistantCostWarningEvent(
+				java.time.YearMonth.of(2026, 8), new BigDecimal("4.10"), new BigDecimal("4.00")));
+			assertEquals(1.0, registry.get("assistant.cost.warning.events").counter().count());
+		}
+	}
 
 	@Test
 	void T1_PROVIDER_INPUT_TOO_LARGE는_REJECTED이고_임의_미지_status는_unknown으로_남긴다() {
