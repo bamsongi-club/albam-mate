@@ -19,6 +19,29 @@
 | 표본 | 각 시나리오·round의 latency 모집단은 정확히 1,000개의 최초 유효 명령이다. 마지막 `ACCEPT`는 500건의 정상 비종결 `PROPOSED`와 500건의 정상 최종 확정을 모두 포함하며 어느 응답도 패자·중복 응답으로 분류하지 않는다. correctness-only 중복 경합 명령은 latency p50/p95/p99 모집단에서 제외하고 최종 상태 assertion에만 포함한다 |
 | 배경 작업 | 응답 경로와 무관한 scheduler·relay·retention 작업은 끄거나, 끌 수 없으면 이름·설정·실행 SQL을 결과에 기록한다 |
 
+artifact의 environment.profile에는 before/after 동일 환경 여부를 재현할 수 있는 비밀값 없는 profile을 기록한다. AWS 측정에서는 다음 항목을 모두 채우며, 비밀번호·접속 URL·SSM 값은 기록하지 않는다.
+
+| profile 항목 | 의미 |
+| --- | --- |
+| target·stackId·region | 측정 대상과 AWS stack 식별자 |
+| releaseSha | 측정 당시 배포 release의 40자리 SHA |
+| appInstanceType·postgresInstanceType·redisInstanceType | AWS 인스턴스 유형 |
+| backendImage·webImage·postgresImage·redisImage | 실제 사용한 이미지 digest |
+| applicationConfigSha256 | 비밀값을 제외한 애플리케이션 설정 profile digest |
+| responseTopology | 응답 측정 runner와 PostgreSQL 연결 topology |
+
+기본 runner는 Testcontainers PostgreSQL을 사용한다. AWS 측정은 measurement 전용 외부 datasource 경로를 명시적으로 켜고, infra 저장소가 전달한 접속 환경변수와 위 profile 시스템 속성을 사용한다. 외부 모드에서 접속 비밀값이 없거나 profile 항목이 누락되면 결과를 만들지 않는다.
+measurement opt-in 실행은 response-completion 결과 디렉터리에서 생성되는 산출물만 허용하고, 그 밖의 source 변경이 남아 있으면 artifact 기록 전에 중단한다. 따라서 `measuredGitCommitSha`는 실제 측정 코드가 포함된 clean commit을 가리켜야 한다.
+
+~~~powershell
+$env:ISSUE776_JDBC_URL = "jdbc:postgresql://127.0.0.1:15432/albam_mate?sslmode=disable&ApplicationName=match-01-response-completion"
+$env:ISSUE776_JDBC_USERNAME = "<infra가 전달한 DB 사용자>"
+$env:ISSUE776_JDBC_PASSWORD = "<infra가 전달한 DB 비밀번호>"
+.\gradlew.bat "-Dissue776.measurement=true" "-Dissue776.external=true" postgresMeasurementTest --tests "cloud.bamsongi.albammate.matching.measurement.MatchResponseCompletionBaselinePostgresTest"
+~~~
+
+위 명령의 실제 AWS 자원 생성·SSM tunnel·destroy는 albam-mate-infra 저장소가 소유하며, 이 저장소에는 접속 비밀값을 남기지 않는다.
+
 시나리오별 fixture와 최종 상태 assertion은 다음으로 고정한다.
 
 | 시나리오 | 명령 뒤 필수 상태 |

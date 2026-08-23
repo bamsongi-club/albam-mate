@@ -30,23 +30,24 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.core.env.Environment;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import cloud.bamsongi.albammate.matching.MatchProposalResponseAction;
@@ -57,7 +58,6 @@ import cloud.bamsongi.albammate.matching.service.command.MatchProposalScheduler;
 import cloud.bamsongi.albammate.testsupport.PgVectorPostgresImages;
 import tools.jackson.databind.ObjectMapper;
 
-@Testcontainers
 @SpringBootTest(properties = {
 	"spring.task.scheduling.enabled=false",
 	"app.notification.relay.enabled=false",
@@ -65,10 +65,49 @@ import tools.jackson.databind.ObjectMapper;
 @Import(MatchResponseCompletionBaselinePostgresTest.ProbeConfiguration.class)
 class MatchResponseCompletionBaselinePostgresTest {
 
-	@Container
-	@ServiceConnection
 	static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(PgVectorPostgresImages.postgres18())
 		.withCommand("postgres", "-c", "shared_preload_libraries=pg_stat_statements");
+	private static final List<String> REQUIRED_EXTERNAL_PROFILE_PROPERTIES = List.of(
+		"issue776.measurement.target",
+		"issue776.environment.stackId",
+		"issue776.environment.region",
+		"issue776.environment.releaseSha",
+		"issue776.environment.appInstanceType",
+		"issue776.environment.postgresInstanceType",
+		"issue776.environment.redisInstanceType",
+		"issue776.environment.backendImage",
+		"issue776.environment.webImage",
+		"issue776.environment.postgresImage",
+		"issue776.environment.redisImage",
+		"issue776.environment.applicationConfigSha256",
+		"issue776.environment.responseTopology");
+
+	@DynamicPropertySource
+	static void configureMeasurementDataSource(DynamicPropertyRegistry registry) {
+		if (externalMeasurement()) {
+			validateExternalMeasurementConfiguration();
+			registry.add("spring.datasource.url", () -> requiredEnvironmentVariable("ISSUE776_JDBC_URL"));
+			registry.add("spring.datasource.username", () -> requiredEnvironmentVariable("ISSUE776_JDBC_USERNAME"));
+			registry.add("spring.datasource.password", () -> requiredEnvironmentVariable("ISSUE776_JDBC_PASSWORD"));
+			registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
+			registry.add("spring.datasource.hikari.minimum-idle", () -> 0);
+			return;
+		}
+		if (!POSTGRES.isRunning()) {
+			POSTGRES.start();
+		}
+		registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+		registry.add("spring.datasource.username", POSTGRES::getUsername);
+		registry.add("spring.datasource.password", POSTGRES::getPassword);
+		registry.add("spring.datasource.hikari.minimum-idle", () -> 0);
+	}
+
+	@AfterAll
+	static void stopMeasurementPostgres() {
+		if (!externalMeasurement() && POSTGRES.isRunning()) {
+			POSTGRES.stop();
+		}
+	}
 
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
@@ -87,6 +126,7 @@ class MatchResponseCompletionBaselinePostgresTest {
 	private Integer controlledMeasurementProposalCount;
 	private String controlledFutureFailureIdempotencyKeySuffix;
 
+	@BeforeEach
 	@AfterEach
 	void clearFixture() {
 		jdbcTemplate.execute(
@@ -238,7 +278,7 @@ class MatchResponseCompletionBaselinePostgresTest {
 			return;
 		}
 		assertDoesNotThrow(MatchResponseCompletionBaselineSupport::requireMeasurementOptIn);
-		Path artifact = runContractMeasurement(Path.of("docs/measurements/results/match-01/response-completion"));
+		Path artifact = runContractMeasurement(measurementOutputDirectory());
 		assertTrue(Files.exists(artifact));
 	}
 
@@ -320,6 +360,13 @@ class MatchResponseCompletionBaselinePostgresTest {
 			throw new ContractMeasurementInvalidException(artifact, List.copyOf(roundArtifacts));
 		}
 		return artifact;
+	}
+
+	private static Path measurementOutputDirectory() {
+		String configuredDirectory = System.getProperty("issue776.outputDirectory");
+		return configuredDirectory == null || configuredDirectory.isBlank()
+			? Path.of("docs/measurements/results/match-01/response-completion")
+			: Path.of(configuredDirectory);
 	}
 
 	@Test
@@ -985,6 +1032,9 @@ class MatchResponseCompletionBaselinePostgresTest {
 		List<PrivateManifestRow> privateManifestRows,
 		Path directory) {
 		try {
+			if (Boolean.getBoolean("issue776.measurement")) {
+				requireCleanMeasurementSource(directory);
+			}
 			Files.createDirectories(directory);
 			String commit = new String(
 				new ProcessBuilder("git", "rev-parse", "HEAD").start().getInputStream().readAllBytes()).trim();
@@ -1001,10 +1051,7 @@ class MatchResponseCompletionBaselinePostgresTest {
 			Files.writeString(privateManifest, privateManifestBytes);
 			Map<String, Object> root = new LinkedHashMap<>();
 			root.put("measuredGitCommitSha", commit);
-			root.put("environment", Map.of(
-				"schedulingEnabled", springEnvironment.getProperty("spring.task.scheduling.enabled", "true"),
-				"notificationRelayEnabled", springEnvironment.getProperty("app.notification.relay.enabled", "true"),
-				"chatRetentionEnabled", springEnvironment.getProperty("app.chat.retention.enabled", "true")));
+			root.put("environment", measurementEnvironment());
 			root.put("fixture", Map.of("seed", "MATCH-01-RESPONSE-COMPLETION-V2",
 				"fixtureInput", fixture.csv(),
 				"fixtureInputSha256", fixture.fixtureInputSha256(),
@@ -1079,6 +1126,98 @@ class MatchResponseCompletionBaselinePostgresTest {
 		} catch (Exception exception) {
 			throw new AssertionError("response completion artifact 기록 실패", exception);
 		}
+	}
+
+	private Map<String, Object> measurementEnvironment() {
+		Map<String, Object> environment = new LinkedHashMap<>();
+		environment.put("schedulingEnabled", springEnvironment.getProperty("spring.task.scheduling.enabled", "true"));
+		environment.put("notificationRelayEnabled",
+			springEnvironment.getProperty("app.notification.relay.enabled", "true"));
+		environment.put("chatRetentionEnabled", springEnvironment.getProperty("app.chat.retention.enabled", "true"));
+
+		Map<String, String> profile = new LinkedHashMap<>();
+		profile.put("target", measurementProfileValue("issue776.measurement.target", "testcontainer"));
+		profile.put("stackId", measurementProfileValue("issue776.environment.stackId", "local"));
+		profile.put("region", measurementProfileValue("issue776.environment.region", "local"));
+		profile.put("releaseSha", measurementProfileValue("issue776.environment.releaseSha", "local"));
+		profile.put("appInstanceType", measurementProfileValue("issue776.environment.appInstanceType", "local"));
+		profile.put("postgresInstanceType",
+			measurementProfileValue("issue776.environment.postgresInstanceType", "local"));
+		profile.put("redisInstanceType", measurementProfileValue("issue776.environment.redisInstanceType", "local"));
+		profile.put("backendImage", measurementProfileValue("issue776.environment.backendImage", "local"));
+		profile.put("webImage", measurementProfileValue("issue776.environment.webImage", "local"));
+		profile.put("postgresImage", measurementProfileValue("issue776.environment.postgresImage", "local"));
+		profile.put("redisImage", measurementProfileValue("issue776.environment.redisImage", "local"));
+		profile.put("applicationConfigSha256",
+			measurementProfileValue("issue776.environment.applicationConfigSha256", "local"));
+		profile.put("responseTopology",
+			measurementProfileValue("issue776.environment.responseTopology", "single-jvm-direct-jdbc"));
+		environment.put("profile", profile);
+		return environment;
+	}
+
+	private static boolean externalMeasurement() {
+		return Boolean.getBoolean("issue776.external");
+	}
+
+	private static String requiredEnvironmentVariable(String name) {
+		String value = System.getenv(name);
+		if (value == null || value.isBlank()) {
+			throw new IllegalStateException(name + " 환경변수가 필요합니다.");
+		}
+		return value;
+	}
+
+	private static void validateExternalMeasurementConfiguration() {
+		requiredEnvironmentVariable("ISSUE776_JDBC_URL");
+		requiredEnvironmentVariable("ISSUE776_JDBC_USERNAME");
+		requiredEnvironmentVariable("ISSUE776_JDBC_PASSWORD");
+		for (String propertyName : REQUIRED_EXTERNAL_PROFILE_PROPERTIES) {
+			requiredSystemProperty(propertyName);
+		}
+	}
+
+	private static String requiredSystemProperty(String name) {
+		String value = System.getProperty(name);
+		if (value == null || value.isBlank()) {
+			throw new IllegalStateException(name + " 시스템 속성이 필요합니다.");
+		}
+		return value;
+	}
+
+	private static void requireCleanMeasurementSource(Path outputDirectory) throws Exception {
+		Path workingDirectory = Path.of("").toAbsolutePath().normalize();
+		Path absoluteOutputDirectory = outputDirectory.toAbsolutePath().normalize();
+		String allowedOutputPath = workingDirectory.relativize(absoluteOutputDirectory).toString()
+			.replace('\\', '/')
+			.replaceAll("/+$", "") + "/";
+		Process process = new ProcessBuilder("git", "status", "--porcelain", "--untracked-files=all")
+			.redirectErrorStream(true)
+			.start();
+		String status = new String(process.getInputStream().readAllBytes()).trim();
+		int exitCode = process.waitFor();
+		if (exitCode != 0) {
+			throw new IllegalStateException("측정 전 git status 확인에 실패했습니다.");
+		}
+		List<String> unexpectedChanges = status.lines()
+			.filter(line -> !line.isBlank())
+			.filter(line -> !line.substring(Math.min(3, line.length())).trim().replace('\\', '/')
+				.startsWith(allowedOutputPath))
+			.toList();
+		if (!unexpectedChanges.isEmpty()) {
+			throw new IllegalStateException("측정 source가 clean commit이 아닙니다: " + unexpectedChanges);
+		}
+	}
+
+	private static String measurementProfileValue(String propertyName, String localDefault) {
+		String value = System.getProperty(propertyName);
+		if (value != null && !value.isBlank()) {
+			return value;
+		}
+		if (externalMeasurement()) {
+			throw new IllegalStateException(propertyName + " 시스템 속성이 필요합니다.");
+		}
+		return localDefault;
 	}
 
 	private void writeResultDocument(

@@ -109,6 +109,21 @@ tasks.register('postgresMeasurementTest', Test) {
     dependsOn tasks.named('postgresTestClasses')
     shouldRunAfter tasks.named('postgresTest')
     systemProperty 'issue776.measurement', System.getProperty('issue776.measurement', 'false')
+    systemProperty 'issue776.external', System.getProperty('issue776.external', 'false')
+    systemProperty 'issue776.outputDirectory', System.getProperty('issue776.outputDirectory', '')
+    systemProperty 'issue776.measurement.target', System.getProperty('issue776.measurement.target', '')
+    systemProperty 'issue776.environment.stackId', System.getProperty('issue776.environment.stackId', '')
+    systemProperty 'issue776.environment.region', System.getProperty('issue776.environment.region', '')
+    systemProperty 'issue776.environment.releaseSha', System.getProperty('issue776.environment.releaseSha', '')
+    systemProperty 'issue776.environment.appInstanceType', System.getProperty('issue776.environment.appInstanceType', '')
+    systemProperty 'issue776.environment.postgresInstanceType', System.getProperty('issue776.environment.postgresInstanceType', '')
+    systemProperty 'issue776.environment.redisInstanceType', System.getProperty('issue776.environment.redisInstanceType', '')
+    systemProperty 'issue776.environment.backendImage', System.getProperty('issue776.environment.backendImage', '')
+    systemProperty 'issue776.environment.webImage', System.getProperty('issue776.environment.webImage', '')
+    systemProperty 'issue776.environment.postgresImage', System.getProperty('issue776.environment.postgresImage', '')
+    systemProperty 'issue776.environment.redisImage', System.getProperty('issue776.environment.redisImage', '')
+    systemProperty 'issue776.environment.applicationConfigSha256', System.getProperty('issue776.environment.applicationConfigSha256', '')
+    systemProperty 'issue776.environment.responseTopology', System.getProperty('issue776.environment.responseTopology', '')
     useJUnitPlatform {
         includeTags 'measurement'
     }
