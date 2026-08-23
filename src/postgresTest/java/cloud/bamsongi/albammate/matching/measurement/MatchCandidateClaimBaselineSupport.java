@@ -491,7 +491,9 @@ public final class MatchCandidateClaimBaselineSupport {
 		int claimAttempts,
 		String measuredGitSha,
 		String workerConnectionInitSql) throws Exception {
-		jdbcTemplate.execute("create extension if not exists pg_stat_statements");
+		if (workerConnectionInitSql == null) {
+			jdbcTemplate.execute("create extension if not exists pg_stat_statements");
+		}
 		jdbcTemplate.execute("select pg_stat_statements_reset()");
 		LockSampler lockSampler = new LockSampler(jdbcTemplate);
 		ProcessOrchestration orchestration;

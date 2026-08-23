@@ -11,9 +11,12 @@ import java.sql.Connection;
 import java.util.Map;
 import java.util.Properties;
 
+import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.jdbc.datasource.SingleConnectionDataSource;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
@@ -27,6 +30,7 @@ class MatchCandidateClaimBaselineExternalRunnerPostgresTest {
 	private static final String TRUSTED_DATABASE_ROLE = "match01_runner";
 	private static final String TRUSTED_DATABASE_PASSWORD = "match01-runner-password";
 	private static final String TRUSTED_METADATA_OWNER = "match01_metadata_provisioner";
+	private static final String PG_STAT_STATEMENTS_RESET_FUNCTION = "public.pg_stat_statements_reset(oid, oid, bigint, boolean)";
 	private static final String TRUSTED_RUNNER = "MATCH-01-T10-EXTERNAL-POSTGRESQL-V1";
 	private static final String TRUSTED_RELEASE_SHA = "0123456789abcdef0123456789abcdef01234567";
 	private static final String TRUSTED_METADATA_SCHEMA = "MATCH-01-EXTERNAL-TARGET-V1";
@@ -36,6 +40,7 @@ class MatchCandidateClaimBaselineExternalRunnerPostgresTest {
 	@Container
 	static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(
 		cloud.bamsongi.albammate.testsupport.PgVectorPostgresImages.postgres18())
+		.withCommand("postgres", "-c", "shared_preload_libraries=pg_stat_statements")
 		.withDatabaseName(TRUSTED_DATABASE)
 		.withUsername(POSTGRES_ADMIN_ROLE);
 
@@ -46,12 +51,14 @@ class MatchCandidateClaimBaselineExternalRunnerPostgresTest {
 	@Container
 	static final PostgreSQLContainer NON_EPHEMERAL_POSTGRES = new PostgreSQLContainer(
 		cloud.bamsongi.albammate.testsupport.PgVectorPostgresImages.postgres18())
+		.withCommand("postgres", "-c", "shared_preload_libraries=pg_stat_statements")
 		.withDatabaseName(TRUSTED_DATABASE)
 		.withUsername(POSTGRES_ADMIN_ROLE);
 
 	@BeforeAll
 	static void provisionTrustedMetadata() throws Exception {
 		postgresEndpoint = configureTrustedMetadata(POSTGRES, true);
+		configureMeasurementSchema(POSTGRES);
 		nonEphemeralEndpoint = configureTrustedMetadata(NON_EPHEMERAL_POSTGRES, false);
 	}
 
@@ -149,6 +156,76 @@ class MatchCandidateClaimBaselineExternalRunnerPostgresTest {
 	}
 
 	@Test
+	void 외부_비슈퍼유저_runner는_pg_stat_statements_reset을_실행하고_권한_누락은_preflight에서_거절한다()
+		throws Exception {
+		try (Connection connection = runnerDataSource(POSTGRES).getConnection();
+			var query = connection.createStatement();
+			var resultSet = query.executeQuery(
+				"select usesuper, pg_stat_statements_reset() from pg_user where usename = current_user")) {
+			assertTrue(resultSet.next());
+			assertFalse(resultSet.getBoolean(1));
+		}
+
+		try (Connection connection = dataSource(POSTGRES).getConnection(); var query = connection.createStatement()) {
+			query.execute("revoke execute on function " + PG_STAT_STATEMENTS_RESET_FUNCTION + " from "
+				+ TRUSTED_DATABASE_ROLE);
+			try {
+				assertThrows(IllegalArgumentException.class,
+					() -> verifyTrustedTarget(runnerDataSource(POSTGRES), validConfiguration(
+						POSTGRES, "jdbc:postgresql://" + postgresEndpoint + "/" + TRUSTED_DATABASE)));
+			} finally {
+				query.execute("grant execute on function " + PG_STAT_STATEMENTS_RESET_FUNCTION + " to "
+					+ TRUSTED_DATABASE_ROLE);
+			}
+		}
+	}
+
+	@Test
+	void 외부_비슈퍼유저_runner는_trusted_worker_connection_init과_실제_small_round를_수집한다() throws Exception {
+		MatchCandidateClaimBaselineSupport.CandidateFixture fixture = MatchCandidateClaimBaselineSupport
+			.createSmallProcessFixture();
+		MatchCandidateClaimBaselineExternalRunner.ExternalMeasurementConfiguration configuration = validConfiguration(
+			POSTGRES, "jdbc:postgresql://" + postgresEndpoint + "/" + TRUSTED_DATABASE);
+		Object metadata;
+		String connectionInitSql;
+		try (Connection connection = runnerDataSource(POSTGRES).getConnection()) {
+			java.lang.reflect.Method verify = MatchCandidateClaimBaselineExternalRunner.class.getDeclaredMethod(
+				"verifyTrustedTarget", Connection.class,
+				MatchCandidateClaimBaselineExternalRunner.ExternalMeasurementConfiguration.class);
+			verify.setAccessible(true);
+			metadata = invokeReturning(verify, connection, configuration);
+			java.lang.reflect.Method buildSql = MatchCandidateClaimBaselineExternalRunner.class.getDeclaredMethod(
+				"workerConnectionInitSql", metadata.getClass());
+			buildSql.setAccessible(true);
+			connectionInitSql = (String)invokeReturning(buildSql, metadata);
+		}
+
+		try (Connection connection = runnerDataSource(POSTGRES).getConnection()) {
+			JdbcTemplate jdbcTemplate = new JdbcTemplate(new SingleConnectionDataSource(connection, true));
+			MatchCandidateClaimBaselineSupport.MaterializedFixture materialized = MatchCandidateClaimBaselineSupport
+				.materialize(jdbcTemplate, fixture);
+			MatchCandidateClaimBaselineSupport.FixtureReportInput fixtureReport = MatchCandidateClaimBaselineSupport
+				.reportFixture(jdbcTemplate, fixture, materialized);
+
+			MatchCandidateClaimBaselineSupport.SmallRoundReport report = MatchCandidateClaimBaselineSupport
+				.collectSmallRound(
+					POSTGRES.getJdbcUrl(), TRUSTED_DATABASE_ROLE, TRUSTED_DATABASE_PASSWORD, jdbcTemplate, fixture,
+					materialized,
+					fixtureReport, 1, MatchCandidateClaimBaselineSupport.currentGitSha(), connectionInitSql);
+
+			assertEquals(2, report.logicalClaims().size());
+			assertEquals(2, report.reportInput().matcherProcesses().size());
+			assertTrue(report.reportInput().matcherProcesses().stream()
+				.allMatch(process -> process.exitCode() == 0 && process.completed()));
+			assertTrue(report.pgStatStatements().calls() > 0);
+			assertEquals(1, report.correctnessInput().proposalCount());
+			assertEquals(2, report.correctnessInput().memberCount());
+			assertEquals(0, report.correctnessInput().duplicateClaimCount());
+			assertEquals(0, report.correctnessInput().partialClaimCount());
+		}
+	}
+
+	@Test
 	void provisioner_owned_metadata는_runner가_수정할_수_없는_read_only_경계다() throws Exception {
 		try (Connection connection = runnerDataSource(POSTGRES).getConnection();
 			var query = connection.createStatement()) {
@@ -213,6 +290,7 @@ class MatchCandidateClaimBaselineExternalRunnerPostgresTest {
 				serverPort = resultSet.getInt(3);
 			}
 			String endpoint = serverEndpoint(serverAddress, serverPort);
+			query.execute("create extension if not exists pg_stat_statements");
 			query.execute("create role " + TRUSTED_METADATA_OWNER + " nologin nosuperuser nocreatedb nocreaterole");
 			query
 				.execute("create role " + TRUSTED_DATABASE_ROLE + " login password '" + TRUSTED_DATABASE_PASSWORD + "' "
@@ -247,7 +325,22 @@ class MatchCandidateClaimBaselineExternalRunnerPostgresTest {
 			query.execute("grant usage on schema match01_control to " + TRUSTED_DATABASE_ROLE);
 			query.execute(
 				"grant select on table match01_control.match01_external_target_metadata to " + TRUSTED_DATABASE_ROLE);
+			query.execute("grant execute on function " + PG_STAT_STATEMENTS_RESET_FUNCTION + " to "
+				+ TRUSTED_DATABASE_ROLE);
 			return endpoint;
+		}
+	}
+
+	private static void configureMeasurementSchema(PostgreSQLContainer postgres) throws Exception {
+		Flyway.configure()
+			.dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())
+			.locations("classpath:db/migration")
+			.load()
+			.migrate();
+		try (Connection connection = dataSource(postgres).getConnection(); var query = connection.createStatement()) {
+			query.execute("grant all privileges on all tables in schema public to " + TRUSTED_DATABASE_ROLE);
+			query.execute("grant all privileges on all sequences in schema public to " + TRUSTED_DATABASE_ROLE);
+			query.execute("grant pg_read_all_stats to " + TRUSTED_DATABASE_ROLE);
 		}
 	}
 

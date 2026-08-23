@@ -41,6 +41,7 @@ public final class MatchCandidateClaimBaselineExternalRunner {
 	private static final String TRUSTED_METADATA_VERSION = "MATCH-01-EXTERNAL-TARGET-V1";
 	private static final String TRUSTED_METADATA_TABLE = "match01_external_target_metadata";
 	private static final String TRUSTED_METADATA_ID = EXTERNAL_RUNNER_ID;
+	private static final String PG_STAT_STATEMENTS_RESET_FUNCTION = "public.pg_stat_statements_reset(oid, oid, bigint, boolean)";
 	private static final Set<String> ENVIRONMENT_PROFILE_FIELDS = Set.of(
 		"stackId", "region", "accountAlias", "databaseRole", "runner", "ephemeral", "releaseSha");
 
@@ -171,7 +172,45 @@ public final class MatchCandidateClaimBaselineExternalRunner {
 			throw new IllegalArgumentException(
 				"runner profile의 release provenance가 provisioner target metadata와 일치하지 않습니다.");
 		}
+		verifyPgStatStatements(connection);
 		return metadata;
+	}
+
+	private static void verifyPgStatStatements(Connection connection) throws Exception {
+		boolean extensionInstalled;
+		try (var statement = connection.createStatement();
+			var resultSet = statement.executeQuery(
+				"select exists (select 1 from pg_extension where extname = 'pg_stat_statements')")) {
+			if (!resultSet.next()) {
+				throw new IllegalArgumentException("pg_stat_statements extension 설치 여부를 확인하지 못했습니다.");
+			}
+			extensionInstalled = resultSet.getBoolean(1);
+		}
+		if (!extensionInstalled) {
+			throw new IllegalArgumentException(
+				"외부 PostgreSQL target에는 pg_stat_statements extension이 provisioner에 의해 설치되어야 합니다.");
+		}
+
+		try (var statement = connection.createStatement();
+			var resultSet = statement.executeQuery("select exists (select 1 from pg_stat_statements)")) {
+			if (!resultSet.next()) {
+				throw new IllegalArgumentException("pg_stat_statements view를 읽을 수 없습니다.");
+			}
+		} catch (java.sql.SQLException exception) {
+			throw new IllegalArgumentException(
+				"외부 PostgreSQL target의 pg_stat_statements shared_preload_libraries 설정을 확인할 수 없습니다.", exception);
+		}
+
+		String privilegeQuery = "select to_regprocedure('" + PG_STAT_STATEMENTS_RESET_FUNCTION + "') is not null, "
+			+ "case when to_regprocedure('" + PG_STAT_STATEMENTS_RESET_FUNCTION + "') is null then false "
+			+ "else has_function_privilege(current_user, "
+			+ "to_regprocedure('" + PG_STAT_STATEMENTS_RESET_FUNCTION + "'), 'EXECUTE') end";
+		try (var statement = connection.createStatement(); var resultSet = statement.executeQuery(privilegeQuery)) {
+			if (!resultSet.next() || !resultSet.getBoolean(1) || !resultSet.getBoolean(2)) {
+				throw new IllegalArgumentException(
+					"외부 PostgreSQL target에는 " + PG_STAT_STATEMENTS_RESET_FUNCTION + " EXECUTE 권한이 필요합니다.");
+			}
+		}
 	}
 
 	private static String workerConnectionInitSql(TrustedTargetMetadata metadata) {

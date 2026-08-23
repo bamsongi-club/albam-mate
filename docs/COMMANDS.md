@@ -98,13 +98,17 @@ measurement target에 연결한다. baseline 부하를 시작하기 전에 혼�
 실행 전에 provisioner는 `match01_control.match01_external_target_metadata`에 해당 target의
 database·role·user, 실제 `inet_server_addr()`·`inet_server_port()`와 동일한 JDBC endpoint, stack ID,
 runner ID, `ephemeral`, release SHA를 기록해야 한다. JDBC URL은 DNS alias·failover/load-balancing
-endpoint가 아니라 metadata의 실제 server address와 port를 직접 사용해야 한다. schema와 table은
-login 불가 provisioner role이 소유하고, runner role에는 `USAGE`와 `SELECT`만 부여한다. runner는 이
+endpoint가 아니라 metadata의 실제 server address와 port를 직접 사용해야 한다. metadata schema와 table은
+login 불가 provisioner role이 소유하고, 해당 metadata 경계에는 runner role의 `USAGE`와 `SELECT`만 부여한다. runner는 이
 metadata가 없거나 owner가 login 가능하거나 `INSERT`·`UPDATE`·`DELETE`·`TRUNCATE` 권한이 있으면
 측정 table을 변경하지 않고 중단한다. Java runner는 preflight에 성공한 단일 물리 connection을
 `JdbcTemplate`의 측정·mutation 전체에서 재사용하고, 독립 matcher worker에도 같은 trusted-target
 connection-init 검증을 전달한다. worker pool이 새 물리 connection을 만들 때마다 identity·metadata·권한을
-다시 확인하며, Node report는 `--external` mode로 실행되어 외부 provenance·mixed-range smoke·raw digest를
+다시 확인한다. provisioner는 PostgreSQL 서버에 `shared_preload_libraries=pg_stat_statements`를 설정하고
+각 measurement database에 `CREATE EXTENSION pg_stat_statements`를 실행한 뒤, runner role에
+`GRANT EXECUTE ON FUNCTION public.pg_stat_statements_reset(oid, oid, bigint, boolean)`을 부여해야 한다.
+runner preflight는 extension·view·reset 함수와 EXECUTE 권한을 확인하며, 이 조건이 없으면 mutation 전에
+중단한다. Node report는 `--external` mode로 실행되어 외부 provenance·mixed-range smoke·raw digest를
 필수로 판정한다.
 
 ```powershell
