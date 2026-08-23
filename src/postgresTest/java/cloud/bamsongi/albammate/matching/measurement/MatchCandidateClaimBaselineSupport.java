@@ -45,6 +45,7 @@ public final class MatchCandidateClaimBaselineSupport {
 	private static final Instant FIXTURE_TIME = Instant.parse("2026-01-01T00:00:00Z");
 	private static final String FIXTURE_GENERATOR = "MATCH-01-CANDIDATE-BASELINE-V2";
 	private static final String MIXED_RANGE_FIXTURE_GENERATOR = "MATCH-01-CANDIDATE-MIXED-RANGE-V1";
+	private static final String WORKER_CLASSPATH_PROPERTY = "match01.external.worker-classpath";
 	private static final int MATCHER_COUNT = 2;
 	private static final int PROCESS_TIMEOUT_SECONDS = 90;
 
@@ -631,7 +632,7 @@ public final class MatchCandidateClaimBaselineSupport {
 		String temporaryFilePrefix) throws IOException {
 		List<String> arguments = List.of(
 			"-cp",
-			System.getProperty("java.class.path"),
+			workerClasspath(),
 			MatchCandidateClaimBaselineSupport.class.getName(),
 			"--worker",
 			"--jdbc-url", jdbcUrl,
@@ -664,6 +665,14 @@ public final class MatchCandidateClaimBaselineSupport {
 			}
 			throw exception;
 		}
+	}
+
+	private static String workerClasspath() {
+		String configuredClasspath = System.getProperty(WORKER_CLASSPATH_PROPERTY);
+		if (configuredClasspath != null && !configuredClasspath.isBlank()) {
+			return configuredClasspath;
+		}
+		return System.getProperty("java.class.path");
 	}
 
 	private static String workerDiagnostic(WorkerProcess worker) {
