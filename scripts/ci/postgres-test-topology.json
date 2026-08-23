@@ -106,6 +106,7 @@
     "cloud.bamsongi.albammate.matching.measurement.MatchResponseCompletionBaselinePostgresTest": "pg_stat_statements and opt-in response completion wall-clock measurement",
     "cloud.bamsongi.albammate.matching.MatchSchemaPostgresTest": "isolated Flyway schema",
     "cloud.bamsongi.albammate.matching.measurement.MatchCandidateClaimBaselinePostgresTest": "independent matcher processes and candidate-claim baseline PostgreSQL observation",
+    "cloud.bamsongi.albammate.matching.measurement.MatchCandidateClaimBaselineExternalRunnerPostgresTest": "external PostgreSQL target configuration and runner contract",
     "cloud.bamsongi.albammate.monitoring.LatencySaturationProductionPostgresTest": "production OTLP receiver",
     "cloud.bamsongi.albammate.monitoring.MonitoringProductionPostgresTest": "production monitoring and Redis process control",
     "cloud.bamsongi.albammate.notification.NotificationSchemaPostgresTest": "isolated Flyway schema",
