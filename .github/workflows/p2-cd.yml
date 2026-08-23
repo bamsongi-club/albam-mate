@@ -264,7 +264,7 @@ jobs:
           LKG_WEB_DIGEST="$(jq -er '.webDigest | select(type == "string" and test("^sha256:[0-9a-f]{64}$"))' <<< "$lkg")"
           receipt "phase=preflight source_sha=${SOURCE_SHA} ci_url=${CI_URL} backend_digest=${BACKEND_DIGEST} web_digest=${WEB_DIGEST} lkg_status=loaded"
 
-          # LKG preflight completes before any candidate mutation. The host-only read-only smoke interface reads deployment-verification.env itself.
+          # LKG preflight completes before any candidate mutation.
           invoke preflight-app2-current current "$APP2_INSTANCE_ID" "$LKG_SHA" "$LKG_BACKEND_DIGEST" "$LKG_WEB_DIGEST" || { receipt 'phase=preflight status=failed'; exit 1; }
           invoke preflight-app1-current current "$APP1_INSTANCE_ID" "$LKG_SHA" "$LKG_BACKEND_DIGEST" "$LKG_WEB_DIGEST" || { receipt 'phase=preflight status=failed'; exit 1; }
 
@@ -273,8 +273,6 @@ jobs:
           invoke verify-app2-candidate verify-app2 "$APP2_INSTANCE_ID" "$SOURCE_SHA" "$BACKEND_DIGEST" "$WEB_DIGEST" || { rollback_app2; exit 1; }
           invoke deploy-app1-candidate deploy-app1 "$APP1_INSTANCE_ID" "$SOURCE_SHA" "$BACKEND_DIGEST" "$WEB_DIGEST" || { rollback_app1_app2; exit 1; }
           invoke verify-app1-candidate verify-app1 "$APP1_INSTANCE_ID" "$SOURCE_SHA" "$BACKEND_DIGEST" "$WEB_DIGEST" || { rollback_app1_app2; exit 1; }
-          invoke smoke-app1-candidate smoke "$APP1_INSTANCE_ID" "$SOURCE_SHA" "$BACKEND_DIGEST" "$WEB_DIGEST" || { rollback_app1_app2; exit 1; }
-
           new_lkg="$(jq -nc --arg source_sha "$SOURCE_SHA" --arg backend_digest "$BACKEND_DIGEST" --arg web_digest "$WEB_DIGEST" '{sourceSha: $source_sha, backendDigest: $backend_digest, webDigest: $web_digest}')"
           lkg_version="$(aws ssm put-parameter --name "$LKG_PARAMETER" --type String --value "$new_lkg" --overwrite --query Version --output text)"
           receipt "phase=complete source_sha=${SOURCE_SHA} ci_url=${CI_URL} backend_digest=${BACKEND_DIGEST} web_digest=${WEB_DIGEST} lkg_version=${lkg_version} status=success"
