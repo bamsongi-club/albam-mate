@@ -22,6 +22,7 @@ class AssistantUsageEventMetrics {
 
 	AssistantUsageEventMetrics(MeterRegistry meterRegistry) {
 		this.meterRegistry = Objects.requireNonNull(meterRegistry, "meterRegistry");
+		costWarningCounter();
 	}
 
 	void recordUsage(AssistantUsageEvent event) {
@@ -34,7 +35,11 @@ class AssistantUsageEventMetrics {
 
 	void recordCostWarning(AssistantCostWarningEvent event) {
 		Objects.requireNonNull(event, "event");
-		Counter.builder(COST_WARNING_EVENTS).register(meterRegistry).increment();
+		costWarningCounter().increment();
+	}
+
+	private Counter costWarningCounter() {
+		return Counter.builder(COST_WARNING_EVENTS).register(meterRegistry);
 	}
 
 	private Tags usageTags(AssistantUsageEvent event) {
