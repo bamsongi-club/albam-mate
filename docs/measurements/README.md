@@ -5,7 +5,6 @@
 ## HTTP 부하 측정
 
 - k6 기록의 소유·보존 규칙과 소유자별 결과: [k6 측정 문서](k6/README.md)
-- ROOM-PERF campaign 목록과 현재·대체 상태: [jiwon ROOM k6 측정 문서](k6/jiwon/README.md)
 
 ## PostgreSQL 기준선
 

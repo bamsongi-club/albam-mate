@@ -11,6 +11,7 @@ P2는 AI 챗봇(게임 탐색 도우미 포함), 게임 의미 기반 검색, �
 | 기능 영역·문서 | 책임 | 현재 상태 |
 | --- | --- | --- |
 | [P2 공통 명세](../P2-spec.md) | P2 전체 범위, 기능 문서 작성 규칙, 공통 통합 원칙과 구현 완료 기준 | 정본 승격 완료 |
+| [ROOM-PERF 통합 품질 gate](../measurements/k6/jiwon/README.md) | P1 ROOM·참가·대기열 기반을 확인하는 출시 품질 gate. 측정 계약·campaign·evidence는 [측정 문서](../measurements/README.md)가 소유 | P2 기능 ID 아님·상태표 미포함·별도 `docs/p2/room.md` 없음 |
 | [`AI-01` AI 모임 도우미](assistant.md#ai-01-ai-모임-도우미) | 사용자 동의·철회, assistant 진입·화면, 추천·확인 흐름과 기존 수동 Room 회귀 | 제품 계약 확정·T-ID 승인 완료·AI-01a T1~T5 구현·검증 완료·AI-01b 화면·동의 철회와 `#952` 후보 상세 링크·확인 모달·자동/직접 초안 분기·상세 왕복 휘발성 복원 구현 |
 | [`AI-02` AI 의도·추천·Provider 운영](assistant.md#ai-02-ai-의도-추출추천provider-운영) | 구조화 조건, 후보 추천, provider adapter·fake·quota·timeout·비용·usage 경계 | 제품 계약 확정·T-ID 승인 완료·AI-02a Provider/foundation 구현 및 H2·PostgreSQL 자동 검증 완료 (`#828`; `#851` quota·비용·completion, `#852` usage·cost-warning consumer 분리). ADR-0085의 외부 provider 일 10회·호출당 고정 USD 0.10 예약은 `#953` 구현·H2/Redis 자동 검증 완료, 후보 DTO·정확 게임명 직접 조회는 `#951` 구현·H2/PostgreSQL 검증 완료 |
 | [`AI-03` AI 초안·확인형 Room 생성](assistant.md#ai-03-ai-초안확인형-room-생성) | 15분 초안, 장소·지역, 멱등 확인과 Room·ChatRoom 원자성 | 제품 계약 확정·T1~T6 승인·구현 및 H2·PostgreSQL 검증 완료 |
@@ -26,12 +27,6 @@ P2는 AI 챗봇(게임 탐색 도우미 포함), 게임 의미 기반 검색, �
 | [운영 대시보드 정책](dashboard.md) | 생존·지연·실패·비용·업무 기능 결과의 화면·경고·증거 정책 | 정책 값 사용자 확인·정본 반영 완료 |
 
 P2 구현은 [API](../API.md), [ERD](../ERD.md), [아키텍처](../ARCHITECTURE.md)와 승인 ADR 또는 아직 승인되지 않은 목표 계약을 구분해 유지한다. 각 기능 작성자는 자신의 상세 명세가 요구하는 변경만 식별하고, 구현 작업에서 소유 정본과 필요한 ADR을 함께 갱신한다.
-
-## ROOM-PERF 통합 품질 gate
-
-P2의 AI·검색·매칭 기능은 P1 ROOM·참가·대기열 계약 위에 통합된다. ROOM-PERF는 P2 기능 ID가 아니라 이 기반을 출시 품질 관점에서 확인하는 cross-cutting gate다. 측정 계약·campaign·evidence·`PASS`/`FAIL`/`INVALID`와 `current`/`superseded` 판정은 [측정 문서](../measurements/README.md)와 [ROOM k6 campaign 인덱스](../measurements/k6/jiwon/README.md)가 소유한다.
-
-이 문서는 ROOM-PERF 결과와 수치를 복제하지 않고 위 정본을 참조한다. 따라서 ROOM-PERF를 P2 기능 라우팅·상태표의 기능으로 추가하지 않으며, 별도 `docs/p2/room.md`도 만들지 않는다.
 
 ## 기능별 현재 상태
 

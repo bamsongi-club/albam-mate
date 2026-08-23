@@ -18,7 +18,7 @@ ROOM-PERF는 P2 사용자 기능이 아니라, P2 기능이 의존하는 P1 ROOM
 | T1 critical section 축소 실험 | [#781](https://github.com/bamsongi-club/albam-mate/issues/781) |
 | T2 version claim 경합 방식 결정 | [#782](https://github.com/bamsongi-club/albam-mate/issues/782) |
 | mixed ROOM constant-arrival profile | [#783](https://github.com/bamsongi-club/albam-mate/issues/783) |
-| T1·T2 c16·c32 경합 한계 측정 | [#788](https://github.com/bamsongi-club/albam-mate/issues/788) |
+| T1 hot c10·T1 spread/T2 hot·spread c16 경합 한계 측정 | [#788](https://github.com/bamsongi-club/albam-mate/issues/788) |
 | 개선 후 공식 matrix·mixed soak 최종 gate | [#784](https://github.com/bamsongi-club/albam-mate/issues/784) |
 
 | Campaign ID | 캠페인 종료 상태 | 보고서 | 측정 증거 판정·근거 | 문서 상태·대체 관계 |
