@@ -692,9 +692,10 @@ textarea.field-input { height: 112px; line-height: 1.6; padding: 14px 16px; resi
 
 /* ── 더 보기·페이지 ─────────────────────────────────────── */
 
-/* 하단 96px 여백은 탭 화면에 뜨는 알밤봇 FAB(56px, bottom:88px)에 가려지지 않도록 둔다. */
-.more-btn { background: var(--fill); border-radius: var(--radius-pill); font-size: 14.5px; font-weight: 700; margin-bottom: 96px; min-height: 52px; width: 100%; }
-.pagination { align-items: center; display: flex; gap: 6px; justify-content: center; margin-bottom: 96px; margin-top: 26px; }
+.more-btn { background: var(--fill); border-radius: var(--radius-pill); font-size: 14.5px; font-weight: 700; min-height: 52px; width: 100%; }
+.pagination { align-items: center; display: flex; gap: 6px; justify-content: center; margin-top: 26px; }
+/* 탭 화면에 뜨는 알밤봇 FAB(56px, bottom:88px)과 겹치는 화면에서만 하단 여백을 더 둔다. */
+.more-btn.tab-fab-clear, .pagination.tab-fab-clear { margin-bottom: 96px; }
 .pagination .page-btn { align-items: center; background: var(--fill); border-radius: var(--radius-pill); color: var(--mid); display: inline-flex; font-size: 13.5px; font-weight: 700; justify-content: center; min-height: 44px; min-width: 44px; padding: 0 10px; }
 .pagination .page-btn.round { padding: 0; width: 44px; }
 .pagination .page-btn.on { background: var(--brand-deep); color: #fff; }

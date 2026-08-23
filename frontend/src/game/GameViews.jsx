@@ -70,7 +70,7 @@ function GameCard({ game, played, pending, onTogglePlayed }) {
 function GameSlicePagination({ page, hasNext, loading, onChange }) {
   if (page <= 0 && !hasNext) return null;
   return (
-    <nav className="pagination" aria-label="페이지 이동">
+    <nav className="pagination tab-fab-clear" aria-label="페이지 이동">
       <button className="page-btn round" type="button" disabled={loading || page <= 0} onClick={() => onChange(page - 1)} aria-label="이전 페이지"><BackIcon size={18} /></button>
       <span className="page-btn on" aria-current="page">{page + 1}</span>
       <button className="page-btn round" type="button" disabled={loading || !hasNext} onClick={() => onChange(page + 1)} aria-label="다음 페이지"><ArrowIcon size={18} /></button>
