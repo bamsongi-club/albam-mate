@@ -46,6 +46,7 @@ final class OpenAiAssistantProvider implements AiProviderClient {
 		""";
 	// action·gameStyles 개수 관계(RECOMMEND면 1개 이상, 아니면 0개)는 OpenAI가 top-level에서 금지하는
 	// oneOf로 못 표현해 스키마에서는 빼고, isValidOutput()에서 응답을 받은 뒤 검증한다.
+	// uniqueItems도 OpenAI function schema에서 지원하지 않으므로 중복 검증은 isValidOutput()에서 수행한다.
 	private static final String TOOL_SCHEMA = """
 		{
 		  "type":"object",
@@ -56,7 +57,6 @@ final class OpenAiAssistantProvider implements AiProviderClient {
 		      "type":"array",
 		      "minItems":0,
 		      "maxItems":8,
-		      "uniqueItems":true,
 		      "items":{
 		        "type":"string",
 		        "enum":["STRATEGY","ABSTRACT_STRATEGY","COLLECTIBLE","FAMILY","CHILDREN","THEMATIC","PARTY","WARGAME"]
