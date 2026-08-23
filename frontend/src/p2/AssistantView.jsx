@@ -1,6 +1,7 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { ApiError, api } from '../api';
-import { Cover, ErrorBox, SendIcon, TopBar } from '../shared/ui';
+import mascotCut from '../../assets/mascot-cut.png';
+import { BackIcon, Cover, ErrorBox, SendIcon, TopBar } from '../shared/ui';
 
 const REGIONS = ['홍대', '강남', '건대', '잠실'];
 const EXPERIENCE_LABELS = {
@@ -677,11 +678,11 @@ function AssistantStart({ initialMemory, onMemoryChange, onCreateDraft, onConsen
         )}
         <RecommendationResult result={result} selectedCandidate={selectedCandidate} onSelectCandidate={openCandidateModal} onGameDetailOpen={onGameDetailOpen} />
         {error && <p className="assistant-error" role="alert">{error}</p>}
-      </div>
-      <div className="chiprow assistant-suggestions">
-        {QUICK_PROMPTS.map((prompt) => (
-          <button className="chip" type="button" key={prompt} disabled={pending} onClick={() => send(prompt)}>{prompt}</button>
-        ))}
+        <div className="chiprow assistant-suggestions">
+          {QUICK_PROMPTS.map((prompt) => (
+            <button className="chip" type="button" key={prompt} disabled={pending} onClick={() => send(prompt)}>{prompt}</button>
+          ))}
+        </div>
       </div>
       <form className="chat-compose" onSubmit={submit}>
         <label className="sr-only" htmlFor="assistant-message">알밤봇에게 묻기</label>
@@ -857,7 +858,14 @@ export function AssistantView({ onBack, onNavigate, assistantMemory = null, onAs
 
   return (
     <div className="screen sub assistant-screen">
-      <TopBar onBack={onBack} title="알밤봇" />
+      <div className="topbar bot-topbar">
+        <button type="button" className="icon-btn" aria-label="뒤로 가기" onClick={onBack}><BackIcon /></button>
+        <img className="bot-topbar-mascot" src={mascotCut} alt="" />
+        <span className="bot-title">
+          <strong className="wordmark">알밤봇</strong>
+          <span>물어보면 모임·게임을 찾아드려요</span>
+        </span>
+      </div>
       <div className={'screen-body' + (chatMode ? ' chat-mode' : ' pad-bottom')}>{content}</div>
     </div>
   );

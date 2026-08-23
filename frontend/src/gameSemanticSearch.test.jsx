@@ -109,6 +109,27 @@ describe('T7 searchMode 미노출 — 구현 방식 배너를 보여주지 않�
   });
 });
 
+describe('T5 재검색 중 로딩 표시', () => {
+  it('이미 결과가 있는 상태에서 검색어를 바꾸면 검색 중임을 알린다', async () => {
+    getGameSearch.mockResolvedValue(SEARCH_HIT);
+    const { rerender, onGameQueryChange } = await renderGamesView('첫 검색어');
+    expect(screen.getByText('협동 게임')).toBeTruthy();
+    expect(screen.getByText('게임 목록')).toBeTruthy();
+
+    let resolveSecond;
+    getGameSearch.mockReturnValue(new Promise((resolve) => { resolveSecond = resolve; }));
+    rerender(<GamesView title="게임 찾기" gameQuery="두번째 검색어" onGameQueryChange={onGameQueryChange} dataVersion={0} />);
+    await act(async () => {});
+
+    // 이전 결과를 지우지 않고 로딩 중임을 알린다.
+    expect(screen.getByText('검색하는 중')).toBeTruthy();
+    expect(screen.getByText('협동 게임')).toBeTruthy();
+
+    await act(async () => { resolveSecond(SEARCH_HIT); });
+    expect(screen.getByText('게임 목록')).toBeTruthy();
+  });
+});
+
 describe('T4 검색 결과 없음 안내 문구', () => {
   it('검색어로 조회했지만 결과가 없으면 다른 표현을 안내한다', async () => {
     getGameSearch.mockResolvedValue(EMPTY_PAGE);

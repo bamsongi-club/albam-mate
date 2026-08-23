@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../api';
 import poweredByBgg from '../../assets/powered-by-bgg.svg';
-import { BggAttribution, CheckIcon, Cover, ErrorBox, PlusIcon, Pagination, RoomSkeletons, ScreenTitle, SearchIcon, StateBlock, TopBar } from '../shared/ui';
+import { ArrowIcon, BackIcon, BggAttribution, CheckIcon, Cover, ErrorBox, PlusIcon, Pagination, RoomSkeletons, ScreenTitle, SearchIcon, StateBlock, TopBar } from '../shared/ui';
 import { usePaginatedRequest, useRequest } from '../shared/async';
 import { GAME_LIST_PAGE_SIZE, ROOM_LIST_PAGE_SIZE, EMPTY_GAME_FILTERS, PLAYED_FILTER_OPTIONS, DEFAULT_GAME_COVER_URL } from './constants';
 import { gameFilterParameters } from './filterLogic';
@@ -70,10 +70,10 @@ function GameCard({ game, played, pending, onTogglePlayed }) {
 function GameSlicePagination({ page, hasNext, loading, onChange }) {
   if (page <= 0 && !hasNext) return null;
   return (
-    <nav className="pagination" aria-label="페이지 이동">
-      <button className="page-btn" type="button" disabled={loading || page <= 0} onClick={() => onChange(page - 1)} aria-label="이전 페이지">이전</button>
-      <span className="page-btn on" aria-current="page">{page + 1}페이지</span>
-      <button className="page-btn" type="button" disabled={loading || !hasNext} onClick={() => onChange(page + 1)} aria-label="다음 페이지">다음</button>
+    <nav className="pagination tab-fab-clear" aria-label="페이지 이동">
+      <button className="page-btn round" type="button" disabled={loading || page <= 0} onClick={() => onChange(page - 1)} aria-label="이전 페이지"><BackIcon size={18} /></button>
+      <span className="page-btn on" aria-current="page">{page + 1}</span>
+      <button className="page-btn round" type="button" disabled={loading || !hasNext} onClick={() => onChange(page + 1)} aria-label="다음 페이지"><ArrowIcon size={18} /></button>
     </nav>
   );
 }
@@ -140,7 +140,11 @@ export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, on
         />
       </form>
       <GameFilters filters={filters} onChange={setFilters} quickSlot={playedChips} />
-      {!error && <p className="section-label" style={{ marginTop: 18 }}>{loading && !data ? '불러오는 중' : '게임 목록'}</p>}
+      {!error && (
+        <p className="section-label" style={{ marginTop: 18 }}>
+          {loading ? (isSearching ? '검색하는 중' : '불러오는 중') : '게임 목록'}
+        </p>
+      )}
       {error && (
         <div style={{ marginTop: 26 }}>
           {unauthenticated
@@ -150,7 +154,7 @@ export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, on
       )}
       {!error && loading && !data && <div style={{ marginTop: 22 }}><RoomSkeletons count={3} /></div>}
       {!error && !!games.length && (
-        <div className="gamegrid" style={{ marginTop: 18 }}>
+        <div className="gamegrid" style={{ marginTop: 18, opacity: loading ? 0.5 : 1, transition: 'opacity 0.15s ease' }}>
           {games.map((game) => (
             <GameCard
               key={game.id}
@@ -164,7 +168,10 @@ export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, on
       )}
       {!error && !loading && !games.length && (
         <div style={{ marginTop: 26 }}>
-          <StateBlock title="검색 결과가 없어요" description={isSearching ? '다른 표현이나 조건으로 다시 시도해보세요.' : '게임 이름의 일부만 넣어보세요.'} />
+          <StateBlock
+            title="검색 결과가 없어요"
+            description={isSearching ? '다른 표현이나 조건으로 다시 시도해보세요.' : '게임 이름의 일부만 넣어보세요.'}
+          />
         </div>
       )}
       {!error && data && (
