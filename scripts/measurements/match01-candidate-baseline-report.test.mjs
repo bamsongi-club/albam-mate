@@ -7,6 +7,7 @@ import test from "node:test";
 
 import {
   buildCandidateBaselineReport,
+  calculateRawMeasurementSha256,
   evaluateCandidateBaseline,
   fixtureInputSha256,
   nearestRank,
@@ -112,10 +113,42 @@ function completeFixture() {
   };
 }
 
+function completeMixedRangeSmoke() {
+  const rows = ["fixtureOrdinal,userFixtureOrdinal,queuedAt,prioritySince,minPartySize,maxPartySize"];
+  const manifest = [];
+  [[1, 2, 4], [2, 4, 4], [3, 2, 2], [4, 4, 4], [5, 4, 4]].forEach(([ordinal, minPartySize, maxPartySize]) => {
+    const timestamp = new Date(Date.UTC(2026, 0, 1) + (ordinal * 1_000))
+      .toISOString().replace(".000Z", "Z");
+    rows.push(`${ordinal},${ordinal},${timestamp},${timestamp},${minPartySize},${maxPartySize}`);
+    manifest.push({ fixtureOrdinal: ordinal, userFixtureOrdinal: ordinal, queuedAt: timestamp,
+      prioritySince: timestamp, minPartySize, maxPartySize, userId: ordinal, requestId: ordinal,
+      expectedTieOrder: ordinal });
+  });
+  const manifestBytes = `${[
+    "fixtureOrdinal", "userFixtureOrdinal", "queuedAt", "prioritySince", "minPartySize", "maxPartySize",
+    "userId", "requestId", "expectedTieOrder",
+  ].join(",")}\n${manifest.map((entry) => [entry.fixtureOrdinal, entry.userFixtureOrdinal, entry.queuedAt,
+    entry.prioritySince, entry.minPartySize, entry.maxPartySize, entry.userId, entry.requestId,
+    entry.expectedTieOrder].join(",")).join("\n")}\n`;
+  return {
+    fixtureGenerator: "MATCH-01-CANDIDATE-MIXED-RANGE-V1",
+    fixtureInputSha256: fixtureInputSha256(`${rows.join("\n")}\n`),
+    materializedManifestSha256: fixtureInputSha256(manifestBytes),
+    materializedManifest: manifest,
+    measuredGitCommitSha: "a".repeat(40),
+    proposalCount: 1,
+    targetPartySize: 2,
+    proposalMembers: ["R1", "R3"],
+    waitingRequestCount: 3,
+    passed: true,
+  };
+}
+
 test("warm-up을 제외하고 measured round 원자료와 nearest-rank 통계를 보존한다", () => {
   const fixture = completeFixture();
   const topology = completeTopology();
   const report = buildCandidateBaselineReport({
+    environmentProfile: { stackId: "perf-test", ephemeral: true },
     fixture,
     warmUp: completeRound(0, fixture, topology),
     measured: [completeRound(1, fixture, topology), completeRound(2, fixture, topology), completeRound(3, fixture, topology)],
@@ -123,6 +156,9 @@ test("warm-up을 제외하고 measured round 원자료와 nearest-rank 통계를
 
   assert.equal(report.warmUp.countsTowardBaseline, false);
   assert.equal(report.measuredGitCommitSha, "a".repeat(40));
+  assert.deepEqual(report.environmentProfile, { stackId: "perf-test", ephemeral: true });
+  assert.match(report.rawMeasurementSha256, /^[a-f0-9]{64}$/u);
+  assert.equal(report.rawMeasurementDigestVerified, null);
   assert.equal(report.warmUp.round.measuredGitCommitSha, "a".repeat(40));
   assert.equal(report.measuredRounds.length, 3);
   assert.equal(report.measuredRounds[0].logicalClaims.length, 1_000);
@@ -144,6 +180,48 @@ test("warm-up을 제외하고 measured round 원자료와 nearest-rank 통계를
   assert.deepEqual(report.measuredRounds[0].logicalClaims[0].retryRawDurationsNanos, []);
   assert.deepEqual(nearestRank([1, 2, 3, 4], 0.95), 4);
   assert.equal(JSON.stringify(report).includes("real-user"), false);
+});
+
+test("외부 T10 raw measurement digest가 원자료 변경을 INVALID로 판정한다", () => {
+  const fixture = completeFixture();
+  const externalInput = {
+    measuredGitCommitSha: "a".repeat(40),
+    environmentProfile: { stackId: "perf-test", ephemeral: true },
+    externalProvenance: {
+      runner: "MATCH-01-T10-EXTERNAL-POSTGRESQL-V1",
+      target: "external-postgresql",
+      environmentProfile: { stackId: "perf-test", ephemeral: true },
+    },
+    mixedRangeSmoke: completeMixedRangeSmoke(),
+    fixture,
+    warmUp: completeRound(0, fixture),
+    measured: [completeRound(1, fixture), completeRound(2, fixture), completeRound(3, fixture)],
+  };
+  const valid = buildCandidateBaselineReport({
+    ...externalInput,
+    rawMeasurementSha256: calculateRawMeasurementSha256(externalInput),
+  });
+  assert.equal(valid.rawMeasurementDigestVerified, true);
+  assert.equal(evaluateCandidateBaseline(valid).outcome, "BASELINE_ACCEPTED");
+
+  const tampered = structuredClone(valid);
+  tampered.measuredRounds[0].logicalClaims[0].durationNanos += 1;
+  assert.equal(evaluateCandidateBaseline(tampered).outcome, "INVALID");
+
+  const missingDigest = buildCandidateBaselineReport(externalInput);
+  assert.equal(evaluateCandidateBaseline(missingDigest).outcome, "INVALID");
+
+  const missingSmoke = structuredClone(valid);
+  delete missingSmoke.mixedRangeSmoke;
+  assert.equal(evaluateCandidateBaseline(missingSmoke).outcome, "INVALID");
+
+  const tamperedSmokeManifestHash = structuredClone(externalInput);
+  tamperedSmokeManifestHash.mixedRangeSmoke.materializedManifestSha256 = "c".repeat(64);
+  const selfConsistentTampering = buildCandidateBaselineReport({
+    ...tamperedSmokeManifestHash,
+    rawMeasurementSha256: calculateRawMeasurementSha256(tamperedSmokeManifestHash),
+  });
+  assert.equal(evaluateCandidateBaseline(selfConsistentTampering).outcome, "INVALID");
 });
 
 test("실행 SHA와 실제 candidate claim query plan 증거가 없거나 다르면 INVALID다", () => {

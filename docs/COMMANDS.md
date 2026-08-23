@@ -32,6 +32,7 @@ java --version
 | 빌드 | `.\gradlew.bat build` | `./gradlew build` |
 | PostgreSQL 테스트 | `.\gradlew.bat postgresTest --no-daemon --stacktrace` | `./gradlew postgresTest --no-daemon --stacktrace` |
 | PostgreSQL 측정 | `.\gradlew.bat postgresMeasurementTest --no-daemon --stacktrace` | `./gradlew postgresMeasurementTest --no-daemon --stacktrace` |
+| 외부 PostgreSQL T10 측정 | `$env:ISSUE775_JDBC_PASSWORD='...'; .\gradlew.bat matchCandidateExternalMeasurement -Dissue775.measurement=true ...` | `ISSUE775_JDBC_PASSWORD=... ./gradlew matchCandidateExternalMeasurement -Dissue775.measurement=true ...` |
 | 고위험 mutation | `.\gradlew.bat highRiskMutationTest --no-daemon` | `./gradlew highRiskMutationTest --no-daemon` |
 | 빠른 커버리지 게이트 | `.\gradlew.bat jacocoTestReport jacocoTestCoverageVerification` | `./gradlew jacocoTestReport jacocoTestCoverageVerification` |
 | Java 컨벤션 검사 | `.\gradlew.bat conventionCheck` | `./gradlew conventionCheck` |
@@ -80,6 +81,36 @@ PostgreSQL topology와 shard 도구만 빠르게 확인한다.
 node scripts/ci/validate-postgres-test-topology.mjs
 node --test scripts/ci/partition-postgres-tests.test.mjs scripts/ci/update-postgres-test-durations.test.mjs scripts/ci/validate-postgres-test-topology.test.mjs
 ```
+
+### 외부 PostgreSQL T10 측정
+
+`matchCandidateExternalMeasurement`는 Testcontainers를 시작하지 않고 이미 준비된 전용 AWS PostgreSQL
+measurement target에 연결한다. baseline 부하를 시작하기 전에 혼합 인원 범위 correctness smoke를 실행해
+`R1·R3` proposal 결과와 smoke fixture·manifest hash를 raw artifact에 기록한다. `-Dissue775.measurement=true`와
+`-Dmatch01.external.allow-mutation=true`를 모두 명시해야 하며, JDBC URL·사용자·실행 SHA·raw 출력
+경로·환경 profile 파일을 시스템 속성으로 지정한다. 비밀번호는 `ISSUE775_JDBC_PASSWORD`
+환경변수로만 전달하며 Gradle 인자·JSON·로그에 넣지 않는다.
+
+예시는 다음과 같다. URL에는 비밀번호를 넣지 않고, 환경 profile 파일은 `stackId`, `region`,
+`accountAlias`, `databaseRole`, `runner`, `ephemeral`, `releaseSha` allowlist 안의 scalar만 사용한
+비밀값 없는 전용 임시 환경 기록이어야 한다.
+
+```powershell
+$env:ISSUE775_JDBC_PASSWORD = '<비밀번호>'
+.\gradlew.bat matchCandidateExternalMeasurement `
+  -Dissue775.measurement=true `
+  -Dmatch01.external.allow-mutation=true `
+  -Dmatch01.external.jdbc-url='jdbc:postgresql://<host>:5432/<database>' `
+  -Dmatch01.external.jdbc-username='<username>' `
+  -Dmatch01.external.measured-git-sha='<40자 SHA>' `
+  -Dmatch01.external.output='build/reports/measurements/match01-t10-external-input.json' `
+  -Dmatch01.external.environment-profile-file='build/measurements/aws-profile.json'
+```
+
+runner는 각 round 전에 MATCH fixture 테이블을 truncate하므로 운영 데이터가 없는 전용 measurement
+database만 target으로 사용해야 한다. 현재 checkout이 clean하고 HEAD와 지정 SHA가 같아야 실행하며,
+raw 입력에 canonical measurement SHA-256을 넣은 뒤 `.report.json` 판정 결과를 함께 만든다. 이는
+AWS before/after 측정 결과를 채택하거나 배포 상태를 바꾸지 않는다.
 
 ### 분기 커버리지 확인
 

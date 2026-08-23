@@ -13,6 +13,7 @@ import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -43,6 +44,7 @@ public final class MatchCandidateClaimBaselineSupport {
 
 	private static final Instant FIXTURE_TIME = Instant.parse("2026-01-01T00:00:00Z");
 	private static final String FIXTURE_GENERATOR = "MATCH-01-CANDIDATE-BASELINE-V2";
+	private static final String MIXED_RANGE_FIXTURE_GENERATOR = "MATCH-01-CANDIDATE-MIXED-RANGE-V1";
 	private static final int MATCHER_COUNT = 2;
 	private static final int PROCESS_TIMEOUT_SECONDS = 90;
 
@@ -64,7 +66,7 @@ public final class MatchCandidateClaimBaselineSupport {
 	}
 
 	static CandidateFixture createMixedRangeSmokeFixture() {
-		return fixture(List.of(
+		return fixture(MIXED_RANGE_FIXTURE_GENERATOR, List.of(
 			new FixtureRequest(1, "R1", 2, 4, FIXTURE_TIME.plusSeconds(1)),
 			new FixtureRequest(2, "R2", 4, 4, FIXTURE_TIME.plusSeconds(2)),
 			new FixtureRequest(3, "R3", 2, 2, FIXTURE_TIME.plusSeconds(3)),
@@ -86,6 +88,11 @@ public final class MatchCandidateClaimBaselineSupport {
 	}
 
 	private static CandidateFixture fixture(List<FixtureRequest> requests, List<TiePair> tiePairs) {
+		return fixture(FIXTURE_GENERATOR, requests, tiePairs);
+	}
+
+	private static CandidateFixture fixture(
+		String generator, List<FixtureRequest> requests, List<TiePair> tiePairs) {
 		StringBuilder csv = new StringBuilder();
 		csv.append("fixtureOrdinal,userFixtureOrdinal,queuedAt,prioritySince,minPartySize,maxPartySize\n");
 		for (FixtureRequest request : requests) {
@@ -94,7 +101,7 @@ public final class MatchCandidateClaimBaselineSupport {
 				.append(request.minPartySize()).append(',').append(request.maxPartySize()).append('\n');
 		}
 		String inputCsv = csv.toString();
-		return new CandidateFixture(FIXTURE_GENERATOR, List.copyOf(requests), inputCsv, sha256(inputCsv),
+		return new CandidateFixture(generator, List.copyOf(requests), inputCsv, sha256(inputCsv),
 			List.copyOf(tiePairs));
 	}
 
@@ -244,7 +251,20 @@ public final class MatchCandidateClaimBaselineSupport {
 		CandidateFixture fixture,
 		MaterializedFixture materialized,
 		int claimAttempts) throws Exception {
-		return runMatcherProcesses(jdbcUrl, jdbcUsername, jdbcPassword, fixture, materialized, claimAttempts, () -> {});
+		return runMatcherProcesses(jdbcUrl, jdbcUsername, jdbcPassword, fixture, materialized, claimAttempts,
+			currentGitSha(), () -> {});
+	}
+
+	static ProcessOrchestration runMatcherProcesses(
+		String jdbcUrl,
+		String jdbcUsername,
+		String jdbcPassword,
+		CandidateFixture fixture,
+		MaterializedFixture materialized,
+		int claimAttempts,
+		String measuredGitSha) throws Exception {
+		return runMatcherProcesses(jdbcUrl, jdbcUsername, jdbcPassword, fixture, materialized, claimAttempts,
+			measuredGitSha, () -> {});
 	}
 
 	private static ProcessOrchestration runMatcherProcesses(
@@ -254,9 +274,12 @@ public final class MatchCandidateClaimBaselineSupport {
 		CandidateFixture fixture,
 		MaterializedFixture materialized,
 		int claimAttempts,
+		String measuredGitSha,
 		Runnable barrierReleased) throws Exception {
 		verifyWorkerInput(fixture, materialized, fixture.fixtureInputSha256());
-		String gitSha = currentGitSha();
+		if (!isGitSha(measuredGitSha)) {
+			throw new IllegalArgumentException("측정 Git SHA는 40자리 소문자 hex여야 합니다.");
+		}
 		String configurationSha = sha256("matcherCount=" + MATCHER_COUNT + ";claimAttempts=" + claimAttempts);
 		List<WorkerProcess> workers = new ArrayList<>();
 		long measurementStartedAtNanos = 0L;
@@ -265,7 +288,7 @@ public final class MatchCandidateClaimBaselineSupport {
 			barrier.setSoTimeout(PROCESS_TIMEOUT_SECONDS * 1_000);
 			for (int index = 0; index < MATCHER_COUNT; index++) {
 				workers.add(startWorker(jdbcUrl, jdbcUsername, jdbcPassword, barrier.getLocalPort(), fixture,
-					gitSha, configurationSha, claimAttempts));
+					measuredGitSha, configurationSha, claimAttempts));
 			}
 			List<BarrierClient> clients = new ArrayList<>();
 			Map<BarrierClient, Long> matcherPidsByClient = new HashMap<>();
@@ -276,7 +299,7 @@ public final class MatchCandidateClaimBaselineSupport {
 				}
 				for (BarrierClient client : clients) {
 					matcherPidsByClient.put(client,
-						awaitReady(client, fixture.fixtureInputSha256(), gitSha, configurationSha));
+						awaitReady(client, fixture.fixtureInputSha256(), measuredGitSha, configurationSha));
 				}
 				barrierReleased.run();
 				measurementStartedAtNanos = System.nanoTime();
@@ -311,7 +334,7 @@ public final class MatchCandidateClaimBaselineSupport {
 			long measurementDurationNanos = System.nanoTime() - measurementStartedAtNanos;
 			TopologyEvidence topologyEvidence = new TopologyEvidence(MATCHER_COUNT, claimAttempts, configurationSha);
 			ProcessOrchestration orchestration = new ProcessOrchestration(
-				workers.stream().map(worker -> worker.process().pid()).toList(), true, true, gitSha, false,
+				workers.stream().map(worker -> worker.process().pid()).toList(), true, true, measuredGitSha, false,
 				topologyEvidence, List.copyOf(logicalClaims), barrierReleasedAtUtc, matcherFinishedAtUtc,
 				measurementDurationNanos);
 			validateProcessEvidence(orchestration);
@@ -333,17 +356,33 @@ public final class MatchCandidateClaimBaselineSupport {
 		String jdbcPassword,
 		CandidateFixture fixture,
 		MaterializedFixture materialized) throws Exception {
+		return runSingleMatcherProcess(jdbcUrl, jdbcUsername, jdbcPassword, fixture, materialized, currentGitSha());
+	}
+
+	static WorkerEntryExecution runSingleMatcherProcess(
+		String jdbcUrl,
+		String jdbcUsername,
+		String jdbcPassword,
+		CandidateFixture fixture,
+		MaterializedFixture materialized,
+		String measuredGitSha) throws Exception {
 		verifyWorkerInput(fixture, materialized, fixture.fixtureInputSha256());
-		String gitSha = currentGitSha();
+		if (!isGitSha(measuredGitSha)) {
+			throw new IllegalArgumentException("측정 Git SHA는 40자리 소문자 hex여야 합니다.");
+		}
 		String configurationSha = sha256("matcherCount=1;claimAttempts=1");
 		WorkerProcess worker = null;
 		try (ServerSocket barrier = new ServerSocket(0)) {
 			barrier.setSoTimeout(PROCESS_TIMEOUT_SECONDS * 1_000);
 			worker = startWorker(jdbcUrl, jdbcUsername, jdbcPassword, barrier.getLocalPort(), fixture,
-				gitSha, configurationSha, 1);
+				measuredGitSha, configurationSha, 1);
 			BarrierClient client = awaitConnected(barrier);
 			try {
-				awaitReady(client, fixture.fixtureInputSha256(), gitSha, configurationSha);
+				try {
+					awaitReady(client, fixture.fixtureInputSha256(), measuredGitSha, configurationSha);
+				} catch (IOException exception) {
+					throw new IOException(exception.getMessage() + " " + workerDiagnostic(worker), exception);
+				}
 				client.writer().write("GO\n");
 				client.writer().flush();
 				List<LogicalClaim> logicalClaims = logicalClaimsFromDone(client.reader().readLine(),
@@ -353,7 +392,7 @@ public final class MatchCandidateClaimBaselineSupport {
 					throw new IllegalArgumentException("single matcher worker가 timeout 또는 실패했습니다: "
 						+ workerDiagnostic(worker));
 				}
-				return new WorkerEntryExecution(worker.process().pid(), gitSha, true, logicalClaims);
+				return new WorkerEntryExecution(worker.process().pid(), measuredGitSha, true, logicalClaims);
 			} finally {
 				client.close();
 			}
@@ -389,13 +428,28 @@ public final class MatchCandidateClaimBaselineSupport {
 		MaterializedFixture materialized,
 		FixtureReportInput fixtureReport,
 		int claimAttempts) throws Exception {
+		return collectSmallRound(jdbcUrl, jdbcUsername, jdbcPassword, jdbcTemplate, fixture, materialized,
+			fixtureReport, claimAttempts, currentGitSha());
+	}
+
+	static SmallRoundReport collectSmallRound(
+		String jdbcUrl,
+		String jdbcUsername,
+		String jdbcPassword,
+		JdbcTemplate jdbcTemplate,
+		CandidateFixture fixture,
+		MaterializedFixture materialized,
+		FixtureReportInput fixtureReport,
+		int claimAttempts,
+		String measuredGitSha) throws Exception {
 		jdbcTemplate.execute("create extension if not exists pg_stat_statements");
 		jdbcTemplate.execute("select pg_stat_statements_reset()");
 		LockSampler lockSampler = new LockSampler(jdbcTemplate);
 		ProcessOrchestration orchestration;
 		try {
 			orchestration = runMatcherProcesses(
-				jdbcUrl, jdbcUsername, jdbcPassword, fixture, materialized, claimAttempts, lockSampler::start);
+				jdbcUrl, jdbcUsername, jdbcPassword, fixture, materialized, claimAttempts, measuredGitSha,
+				lockSampler::start);
 		} finally {
 			lockSampler.stop();
 		}
@@ -594,6 +648,7 @@ public final class MatchCandidateClaimBaselineSupport {
 			processBuilder.redirectErrorStream(true);
 			processBuilder.redirectOutput(outputFile.toFile());
 			processBuilder.environment().put("ISSUE775_JDBC_PASSWORD", jdbcPassword);
+			processBuilder.environment().put("ISSUE775_GIT_SHA", gitSha);
 			return new WorkerProcess(processBuilder.start(), argumentFile, outputFile);
 		} catch (IOException exception) {
 			if (argumentFile != null) {
@@ -609,10 +664,12 @@ public final class MatchCandidateClaimBaselineSupport {
 	private static String workerDiagnostic(WorkerProcess worker) {
 		try {
 			String output = Files.readString(worker.outputFile(), StandardCharsets.UTF_8);
-			int tailStart = Math.max(0, output.length() - 1_000);
+			String diagnosticOutput = output.length() <= 12_000
+				? output
+				: output.substring(0, 6_000) + " ... [중략] ... " + output.substring(output.length() - 6_000);
 			String state = worker.process().isAlive() ? "상태=running" : "exit=" + worker.process().exitValue();
 			return "pid=" + worker.process().pid() + ", " + state
-				+ ", stderr/stdout=" + output.substring(tailStart).replace(System.lineSeparator(), " ");
+				+ ", stderr/stdout=" + diagnosticOutput.replace(System.lineSeparator(), " ");
 		} catch (IOException exception) {
 			String state = worker.process().isAlive() ? "상태=running" : "exit=" + worker.process().exitValue();
 			return "pid=" + worker.process().pid() + ", " + state
@@ -746,6 +803,17 @@ public final class MatchCandidateClaimBaselineSupport {
 		}
 	}
 
+	static boolean isGitSha(String value) {
+		return value != null && value.matches("[0-9a-f]{40}");
+	}
+
+	static void truncateMeasurementTables(JdbcTemplate jdbcTemplate) {
+		jdbcTemplate.execute("""
+			truncate table match_idempotency_records, match_proposal_members, match_proposals,
+			match_party_participants, match_parties, match_requests, match_blocks, users restart identity cascade
+			""");
+	}
+
 	static void requireMeasurementEnabled() {
 		if (!Boolean.getBoolean("issue775.measurement")) {
 			throw new IllegalStateException("issue775.measurement=true가 있어야 계약 크기 측정을 실행할 수 있습니다.");
@@ -760,7 +828,7 @@ public final class MatchCandidateClaimBaselineSupport {
 		String expectedGitSha = required(values, "--git-sha");
 		String fixtureSha = required(values, "--fixture-sha");
 		String configurationSha = required(values, "--configuration-sha");
-		if (!currentGitSha().equals(expectedGitSha)) {
+		if (!workerGitSha().equals(expectedGitSha)) {
 			throw new IllegalArgumentException("worker Git SHA가 부모 실행과 다릅니다.");
 		}
 		try (Socket socket = new Socket("127.0.0.1", Integer.parseInt(required(values, "--barrier-port")));
@@ -770,13 +838,14 @@ public final class MatchCandidateClaimBaselineSupport {
 				new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))) {
 			writer.write("CONNECTED\n");
 			writer.flush();
+			verifyWorkerDatabaseConnection(required(values, "--jdbc-url"), required(values, "--jdbc-username"));
 			List<String> durations = new ArrayList<>();
 			try (ConfigurableApplicationContext context = new SpringApplicationBuilder(AlbamMateApplication.class)
 				.web(WebApplicationType.SERVLET)
 				.properties(Map.of(
 					"spring.datasource.url", required(values, "--jdbc-url"),
 					"spring.datasource.username", required(values, "--jdbc-username"),
-					"spring.datasource.password", System.getenv("ISSUE775_JDBC_PASSWORD"),
+					"spring.datasource.password", "${ISSUE775_JDBC_PASSWORD}",
 					"spring.flyway.enabled", "false",
 					"spring.task.scheduling.enabled", "false",
 					"app.notification.relay.enabled", "false",
@@ -785,7 +854,7 @@ public final class MatchCandidateClaimBaselineSupport {
 					"--server.port=0",
 					"--spring.datasource.url=" + required(values, "--jdbc-url"),
 					"--spring.datasource.username=" + required(values, "--jdbc-username"),
-					"--spring.datasource.password=" + System.getenv("ISSUE775_JDBC_PASSWORD"),
+					"--spring.datasource.password=${ISSUE775_JDBC_PASSWORD}",
 					"--spring.task.scheduling.enabled=false",
 					"--app.notification.relay.enabled=false",
 					"--app.chat.retention.enabled=false")) {
@@ -804,6 +873,22 @@ public final class MatchCandidateClaimBaselineSupport {
 			}
 			writer.write("DONE|" + String.join(",", durations) + "\n");
 			writer.flush();
+		}
+	}
+
+	private static String workerGitSha() {
+		String configuredGitSha = System.getenv("ISSUE775_GIT_SHA");
+		return configuredGitSha == null || configuredGitSha.isBlank() ? currentGitSha() : configuredGitSha;
+	}
+
+	private static void verifyWorkerDatabaseConnection(String jdbcUrl, String jdbcUsername) throws SQLException {
+		try (Connection connection = DriverManager.getConnection(
+			jdbcUrl, jdbcUsername, System.getenv("ISSUE775_JDBC_PASSWORD"));
+			var statement = connection.createStatement();
+			var resultSet = statement.executeQuery("select 1")) {
+			if (!resultSet.next() || resultSet.getInt(1) != 1) {
+				throw new SQLException("worker PostgreSQL 연결 확인 query가 실패했습니다.");
+			}
 		}
 	}
 

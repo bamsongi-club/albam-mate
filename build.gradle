@@ -109,9 +109,28 @@ tasks.register('postgresMeasurementTest', Test) {
     dependsOn tasks.named('postgresTestClasses')
     shouldRunAfter tasks.named('postgresTest')
     systemProperty 'issue776.measurement', System.getProperty('issue776.measurement', 'false')
+    systemProperty 'issue775.measurement', System.getProperty('issue775.measurement', 'false')
     useJUnitPlatform {
         includeTags 'measurement'
     }
+}
+
+tasks.register('matchCandidateExternalMeasurement', JavaExec) {
+    description = 'Runs the MATCH-01 T10 measurement against an externally provisioned PostgreSQL target.'
+    group = 'verification'
+    classpath = sourceSets.postgresTest.runtimeClasspath
+    mainClass = 'cloud.bamsongi.albammate.matching.measurement.MatchCandidateClaimBaselineExternalRunner'
+    dependsOn tasks.named('postgresTestClasses')
+    systemProperty 'issue775.measurement', System.getProperty('issue775.measurement', 'false')
+    systemProperty 'match01.external.allow-mutation',
+        System.getProperty('match01.external.allow-mutation', 'false')
+    systemProperty 'match01.external.jdbc-url', System.getProperty('match01.external.jdbc-url', '')
+    systemProperty 'match01.external.jdbc-username', System.getProperty('match01.external.jdbc-username', '')
+    systemProperty 'match01.external.measured-git-sha',
+        System.getProperty('match01.external.measured-git-sha', '')
+    systemProperty 'match01.external.output', System.getProperty('match01.external.output', '')
+    systemProperty 'match01.external.environment-profile-file',
+        System.getProperty('match01.external.environment-profile-file', '')
 }
 
 pitest {
