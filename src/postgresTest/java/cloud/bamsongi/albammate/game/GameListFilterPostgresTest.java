@@ -18,8 +18,10 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.SliceImpl;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
@@ -34,6 +36,7 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import cloud.bamsongi.albammate.game.dto.GameListItem;
 import cloud.bamsongi.albammate.game.dto.GameListRequest;
 import cloud.bamsongi.albammate.game.dto.GamePlayTimeFilter;
 import cloud.bamsongi.albammate.game.dto.MechanismMatch;
@@ -123,6 +126,22 @@ class GameListFilterPostgresTest extends SharedPostgresIntegrationSupport {
 				PageRequest.of(1, 2, Sort.by(Sort.Order.desc("popularityScore"), Sort.Order.asc("name"),
 					Sort.Order.asc("id")))),
 			pageable.getAllValues());
+	}
+
+	@Test
+	void T4_PostgreSQL에서_필터_검색어가_없는_게임목록은_실제_전체건수와_올림한_totalPages를_포함한다() {
+		saveGame(9911L, "Total-Alpha", 2, 4, 20, new BigDecimal("2.00"));
+		saveGame(9912L, "Total-Beta", 2, 4, 20, new BigDecimal("2.00"));
+		saveGame(9913L, "Total-Gamma", 2, 4, 20, new BigDecimal("2.00"));
+		GameListRequest request = new GameListRequest();
+		request.setSize(2);
+
+		Slice<GameListItem> result = gameQueryService.findPage(request, null);
+
+		assertTrue(result instanceof Page<GameListItem>);
+		Page<GameListItem> page = (Page<GameListItem>)result;
+		assertEquals(3, page.getTotalElements());
+		assertEquals(2, page.getTotalPages());
 	}
 
 	@Test

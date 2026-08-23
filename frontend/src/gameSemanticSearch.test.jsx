@@ -130,6 +130,76 @@ describe('T5 재검색 중 로딩 표시', () => {
   });
 });
 
+describe('T6 필터·검색어 없는 상태의 전체 페이지 수 기반 번호형 페이지네이션', () => {
+  it('응답에 totalPages가 있으면 페이지 번호 버튼을 보여준다', async () => {
+    getGames.mockResolvedValue({
+      content: [{ id: 1, name: '카탄', englishName: 'Catan', supportedPlayerCount: '3~4명', estimatedPlayTime: '60~90분', complexity: 2, upcomingRoomCount: 0 }],
+      page: 0,
+      size: 24,
+      hasNext: true,
+      totalElements: 50,
+      totalPages: 3
+    });
+    await renderGamesView();
+
+    expect(screen.getByRole('button', { name: '2' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '3' })).toBeTruthy();
+  });
+});
+
+describe('T7 검색·필터가 걸린 상태의 이전/다음 방식 유지', () => {
+  it('검색어가 있어 totalPages가 없는 응답은 페이지 번호 버튼 없이 이전/다음 방식을 쓴다', async () => {
+    getGameSearch.mockResolvedValue({ ...SEARCH_HIT, hasNext: true });
+    await renderGamesView('가족과 짧게 할 협력 게임');
+
+    expect(screen.queryByRole('button', { name: '2' })).toBeNull();
+    expect(screen.getByRole('button', { name: '다음 페이지' })).toBeTruthy();
+  });
+});
+
+describe('T8 필터 없는 상태의 결과 수를 게임 필터 CTA로 전달한다', () => {
+  it('totalElements가 있으면 필터 시트 CTA에 N개 게임 보기로 반영한다', async () => {
+    getGames.mockResolvedValue({
+      content: [],
+      page: 0,
+      size: 24,
+      hasNext: false,
+      totalElements: 7,
+      totalPages: 1
+    });
+    await renderGamesView();
+
+    fireEvent.click(screen.getByRole('button', { name: /게임 필터/ }));
+
+    expect(screen.getByRole('button', { name: '7개 게임 보기' })).toBeTruthy();
+  });
+});
+
+describe('T9 필터를 켜면 이전 filterless 응답의 total 표시가 즉시 사라진다', () => {
+  it('필터를 고르는 즉시 번호형 페이지네이션과 결과 수 표시를 감춘다', async () => {
+    getGames.mockResolvedValueOnce({
+      content: [{ id: 1, name: '카탄', englishName: 'Catan', supportedPlayerCount: '3~4명', estimatedPlayTime: '60~90분', complexity: 2, upcomingRoomCount: 0 }],
+      page: 0,
+      size: 24,
+      hasNext: true,
+      totalElements: 50,
+      totalPages: 3
+    });
+    await renderGamesView();
+
+    expect(screen.getByRole('button', { name: '2' })).toBeTruthy();
+
+    // 조회가 끝나기 전에도 화면에 남은 이전 응답의 total을 계속 신뢰하지 않는지 확인해야 하므로 응답을 묶어 둔다.
+    getGames.mockReturnValue(new Promise(() => {}));
+    fireEvent.click(screen.getByRole('button', { name: /게임 필터/ }));
+    fireEvent.click(screen.getByRole('checkbox', { name: '예정 모임 있는 게임만' }));
+
+    expect(screen.queryByRole('button', { name: '2' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '50개 게임 보기' })).toBeNull();
+    expect(screen.getByRole('button', { name: '다음 페이지' })).toBeTruthy();
+  });
+});
+
 describe('T4 검색 결과 없음 안내 문구', () => {
   it('검색어로 조회했지만 결과가 없으면 다른 표현을 안내한다', async () => {
     getGameSearch.mockResolvedValue(EMPTY_PAGE);

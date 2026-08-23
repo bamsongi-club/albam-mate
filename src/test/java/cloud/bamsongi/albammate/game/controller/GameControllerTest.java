@@ -103,16 +103,49 @@ class GameControllerTest {
 			.andExpect(jsonPath("$.data.content[0].upcomingRoomCount").value(0))
 			.andExpect(jsonPath("$.data.page").value(0))
 			.andExpect(jsonPath("$.data.size").value(10))
-			.andExpect(jsonPath("$.data.totalElements").doesNotExist())
-			.andExpect(jsonPath("$.data.totalPages").doesNotExist())
+			.andExpect(jsonPath("$.data.totalElements").value(1))
+			.andExpect(jsonPath("$.data.totalPages").value(1))
 			.andExpect(jsonPath("$.data.hasNext").value(false));
+	}
+
+	@Test
+	void T1_필터_검색어가_전혀_없는_게임_목록은_totalElements_totalPages를_포함한다() throws Exception {
+		when(gameQueryService.findPage(any(GameListRequest.class), any()))
+			.thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 10), 25));
+
+		mockMvc.perform(get("/api/games"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.totalElements").value(25))
+			.andExpect(jsonPath("$.data.totalPages").value(3));
+	}
+
+	@Test
+	void T2_검색어가_있는_게임_목록은_totalElements_totalPages를_포함하지_않는다() throws Exception {
+		when(gameQueryService.findPage(any(GameListRequest.class), any()))
+			.thenReturn(new org.springframework.data.domain.SliceImpl<>(List.of(), PageRequest.of(0, 10), true));
+
+		mockMvc.perform(get("/api/games?keyword=Catan"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.totalElements").doesNotExist())
+			.andExpect(jsonPath("$.data.totalPages").doesNotExist());
+	}
+
+	@Test
+	void T3_카테고리_필터가_있는_게임_목록은_totalElements_totalPages를_포함하지_않는다() throws Exception {
+		when(gameQueryService.findPage(any(GameListRequest.class), any()))
+			.thenReturn(new org.springframework.data.domain.SliceImpl<>(List.of(), PageRequest.of(0, 10), false));
+
+		mockMvc.perform(get("/api/games?category=STRATEGY"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.totalElements").doesNotExist())
+			.andExpect(jsonPath("$.data.totalPages").doesNotExist());
 	}
 
 	@Test
 	void 검색어와_페이지_파라미터를_서비스에_전달한다() throws Exception {
 		PageRequest pageable = PageRequest.of(1, 1);
 		when(gameQueryService.findPage(any(GameListRequest.class), any()))
-			.thenReturn(new PageImpl<>(List.of(), pageable, 3));
+			.thenReturn(new org.springframework.data.domain.SliceImpl<>(List.of(), pageable, true));
 
 		mockMvc.perform(get("/api/games?keyword=Catan&page=1&size=1"))
 			.andExpect(status().isOk())
@@ -131,11 +164,11 @@ class GameControllerTest {
 	}
 
 	@Test
-	void 게임_목록_UI가_소비할_Slice_응답은_전체결과수와_마지막페이지정보를_노출하지_않는다() throws Exception {
+	void 게임_목록_UI가_소비할_필터_있는_Slice_응답은_전체결과수와_마지막페이지정보를_노출하지_않는다() throws Exception {
 		when(gameQueryService.findPage(any(GameListRequest.class), any()))
-			.thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 10), 0));
+			.thenReturn(new org.springframework.data.domain.SliceImpl<>(List.of(), PageRequest.of(0, 10), false));
 
-		mockMvc.perform(get("/api/games"))
+		mockMvc.perform(get("/api/games?category=STRATEGY"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.content").isEmpty())
 			.andExpect(jsonPath("$.data.page").value(0))
@@ -154,7 +187,7 @@ class GameControllerTest {
 
 		mockMvc.perform(get("/api/games"))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.totalElements").doesNotExist());
+			.andExpect(jsonPath("$.data.totalElements").value(0));
 		mockMvc.perform(get("/api/games/999"))
 			.andExpect(status().isNotFound())
 			.andExpect(jsonPath("$.status").value(404))
