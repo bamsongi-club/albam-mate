@@ -46,6 +46,7 @@ public final class MatchCandidateClaimBaselineSupport {
 	private static final String FIXTURE_GENERATOR = "MATCH-01-CANDIDATE-BASELINE-V2";
 	private static final String MIXED_RANGE_FIXTURE_GENERATOR = "MATCH-01-CANDIDATE-MIXED-RANGE-V1";
 	private static final String WORKER_CLASSPATH_PROPERTY = "match01.external.worker-classpath";
+	private static final String WORKER_CLASSPATH_FILE_PROPERTY = "match01.external.worker-classpath-file";
 	private static final int MATCHER_COUNT = 2;
 	private static final int PROCESS_TIMEOUT_SECONDS = 90;
 
@@ -667,7 +668,15 @@ public final class MatchCandidateClaimBaselineSupport {
 		}
 	}
 
-	private static String workerClasspath() {
+	private static String workerClasspath() throws IOException {
+		String configuredClasspathFile = System.getProperty(WORKER_CLASSPATH_FILE_PROPERTY);
+		if (configuredClasspathFile != null && !configuredClasspathFile.isBlank()) {
+			String classpath = Files.readString(Path.of(configuredClasspathFile), StandardCharsets.UTF_8).trim();
+			if (classpath.isBlank()) {
+				throw new IOException("worker classpath 파일이 비어 있습니다.");
+			}
+			return classpath;
+		}
 		String configuredClasspath = System.getProperty(WORKER_CLASSPATH_PROPERTY);
 		if (configuredClasspath != null && !configuredClasspath.isBlank()) {
 			return configuredClasspath;

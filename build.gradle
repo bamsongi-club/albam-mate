@@ -119,7 +119,11 @@ tasks.register('matchCandidateExternalMeasurement', JavaExec) {
     description = 'Runs the MATCH-01 T10 measurement against an externally provisioned PostgreSQL target.'
     group = 'verification'
     classpath = sourceSets.postgresTest.runtimeClasspath
-    systemProperty 'match01.external.worker-classpath', sourceSets.postgresTest.runtimeClasspath.asPath
+    doFirst {
+        def workerClasspathFile = new File(temporaryDir, 'worker-classpath.txt')
+        workerClasspathFile.text = sourceSets.postgresTest.runtimeClasspath.asPath
+        systemProperty 'match01.external.worker-classpath-file', workerClasspathFile.absolutePath
+    }
     mainClass = 'cloud.bamsongi.albammate.matching.measurement.MatchCandidateClaimBaselineExternalRunner'
     dependsOn tasks.named('postgresTestClasses')
     systemProperty 'issue775.measurement', System.getProperty('issue775.measurement', 'false')
