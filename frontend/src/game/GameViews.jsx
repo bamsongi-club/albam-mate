@@ -3,7 +3,7 @@ import { api } from '../api';
 import poweredByBgg from '../../assets/powered-by-bgg.svg';
 import { BggAttribution, CheckIcon, Cover, ErrorBox, PlusIcon, Pagination, RoomSkeletons, ScreenTitle, SearchIcon, StateBlock, TopBar } from '../shared/ui';
 import { usePaginatedRequest, useRequest } from '../shared/async';
-import { GAME_LIST_PAGE_SIZE, ROOM_LIST_PAGE_SIZE, EMPTY_GAME_FILTERS, PLAYED_FILTER_OPTIONS, DEFAULT_GAME_COVER_URL } from './constants';
+import { GAME_LIST_PAGE_SIZE, ROOM_LIST_PAGE_SIZE, EMPTY_GAME_FILTERS, EMPTY_GAME_FILTER_KEY, PLAYED_FILTER_OPTIONS, DEFAULT_GAME_COVER_URL } from './constants';
 import { gameFilterParameters } from './filterLogic';
 import { gameMeta, normalizeGameSummary, normalizeRoom } from './data';
 import { GameFilters } from './GameFilters';
@@ -99,6 +99,10 @@ export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, on
   );
   const games = (data?.content || []).map(normalizeGameSummary);
   const isSearching = Boolean(query);
+  // 필터를 고르면 debounce·조회가 끝나기 전에도 이전 filterless 응답의 total을 바로 감춘다.
+  // raw filters를 기준으로 판정해야 사용자가 지금 보고 있는 화면과 어긋나지 않는다(#1057 리뷰).
+  const isFilterless = !query && JSON.stringify(filters) === EMPTY_GAME_FILTER_KEY;
+  const showTotals = isFilterless && Number.isFinite(data?.totalPages);
   useEffect(() => setInput(gameQuery), [gameQuery]);
 
   const playedChips = (
@@ -143,7 +147,7 @@ export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, on
         filters={filters}
         onChange={setFilters}
         quickSlot={playedChips}
-        resultCount={Number.isFinite(data?.totalElements) ? data.totalElements : undefined}
+        resultCount={showTotals ? data.totalElements : undefined}
       />
       {!error && <p className="section-label" style={{ marginTop: 18 }}>{loading && !data ? '불러오는 중' : '게임 목록'}</p>}
       {error && (
@@ -173,7 +177,7 @@ export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, on
         </div>
       )}
       {!error && data && (
-        Number.isFinite(data.totalPages)
+        showTotals
           ? <Pagination page={data.page ?? 0} totalPages={data.totalPages} loading={loading} onChange={setPage} className="tab-fab-clear" />
           : <GameSlicePagination page={data.page ?? 0} hasNext={Boolean(data.hasNext)} loading={loading} onChange={setPage} />
       )}
