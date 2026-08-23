@@ -9,7 +9,7 @@ import java.util.regex.Pattern;
 /** 네트워크·secret·provider 상태에 의존하지 않는 기본 provider다. */
 final class DeterministicFakeAssistantProvider implements AiProviderClient {
 
-	private static final Pattern PLAYER_COUNT = Pattern.compile("(?<!\\d)([2-9]|1[01])\\s*명");
+	private static final Pattern PLAYER_COUNT = Pattern.compile("(?<!\\d)([2-9]|1[01])\\s*(?:명|인)");
 
 	@Override
 	public String providerName() {

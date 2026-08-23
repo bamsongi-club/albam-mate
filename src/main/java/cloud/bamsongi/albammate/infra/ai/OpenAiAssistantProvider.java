@@ -209,7 +209,8 @@ final class OpenAiAssistantProvider implements AiProviderClient {
 		boolean hasRefinement = !complexityMax.isNull() || !playTimeMax.isNull() || !playerCount.isNull();
 		if (!ALLOWED_ACTIONS.contains(actionValue)
 			|| ("RECOMMEND".equals(actionValue) && !hasSearchCondition)
-			|| (!"RECOMMEND".equals(actionValue) && (hasSearchCondition || hasRefinement))) {
+			|| (!"RECOMMEND".equals(actionValue) && hasSearchCondition)
+			|| ("UNSUPPORTED".equals(actionValue) && hasRefinement)) {
 			return false;
 		}
 		return true;
@@ -241,7 +242,8 @@ final class OpenAiAssistantProvider implements AiProviderClient {
 
 	private boolean isValidPlayerCount(JsonNode playerCount) {
 		return playerCount != null && (playerCount.isNull()
-			|| (playerCount.canConvertToInt() && playerCount.intValue() >= 2 && playerCount.intValue() <= 11));
+			|| (playerCount.isIntegralNumber() && playerCount.canConvertToInt()
+				&& playerCount.intValue() >= 2 && playerCount.intValue() <= 11));
 	}
 
 	private List<String> codes(JsonNode codes) {

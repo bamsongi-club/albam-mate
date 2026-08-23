@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.List;
 
@@ -89,6 +90,14 @@ class OpenAiAssistantProviderTest {
 			+ "\"complexityMax\":null,\"playTimeMax\":null,\"playerCount\":null";
 		assertTrue(responseFor("{\"action\":\"NEEDS_INPUT\"," + emptyConditions + "}").succeeded());
 		assertEquals("NEEDS_INPUT", responseFor("{\"action\":\"NEEDS_INPUT\"," + emptyConditions + "}").action());
+		AiProviderResponse needsInputWithRefinement = responseFor(
+			"{\"action\":\"NEEDS_INPUT\",\"categories\":[],\"mechanisms\":[],\"themes\":[],"
+				+ "\"complexityMax\":2.0,\"playTimeMax\":\"OVER_10_TO_20\",\"playerCount\":4}");
+		assertTrue(needsInputWithRefinement.succeeded());
+		assertEquals("NEEDS_INPUT", needsInputWithRefinement.action());
+		assertEquals(0, needsInputWithRefinement.complexityMax().compareTo(BigDecimal.valueOf(2.0)));
+		assertEquals("OVER_10_TO_20", needsInputWithRefinement.playTimeMax());
+		assertEquals(4, needsInputWithRefinement.playerCount());
 		assertTrue(responseFor("{\"action\":\"UNSUPPORTED\"," + emptyConditions + "}").succeeded());
 		assertEquals("UNSUPPORTED", responseFor("{\"action\":\"UNSUPPORTED\"," + emptyConditions + "}").action());
 		assertEquals(AiProviderFailure.INVALID_SCHEMA,
@@ -102,6 +111,9 @@ class OpenAiAssistantProviderTest {
 		assertEquals(AiProviderFailure.INVALID_SCHEMA,
 			responseFor("{\"action\":\"RECOMMEND\",\"categories\":[\"STRATEGY\"],\"mechanisms\":[],\"themes\":[],"
 				+ "\"complexityMax\":5.1,\"playTimeMax\":null,\"playerCount\":null}").failure());
+		assertEquals(AiProviderFailure.INVALID_SCHEMA,
+			responseFor("{\"action\":\"RECOMMEND\",\"categories\":[\"STRATEGY\"],\"mechanisms\":[],\"themes\":[],"
+				+ "\"complexityMax\":null,\"playTimeMax\":null,\"playerCount\":4.5}").failure());
 		assertEquals(AiProviderFailure.INVALID_SCHEMA,
 			responseFor(
 				"{\"action\":\"RECOMMEND\",\"categories\":[\"STRATEGY\",\"STRATEGY\"],\"mechanisms\":[],\"themes\":[],"

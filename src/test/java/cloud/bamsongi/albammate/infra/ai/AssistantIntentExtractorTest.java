@@ -55,6 +55,14 @@ class AssistantIntentExtractorTest {
 	}
 
 	@Test
+	void T3_fake_provider는_총_인원_표현을_명과_인으로_구조화한다() {
+		DeterministicFakeAssistantProvider provider = new DeterministicFakeAssistantProvider();
+
+		assertEquals(4, provider.propose(payload("전략 게임 4명 추천해줘")).playerCount());
+		assertEquals(4, provider.propose(payload("전략 게임 4인 추천해줘")).playerCount());
+	}
+
+	@Test
 	void T2_provider_payload은_allowlist만_포함하고_tool_권한과_원문_식별자를_전달하지_않는다() {
 		CapturingAssistantProvider provider = new CapturingAssistantProvider();
 		AssistantIntentExtractor extractor = extractor(provider, new PermittingAiQuotaLedger(),
@@ -257,6 +265,12 @@ class AssistantIntentExtractorTest {
 
 	private AssistantIntentRequest request() {
 		return AssistantIntentRequest.forUser("quota-subject-b", "주말 보드게임 추천", List.of());
+	}
+
+	private AiProviderPayload payload(String sentence) {
+		return new AiProviderPayload(
+			"AI-02-INSTRUCTION-V1", "propose_game_room_intent", "AI-02-SCHEMA-V1", "Asia/Seoul", sentence,
+			List.of());
 	}
 
 	private AiProviderSettings externalProviderSettings() {
