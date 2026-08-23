@@ -370,17 +370,14 @@ textarea.field-input { height: 112px; line-height: 1.6; padding: 14px 16px; resi
 
 /* ── 홈 ─────────────────────────────────────────────────── */
 
-.home-next { background-color: var(--card); background-position: center 22%; background-size: cover; border-radius: var(--radius-card); margin-top: 18px; overflow: hidden; position: relative; }
-.home-next-scrim { background: linear-gradient(105deg, rgba(28, 22, 20, 0.94) 0%, rgba(28, 22, 20, 0.86) 46%, rgba(28, 22, 20, 0.42) 100%); inset: 0; position: absolute; }
-.home-next-body { padding: 20px 20px 22px; position: relative; }
+.home-next { background: var(--card); border-radius: 20px; margin-top: 18px; padding: 20px 20px 22px; }
 .home-next-lead { align-items: baseline; display: flex; justify-content: space-between; }
-.home-next-lead span { color: rgba(255, 255, 255, 0.7); font-size: 12.5px; font-weight: 700; }
-.home-next-lead .section-link { color: rgba(255, 255, 255, 0.78); }
-.home-next-title { color: #fff; display: block; font-size: 20px; font-weight: 700; letter-spacing: var(--title-tracking); line-height: 1.3; margin-top: 14px; max-width: 250px; text-align: left; }
-.home-next-meta { color: rgba(255, 255, 255, 0.72); font-size: 13.5px; margin-top: 5px; }
-.home-next .btn-row { margin-top: 20px; }
-.home-next .btn { border-radius: var(--radius-pill); min-height: 50px; }
-.home-next .btn-square { background: rgba(255, 255, 255, 0.18); color: #fff; }
+.home-next-lead span { color: var(--sub); font-size: 12.5px; font-weight: 800; letter-spacing: -0.01em; }
+.home-next-title { display: block; font-size: 24px; font-weight: 800; letter-spacing: -0.05em; line-height: 1.28; margin-top: 8px; text-align: left; }
+.home-next-meta { color: var(--mid); font-size: 14px; margin-top: 9px; }
+.home-next-seats { align-items: flex-end; display: flex; margin-top: 16px; }
+.home-next .btn-row { margin-top: 18px; }
+.home-next .btn { border-radius: 14px; min-height: 50px; }
 .home-empty { background: var(--card); border-radius: 20px; margin-top: 18px; padding: 22px 20px; }
 .home-empty-lead { color: var(--sub); font-size: 12.5px; font-weight: 800; letter-spacing: -0.01em; }
 .home-empty h2 { font-size: 23px; font-weight: 800; letter-spacing: -0.05em; line-height: 1.26; margin-top: 8px; }
