@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -23,6 +24,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 
 import cloud.bamsongi.albammate.game.contract.SemanticGameSearchMode;
+import cloud.bamsongi.albammate.game.dto.GameListItem;
 import cloud.bamsongi.albammate.game.dto.SemanticGameSearchRequest;
 import cloud.bamsongi.albammate.game.dto.SemanticGameSearchResponse;
 import cloud.bamsongi.albammate.game.service.SemanticGameSearchQueryService;
@@ -117,10 +119,12 @@ class GameSearchControllerTest {
 
 	@Test
 	void T3_정상_요청은_200이고_searchMode_필드가_없다() throws Exception {
-		cloud.bamsongi.albammate.game.dto.GameListItem mockItem = new cloud.bamsongi.albammate.game.dto.GameListItem(1L, 100L, "테스트 게임", "Test Game", "url", "2-4", "tag", "30-60", new java.math.BigDecimal("2.5"), 2024, 10, 0, false);
+		GameListItem mockItem = new GameListItem(1L, 100L, "테스트 게임", "Test Game", "url", "2-4", "tag", "30-60",
+			new BigDecimal("2.5"), 2024, 10, 0, false);
 		when(semanticGameSearchQueryService.search(any(SemanticGameSearchRequest.class),
 			org.mockito.ArgumentMatchers.isNull()))
-			.thenReturn(new SemanticGameSearchResponse(List.of(mockItem), 0, 10, true, SemanticGameSearchMode.SEMANTIC));
+			.thenReturn(
+				new SemanticGameSearchResponse(List.of(mockItem), 0, 10, true, SemanticGameSearchMode.SEMANTIC));
 
 		mockMvc.perform(get("/api/games/search").param("query", "협력 게임"))
 			.andExpect(status().isOk())
