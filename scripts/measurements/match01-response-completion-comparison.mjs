@@ -245,6 +245,18 @@ export function compareResponseFiles(beforePath, afterPath) {
   });
 }
 
+export function reportPathFromArguments(args) {
+  const reportIndex = args.indexOf("--write-report");
+  if (reportIndex < 0) {
+    return null;
+  }
+  const reportPath = args[reportIndex + 1];
+  if (!reportPath || reportPath.startsWith("--")) {
+    throw new Error("--write-report에는 report 파일 경로가 필요합니다.");
+  }
+  return reportPath;
+}
+
 function loadArtifact(file, label) {
   try {
     const resolvedPath = path.resolve(file);
@@ -318,19 +330,19 @@ function main() {
   const args = process.argv.slice(2);
   const beforeIndex = args.indexOf("--before");
   const afterIndex = args.indexOf("--after");
-  const reportIndex = args.indexOf("--write-report");
   if (beforeIndex < 0 || afterIndex < 0 || !args[beforeIndex + 1] || !args[afterIndex + 1]) {
     throw new Error(
       "사용법: node scripts/measurements/match01-response-completion-comparison.mjs --check "
         + "--before <before.json> --after <after.json> [--write-report <report.md>]",
     );
   }
+  const reportPath = reportPathFromArguments(args);
   const result = compareResponseFiles(args[beforeIndex + 1], args[afterIndex + 1]);
   if (result.outcome === RESPONSE_COMPARISON_ACCEPTED) {
     result.comparisonRunnerGitCommitSha = currentGitSha();
-    if (reportIndex >= 0 && args[reportIndex + 1]) {
-      fs.writeFileSync(args[reportIndex + 1], renderComparisonMarkdown(result));
-      result.reportPath = path.relative(process.cwd(), path.resolve(args[reportIndex + 1])).replaceAll("\\", "/");
+    if (reportPath !== null) {
+      fs.writeFileSync(reportPath, renderComparisonMarkdown(result));
+      result.reportPath = path.relative(process.cwd(), path.resolve(reportPath)).replaceAll("\\", "/");
     }
   }
   process.stdout.write(JSON.stringify(result) + "\n");

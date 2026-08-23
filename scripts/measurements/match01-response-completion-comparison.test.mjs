@@ -10,6 +10,7 @@ import {
 	SCENARIOS,
 	compareAcceptedArtifacts,
 	compareResponseFiles,
+	reportPathFromArguments,
 	renderComparisonMarkdown,
 } from "./match01-response-completion-comparison.mjs";
 
@@ -152,4 +153,11 @@ test("파일 비교 경로는 sidecar INVALID와 최종 상태 FAILED를 전파�
   } finally {
     fs.rmSync(temporaryDirectory, { recursive: true, force: true });
   }
+});
+
+test("write-report 플래그는 report 경로를 요구한다", () => {
+  assert.equal(reportPathFromArguments(["--before", "before.json", "--after", "after.json"]), null);
+  assert.equal(reportPathFromArguments(["--write-report", "report.md"]), "report.md");
+  assert.throws(() => reportPathFromArguments(["--write-report"]), /report 파일 경로가 필요합니다/u);
+  assert.throws(() => reportPathFromArguments(["--write-report", "--check"]), /report 파일 경로가 필요합니다/u);
 });
