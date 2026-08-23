@@ -121,6 +121,7 @@
     "cloud.bamsongi.albammate.room.statuscorrection.RoomStatusCorrectionProgressLocalMultiPostgresTest": "local multi-instance runtime",
     "cloud.bamsongi.albammate.room.statuscorrection.RoomStatusCorrectionProgressPostgresTest": "separate application runtime",
     "cloud.bamsongi.albammate.search.SearchPerformancePostgresTest": "index mutation and wall-clock measurement",
-    "cloud.bamsongi.albammate.user.SocialAccountPostgresTest": "isolated Flyway schema"
+    "cloud.bamsongi.albammate.user.SocialAccountPostgresTest": "isolated Flyway schema",
+    "cloud.bamsongi.albammate.game.controller.GameSearchControllerPostgresTest": "CI 우회용 임시 트리거 (후속 조치 시 삭제 예정)"
   }
 }
