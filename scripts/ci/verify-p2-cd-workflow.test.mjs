@@ -90,17 +90,15 @@ test('T3·T5·T6·T7 workflow는 custom SSM document만 호출하고 LKG 기반 
     assert.match(contents, /migrate-app2-candidate/);
     assert.match(contents, /deploy-app2-candidate/);
     assert.match(contents, /deploy-app1-candidate/);
-    assert.match(contents, /smoke-app1-candidate/);
     assert.match(contents, /rollback-app2/);
     assert.match(contents, /rollback-app1-app2/);
     assert.match(contents, /aws ssm put-parameter/);
-    assert.match(contents, /deployment-verification\.env/);
-    assert.match(contents, /read-only smoke interface/);
     assert.match(contents, /LKG/);
     assert.match(
         contents,
-        /invoke deploy-app2-candidate[\s\S]*invoke verify-app2-candidate[\s\S]*invoke deploy-app1-candidate[\s\S]*invoke verify-app1-candidate[\s\S]*invoke smoke-app1-candidate/,
+        /invoke deploy-app2-candidate[\s\S]*invoke verify-app2-candidate[\s\S]*invoke deploy-app1-candidate[\s\S]*invoke verify-app1-candidate[\s\S]*new_lkg=/,
     );
+    assert.doesNotMatch(contents, /smoke-app1-candidate|deployment-verification\.env|read-only smoke interface/);
     assert.match(contents, /receipt allowlist: SHA, CI URL, digest, role\/target\/command identifier, phase, LKG version\/status/);
     assert.doesNotMatch(contents, /secrets\.|AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|ssh |scp |AWS-RunShellScript/);
     assert.doesNotMatch(contents, /password|cookie|csrf|deployment-verification\.env.*cat/i);
