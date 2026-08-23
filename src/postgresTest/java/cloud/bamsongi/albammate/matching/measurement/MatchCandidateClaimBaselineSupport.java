@@ -678,7 +678,8 @@ public final class MatchCandidateClaimBaselineSupport {
 		} catch (IOException exception) {
 			String state = worker.process().isAlive() ? "상태=running" : "exit=" + worker.process().exitValue();
 			return "pid=" + worker.process().pid() + ", " + state
-				+ ", output-read-failed";
+				+ ", output-read-failed=" + exception.getClass().getSimpleName() + ":" + exception.getMessage()
+				+ ", outputPath=" + worker.outputFile() + ", exists=" + Files.exists(worker.outputFile());
 		}
 	}
 
