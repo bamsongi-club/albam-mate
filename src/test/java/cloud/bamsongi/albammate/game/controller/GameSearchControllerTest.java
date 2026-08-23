@@ -95,7 +95,7 @@ class GameSearchControllerTest {
 			org.mockito.ArgumentMatchers.isNull()))
 			.thenThrow(new BusinessException(ErrorCode.VALIDATION_ERROR));
 
-		mockMvc.perform(get("/api/games/semantic-search")
+		mockMvc.perform(get("/api/games/search")
 			.param("query", "협력 게임")
 			.param("mechanism", "UNKNOWN_MECHANISM"))
 			.andExpect(status().isBadRequest())
