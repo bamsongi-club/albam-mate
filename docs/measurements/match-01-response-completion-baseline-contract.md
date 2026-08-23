@@ -70,7 +70,7 @@ correctness-only 중복 경합은 네 시나리오 각각에 대해 같은 전�
 
 - 유효한 시나리오 measured round의 응답 완료 latency p50·p95·p99는 유효 명령 표본 `n = 1,000`을 오름차순 정렬해 nearest-rank로 계산한다. p95는 `ceil(0.95 × 1,000) = 950`번째 값을 사용한다. 성공·정상 업무 거절·재시도 결과는 action과 결과 상태별로 분포를 나누고 전체 응답 완료 비교에도 포함한다.
 - 각 시나리오의 세 measured round가 모두 유효하고 1,000개 표본·fixture manifest·DB 통계·lock wait·최종 상태 assertion이 모두 보존된 경우에만 결과를 비교한다. 결과 문서는 시나리오별 p50·p95·p99, 처리량, retry 수, lock wait, 실패율과 세 round p95의 중앙값·최댓값을 함께 제시한다.
-- `RESPONSE_BASELINE_ACCEPTED`는 마지막 `ACCEPT` 경합에서 Proposal별 하나의 최종 확정, 패자 응답의 중복 전이 없음, `REQUEUE`·`CANCEL`의 결과 상태 일치, 중복 Party·부분 성공 0건, 모든 current-state assertion 통과일 때만 부여한다. 이는 운영 SLO 달성이나 후보 선점 baseline 통과를 뜻하지 않는다.
+- `RESPONSE_BASELINE_ACCEPTED`는 마지막 `ACCEPT` 경합에서 Proposal별 하나의 최종 확정, 패자 응답의 중복 전이 없음, `REQUEUE`·`CANCEL`의 결과 상태 일치, 중복 Party·부분 성공 0건, 모든 최종 영속 상태 assertion이 통과하고 응답 DTO의 current-state가 허용된 상태일 때만 부여한다. 마지막 `ACCEPT`에서 두 Member의 응답이 동시에 처리되면 한 DTO가 상대 Member의 commit 전에 `PROPOSED`를 관측할 수 있으므로 이를 raw sample에 보존한다. 이 경우에도 최종 DB 상태는 `CONFIRMED`와 `PREPARING|ACTIVE` Party로 수렴해야 하며 `EMPTY`·기타 상태는 실패다. 이는 운영 SLO 달성이나 후보 선점 baseline 통과를 뜻하지 않는다.
 - `INVALID`는 실행·관측 계약을 충족하지 않아 비교에 쓸 수 없는 결과다. `FAILED`는 실행·관측 계약을 충족한 뒤 최종 상태 정합성 검증이 실패한 결과다. 기술 오류·timeout·matcher 조기 종료·fixture 개수 불일치·관측 누락은 `INVALID`로, 실행 완료 후 최종 상태 정합성 위반은 `FAILED`로 분류한다. 두 결과 모두 응답 성능 통과나 Redis 업무 락 도입의 근거로 사용하지 않는다.
 
 ## 원자료 보존과 재검토

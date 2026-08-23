@@ -1112,7 +1112,8 @@ class MatchResponseCompletionBaselinePostgresTest {
 		boolean matchesExpectedState = statesByProposal.size() == 500;
 		for (List<String> states : statesByProposal.values()) {
 			matchesExpectedState = matchesExpectedState && states.size() == 2
-				&& states.stream().allMatch(state -> state.equals("PREPARING") || state.equals("ACTIVE"));
+				&& states.stream().allMatch(state -> state.equals("PROPOSED")
+					|| state.equals("PREPARING") || state.equals("ACTIVE"));
 		}
 		long matchedExpectedStateCount = matchesExpectedState ? execution.currentStates().size() : 0L;
 		return new CurrentStateDistribution(proposedCount, terminalCount, otherCount, matchedExpectedStateCount,
@@ -1472,7 +1473,7 @@ class MatchResponseCompletionBaselinePostgresTest {
 
 		boolean matchesExpectedCurrentState(String state) {
 			if (this == ACCEPT_FINAL) {
-				return state.equals("PREPARING") || state.equals("ACTIVE");
+				return state.equals("PROPOSED") || state.equals("PREPARING") || state.equals("ACTIVE");
 			}
 			return state.equals(switch (this) {
 				case ACCEPT_NON_TERMINAL -> "PROPOSED";
