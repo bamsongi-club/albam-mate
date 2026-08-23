@@ -319,7 +319,7 @@ function assertProductionConfig(config, observabilityLogDirectory = null) {
         'Spring does not receive the P1 heap limit through JDK_JAVA_OPTIONS',
     );
     assert(
-        String(config.services.spring.mem_limit) === String(512 * 1024 * 1024) || config.services.spring.mem_limit === '512m',
+        String(config.services.spring.mem_limit) === String(1024 * 1024 * 1024) || config.services.spring.mem_limit === '1g',
         `Spring memory limit is ${config.services.spring.mem_limit}`,
     );
     for (const serviceName of serviceNames) {
@@ -1072,7 +1072,7 @@ function verifyT7() {
             assert(app2Config.services.spring.environment[name] === value, `App2 Spring does not receive ${name}`);
         }
         assert(
-            String(app2Config.services.spring.mem_limit) === String(512 * 1024 * 1024) || app2Config.services.spring.mem_limit === '512m',
+            String(app2Config.services.spring.mem_limit) === String(1024 * 1024 * 1024) || app2Config.services.spring.mem_limit === '1g',
             `App2 Spring memory limit is ${app2Config.services.spring.mem_limit}`,
         );
         assert(
