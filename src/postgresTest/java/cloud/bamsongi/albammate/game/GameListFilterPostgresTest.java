@@ -94,10 +94,10 @@ class GameListFilterPostgresTest extends SharedPostgresIntegrationSupport {
 		Game second = saveGame(9902L, "Slice-Beta", 2, 4, 20, new BigDecimal("2.00"));
 		Game third = saveGame(9903L, "Slice-Gamma", 2, 4, 20, new BigDecimal("2.00"));
 		GameListRequest firstRequest = new GameListRequest();
-		firstRequest.setKeyword("Slice-");
+		firstRequest.setKeyword("Sl");
 		firstRequest.setSize(2);
 		GameListRequest secondRequest = new GameListRequest();
-		secondRequest.setKeyword("Slice-");
+		secondRequest.setKeyword("Sl");
 		secondRequest.setPage(1);
 		secondRequest.setSize(2);
 

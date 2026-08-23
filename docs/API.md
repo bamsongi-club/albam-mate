@@ -1434,7 +1434,7 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 
 | 이름 | 타입 | 필수 | 기본값 | 도입 단계 | 제공 상태 | 의미 |
 |---|---|:---:|---|:---:|:---:|---|
-| `keyword` | string | N | 검색 없음 | P0 | 제공 | 게임명 부분 일치 |
+| `keyword` | string | N | 검색 없음 | P0 | 제공 | 게임명 검색. 1·2글자는 부분 일치, 3글자 이상은 부분 일치와 `similarity >= 0.3` 오타 유사 결과를 함께 반환 |
 | `upcomingOnly` | boolean | N | `false` | P0 | 제공 | `true`이면 예정 모임이 한 개 이상인 게임만 반환 |
 | `playerCount` | integer | N | 검색 없음 | P1 | 제공 | `1`~`9`는 해당 인원을 포함하는 게임, `10`은 최대 가능 인원이 10 이상인 게임 |
 | `playerCountMin` | integer | N | 검색 없음 | P1 | 제공 | 1 이상, 찾는 인원 범위의 최소값 |
@@ -1491,7 +1491,7 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 - `recommendedPlayerCount`와 `bestPlayerCount`는 각각 BGG 투표에서 정규화한 양의 인원을 반복 전달하며 같은 목록 안에서 OR다. 가능 인원과 다른 의미이며 `4+` 결과는 해당 게임의 검증된 최대 가능 인원까지 확장된 관계로 판정한다.
 - `themeMatch`와 `mechanismMatch`는 각각 생략하면 `ANY`이고 대응하는 선택 코드 없이 보내도 유효하다. 두 모드는 독립적이며 테마·메커니즘 그룹과 다른 필터 종류 사이는 `AND`로 결합한다. 중복되거나 잘못된 match 값, 존재하지 않는 category/theme code, 0 이하 인원은 일부 유효 값이 함께 있어도 전체 요청을 `VALIDATION_ERROR`로 거절한다.
 - 인원·시간·최연소 참여자 나이·복잡도·카테고리·테마·추천/베스트·메커니즘 필터를 적용하면 해당 조건을 판정할 검증값이나 관계가 없는 게임은 제외한다. 필터를 생략하면 누락값이나 관계 부재만으로 제외하지 않는다.
-- 모든 필터를 적용한 뒤 `popularity_score DESC, name ASC, id ASC` 고정 정렬과 페이지를 계산한다. 다음 항목 존재 여부는 size+1 Slice 조회의 `hasNext`로 반환하며 전체 건수는 계산하거나 노출하지 않는다. `popularity_score`는 응답에 노출하지 않는 저장 파생값이다.
+- 3글자 이상 `keyword`는 정확 일치, 부분 일치, `similarity >= 0.3` 유사 결과 순으로 정렬하고, 유사도 내림차순 뒤 `name ASC, id ASC`로 동률을 결정한다. 1·2글자 `keyword`와 keyword 없는 요청은 모든 필터를 적용한 뒤 기존 `popularity_score DESC, name ASC, id ASC` 고정 정렬과 페이지를 계산한다. 다음 항목 존재 여부는 size+1 Slice 조회의 `hasNext`로 반환하며 전체 건수는 계산하거나 노출하지 않는다. `popularity_score`는 응답에 노출하지 않는 저장 파생값이다.
 
 #### GameListSliceResponse
 

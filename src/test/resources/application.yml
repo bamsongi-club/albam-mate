@@ -11,9 +11,7 @@ spring:
     password:
     driver-class-name: org.h2.Driver
     hikari:
-      connection-init-sql: SET TIME ZONE 'UTC'
-      data-source-properties:
-        INIT: 'CREATE ALIAS IF NOT EXISTS clock_timestamp FOR "java.time.Instant.now"'
+      connection-init-sql: RUNSCRIPT FROM 'classpath:/h2-init.sql'
   flyway:
     locations: classpath:db/migration
   jpa:
