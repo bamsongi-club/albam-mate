@@ -273,7 +273,8 @@ function parseArguments(argv) {
 function usage() {
   return `사용법:
   node load-tests/k6/jiwon/tools/room-lock-comparison.mjs plan \
-    --campaign-id <id> --candidates-file <json> [--seed <seed>] [--output <json>]
+    --campaign-id <id> --candidates-file <json> [--seed <seed>] \
+    [--core-paired-runs <count>] [--output <json>]
   node load-tests/k6/jiwon/tools/room-lock-comparison.mjs render-bundle \
     --scenario t1|t2 --run-id <id> --candidate A|B|C --candidate-sha <sha> \
     --condition <condition-id> --concurrency 2|4|8|16 \
@@ -475,9 +476,15 @@ function portableFixtureId(regression, runId, regressionCase) {
   return createFixturePlan(portableOptionsForRegression(regression, runId, regressionCase)).fixtureId;
 }
 
-export function buildCampaignPlan({ campaignId, candidates, seed = campaignId }) {
+export function buildCampaignPlan({
+  campaignId,
+  candidates,
+  seed = campaignId,
+  corePairedRuns = CORE_PAIRED_RUNS,
+}) {
   const normalizedCampaignId = safeIdentifier(campaignId, 'campaignId');
   const normalizedCandidates = candidateMap(candidates);
+  const normalizedCorePairedRuns = integer(corePairedRuns, 'corePairedRuns', 1, CORE_PAIRED_RUNS);
   const runs = [];
 
   for (const scenario of CORE_SCENARIOS) {
@@ -485,7 +492,7 @@ export function buildCampaignPlan({ campaignId, candidates, seed = campaignId })
       const concurrencyLevels = concurrencyLevelsFor(scenario, conditionTemplate.distribution);
       for (const concurrency of concurrencyLevels) {
         const condition = conditionFor(conditionTemplate.id, concurrency);
-        for (let repetition = 1; repetition <= CORE_PAIRED_RUNS; repetition += 1) {
+        for (let repetition = 1; repetition <= normalizedCorePairedRuns; repetition += 1) {
           const pairId = `${normalizedCampaignId}-${scenario}-${condition.id}-c${concurrency}-r${repetition}`;
           const order = seededOrder(`${seed}:${pairId}`, CANDIDATE_LABELS);
           order.forEach((candidate, sequenceIndex) => {
@@ -565,7 +572,7 @@ export function buildCampaignPlan({ campaignId, candidates, seed = campaignId })
     seed: safeIdentifier(seed, 'seed'),
     candidates: normalizedCandidates,
     contract: {
-      corePairedRuns: CORE_PAIRED_RUNS,
+      corePairedRuns: normalizedCorePairedRuns,
       regressionPairedRuns: REGRESSION_PAIRED_RUNS,
       coreRunCount,
       regressionRunCount,
@@ -1435,6 +1442,7 @@ function canonicalCampaignPlan(plan) {
       campaignId: plan.campaignId,
       candidates: plan.candidates,
       seed: plan.seed,
+      corePairedRuns: plan.contract?.corePairedRuns,
     });
   } catch (_) {
     return null;
@@ -1524,7 +1532,7 @@ function aggregateCampaign(values) {
   }
   const expectedPlan = canonicalCampaignPlan(plan);
   const planIsCanonical = expectedPlan !== null && isDeepStrictEqual(plan, expectedPlan);
-  const requiredCoreRuns = expectedPlan?.contract?.corePairedRuns || CORE_PAIRED_RUNS;
+  const requiredCoreRuns = expectedPlan?.contract?.corePairedRuns ?? CORE_PAIRED_RUNS;
   const candidateRoots = values.candidateRootsFile
     ? candidateRootMap(values.candidateRootsFile)
     : Object.fromEntries(CANDIDATE_LABELS.map((candidate) => [candidate, sourceRepositoryRoot]));
@@ -1541,7 +1549,7 @@ function aggregateCampaign(values) {
   if (!planIsCanonical) {
     report.excludedRuns.push({
       reason: 'campaign plan canonical contract 불일치',
-      issues: ['campaign plan이 현재 도구가 생성하는 A/B/C 1,080회 matrix와 다릅니다.'],
+      issues: ['campaign plan이 현재 도구가 생성하는 canonical A/B/C matrix와 다릅니다.'],
     });
   }
   for (const candidate of CANDIDATE_LABELS) {
@@ -1712,6 +1720,7 @@ function main() {
         campaignId: values.campaignId,
         candidates: values.candidatesFile,
         seed: values.seed || values.campaignId,
+        corePairedRuns: values.corePairedRuns,
       });
       if (values.output) {
         writeNewJson(path.resolve(values.output), plan);

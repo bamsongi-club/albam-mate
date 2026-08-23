@@ -288,6 +288,22 @@ test('campaign plan은 A/B/C를 고정 순서가 아닌 paired/crossover로 core
   ]);
 });
 
+test('campaign plan은 core paired run 수를 contract에 보존한다', () => {
+  const plan = buildCampaignPlan({
+    campaignId: 'cmp786-five',
+    candidates,
+    seed: 'seed786-five',
+    corePairedRuns: 5,
+  });
+
+  assert.equal(plan.runs.length, 600);
+  assert.equal(plan.runs.filter((run) => run.runner === 'room-lock-comparison').length, 480);
+  assert.equal(plan.runs.filter((run) => run.runner === 'portable').length, 120);
+  assert.equal(plan.contract.corePairedRuns, 5);
+  assert.equal(plan.contract.regressionPairedRuns, 5);
+  assert.equal(plan.contract.totalRunCount, 600);
+});
+
 test('constant mixed c16 fixture는 5000회 tail 표본을 위해 313초·5008 target을 만든다', () => {
   const plan = createComparisonFixturePlan({
     scenario: 't1',
@@ -440,7 +456,7 @@ test('축소·변조된 campaign plan은 INVALID이고 tail ranking 대상이 �
   const condition = report.candidates.A.conditions['t1/constant-mixed/c4'];
 
   assert.equal(report.status, 'INVALID');
-  assert.equal(condition.requiredRuns, 10);
+  assert.equal(condition.requiredRuns, 1);
   assert.equal(condition.eligibleForTailRanking, false);
   assert.equal(report.excludedRuns[0].reason, 'campaign plan canonical contract 불일치');
 });
