@@ -2,8 +2,10 @@ package cloud.bamsongi.albammate.game;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
@@ -26,6 +28,7 @@ import cloud.bamsongi.albammate.game.contract.SemanticSearchUnavailableException
 import cloud.bamsongi.albammate.game.contract.SparseCandidateSource;
 import cloud.bamsongi.albammate.game.dto.GameListRequest;
 import cloud.bamsongi.albammate.game.dto.PlayedFilter;
+import cloud.bamsongi.albammate.game.dto.SemanticGameSearchRequest;
 import cloud.bamsongi.albammate.game.entity.Game;
 import cloud.bamsongi.albammate.game.entity.GameCategory;
 import cloud.bamsongi.albammate.game.entity.GameCategoryRelation;
@@ -39,7 +42,10 @@ import cloud.bamsongi.albammate.game.repository.GameMechanismRepository;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
 import cloud.bamsongi.albammate.game.repository.UserPlayedGameRepository;
 import cloud.bamsongi.albammate.game.service.GameListSearchCriteria;
+import cloud.bamsongi.albammate.game.service.SemanticGameSearchQueryService;
 import cloud.bamsongi.albammate.game.service.SemanticGameSearchService;
+import cloud.bamsongi.albammate.global.exception.BusinessException;
+import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.testsupport.SharedPostgresIntegrationSupport;
 import cloud.bamsongi.albammate.user.entity.User;
 import cloud.bamsongi.albammate.user.repository.UserRepository;
@@ -51,6 +57,8 @@ class SemanticGameSearchPostgresTest extends SharedPostgresIntegrationSupport {
 
 	@Autowired
 	private SemanticGameSearchService semanticGameSearchService;
+	@Autowired
+	private SemanticGameSearchQueryService semanticGameSearchQueryService;
 	@Autowired
 	private GameRepository gameRepository;
 	@Autowired
@@ -184,6 +192,42 @@ class SemanticGameSearchPostgresTest extends SharedPostgresIntegrationSupport {
 		assertTrue(secondPage.hasNext());
 		assertEquals(List.of(lessPopular.getId()), thirdPage.content().stream().map(game -> game.id()).toList());
 		assertFalse(thirdPage.hasNext());
+	}
+
+	@Test
+	void T5_PostgreSQL에서_비공개_mechanism은_candidate_전에_VALIDATION_ERROR다() {
+		GameMechanism privateMechanism = mechanism("PRIVATE_VALIDATION", false);
+		SemanticGameSearchRequest request = new SemanticGameSearchRequest();
+		request.setQuery("협력 게임");
+		request.setMechanism(List.of(privateMechanism.getCode()));
+		when(candidateSource.findCandidates(anyString())).thenReturn(List.of());
+
+		BusinessException exception = assertThrows(BusinessException.class,
+			() -> semanticGameSearchQueryService.search(request, null));
+
+		assertEquals(ErrorCode.VALIDATION_ERROR, exception.getErrorCode());
+		verifyNoInteractions(candidateSource);
+	}
+
+	@Test
+	void T5_PostgreSQL에서_존재하지않는_category와_theme은_candidate_전에_VALIDATION_ERROR다() {
+		SemanticGameSearchRequest categoryRequest = new SemanticGameSearchRequest();
+		categoryRequest.setQuery("협력 게임");
+		categoryRequest.setCategory(List.of("UNKNOWN_CATEGORY_VALIDATION"));
+		SemanticGameSearchRequest themeRequest = new SemanticGameSearchRequest();
+		themeRequest.setQuery("협력 게임");
+		themeRequest.setTheme(List.of("UNKNOWN_THEME_VALIDATION"));
+
+		assertValidationError(categoryRequest);
+		assertValidationError(themeRequest);
+
+		verifyNoInteractions(candidateSource);
+	}
+
+	private void assertValidationError(SemanticGameSearchRequest request) {
+		BusinessException exception = assertThrows(BusinessException.class,
+			() -> semanticGameSearchQueryService.search(request, null));
+		assertEquals(ErrorCode.VALIDATION_ERROR, exception.getErrorCode());
 	}
 
 	private SemanticGameSearchQuery query(Long currentUserId, int page, int size) {

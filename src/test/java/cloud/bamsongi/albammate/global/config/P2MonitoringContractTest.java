@@ -105,8 +105,8 @@ class P2MonitoringContractTest {
 		String logging = production.substring(production.indexOf("logging:"), production.indexOf("app:"));
 		Map<String, Object> productionRoot = new Yaml().load(production);
 		Map<String, Object> management = map(productionRoot.get("management"));
-		Map<String, Object> resourceAttributes = map(map(map(map(management.get("otlp")).get("metrics")).get("export"))
-			.get("resource-attributes"));
+		Map<String, Object> metrics = map(management.get("metrics"));
+		Map<String, Object> export = map(map(map(management.get("otlp")).get("metrics")).get("export"));
 		Map<String, Object> openTelemetryResourceAttributes = map(map(management.get("opentelemetry"))
 			.get("resource-attributes"));
 
@@ -121,8 +121,10 @@ class P2MonitoringContractTest {
 		assertTrue(logging.contains("total-size-cap: 40MB"));
 		assertTrue(app1.contains("/var/log/albam-mate"));
 		assertTrue(app2.contains("/var/log/albam-mate"));
-		assertEquals(expectedResourceAttributes(), resourceAttributes);
 		assertEquals(expectedResourceAttributes(), openTelemetryResourceAttributes);
+		assertFalse(metrics.containsKey("tags"));
+		assertFalse(export.containsKey("resource-attributes"));
+		assertEquals("${ALBAM_MATE_OTLP_METRICS_STEP:5m}", export.get("step"));
 		assertEquals("${ALBAM_MATE_ROLE:-app1}", springEnvironment(app1).get("ALBAM_MATE_ROLE"));
 		assertEquals("${ALBAM_MATE_ROLE:-app2}", springEnvironment(app2).get("ALBAM_MATE_ROLE"));
 		assertTrue(springEnvironment(app1).containsKey("ALBAM_MATE_RELEASE"));

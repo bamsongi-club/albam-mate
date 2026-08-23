@@ -2,7 +2,7 @@
 
 ## 목적
 
-Issue #786에서 #785가 고정한 A/B/C 후보를 같은 AWS 환경·release 설정·fixture로 paired/crossover 측정한다. 결과는 T1·T2 잠금 전략을 생산에 적용할지 판단하기 위한 증거이며, 이 작업 자체가 생산 코드 병합이나 전략 ADR을 수행하지는 않는다.
+Issue #1026에서 #785가 고정하고 #786에서 축소 실행했던 A/B/C 후보를 같은 AWS 환경·release 설정·fixture로 paired/crossover 재측정한다. 결과는 T1·T2 잠금 전략을 재검토할 때 사용할 증거이며, 이 작업 자체가 생산 코드 병합이나 전략 ADR을 수행하지는 않는다.
 
 세 후보는 기존 PR #791·#792·#793의 SHA를 그대로 사용한다. 후보 PR을 이 branch에 합치거나 후보 코드를 수정하지 않는다.
 
@@ -17,9 +17,21 @@ Issue #786에서 #785가 고정한 A/B/C 후보를 같은 AWS 환경·release �
 
 실제 실행 목록·candidate SHA·정규화 metric은 [campaign plan](results/room-lock-strategy-comparison/campaign-plan.json), [campaign report](results/room-lock-strategy-comparison/campaign-report.json), [의사결정 보고서](results/room-lock-strategy-comparison/decision-report.md)에 있다. full raw bundle은 PR 검토 범위를 줄이기 위해 최종 branch tree에서 제외했고, 두 JSON의 `archivedPath`는 측정 시점의 원래 archive 위치를 뜻한다. 기계 생성 campaign report는 winner를 자동으로 만들지 않지만, 의사결정 보고서는 이 timeboxed 증거로 A를 생산 적용 전략으로 선택한다. #787은 그 선택을 ADR로 공식화하며, #786은 후보 코드 병합을 수행하지 않는다.
 
+## 2026-08-23 #1026 후속 full campaign 계획
+
+이 절은 실행 계획과 도구 contract를 기록하며, 원격 campaign 결과를 의미하지 않는다. 2026-08-20의 4회 A/B·C `FAIL`/`INVALID` 기록과 결과 artifact는 그대로 보존한다.
+
+- 핵심: T1·T2 × `barrier-hot`·`barrier-spread`·`constant-hot`·`constant-mixed` × c2·c4·c8·c16 × A/B/C × 10회 = 960 실행
+- 회귀: T3 15회 + T4 15회 + T5 90회 = 120 실행. 회귀 반복은 5회로 유지한다.
+- 전체: 1,080 실행. 같은 pair의 후보 순서는 seed 기반으로 교차 배치한다.
+- constant rate: c2=2, c4=4, c8=8, c16=16 req/s를 유지한다. c2/c4는 60초 baseline이고, c8/c16의 `constant-hot`·`constant-mixed`는 최소 5,000 표본을 위해 각각 c8=625초·5,000 요청, c16=313초·5,008 요청으로 실행한다.
+- 정합성: 기존 unexpected 4xx/5xx·contract failure·before/after invariant·outcome count·provenance/digest gate를 그대로 적용한다. 예상된 `ROOM_CONCURRENT_MODIFICATION` 409는 별도 business outcome으로 기록한다.
+- 성능: 실행별 p50/p95/p99와 RPS·409·retry·lock wait·DB/pool/CPU를 수집하고, 유효한 10회 paired run의 중앙값·변동성을 비교한다. `FAIL`·`INVALID`는 순위에서 제외한다.
+- 원격 경계: `albam-mate-infra`의 `codex/room-k6-local-runner`는 read-only 실행 기준으로만 사용하며, infra 저장소에는 commit·push·PR을 만들지 않는다. AWS apply/run/destroy는 각 단계별 명시 승인을 거친다.
+
 ## 현재 구현
 
-- `load-tests/k6/jiwon/tools/room-lock-comparison.mjs`: 후보 순서가 섞인 campaign plan, c16·constant-arrival-rate·mixed fixture, comparison bundle, provenance와 PASS/FAIL/INVALID 집계
+- `load-tests/k6/jiwon/tools/room-lock-comparison.mjs`: 후보 순서가 섞인 10회 core·5회 regression campaign plan, c16·constant-arrival-rate·mixed fixture, tail 표본 contract, comparison bundle, provenance와 PASS/FAIL/INVALID 집계
 - `load-tests/k6/jiwon/tests/room-lock-comparison.test.mjs`: matrix·fixture·bundle scenario 계약 회귀
 - [실행 계약](room-lock-strategy-comparison-contract.md): matrix, metric, tail-latency gate, 판정과 운영 게이트
 - [결과 보존 규칙](results/room-lock-strategy-comparison/README.md): timeboxed 결과와 raw archive 제외 범위
@@ -46,13 +58,13 @@ Issue #786에서 #785가 고정한 A/B/C 후보를 같은 AWS 환경·release �
 
 ```powershell
 node load-tests/k6/jiwon/tools/room-lock-comparison.mjs plan `
-  --campaign-id room-lock-20260820 `
+  --campaign-id room-lock-20260823 `
   --candidates-file .run/room-lock-candidates.json `
-  --seed room-lock-20260820 `
+  --seed room-lock-20260823 `
   --output build/k6/room-lock/campaign-plan.json
 ```
 
-plan은 최초 설계상 480개 핵심 실행과 120개 회귀·배경 실행을 포함한다. T5는 public/host/participant와 scale 1/10을 각각 별도 portable run으로 실행한다. 각 핵심 paired run은 같은 condition·동시성·반복 번호를 공유하고 후보 실행 순서만 seed 기반으로 섞는다. 이번 timeboxed 결과는 이 full-plan generator를 실행한 결과가 아니라, 실제 생성된 bundle을 `campaign-plan.json`에 4회 범위로 고정해 보존한 결과다.
+이 명령은 #1026 기준 960개 핵심 실행과 120개 회귀·배경 실행, 총 1,080개 실행 단위를 생성한다. T5는 public/host/participant와 scale 1/10을 각각 별도 portable run으로 실행한다. 각 핵심 paired run은 같은 condition·동시성·반복 번호를 공유하고 후보 실행 순서만 seed 기반으로 섞는다. 기존 timeboxed 결과는 이 full-plan generator의 결과가 아니며, 별도 historical artifact로 보존한다.
 
 ### 3. 후보별 comparison bundle 생성
 
@@ -98,7 +110,7 @@ node load-tests/k6/jiwon/tools/room-lock-comparison.mjs aggregate-campaign `
   --output docs/measurements/results/room-lock-strategy-comparison/campaign-report.json
 ```
 
-campaign report는 유효·제외 candidate와 정규화 metric을 남기며 winner를 자동으로 만들지 않는다. 사람이 읽는 의사결정 보고서는 report와 측정 시점에 검증한 evidence를 근거로 A를 선택하고, #787이 이를 ADR로 공식화한다. full raw archive는 최종 branch tree에서 제외했지만, 이번 timeboxed report는 A/B 4회와 C T7 FAIL을 정직하게 기록하며 full 5회 gate를 통과했다고 주장하지 않는다.
+campaign report는 유효·제외 candidate와 정규화 metric을 남기며 winner를 자동으로 만들지 않는다. #1026 결과도 원자료·paired summary·제외 사유를 사람이 확인한 뒤 별도 결정으로 연결하며, 결과만으로 ADR이나 production merge를 수행하지 않는다. 기존 timeboxed report는 A/B 4회와 C T7 FAIL을 기록하고 full matrix 5회 gate를 통과했다고 주장하지 않는 historical evidence다.
 
 ## 금지 범위
 

@@ -48,6 +48,7 @@ public class SemanticGameSearchQueryService {
 	@NonNull private final UpcomingRoomCountQuery upcomingRoomCountQuery;
 	@NonNull private final UserPlayedGameRepository userPlayedGameRepository;
 	@NonNull private final Clock clock;
+	@NonNull private final GameFilterValidator gameFilterValidator;
 
 	/**
 	 * 의미 검색 요청을 검증하고 core 결과를 공개 {@link GameListItem} 상세로 재조립한다.
@@ -62,6 +63,7 @@ public class SemanticGameSearchQueryService {
 			throw new UnauthenticatedException();
 		}
 		GameListSearchCriteria criteria = GameListSearchCriteria.from(request.toGameListRequest());
+		gameFilterValidator.validate(criteria);
 		if (playedFilter != null) {
 			criteria = criteria.withPlayedFilter(currentUserId);
 		}

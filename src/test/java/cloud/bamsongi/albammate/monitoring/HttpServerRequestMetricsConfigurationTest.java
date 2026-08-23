@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.monitoring;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -8,6 +9,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 import org.yaml.snakeyaml.Yaml;
@@ -15,40 +17,38 @@ import org.yaml.snakeyaml.Yaml;
 class HttpServerRequestMetricsConfigurationTest {
 
 	@Test
-	void T1_HTTP_timer는_동일_분포에서_percentile과_histogram을_기록한다() {
+	void T3_production_OTLP는_정본_inventory의_exact_meter만_export한다() {
 		Map<String, Object> metrics = metrics();
+		Map<String, Object> enabled = map(metrics.get("enable"));
 		Map<String, Object> distribution = map(metrics.get("distribution"));
 		Map<String, Object> percentiles = map(distribution.get("percentiles"));
 		Map<String, Object> histograms = map(distribution.get("percentiles-histogram"));
 
+		assertEquals(false, enabled.get("all"));
+		assertEquals(Set.of(
+			"http.server.requests", "jvm.memory.used", "jvm.memory.max", "jvm.gc.pause", "jvm.threads.live",
+			"tomcat.threads.busy", "tomcat.threads.current", "tomcat.threads.config.max",
+			"hikaricp.connections.active", "hikaricp.connections.idle", "hikaricp.connections.pending",
+			"hikaricp.connections.max", "hikaricp.connections.timeout", "albam.dependency.health",
+			"auth.request.limiter.rejections", "auth.request.limiter.capacity.utilization",
+			"chat.websocket.connections.active", "chat.websocket.delivery.latency",
+			"chat.websocket.delivery.failures", "chat.websocket.recovery.messages",
+			"chat.message.delivery.duration", "chat.message.delivery.failures", "chat.message.operations",
+			"chat.message.retention.lock.skipped", "chat.message.retention.rooms.purged",
+			"chat.message.retention.messages.deleted", "chat.message.retention.failures",
+			"chat.message.retention.lease.guard.aborted", "chat.message.retention.backlog.remaining",
+			"chat.message.retention.execution.duration", "chat.message.retention.delay",
+			"notification.relay.events", "notification.relay.delivery.duration",
+			"notification.relay.oldest.processable.age", "room.status.correction.runs",
+			"room.status.correction.duration", "room.waitlist.operations", "assistant.usage.events",
+			"assistant.usage.tokens", "assistant.usage.latency", "assistant.cost.warning.events"),
+			enabled.keySet().stream().filter(key -> !key.equals("all")).collect(java.util.stream.Collectors.toSet()));
+		assertTrue(enabled.entrySet().stream()
+			.filter(entry -> !entry.getKey().equals("all"))
+			.allMatch(entry -> Boolean.TRUE.equals(entry.getValue())));
+		assertFalse(metrics.containsKey("tags"));
 		assertEquals(List.of(0.5, 0.95, 0.99), percentiles.get("http.server.requests"));
 		assertEquals(true, histograms.get("http.server.requests"));
-	}
-
-	@Test
-	void T2_JVM_Tomcat_Hikari_meter는_같은_배포_식별자로_명시적으로_활성화한다() {
-		Map<String, Object> metrics = metrics();
-		Map<String, Object> enabled = map(metrics.get("enable"));
-		Map<String, Object> tags = map(metrics.get("tags"));
-
-		assertEquals(true, enabled.get("jvm"));
-		assertEquals(true, enabled.get("tomcat"));
-		assertEquals(true, enabled.get("hikaricp"));
-		assertEquals(Map.of(
-			"environment", "${ALBAM_MATE_ENVIRONMENT}",
-			"stackId", "${ALBAM_MATE_STACK_ID}",
-			"service", "albam-mate",
-			"role", "${ALBAM_MATE_ROLE}",
-			"instanceId", "${ALBAM_MATE_INSTANCE_ID}",
-			"release", "${ALBAM_MATE_RELEASE}"), tags);
-	}
-
-	@Test
-	void T3_pool_대기와_복구_증거도_같은_release_dimension을_사용한다() {
-		Map<String, Object> tags = map(metrics().get("tags"));
-
-		assertTrue(tags.containsKey("release"));
-		assertEquals("${ALBAM_MATE_RELEASE}", tags.get("release"));
 	}
 
 	@SuppressWarnings("unchecked")

@@ -15,6 +15,7 @@
 - A/B/C 잠금 후보의 timeboxed T1 비교·의사결정 보고서·teardown 결과: [ROOM 잠금 전략 비교](room-lock-strategy-comparison.md), [결과 보존](results/room-lock-strategy-comparison/README.md)
 - PostgreSQL 후보 선점·다중 matcher 기준선의 fixture·round·결과 채택: [MATCH-01 후보 탐색 baseline 측정 계약](match-01-candidate-search-baseline-contract.md)
 - MATCH 제안 응답 완료 지연의 fixture·round·경계·결과 채택: [MATCH-01 응답 완료 지연 측정 계약](match-01-response-completion-baseline-contract.md)
+- SEARCH-04e hybrid/RRF 동일 corpus live evidence와 K·RRF k·timeout 비교: [SEARCH-04e live evidence](search-04e-hybrid-rrf-regression.md)
 
 ## 운영 관측 AWS 제한 실측
 

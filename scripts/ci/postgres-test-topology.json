@@ -37,6 +37,7 @@
     "cloud.bamsongi.albammate.matching.MatchBlockPostgresTest",
     "cloud.bamsongi.albammate.matching.MatchEntityMappingPostgresTest",
     "cloud.bamsongi.albammate.matching.MatchRequestInvariantPostgresTest",
+    "cloud.bamsongi.albammate.matching.MatchWaitingAttemptInvariantPostgresTest",
     "cloud.bamsongi.albammate.matching.MatchPartyAccessQueryPostgresTest",
     "cloud.bamsongi.albammate.matching.MatchPartyChatWriteGuardPostgresTest",
     "cloud.bamsongi.albammate.matching.MatchPartyParticipantRepositoryPostgresTest",

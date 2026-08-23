@@ -47,7 +47,7 @@ P2 구현은 [API](../API.md), [ERD](../ERD.md), [아키텍처](../ARCHITECTURE.
 | 서비스 생존·연결 | [`OPS-01`](monitoring.md#ops-01-서비스-생존과-연결-상태) | 계약 준비 완료 | 구현 완료 | 자동 검증 완료 | 임시 AWS 검증 배포·철거 완료 | `AC1`~`AC7` 실측 완료 |
 | 지연·포화 | [`OPS-02`](monitoring.md#ops-02-지연과-포화) | 계약 준비 완료 | 앱·인프라 구현 완료, 미배포 외부 API·AI 조건부 제외 | 앱 CI·인프라 수집·query·주입·복구·teardown 자동 검증 완료 | 고정 SHA 임시 AWS 검증 배포·철거 완료 | `AC1`~`AC4`, `AC6` 실측 완료, `AC5` 조건부 제외 |
 | 실패·이상 | [`OPS-03`](monitoring.md#ops-03-실패와-이상) | 계약 준비 완료 | 구현 완료 | 자동 검증 완료 | 임시 AWS 검증 배포·철거 완료 | `AC1`~`AC3`·`AC5` 실측 완료, `AC4` 조건부 제외 |
-| AI 사용량·추정 비용 | [`OPS-04`](monitoring.md#ops-04-ai-사용량과-추정-비용) | T1~T6 승인 완료 | 앱 usage·cost-warning consumer와 공식 가격 snapshot·계산기 구현. 인프라는 숫자 비용 제거·dashboard/alarm 기본 비활성·cardinality 및 전체 P2 비용 gate 구현, 가격 적격성 앱 신호·실측 입력·재승인 미완료 | 앱 meter·snapshot 계산기와 인프라 배포 차단 gate 로컬 검증 완료. 실제 입력·AWS 검증은 미완료, 현재 `BLOCKED_REAPPROVAL` | 미배포 | 미측정 |
+| AI 사용량·추정 비용 | [`OPS-04`](monitoring.md#ops-04-ai-사용량과-추정-비용) | T1~T6 승인 완료 | 앱·인프라가 저카디널리티 `status`·`token_type`, 5분 OTel, 60초 root disk·memory Agent, 계정 기준선 합산 비용 계산기와 Terraform/Ansible gate를 구현했다. 조정 snapshot의 P2 정적 하한은 `$8.46`이지만 series 상한·기준선·로그·query 입력이 미완료라 재승인 전에는 차단한다 | 앱·infra 계약 테스트와 Terraform mock/validate 완료. 현재 판정은 `BLOCKED_REAPPROVAL`이며 기준선이 없는 값을 `PASS`나 비용 `0`으로 대체하지 않는다 | 미배포 | 미측정 |
 | 핵심 업무 기능 결과 | [`OPS-05`](monitoring.md#ops-05-핵심-업무-기능-결과) | 계약 준비 완료 | 앱 검증기·인프라 실행·dashboard 구현 완료 | H2 계약·인프라 회귀·정상/통제 manifest 검증 완료 | 고정 SHA 임시 AWS 검증 배포·철거 완료 | 정상·통제 실패/복구 실측 완료 |
 
 - `기능 명세 필요`: 기능 ID, 사용자 문제, 흐름, 데이터·권한, 완료 기준과 제외 범위가 아직 문서화되지 않았다.
