@@ -147,7 +147,11 @@ export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, on
           <StateBlock title="키워드 검색 결과로 대신 보여드려요" description="의미 검색을 잠시 사용할 수 없어 이름·조건 기반 결과로 대체했어요." />
         </div>
       )}
-      {!error && <p className="section-label" style={{ marginTop: 18 }}>{loading && !data ? '불러오는 중' : '게임 목록'}</p>}
+      {!error && (
+        <p className="section-label" style={{ marginTop: 18 }}>
+          {loading ? (isSearching ? '검색하는 중' : '불러오는 중') : '게임 목록'}
+        </p>
+      )}
       {error && (
         <div style={{ marginTop: 26 }}>
           {unauthenticated
@@ -157,7 +161,7 @@ export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, on
       )}
       {!error && loading && !data && <div style={{ marginTop: 22 }}><RoomSkeletons count={3} /></div>}
       {!error && !!games.length && (
-        <div className="gamegrid" style={{ marginTop: 18 }}>
+        <div className="gamegrid" style={{ marginTop: 18, opacity: loading ? 0.5 : 1, transition: 'opacity 0.15s ease' }}>
           {games.map((game) => (
             <GameCard
               key={game.id}
