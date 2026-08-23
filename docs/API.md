@@ -231,7 +231,7 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 | 6.1 | P1 | [AUTH-04](#auth-04-프로필-이미지-업로드) · [정본](archive/p1/social-login.md) | POST | `/api/users/me/profile-image` | Y | Y | 200 |
 | 6.2 | P1 | [AUTH-04](#auth-04-프로필-이미지-삭제) · [정본](archive/p1/social-login.md) | DELETE | `/api/users/me/profile-image` | Y | Y | 200 |
 | 7 | P0·P1·P2 | [GAME-01](#game-01-게임-목록검색) · [RANK-02 정본](p2/game-popularity.md#rank-02) · [P0 완료 기록](archive/p0/game-catalog.md#game-01-게임-목록검색) · [SEARCH-01 정본](archive/p1/search.md#search-01-게임-조건-검색) · [SEARCH-03 정본](archive/p1/search.md#search-03-사용자별-해-본-게임) | GET | `/api/games` | 선택 | N | 200 |
-| 7.1 | P2 | [SEARCH-04](#search-04-게임-의미-기반-검색) · [정본](p2/search.md#search-04) | GET | `/api/games/semantic-search` | 선택 | N | 200 |
+| 7.1 | P2 | [SEARCH-04](#search-04-게임-의미-기반-검색) · [정본](p2/search.md#search-04) | GET | `/api/games/search` | 선택 | N | 200 |
 | 8 | P0·P1 | [GAME-02](#game-02-게임-상세-조회) · [P0 완료 기록](archive/p0/game-catalog.md#game-02-게임-상세-조회) · [SEARCH-01 정본](archive/p1/search.md#search-01-게임-조건-검색) · [SEARCH-03 정본](archive/p1/search.md#search-03-사용자별-해-본-게임) | GET | `/api/games/{gameId}` | 선택 | N | 200 |
 | 9 | P0 | [ROOM-03](#room-03-방-생성) · [P0 완료 기록](archive/p0/room.md#room-03-방-생성) | POST | `/api/rooms` | Y | Y | 201 |
 | 10 | P0·P1 | [ROOM-01](#room-01-방-목록-조회) · [P0 완료 기록](archive/p0/room.md#room-01-방-탐색) · [SEARCH-02 정본](archive/p1/search.md#search-02-방-조건-검색) · [ROOM-08 정본](archive/p1/room.md#room-08-방-상태와-직접-참가대기-가능-여부-분리) | GET | `/api/rooms` | 선택 | N | 200 |
@@ -1519,11 +1519,11 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 
 | 항목 | 값 |
 |---|---|
-| Method / Path | `GET /api/games/semantic-search` |
+| Method / Path | `GET /api/games/search` |
 | 인증 / CSRF | 선택 / 불필요. 유효한 `playedFilter` 사용 시 인증 필요 |
-| 성공 | `200 OK`, `data`: `SemanticGameSearchResponse` |
+| 성공 | `200 OK`, `data`: `GameSearchResponse` |
 
-기능 동작·완료 기준의 정본은 [SEARCH-04](p2/search.md#search-04)다. 이 절은 HTTP 요청·응답·오류 계약만 소유하며, [GAME-01](#game-01-게임-목록검색)의 `keyword` 의미와 응답 계약은 이 계약으로 바꾸지 않는다.
+기능 동작·완료 기준의 정본은 [SEARCH-04](p2/search.md#search-04)다. 이 절은 HTTP 요청·응답·오류 계약만 소유하며, [GAME-01](#game-01-게임-목록검색)의 `keyword` 의미와 응답 계약은 이 계약으로 바꾸지 않는다. 검색 구현 방식(Dense/Sparse/Lexical)은 서버 내부에서 처리하며 공개 응답에 노출하지 않는다.
 
 #### Query Parameters
 
@@ -1538,15 +1538,14 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 - `playedFilter`를 비로그인으로 사용하면 `401 UNAUTHENTICATED`다. `query`만 있는 비로그인 검색은 허용한다.
 - 모든 hard filter를 적용한 결과가 없으면 조건을 자동 완화하지 않고 `200 OK` 빈 페이지를 반환한다.
 
-#### SemanticGameSearchResponse
+#### GameSearchResponse
 
 | 필드 | 타입 | 설명 |
 |---|---|---|
-| `content` | GameListItem[] | 현재 페이지 항목. [GAME-01의 GameListItem](#game-01-게임-목록검색) 필드를 그대로 사용하며 relevance 점수·embedding·검색어는 포함하지 않는다 |
+| `content` | GameListItem[] | 현재 페이지 항목. [GAME-01의 GameListItem](#game-01-게임-목록검색) 필드를 그대로 사용하며 relevance 점수·embedding·검색어·구현 방식은 포함하지 않는다 |
 | `page` | integer | 0부터 시작하는 현재 페이지 번호 |
 | `size` | integer | 적용된 페이지 크기 |
 | `hasNext` | boolean | 다음 페이지 존재 여부 |
-| `searchMode` | string | `SEMANTIC` 또는 `LEXICAL_FALLBACK`. 의미 검색 index·provider 장애로 키워드 검색으로 대체됐으면 `LEXICAL_FALLBACK`이다 |
 
 `content`는 hard filter를 모두 만족한 결과를 `relevance DESC, name ASC, id ASC` 순으로 담는다. `totalElements`, `totalPages`는 포함하지 않는다.
 
