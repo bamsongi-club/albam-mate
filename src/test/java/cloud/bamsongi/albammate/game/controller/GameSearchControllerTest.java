@@ -90,6 +90,19 @@ class GameSearchControllerTest {
 	}
 
 	@Test
+	void T1_잘못된_metadata_code는_400_VALIDATION_ERROR다() throws Exception {
+		when(semanticGameSearchQueryService.search(any(SemanticGameSearchRequest.class),
+			org.mockito.ArgumentMatchers.isNull()))
+			.thenThrow(new BusinessException(ErrorCode.VALIDATION_ERROR));
+
+		mockMvc.perform(get("/api/games/semantic-search")
+			.param("query", "협력 게임")
+			.param("mechanism", "UNKNOWN_MECHANISM"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
+	}
+
+	@Test
 	void T2_비로그인_playedFilter_요청은_401_UNAUTHENTICATED다() throws Exception {
 		when(semanticGameSearchQueryService.search(any(SemanticGameSearchRequest.class),
 			org.mockito.ArgumentMatchers.isNull()))

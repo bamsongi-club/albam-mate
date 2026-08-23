@@ -5,9 +5,7 @@ import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
-import java.util.function.Function;
 
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -22,14 +20,9 @@ import cloud.bamsongi.albammate.game.dto.GameListItem;
 import cloud.bamsongi.albammate.game.dto.GameListRequest;
 import cloud.bamsongi.albammate.game.dto.PlayedFilter;
 import cloud.bamsongi.albammate.game.entity.Game;
-import cloud.bamsongi.albammate.game.repository.GameCategoryRepository;
 import cloud.bamsongi.albammate.game.repository.GameListSpecification;
-import cloud.bamsongi.albammate.game.repository.GameMechanismRepository;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
-import cloud.bamsongi.albammate.game.repository.GameThemeRepository;
 import cloud.bamsongi.albammate.game.repository.UserPlayedGameRepository;
-import cloud.bamsongi.albammate.global.exception.BusinessException;
-import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.global.exception.UnauthenticatedException;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -47,10 +40,8 @@ public class GameQueryService {
 	@NonNull private final GameRepository gameRepository;
 	@NonNull private final Clock clock;
 	@NonNull private final UpcomingRoomCountQuery upcomingRoomCountQuery;
-	@NonNull private final GameMechanismRepository gameMechanismRepository;
 	@NonNull private final UserPlayedGameRepository userPlayedGameRepository;
-	@NonNull private final GameCategoryRepository gameCategoryRepository;
-	@NonNull private final GameThemeRepository gameThemeRepository;
+	@NonNull private final GameFilterValidator gameFilterValidator;
 
 	/**
 	 * 게임 목록 조건을 하나의 저장소 동적 조회에 적용하고 예정 모임 수를 조립한다.
@@ -67,35 +58,12 @@ public class GameQueryService {
 		if (playedFilter != null && currentUserId == null) {
 			throw new UnauthenticatedException();
 		}
-		validatePublicMechanismCodes(request.getMechanism());
-		validateCategoryCodes(request.getCategory());
-		validateThemeCodes(request.getTheme());
 		GameListSearchCriteria criteria = GameListSearchCriteria.from(request);
+		gameFilterValidator.validate(criteria);
 		if (playedFilter != null) {
 			criteria = criteria.withPlayedFilter(currentUserId);
 		}
 		return findPage(criteria, request.getPage(), request.getSize(), currentUserId, referenceTime);
-	}
-
-	private void validateCategoryCodes(List<String> requestedCodes) {
-		validateCodes(requestedCodes, gameCategoryRepository::countByCodeIn);
-	}
-
-	private void validateThemeCodes(List<String> requestedCodes) {
-		validateCodes(requestedCodes, gameThemeRepository::countByCodeIn);
-	}
-
-	private void validatePublicMechanismCodes(List<String> requestedCodes) {
-		validateCodes(requestedCodes, gameMechanismRepository::countByCodeInAndIsPublicTrue);
-	}
-
-	private void validateCodes(List<String> requestedCodes, Function<List<String>, Long> countByCodes) {
-		List<String> codes = requestedCodes == null
-			? List.of()
-			: requestedCodes.stream().filter(Objects::nonNull).distinct().toList();
-		if (!codes.isEmpty() && countByCodes.apply(codes) != codes.size()) {
-			throw new BusinessException(ErrorCode.VALIDATION_ERROR);
-		}
 	}
 
 	private Slice<GameListItem> findPage(

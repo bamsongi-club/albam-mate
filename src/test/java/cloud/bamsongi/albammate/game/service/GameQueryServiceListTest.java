@@ -77,10 +77,8 @@ class GameQueryServiceListTest {
 			gameRepository,
 			Clock.fixed(NOW, ZoneOffset.UTC),
 			upcomingRoomCountQuery,
-			gameMechanismRepository,
 			userPlayedGameRepository,
-			gameCategoryRepository,
-			gameThemeRepository);
+			new GameFilterValidator(gameMechanismRepository, gameCategoryRepository, gameThemeRepository));
 	}
 
 	@Test
@@ -395,10 +393,8 @@ class GameQueryServiceListTest {
 			gameRepository,
 			clock,
 			upcomingRoomCountQuery,
-			gameMechanismRepository,
 			userPlayedGameRepository,
-			gameCategoryRepository,
-			gameThemeRepository);
+			new GameFilterValidator(gameMechanismRepository, gameCategoryRepository, gameThemeRepository));
 	}
 
 	private static final class RequestStartClock extends Clock {
