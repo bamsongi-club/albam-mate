@@ -96,7 +96,7 @@ services:
     cap_drop:
       - ALL
     pids_limit: 256
-    mem_limit: 512m
+    mem_limit: 1g
     stop_grace_period: 30s
     logging:
       driver: json-file

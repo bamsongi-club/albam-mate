@@ -251,7 +251,7 @@ class DeploymentContractTest {
 	}
 
 	@Test
-	void App1과_App2_Spring은_512m과_256m_heap을_사용하고_이미지_JAVA_TOOL_OPTIONS를_보존한다()
+	void App1과_App2_Spring은_1g과_256m_heap을_사용하고_이미지_JAVA_TOOL_OPTIONS를_보존한다()
 		throws IOException {
 		assertSpringMemoryContract(file("compose.production.yml"));
 		assertSpringMemoryContract(file("compose.app2.yml"));
@@ -353,7 +353,7 @@ class DeploymentContractTest {
 	}
 
 	private void assertSpringMemoryContract(String compose) {
-		assertTrue(compose.contains("mem_limit: 512m"));
+		assertTrue(compose.contains("mem_limit: 1g"));
 		assertTrue(compose.contains("JDK_JAVA_OPTIONS: -Xmx256m"));
 	}
 

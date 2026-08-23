@@ -173,10 +173,10 @@ P1 배포 대상 App1·App2에는 직접 HTTP·WebSocket 또는 k6 부하를 실
 
 ### 4. Spring 컨테이너 메모리
 
-- App1·App2 Spring 컨테이너의 `mem_limit`을 `512m`으로 한다.
+- App1·App2 Spring 컨테이너의 `mem_limit`을 `1g`으로 한다.
 - JVM 최대 heap은 [ADR-0051](../adr/platform/0051-p1-self-managed-aws-infrastructure.md)이 정한 `-Xmx256m`를 그대로 따른다. 이 문서는 heap 값을 바꾸지 않는다.
 - heap은 `JAVA_TOOL_OPTIONS`가 아니라 `JDK_JAVA_OPTIONS`로 주입한다. 이미지의 `JAVA_TOOL_OPTIONS`에는 `-XX:+ExitOnOutOfMemoryError`, `-Duser.timezone=UTC`, `-Dfile.encoding=UTF-8`이 함께 들어 있어 같은 변수로 주입하면 통째로 덮어써진다. `JDK_JAVA_OPTIONS`는 `JAVA_TOOL_OPTIONS`보다 뒤에 적용되므로 `-Xmx256m`가 이미지의 `-XX:MaxRAMPercentage` 값을 이긴다.
-- `512m`은 heap `256m`과 non-heap 약 `200m`를 기준으로 잡은 출발값이다. 측정값이 아니므로 P1 부하에서 GC·OOM과 함께 재측정한다.
+- `1g`은 heap `256m`을 유지하면서 Java non-heap·native memory와 AI provider 호출의 여유를 확보하기 위한 컨테이너 한도다. 기존 `512m` 운영에서 Java RSS 약 `515MiB`와 cgroup OOM을 관측했으므로, AI 실측 전 이 한도를 적용한다.
 
 ### 5. ECR 저장소 이름과 수동 이미지 릴리스
 
@@ -249,7 +249,7 @@ Spring 컨테이너가 구조화 로그 파일을 쓸 수 있도록 App1·App2 �
 | web 기동 | 읽기 전용 루트에서 원본 설정을 유지하고 /tmp 렌더링 설정으로 Nginx를 기동한다. | 목표 상태 1 | albam-mate#494 반영 완료 |
 | Nginx upstream | App1 `spring:8080`과 App2 private DNS `:8080`을 upstream으로 사용한다. | 목표 상태 2 | albam-mate#494 반영 완료 |
 | App2 주소 | 누락 시 Compose와 entrypoint가 기동을 거부한다. | 목표 상태 3 | albam-mate#494 반영 완료 |
-| Spring 메모리 | App1·App2 Spring은 `mem_limit: 512m`, `JDK_JAVA_OPTIONS=-Xmx256m`을 사용한다. | 목표 상태 4 | albam-mate#494 반영 완료 |
+| Spring 메모리 | App1·App2 Spring은 `mem_limit: 1g`, `JDK_JAVA_OPTIONS=-Xmx256m`을 사용한다. | 목표 상태 4 | albam-mate#494 반영 완료, #1039 보정 |
 | 이미지 참조 | ECR 저장소 이름과 namespace 형태가 확정되지 않았다. | 목표 상태 5 | albam-mate-infra#1 |
 | 노드별 입력 | App1·App2·PostgreSQL·Redis별 최소 권한 환경변수 예시를 분리한다. | 목표 상태 6 | albam-mate#494 반영 완료 |
 | 데이터 노드 healthcheck | 컨테이너 내부의 `POSTGRES_USER`·`POSTGRES_DB`로 readiness를 검사한다. | 목표 상태 7 | albam-mate#494 반영 완료 |
