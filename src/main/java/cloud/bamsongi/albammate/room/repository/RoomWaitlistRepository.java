@@ -90,6 +90,21 @@ public interface RoomWaitlistRepository extends JpaRepository<RoomWaitlist, Room
 		@Param("requestTime")
 		Instant requestTime);
 
+	/** 자동 승격 뒤 참가를 취소한 사용자의 최신 대기 결과만 취소 이력으로 남긴다. */
+	@Modifying(flushAutomatically = true)
+	@Query(value = """
+		update room_waitlists
+		set status = 'CANCELED', updated_at = :requestTime
+		where room_id = :roomId and user_id = :userId and status = 'PROMOTED'
+		""", nativeQuery = true)
+	int cancelPromoted(
+		@Param("roomId")
+		Long roomId,
+		@Param("userId")
+		Long userId,
+		@Param("requestTime")
+		Instant requestTime);
+
 	@Modifying(flushAutomatically = true)
 	@Query(value = """
 		update room_waitlists

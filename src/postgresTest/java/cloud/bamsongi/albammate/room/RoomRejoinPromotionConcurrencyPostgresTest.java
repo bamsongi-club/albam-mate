@@ -35,6 +35,7 @@ import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.room.entity.Participation;
 import cloud.bamsongi.albammate.room.entity.Room;
+import cloud.bamsongi.albammate.room.entity.RoomWaitlist;
 import cloud.bamsongi.albammate.room.entity.RoomWaitlistId;
 import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
 import cloud.bamsongi.albammate.room.enums.ParticipationStatus;
@@ -138,6 +139,87 @@ class RoomRejoinPromotionConcurrencyPostgresTest extends SharedPostgresIntegrati
 		}
 
 		assertPromotionResult(fixture, before, promotionRecipientsBefore);
+	}
+
+	@Test
+	void 자동_승격된_참가자가_취소한_뒤_다른_참가자가_재참가해도_재승격되지_않는다() {
+		long hostUserId = insertUser("promoted-cancel-host", "방장");
+		long rejoiningUserId = insertUser("promoted-cancel-rejoining", "재참가자");
+		long promotedUserId = insertUser("promoted-cancel-promoted", "자동 승격자");
+		Room room = createRoom(hostUserId);
+		roomParticipationService.participate(rejoiningUserId, room.getId());
+		assertTrue(roomWaitlistCommandService.register(promotedUserId, room.getId()).created());
+
+		roomParticipationCancelService.cancelParticipation(rejoiningUserId, room.getId());
+		roomParticipationCancelService.cancelParticipation(promotedUserId, room.getId());
+		roomParticipationService.participate(rejoiningUserId, room.getId());
+
+		assertEquals(ParticipationStatus.CANCELED, participationRepository
+			.findByRoomIdAndUserId(room.getId(), promotedUserId)
+			.orElseThrow()
+			.getStatus());
+		assertEquals(
+			RoomWaitlistStatus.CANCELED,
+			roomWaitlistRepository
+				.findById(new RoomWaitlistId(room.getId(), promotedUserId))
+				.orElseThrow()
+				.getStatus());
+		assertEquals(0, jdbcTemplate.queryForObject("""
+			select count(*)
+			from participations
+			where room_id = ? and user_id = ? and status = 'ACTIVE'
+			""", Integer.class, room.getId(), promotedUserId));
+		assertEquals(1, eventCounts(room.getId()).waitlistPromoted());
+	}
+
+	@Test
+	void PROMOTED_대기_취소_전이_오류가_발생하면_참가_대기_ROOM과_이벤트가_함께_롤백된다() {
+		long hostUserId = insertUser("promoted-rollback-host", "방장");
+		long promotedUserId = insertUser("promoted-rollback-user", "자동 승격자");
+		Room room = createRoom(hostUserId);
+		participationRepository.saveAndFlush(
+			Participation.createActive(room, promotedUserId, NOW.minusSeconds(60)));
+		room.addActiveParticipant();
+		roomRepository.saveAndFlush(room);
+		roomWaitlistRepository.saveAndFlush(
+			RoomWaitlist.create(room.getId(), promotedUserId, 10L, NOW.minusSeconds(30)));
+		jdbcTemplate.update(
+			"update room_waitlists set status = 'PROMOTED' where room_id = ? and user_id = ?",
+			room.getId(),
+			promotedUserId);
+		jdbcTemplate
+			.execute("alter table room_waitlists drop constraint if exists ck_fail_promoted_waitlist_cancellation_pg");
+		jdbcTemplate.execute("""
+			alter table room_waitlists
+			add constraint ck_fail_promoted_waitlist_cancellation_pg
+			check (user_id <> %d or status <> 'CANCELED')
+			""".formatted(promotedUserId));
+
+		try {
+			org.junit.jupiter.api.Assertions.assertThrows(
+				RuntimeException.class,
+				() -> roomParticipationCancelService.cancelParticipation(promotedUserId, room.getId()));
+		} finally {
+			jdbcTemplate.execute(
+				"alter table room_waitlists drop constraint if exists ck_fail_promoted_waitlist_cancellation_pg");
+		}
+
+		assertEquals(ParticipationStatus.ACTIVE, participationRepository
+			.findByRoomIdAndUserId(room.getId(), promotedUserId)
+			.orElseThrow()
+			.getStatus());
+		assertEquals(
+			RoomWaitlistStatus.PROMOTED,
+			roomWaitlistRepository
+				.findById(new RoomWaitlistId(room.getId(), promotedUserId))
+				.orElseThrow()
+				.getStatus());
+		assertEquals(1, roomRepository.findById(room.getId()).orElseThrow().getActiveParticipantCount());
+		assertEquals(0, jdbcTemplate.queryForObject("""
+			select count(*)
+			from notification_outbox_events
+			where room_id = ?
+			""", Integer.class, room.getId()));
 	}
 
 	private RejoinPromotionFixture createFixture(String emailPrefix) {

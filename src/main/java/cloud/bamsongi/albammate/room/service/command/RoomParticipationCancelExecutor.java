@@ -69,6 +69,7 @@ class RoomParticipationCancelExecutor {
 
 		room.reconcileStateAt(requestTime);
 		Participation participation = requireCancelableParticipation(room, currentUserId, requestTime);
+		roomWaitlistRepository.cancelPromoted(room.getId(), currentUserId, requestTime);
 
 		room.removeActiveParticipant();
 		roomRepository.save(room);
