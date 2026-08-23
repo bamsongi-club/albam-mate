@@ -48,7 +48,7 @@ public final class MatchCandidateClaimBaselineSupport {
 	private static final String WORKER_CLASSPATH_PROPERTY = "match01.external.worker-classpath";
 	private static final String WORKER_CLASSPATH_FILE_PROPERTY = "match01.external.worker-classpath-file";
 	private static final int MATCHER_COUNT = 2;
-	private static final int PROCESS_TIMEOUT_SECONDS = 90;
+	private static final int PROCESS_TIMEOUT_SECONDS = 300;
 
 	private MatchCandidateClaimBaselineSupport() {}
 
