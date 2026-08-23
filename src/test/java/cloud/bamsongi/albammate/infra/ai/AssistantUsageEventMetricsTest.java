@@ -107,6 +107,22 @@ class AssistantUsageEventMetricsTest {
 		}
 	}
 
+	@Test
+	void T2_음수와_0_token은_counter를_감소시키지_않는다() {
+		try (AnnotationConfigApplicationContext context = usageObservationContext()) {
+			AssistantUsageEventSink sink = context.getBean(AssistantUsageEventSink.class);
+			SimpleMeterRegistry meterRegistry = context.getBean(SimpleMeterRegistry.class);
+			sink.record(usage("SUCCESS", 11, 17, Duration.ofMillis(1), "0.01"));
+			sink.record(usage("SUCCESS", -3, -5, Duration.ofMillis(1), "0.01"));
+			sink.record(usage("SUCCESS", 0, 0, Duration.ofMillis(1), "0.01"));
+
+			assertEquals(11.0, meterRegistry.get("assistant.usage.tokens")
+				.tags("token_type", "input").counter().count());
+			assertEquals(17.0, meterRegistry.get("assistant.usage.tokens")
+				.tags("token_type", "output").counter().count());
+		}
+	}
+
 	private AnnotationConfigApplicationContext usageObservationContext() {
 		AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext();
 		context.registerBean(SimpleMeterRegistry.class);

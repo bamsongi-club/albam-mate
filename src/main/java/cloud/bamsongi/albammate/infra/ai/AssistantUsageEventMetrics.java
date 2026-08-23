@@ -54,8 +54,8 @@ class AssistantUsageEventMetrics {
 
 	private void recordTokens(AssistantUsageEvent event) {
 		Counter.builder(USAGE_TOKENS).tag("token_type", "input")
-			.register(meterRegistry).increment(event.inputTokens());
+			.register(meterRegistry).increment(Math.max(0, event.inputTokens()));
 		Counter.builder(USAGE_TOKENS).tag("token_type", "output")
-			.register(meterRegistry).increment(event.outputTokens());
+			.register(meterRegistry).increment(Math.max(0, event.outputTokens()));
 	}
 }
