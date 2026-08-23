@@ -12,6 +12,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.SliceImpl;
 import org.springframework.data.domain.Sort;
+import org.springframework.jdbc.core.ConnectionCallback;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,6 +44,7 @@ public class GameQueryService {
 	@NonNull private final UpcomingRoomCountQuery upcomingRoomCountQuery;
 	@NonNull private final UserPlayedGameRepository userPlayedGameRepository;
 	@NonNull private final GameFilterValidator gameFilterValidator;
+	@NonNull private final JdbcTemplate jdbcTemplate;
 
 	/**
 	 * 게임 목록 조건을 하나의 저장소 동적 조회에 적용하고 예정 모임 수를 조립한다.
@@ -68,13 +71,16 @@ public class GameQueryService {
 
 	private Slice<GameListItem> findPage(
 		GameListSearchCriteria criteria, int page, int size, Long currentUserId, Instant referenceTime) {
-		Pageable pageable = PageRequest.of(
-			page,
-			size,
-			Sort.by(
-				Sort.Order.desc("popularityScore"),
-				Sort.Order.asc("name"),
-				Sort.Order.asc("id")));
+		boolean similaritySearch = GameListSpecification.usesSimilaritySearch(criteria.getKeyword());
+		Pageable pageable = similaritySearch
+			? PageRequest.of(page, size)
+			: PageRequest.of(
+				page,
+				size,
+				Sort.by(
+					Sort.Order.desc("popularityScore"),
+					Sort.Order.asc("name"),
+					Sort.Order.asc("id")));
 		Map<Long, Long> upcomingRoomCounts = Map.of();
 		if (criteria.isUpcomingOnly()) {
 			upcomingRoomCounts = upcomingRoomCountQuery.findUpcomingRoomCounts(referenceTime);
@@ -83,10 +89,13 @@ public class GameQueryService {
 			}
 			criteria = criteria.withUpcomingGameIds(upcomingRoomCounts.keySet());
 		}
+		if (similaritySearch) {
+			configureSimilarityThreshold();
+		}
 
 		GameListSearchCriteria pageCriteria = criteria;
 		Slice<Game> games = gameRepository.findBy(
-			GameListSpecification.from(pageCriteria), query -> query.slice(pageable));
+			GameListSpecification.from(pageCriteria, true), query -> query.slice(pageable));
 		if (games.isEmpty()) {
 			// 조립할 게임이 없으므로 예정 모임 수와 해 본 게임 조회를 건너뛰고 페이지 메타데이터만 그대로 전달한다.
 			return new SliceImpl<>(List.of(), pageable, games.hasNext());
@@ -110,6 +119,18 @@ public class GameQueryService {
 				game,
 				counts.getOrDefault(game.getId(), 0L),
 				playedByMe(pageCriteria, currentUserId, game.getId(), playedGameIds)));
+	}
+
+	private void configureSimilarityThreshold() {
+		jdbcTemplate.execute((ConnectionCallback<Void>)connection -> {
+			if (!"PostgreSQL".equals(connection.getMetaData().getDatabaseProductName())) {
+				return null;
+			}
+			try (var statement = connection.prepareStatement("select set_limit(0.3::real)")) {
+				statement.execute();
+			}
+			return null;
+		});
 	}
 
 	private Boolean playedByMe(

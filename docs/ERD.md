@@ -1136,8 +1136,8 @@ erDiagram
 
 ### 게임명 부분일치 검색 인덱스
 
-- PostgreSQL은 `pg_trgm` extension과 `ix_games_name_lower_trgm` GIN 인덱스(`lower(name) gin_trgm_ops`)로 기존 `lower(name) LIKE '%keyword%'` 게임명 부분일치 조회를 지원한다. 검색 의미·HTTP 계약·최소 검색어 길이는 바꾸지 않는다.
-- 3글자 이상 검색어는 planner가 이 인덱스 경로를 선택할 수 있다. 1·2글자는 trgm 선택도가 낮을 수 있으므로 기존 planner 경로를 허용한다.
+- PostgreSQL은 `pg_trgm` extension과 `ix_games_name_lower_trgm` GIN 인덱스(`lower(name) gin_trgm_ops`)로 `lower(name) LIKE '%keyword%'` 부분일치와 3글자 이상 `similarity(lower(name), lower(keyword)) >= 0.3` 게임명 오타 유사 조회를 지원한다.
+- 3글자 이상 검색어는 정확 일치·부분 일치를 먼저 두고 유사도 내림차순, `name ASC`, `id ASC`으로 정렬한다. 1·2글자는 trgm 선택도가 낮을 수 있으므로 기존 부분일치·planner 경로를 유지한다.
 
 ### 해 본 게임 관계 인덱스
 

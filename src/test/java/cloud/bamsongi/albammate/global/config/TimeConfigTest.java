@@ -127,7 +127,7 @@ class TimeConfigTest {
 		assertEquals(
 			"UTC", environment.getProperty("spring.jpa.properties.hibernate.jdbc.time_zone"));
 		assertEquals(
-			"SET TIME ZONE 'UTC'",
+			"RUNSCRIPT FROM 'classpath:/h2-init.sql'",
 			environment.getProperty("spring.datasource.hikari.connection-init-sql"));
 	}
 
