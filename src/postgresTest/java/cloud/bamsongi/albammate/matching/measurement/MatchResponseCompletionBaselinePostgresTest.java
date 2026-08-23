@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
+import java.sql.PreparedStatement;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -44,6 +45,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.core.env.Environment;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.PreparedStatementSetter;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -91,6 +93,8 @@ class MatchResponseCompletionBaselinePostgresTest {
 			registry.add("spring.datasource.password", () -> requiredEnvironmentVariable("ISSUE776_JDBC_PASSWORD"));
 			registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
 			registry.add("spring.datasource.hikari.minimum-idle", () -> 0);
+			registry.add("spring.flyway.enabled", () -> false);
+			registry.add("spring.jpa.hibernate.ddl-auto", () -> "none");
 			return;
 		}
 		if (!POSTGRES.isRunning()) {
@@ -440,16 +444,21 @@ class MatchResponseCompletionBaselinePostgresTest {
 		Instant fixtureReferenceTime = jdbcTemplate.queryForObject("select transaction_timestamp()", Timestamp.class)
 			.toInstant();
 		Instant respondBy = fixtureReferenceTime.plusSeconds(30);
+		List<MatchResponseCompletionBaselineSupport.FixtureRow> proposalRows = rows.stream()
+			.filter(row -> row.memberOrdinal() == 1)
+			.toList();
+		List<Long> proposalIds = insertFixtureProposals(proposalRows.size(), fixtureReferenceTime, respondBy);
+		List<Long> userIds = insertFixtureUsers(scenario, rows, fixtureReferenceTime);
+		List<Long> requestIds = insertFixtureRequests(rows, userIds, fixtureReferenceTime);
+		insertFixtureProposalMembers(rows, proposalIds, userIds, requestIds, fixtureReferenceTime);
 		List<ResponseCommand> commands = new ArrayList<>();
 		List<PrivateManifestRow> manifestRows = new ArrayList<>();
-		long proposalId = 0L;
-		for (MatchResponseCompletionBaselineSupport.FixtureRow fixtureRow : rows) {
-			if (fixtureRow.memberOrdinal() == 1) {
-				proposalId = insertOpenProposal(fixtureReferenceTime);
-			}
-			long userId = insertUser(fixtureReferenceTime);
-			long requestId = insertRequest(userId, fixtureReferenceTime);
-			insertProposalMember(proposalId, requestId, userId, fixtureReferenceTime);
+		for (int rowIndex = 0; rowIndex < rows.size(); rowIndex++) {
+			MatchResponseCompletionBaselineSupport.FixtureRow fixtureRow = rows.get(rowIndex);
+			int proposalIndex = fixtureRow.proposalOrdinal() - 1;
+			long proposalId = proposalIds.get(proposalIndex);
+			long userId = userIds.get(rowIndex);
+			long requestId = requestIds.get(rowIndex);
 			boolean commandTarget = fixtureRow.commandTarget();
 			manifestRows.add(new PrivateManifestRow(fixtureRow.proposalOrdinal(), fixtureRow.memberOrdinal(),
 				proposalId, proposalId, requestId, requestId, scenario.name(), commandTarget,
@@ -464,6 +473,95 @@ class MatchResponseCompletionBaselinePostgresTest {
 			}
 		}
 		return new MaterializedCommands(List.copyOf(commands), List.copyOf(manifestRows), fixtureReferenceTime);
+	}
+
+	private List<Long> insertFixtureProposals(int proposalCount, Instant fixtureReferenceTime, Instant respondBy) {
+		Timestamp createdAt = Timestamp.from(fixtureReferenceTime);
+		Timestamp respondByTimestamp = Timestamp.from(respondBy);
+		String sql = "insert into match_proposals (party_size, status, respond_by, created_at, updated_at) values "
+			+ repeatedValues("(2, 'OPEN', ?, ?, ?)", proposalCount) + " returning id";
+		return queryGeneratedFixtureIds(sql, proposalCount, statement -> {
+			for (int index = 0; index < proposalCount; index++) {
+				int parameter = index * 3 + 1;
+				statement.setTimestamp(parameter, respondByTimestamp);
+				statement.setTimestamp(parameter + 1, createdAt);
+				statement.setTimestamp(parameter + 2, createdAt);
+			}
+		}, "match proposal");
+	}
+
+	private List<Long> insertFixtureUsers(Scenario scenario,
+		List<MatchResponseCompletionBaselineSupport.FixtureRow> rows, Instant fixtureReferenceTime) {
+		Timestamp createdAt = Timestamp.from(fixtureReferenceTime);
+		List<String> emails = rows.stream()
+			.map(row -> "issue776-" + scenario.name() + "-" + row.proposalOrdinal() + "-"
+				+ row.memberOrdinal() + "-" + UUID.randomUUID() + "@example.com")
+			.toList();
+		String sql = "insert into users (email, password_hash, nickname, created_at, updated_at) values "
+			+ repeatedValues("(?, 'hash', 'issue776', ?, ?)", rows.size()) + " returning id";
+		return queryGeneratedFixtureIds(sql, rows.size(), statement -> {
+			for (int index = 0; index < rows.size(); index++) {
+				int parameter = index * 3 + 1;
+				statement.setString(parameter, emails.get(index));
+				statement.setTimestamp(parameter + 1, createdAt);
+				statement.setTimestamp(parameter + 2, createdAt);
+			}
+		}, "fixture user");
+	}
+
+	private List<Long> insertFixtureRequests(List<MatchResponseCompletionBaselineSupport.FixtureRow> rows,
+		List<Long> userIds, Instant fixtureReferenceTime) {
+		Timestamp createdAt = Timestamp.from(fixtureReferenceTime);
+		String sql = "insert into match_requests (user_id, min_party_size, max_party_size, status, queued_at, priority_since, proposed_at, created_at, updated_at) values "
+			+ repeatedValues("(?, 2, 4, 'PROPOSED', ?, ?, ?, ?, ?)", rows.size()) + " returning id";
+		return queryGeneratedFixtureIds(sql, rows.size(), statement -> {
+			for (int index = 0; index < rows.size(); index++) {
+				int parameter = index * 6 + 1;
+				statement.setLong(parameter, userIds.get(index));
+				for (int timestampParameter = 1; timestampParameter <= 5; timestampParameter++) {
+					statement.setTimestamp(parameter + timestampParameter, createdAt);
+				}
+			}
+		}, "fixture request");
+	}
+
+	private void insertFixtureProposalMembers(List<MatchResponseCompletionBaselineSupport.FixtureRow> rows,
+		List<Long> proposalIds, List<Long> userIds, List<Long> requestIds, Instant fixtureReferenceTime) {
+		Timestamp createdAt = Timestamp.from(fixtureReferenceTime);
+		String sql = "insert into match_proposal_members (proposal_id, match_request_id, user_id, response_status, created_at, updated_at) values "
+			+ repeatedValues("(?, ?, ?, 'PENDING', ?, ?)", rows.size());
+		jdbcTemplate.update(sql, statement -> {
+			for (int index = 0; index < rows.size(); index++) {
+				MatchResponseCompletionBaselineSupport.FixtureRow row = rows.get(index);
+				int parameter = index * 5 + 1;
+				statement.setLong(parameter, proposalIds.get(row.proposalOrdinal() - 1));
+				statement.setLong(parameter + 1, requestIds.get(index));
+				statement.setLong(parameter + 2, userIds.get(index));
+				statement.setTimestamp(parameter + 3, createdAt);
+				statement.setTimestamp(parameter + 4, createdAt);
+			}
+		});
+	}
+
+	private List<Long> queryGeneratedFixtureIds(String sql, int batchSize, PreparedStatementSetter setter,
+		String entityName) {
+		List<Long> ids = jdbcTemplate.query(sql, setter, (resultSet, rowNumber) -> resultSet.getLong("id"));
+		if (ids.size() != batchSize) {
+			throw new IllegalStateException(entityName + " generated id 개수가 맞지 않습니다: expected=" + batchSize
+				+ ", actual=" + ids.size());
+		}
+		return List.copyOf(ids);
+	}
+
+	private String repeatedValues(String rowValues, int count) {
+		StringBuilder values = new StringBuilder(rowValues.length() * count + count * 2);
+		for (int index = 0; index < count; index++) {
+			if (index > 0) {
+				values.append(", ");
+			}
+			values.append(rowValues);
+		}
+		return values.toString();
 	}
 
 	private ExecutionResult executeCommandsConcurrently(List<ResponseCommand> commands, boolean duplicate) {
@@ -1134,6 +1232,10 @@ class MatchResponseCompletionBaselinePostgresTest {
 		environment.put("notificationRelayEnabled",
 			springEnvironment.getProperty("app.notification.relay.enabled", "true"));
 		environment.put("chatRetentionEnabled", springEnvironment.getProperty("app.chat.retention.enabled", "true"));
+		environment.put("flywayEnabled", springEnvironment.getProperty("spring.flyway.enabled", "true"));
+		environment.put("hibernateDdlAuto",
+			springEnvironment.getProperty("spring.jpa.hibernate.ddl-auto", "none"));
+		environment.put("fixtureInsertMode", "single-statement-multi-values");
 
 		Map<String, String> profile = new LinkedHashMap<>();
 		profile.put("target", measurementProfileValue("issue776.measurement.target", "testcontainer"));

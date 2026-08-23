@@ -31,6 +31,7 @@ artifact의 environment.profile에는 before/after 동일 환경 여부를 재�
 | responseTopology | 응답 측정 runner와 PostgreSQL 연결 topology |
 
 기본 runner는 Testcontainers PostgreSQL을 사용한다. AWS 측정은 measurement 전용 외부 datasource 경로를 명시적으로 켜고, infra 저장소가 전달한 접속 환경변수와 위 profile 시스템 속성을 사용한다. 외부 모드에서 접속 비밀값이 없거나 profile 항목이 누락되면 결과를 만들지 않는다.
+외부 datasource 경로는 Flyway를 실행하지 않고 Hibernate schema validation도 끈다. 이 runner는 배포 DB를 초기화하거나 pending migration을 적용하는 역할이 아니라, 이미 배포된 MATCH 응답 테이블에서 fixture·응답 전이·관측만 수행한다. 응답 측정에 필요한 MATCH 스키마가 없거나 컬럼 계약이 다르면 fixture 또는 명령 실행이 실패해 결과를 채택하지 않는다. 1,000개 fixture는 각 테이블을 단일 multi-values SQL로 materialize해 fixture 생성 시간이 고정된 30초 응답 창을 침범하지 않도록 한다.
 measurement opt-in 실행은 response-completion 결과 디렉터리에서 생성되는 산출물만 허용하고, 그 밖의 source 변경이 남아 있으면 artifact 기록 전에 중단한다. 따라서 `measuredGitCommitSha`는 실제 측정 코드가 포함된 clean commit을 가리켜야 한다.
 
 ~~~powershell
