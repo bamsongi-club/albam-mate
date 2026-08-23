@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import poweredByBgg from '../assets/powered-by-bgg.svg';
 import mascotCut from '../assets/mascot-cut.png';
 import { ApiError, api, clearCsrfToken, messageForError, setUnauthenticatedHandler, socialLoginUrl } from './api';
-import { isUnauthenticated, useCumulativeRequest, usePaginatedRequest, useRequest } from './shared/async';
+import { isUnauthenticated, usePaginatedRequest, useRequest } from './shared/async';
 import { FilterCheckGroup, FilterPanel, FilterRadioGroup } from './shared/filters';
 import {
   ArrowIcon,
@@ -655,14 +655,15 @@ export function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQue
   const today = useSeoulToday();
   const filterKey = roomFilterKey(roomFilters, today);
   const counts = useRoomTypeCounts(keyword, roomFilters, today, dataVersion);
-  const { items, total, hasNext, loading, error, loadMore, retry } = useCumulativeRequest(
+  const { data, loading, error, setPage, retry } = usePaginatedRequest(
     // 유형을 비우면 두 유형의 공개 방을 함께 받는다.
     (page, signal) => api.getRooms({ type: roomType, keyword, ...roomFilterParameters(roomFilters, today), page, size: ROOM_LIST_PAGE_SIZE }, signal),
     [roomType, keyword, filterKey, dataVersion]
   );
   // status는 서버가 페이지네이션 전에 거른다(roomFilterParameters). 기본값(전체)에서는 프런트가 상태로 다시 거르지 않아
   // 모집 마감이라도 대기 신청이 가능한 방의 진입점이 유지된다.
-  const rooms = items.map(normalizeRoom);
+  const rooms = (data?.content || []).map(normalizeRoom);
+  const total = data?.totalElements ?? 0;
   const resetFilters = () => {
     onRoomTypeChange('');
     onRoomQueryChange('');
@@ -688,11 +689,11 @@ export function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQue
           <input id="room-q" value={input} onChange={(event) => setInput(event.target.value)} placeholder="게임, 모임 제목, 지역" />
         </form>
         <RoomFilters filters={roomFilters} onChange={onRoomFiltersChange} today={today} roomType={roomType} onRoomTypeChange={onRoomTypeChange} counts={counts} resultCount={total} />
-        {!error && <p className="section-label" style={{ marginTop: 18 }}>{loading && !rooms.length ? '불러오는 중' : '모임 ' + total + '개'}</p>}
+        {!error && <p className="section-label" style={{ marginTop: 18 }}>{loading && !data ? '불러오는 중' : '모임 ' + total + '개'}</p>}
 
         <div style={{ marginTop: 18 }}>
           {error && <ErrorBox title="모임을 불러오지 못했어요" message={error} onRetry={retry} />}
-          {!error && loading && !rooms.length && <RoomSkeletons label="모임 목록을 불러오는 중" />}
+          {!error && loading && !data && <RoomSkeletons label="모임 목록을 불러오는 중" />}
           {!error && !!rooms.length && (
             <div className="roomlist">
               {rooms.map((room) => <RoomListItem key={room.id} room={room} />)}
@@ -706,10 +707,8 @@ export function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQue
               </div>
             </StateBlock>
           )}
-          {!error && hasNext && (
-            <button type="button" className="more-btn" style={{ marginTop: 22 }} disabled={loading} onClick={loadMore}>
-              {loading ? '불러오는 중…' : (total - rooms.length) + '개 더 보기'}
-            </button>
+          {!error && !!rooms.length && (
+            <Pagination page={data?.page ?? 0} totalPages={data?.totalPages ?? 0} loading={loading} onChange={setPage} className="tab-fab-clear" />
           )}
         </div>
       </div>

@@ -162,7 +162,7 @@ export function RankSkeletons({ count = 3 }) {
   );
 }
 
-export function Pagination({ page, totalPages, loading, onChange }) {
+export function Pagination({ page, totalPages, loading, onChange, className = '' }) {
   if (!totalPages || totalPages <= 1) return null;
   const windowSize = 5;
   const start = Math.max(0, Math.min(page - Math.floor(windowSize / 2), totalPages - windowSize));
@@ -171,7 +171,7 @@ export function Pagination({ page, totalPages, loading, onChange }) {
   for (let index = start; index < end; index += 1) numbers.push(index);
   const go = (next) => { if (next >= 0 && next < totalPages && next !== page) onChange(next); };
   return (
-    <nav className="pagination" aria-label="페이지 이동">
+    <nav className={'pagination' + (className ? ' ' + className : '')} aria-label="페이지 이동">
       <button className="page-btn" type="button" disabled={loading || page <= 0} onClick={() => go(page - 1)} aria-label="이전 페이지">‹</button>
       {start > 0 && <><button className="page-btn" type="button" disabled={loading} onClick={() => go(0)}>1</button>{start > 1 && <span className="page-ellipsis">…</span>}</>}
       {numbers.map((index) => (
