@@ -26,8 +26,6 @@ docs/
 
 ## 소유자 README
 
-- 현재 소유자별 campaign 인덱스: [jiwon ROOM k6 측정 문서](jiwon/README.md)
-
 각 `docs/measurements/k6/<owner>/README.md`에는 해당 소유자가 보존한 테스트만 정리한다. 최소한 다음 내용을 포함한다.
 
 - 결과 문서와 선택적 판단서
