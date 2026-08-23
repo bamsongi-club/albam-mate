@@ -67,12 +67,14 @@ class ProductionProfileConfigurationTest {
 	}
 
 	@Test
-	void T2_production_AI는_기본_fake_비활성과_명시적_환경_gate를_사용한다() {
+	void T2_production_AI와_Cloudflare_검색은_기본_활성화하고_명시적_환경_gate를_사용한다() {
 		Properties properties = productionProperties();
 
-		assertEquals("${ALBAM_MATE_ASSISTANT_ENABLED:false}", properties.getProperty("app.assistant.enabled"));
+		assertEquals("${ALBAM_MATE_SEARCH_CLOUDFLARE_ENABLED:true}",
+			properties.getProperty("app.search.cloudflare.enabled"));
+		assertEquals("${ALBAM_MATE_ASSISTANT_ENABLED:true}", properties.getProperty("app.assistant.enabled"));
 		assertEquals("${ALBAM_MATE_ASSISTANT_PROVIDER:fake}", properties.getProperty("app.assistant.provider"));
-		assertEquals("${ALBAM_MATE_ASSISTANT_PROVIDER_CONFIGURED:false}",
+		assertEquals("${ALBAM_MATE_ASSISTANT_PROVIDER_CONFIGURED:true}",
 			properties.getProperty("app.assistant.provider-configured"));
 		assertEquals("${ALBAM_MATE_ASSISTANT_RETENTION_MODE:unverified}",
 			properties.getProperty("app.assistant.retention-mode"));

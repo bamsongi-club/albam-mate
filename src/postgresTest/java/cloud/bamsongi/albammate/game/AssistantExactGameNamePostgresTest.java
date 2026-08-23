@@ -63,7 +63,17 @@ class AssistantExactGameNamePostgresTest {
 	}
 
 	@Test
-	void T2_PostgreSQL_복수_정규화_매치는_상세_후보를_조회하지_않는다() {
+	void T2_PostgreSQL_문장에_포함된_유일한_정식명은_후보를_조회한다() {
+		long id = insertGame("카탄", null, "공개 설명");
+
+		var unique = exactGameNameQuery.findUniqueByNormalizedName("카탄 모임 만들어줘");
+
+		assertEquals(id, unique.orElseThrow().id());
+		assertEquals("공개 설명", unique.orElseThrow().description());
+	}
+
+	@Test
+	void T3_PostgreSQL_복수_정규화_매치는_상세_후보를_조회하지_않는다() {
 		insertGame("카 탄", null, "공개 설명");
 		insertGame("카\u3000탄", "https://example.com/catan.png", "다른 공개 설명");
 

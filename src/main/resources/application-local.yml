@@ -27,7 +27,7 @@ spring:
 
 app:
   assistant:
-    enabled: ${ALBAM_MATE_ASSISTANT_ENABLED:false}
+    enabled: ${ALBAM_MATE_ASSISTANT_ENABLED:true}
     provider: ${ALBAM_MATE_ASSISTANT_PROVIDER:fake}
     no-retention-verified: ${ALBAM_MATE_ASSISTANT_NO_RETENTION_VERIFIED:false}
     no-training-verified: ${ALBAM_MATE_ASSISTANT_NO_TRAINING_VERIFIED:false}
