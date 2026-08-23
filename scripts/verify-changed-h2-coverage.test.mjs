@@ -111,16 +111,14 @@ test('변경된 프로덕션 패키지가 없으면 전체 최소선 미달도 �
     assert.equal(result.globalChecked, false);
 });
 
-test('전체 branch 또는 line 최소선 미달은 변경 패키지와 무관하게 실패한다', () => {
+test('H2 단독 리포트에서는 전체 최소선 검증을 생략한다', () => {
     const result = verifyChangedH2Coverage({
         buildFileText: buildFile,
         reportXml: reportXml({ globalBranch: [30, 70], globalLine: [10, 90] }),
         changedPackages: ['example.dto'],
     });
 
-    assert.equal(result.problems.length, 2);
-    assert.match(result.problems[0], /전체 BRANCH/u);
-    assert.match(result.problems[1], /전체 LINE/u);
+    assert.deepEqual(result.problems, []);
 });
 
 function createGitWorktree(t) {
