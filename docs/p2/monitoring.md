@@ -255,7 +255,7 @@ AI 기능의 외부 처리·provider·model·호출 예산 경계는 완료된 [
 ### 기능 규칙
 
 - AI 요청 수와 success·fallback·failure별 제한된 `status` 집계. provider·model·feature·prompt/schema version은 event contract에만 남기고 반복 metric label로 전송하지 않는다.
-- 입력·출력 token별 누적 사용량과 이 둘을 재계산한 `total` 누적값. 공유 event의 `totalTokens`는 그대로 전송하지 않으며 같은 `status`·`token_type` 조합마다 하나의 series만 만든다.
+- 입력·출력 token별 누적 사용량과 이 둘을 조회에서 재계산한 `total` 누적값. 공유 event의 `totalTokens`와 중복 `total` series는 전송하지 않으며 token meter는 `token_type=input|output`만 사용한다. status별 요청 수는 별도 usage event meter가 소유하고 latency meter에는 반복 label을 붙이지 않는다.
 - Tool별 호출 수·성공·실패·실행시간. Tool 이름은 허용 목록만 사용
 - 실제 외부 provider 호출 수 × USD `0.10`의 기간별 고정 예약 비용과 앱 월 `$5` cap·`$4` warning 사용량
 - provider 공식 가격표 snapshot을 이용한 token 기반 참고 추정값. 이는 고정 예약 cap의 계산값이 아님
@@ -265,10 +265,10 @@ AI 기능의 외부 처리·provider·model·호출 예산 경계는 완료된 [
 
 ### 완료 기준
 
-- `OPS-04-AC1` AI 호출 경계가 요청 수와 입력·출력 token을 제한된 `status`·`token_type` label로 기록하며 provider·model·feature·prompt/schema version은 metric label로 전송하지 않는다.
+- `OPS-04-AC1` AI 호출 경계가 요청 수를 제한된 관측 `status`로, 입력·출력 token을 `token_type`으로 기록하며 provider·model·feature·prompt/schema version은 metric label로 전송하지 않는다. token·latency에는 status를 중복하지 않는다.
 - `OPS-04-AC2` 프롬프트·응답·Tool 인자·사용자 ID 없이 success·fallback·failure와 Tool 결과를 집계한다.
 - `OPS-04-AC3` 실제 외부 provider 호출 수와 USD `0.10`으로 고정 예약 비용·월 cap·warning 사용량을 재현하고, 공식 가격표 snapshot·통화·적용일·계산식의 token 기반 참고 추정값을 별도 표시할 수 있다.
-- `OPS-04-AC4` dashboard가 기간·status별 token, 고정 예약 예산 사용량과 참고 추정값을 서로 구분해 보여주며 어느 값도 청구 확정액으로 표현하지 않는다.
+- `OPS-04-AC4` dashboard가 기간·status별 요청 수와 입력·출력 token을 조회에서 재계산한 total, 고정 예약 예산 사용량과 참고 추정값을 서로 구분해 보여주며 어느 값도 청구 확정액으로 표현하지 않는다.
 - `OPS-04-AC5` metric·log 수집량과 보존기간으로 P2 관측 자체의 비용 증가 요인을 설명할 수 있다.
 - `OPS-04-AC6` AI 기능·provider·model은 확정됐지만, 실제 배포·관측·가격 snapshot이 없는 상태에서는 `OPS-04`를 완료로 표시하지 않는다.
 - `OPS-04-AC7` 기존 CloudWatch 계정 기준선과 P2 증분을 합친 예상 월 비용은 USD 10 이하이며, 기준선·가정·필수 입력이 빠지면 비용 0이나 통과가 아니라 `NO_OBSERVATION`으로 표시한다.
