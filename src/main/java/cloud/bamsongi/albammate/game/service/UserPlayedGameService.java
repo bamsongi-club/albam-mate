@@ -10,7 +10,7 @@ import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-/** 본인 해 본 게임 관계를 목표 상태로 수렴시키는 공개 유스케이스다. */
+/** 사용자가 특정 게임을 '해 본 게임'으로 등록하거나 해제하는 서비스다. */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -18,7 +18,7 @@ public class UserPlayedGameService {
 
 	@NonNull private final UserPlayedGameCommandExecutor commandExecutor;
 
-	/** 유일 제약 경합은 이미 다른 요청이 같은 목표 상태를 만든 것으로 처리한다. */
+	/** 같은 게임을 동시에 등록해도 이미 등록된 상태라면 성공으로 처리한다. */
 	public PlayedGameStateResponse markPlayed(long userId, long gameId) {
 		try {
 			commandExecutor.markPlayed(userId, gameId);
@@ -26,7 +26,7 @@ public class UserPlayedGameService {
 			UserPlayedGameCommandExecutor.RecoveryState recoveryState = commandExecutor.inspectAfterMarkFailure(
 				userId, gameId);
 			if (recoveryState == UserPlayedGameCommandExecutor.RecoveryState.RELATION_EXISTS) {
-				// 같은 사용자·게임 관계의 동시 생성은 성공 상태로 수렴한다.
+				// 동시 요청으로 같은 사용자-게임 관계가 이미 생성됐다면 원하는 최종 상태와 같으므로 성공 처리한다.
 			} else if (recoveryState == UserPlayedGameCommandExecutor.RecoveryState.GAME_MISSING) {
 				throw new BusinessException(ErrorCode.GAME_NOT_FOUND);
 			} else {

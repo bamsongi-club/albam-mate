@@ -32,6 +32,7 @@ public final class SecurityErrorResponseWriter {
 		if (response.isCommitted()) {
 			return;
 		}
+		// 인증·인가 실패는 MVC 예외 처리기까지 도달하지 않으므로 Security 계층에서 게임 실패 로그를 직접 남긴다.
 		logGamePlayedStateFailure(request, errorCode);
 		response.setStatus(errorCode.getStatus());
 		response.setCharacterEncoding(StandardCharsets.UTF_8.name());
