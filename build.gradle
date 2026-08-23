@@ -215,6 +215,12 @@ tasks.register('jacocoMergedTestReport', JacocoReport) {
 // 분기 수가 coveragePackageRuleMinimumBranches 미만인 패키지는 분기 하나에 비율이 크게
 // 흔들려 개별 규칙을 두지 않고 전체 최소선으로만 관리한다.
 def coveragePackageRuleMinimumBranches = 10
+// H2-only fast gate는 PostgreSQL 전용 경로를 포함하지 않으므로 합산 정본과 별도 baseline을
+// 사용한다. 합산 72%/92% 최소선은 applyCoverageRules에서 그대로 유지한다.
+def h2GlobalCoverage = [
+    'BRANCH': 0.72,
+    'LINE'  : 0.865,
+]
 def gatedBranchCoverage = [
     'cloud.bamsongi.albammate.auth.dto'       : 0.67,
     'cloud.bamsongi.albammate.auth.security'  : 0.94,

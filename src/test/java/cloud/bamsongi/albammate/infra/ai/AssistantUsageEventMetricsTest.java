@@ -76,7 +76,7 @@ class AssistantUsageEventMetricsTest {
 	}
 
 	@Test
-	void T2_input_output_token은_분리_누적하고_total_series없이_조회에서_재계산한다() {
+	void T2_input_output_token은_OTLP_호환_counter로_분리_누적하고_total_series없이_조회에서_재계산한다() {
 		try (AnnotationConfigApplicationContext context = usageObservationContext()) {
 			AssistantUsageEventSink sink = context.getBean(AssistantUsageEventSink.class);
 			SimpleMeterRegistry meterRegistry = context.getBean(SimpleMeterRegistry.class);
@@ -86,12 +86,15 @@ class AssistantUsageEventMetricsTest {
 				13, 19, 999, Duration.ofMillis(102), "SUCCESS", new BigDecimal("0.02")));
 
 			assertEquals(24.0, meterRegistry.get("assistant.usage.tokens")
-				.tags("token_type", "input").summary().totalAmount());
+				.tags("token_type", "input").counter().count());
 			assertEquals(36.0, meterRegistry.get("assistant.usage.tokens")
-				.tags("token_type", "output").summary().totalAmount());
+				.tags("token_type", "output").counter().count());
 			assertEquals(60.0, meterRegistry.get("assistant.usage.tokens")
-				.tags("token_type", "input").summary().totalAmount()
-				+ meterRegistry.get("assistant.usage.tokens").tags("token_type", "output").summary().totalAmount());
+				.tags("token_type", "input").counter().count()
+				+ meterRegistry.get("assistant.usage.tokens").tags("token_type", "output").counter().count());
+			assertTrue(meterRegistry.getMeters().stream()
+				.filter(meter -> meter.getId().getName().equals("assistant.usage.tokens"))
+				.allMatch(meter -> meter.getId().getType() == Meter.Type.COUNTER));
 			assertFalse(meterRegistry.getMeters().stream()
 				.anyMatch(meter -> meter.getId().getName().equals("assistant.usage.tokens")
 					&& "total".equals(meter.getId().getTag("token_type"))));
@@ -101,6 +104,22 @@ class AssistantUsageEventMetricsTest {
 					Tag.of("token_type", meter.getId().getTag("token_type"))))));
 			assertFalse(meterRegistry.getMeters().stream()
 				.anyMatch(meter -> meter.getId().getName().equals("assistant.usage.cost.usd")));
+		}
+	}
+
+	@Test
+	void T2_음수와_0_token은_counter를_감소시키지_않는다() {
+		try (AnnotationConfigApplicationContext context = usageObservationContext()) {
+			AssistantUsageEventSink sink = context.getBean(AssistantUsageEventSink.class);
+			SimpleMeterRegistry meterRegistry = context.getBean(SimpleMeterRegistry.class);
+			sink.record(usage("SUCCESS", 11, 17, Duration.ofMillis(1), "0.01"));
+			sink.record(usage("SUCCESS", -3, -5, Duration.ofMillis(1), "0.01"));
+			sink.record(usage("SUCCESS", 0, 0, Duration.ofMillis(1), "0.01"));
+
+			assertEquals(11.0, meterRegistry.get("assistant.usage.tokens")
+				.tags("token_type", "input").counter().count());
+			assertEquals(17.0, meterRegistry.get("assistant.usage.tokens")
+				.tags("token_type", "output").counter().count());
 		}
 	}
 
