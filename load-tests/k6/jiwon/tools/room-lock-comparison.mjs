@@ -25,7 +25,10 @@ import {
   normalizePrepareOwnership,
   RUN_ID_PATTERN,
 } from './fixture-model.mjs';
-import { renderBundle as renderPortableBundle } from './portable-bundle.mjs';
+import {
+  renderBundle as renderPortableBundle,
+  validateBundle as validatePortableBundle,
+} from './portable-bundle.mjs';
 
 const toolPath = fileURLToPath(import.meta.url);
 const toolDirectory = path.dirname(toolPath);
@@ -38,17 +41,32 @@ const SOURCE_SHA_PATTERN = /^[a-f0-9]{40}$/;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const SAFE_IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 const CANDIDATE_LABELS = ['A', 'B', 'C'];
-const CONCURRENCY_LEVELS = [2, 4, 8, 16];
+const STANDARD_CONCURRENCY_LEVELS = [2, 4, 8, 16];
+const T1_HOT_CONCURRENCY_LEVELS = [2, 4, 8, 10];
+const CONCURRENCY_LEVELS = [2, 4, 8, 10, 16];
 const CORE_PAIRED_RUNS = 10;
 const REGRESSION_PAIRED_RUNS = 5;
 const BARRIER_ROUNDS = 5;
 const CONSTANT_BASELINE_DURATION_SECONDS = 60;
 const CONSTANT_TAIL_REQUEST_TARGET = 5000;
 const CONSTANT_TAIL_CONDITIONS = new Set(['constant-hot', 'constant-mixed']);
-const CONSTANT_TAIL_CONCURRENCY_LEVELS = new Set([8, 16]);
+const CONSTANT_TAIL_CONCURRENCY_LEVELS = new Set([8, 10, 16]);
 const CORE_SCENARIOS = ['t1', 't2'];
 const DISTRIBUTIONS = ['hot', 'spread', 'mixed'];
 const EXECUTION_MODELS = ['barrier', 'constant-arrival-rate'];
+
+const CONCURRENCY_LEVELS_BY_SCENARIO = {
+  t1: {
+    hot: T1_HOT_CONCURRENCY_LEVELS,
+    spread: STANDARD_CONCURRENCY_LEVELS,
+    mixed: STANDARD_CONCURRENCY_LEVELS,
+  },
+  t2: {
+    hot: STANDARD_CONCURRENCY_LEVELS,
+    spread: STANDARD_CONCURRENCY_LEVELS,
+    mixed: STANDARD_CONCURRENCY_LEVELS,
+  },
+};
 
 const RUNTIME_FILES = [
   'lib/room-k6.js',
@@ -424,6 +442,14 @@ function conditionFor(id, concurrency) {
   };
 }
 
+function concurrencyLevelsFor(scenario, distribution) {
+  const levels = CONCURRENCY_LEVELS_BY_SCENARIO[scenario]?.[distribution];
+  if (!levels) {
+    fail(`지원하지 않는 comparison concurrency matrix: ${scenario}/${distribution}`);
+  }
+  return levels;
+}
+
 function regressionTemplate(id) {
   const template = REGRESSION_TEMPLATES.find((regression) => regression.id === id);
   if (!template) {
@@ -456,7 +482,8 @@ export function buildCampaignPlan({ campaignId, candidates, seed = campaignId })
 
   for (const scenario of CORE_SCENARIOS) {
     for (const conditionTemplate of CONDITION_TEMPLATES) {
-      for (const concurrency of CONCURRENCY_LEVELS) {
+      const concurrencyLevels = concurrencyLevelsFor(scenario, conditionTemplate.distribution);
+      for (const concurrency of concurrencyLevels) {
         const condition = conditionFor(conditionTemplate.id, concurrency);
         for (let repetition = 1; repetition <= CORE_PAIRED_RUNS; repetition += 1) {
           const pairId = `${normalizedCampaignId}-${scenario}-${condition.id}-c${concurrency}-r${repetition}`;
@@ -544,6 +571,7 @@ export function buildCampaignPlan({ campaignId, candidates, seed = campaignId })
       regressionRunCount,
       totalRunCount: runs.length,
       concurrencyLevels: CONCURRENCY_LEVELS,
+      concurrencyLevelsByScenario: CONCURRENCY_LEVELS_BY_SCENARIO,
       barrierRounds: BARRIER_ROUNDS,
       constantArrivalBaselineDurationSeconds: CONSTANT_BASELINE_DURATION_SECONDS,
       constantArrivalTailRequestTarget: CONSTANT_TAIL_REQUEST_TARGET,
@@ -610,14 +638,15 @@ function normalizedComparisonInput(input) {
   const candidateSha = validateSourceSha(input.candidateSha);
   const conditionId = text(input.conditionId, 'conditionId');
   const concurrency = integer(input.concurrency, 'concurrency', 2, 16);
-  if (!CONCURRENCY_LEVELS.includes(concurrency)) {
-    fail('concurrency는 2, 4, 8, 16 중 하나여야 합니다.');
-  }
   const condition = conditionFor(conditionId, concurrency);
   const executionModel = oneOf(input.executionModel || condition.executionModel, 'executionModel', EXECUTION_MODELS);
   const distribution = oneOf(input.distribution || condition.distribution, 'distribution', DISTRIBUTIONS);
   if (executionModel !== condition.executionModel || distribution !== condition.distribution) {
     fail(`condition=${conditionId}의 실행 모델·분포와 입력이 다릅니다.`);
+  }
+  const concurrencyLevels = concurrencyLevelsFor(scenario, distribution);
+  if (!concurrencyLevels.includes(concurrency)) {
+    fail(`${scenario.toUpperCase()} ${distribution} concurrency는 ${concurrencyLevels.join(', ')} 중 하나여야 합니다.`);
   }
   const rounds = condition.rounds;
   const arrivalRate = condition.arrivalRate;
@@ -1400,30 +1429,121 @@ function sampleGateFor(run, summary) {
   return { requestCount, droppedIterations, issues };
 }
 
+function canonicalCampaignPlan(plan) {
+  try {
+    return buildCampaignPlan({
+      campaignId: plan.campaignId,
+      candidates: plan.candidates,
+      seed: plan.seed,
+    });
+  } catch (_) {
+    return null;
+  }
+}
+
+function comparisonRunProvenanceIssues(run, bundle, finalResult) {
+  const issues = [];
+  let expectedCondition = null;
+  try {
+    expectedCondition = conditionFor(run.condition?.id, run.condition?.concurrency);
+  } catch (error) {
+    issues.push(`campaign run condition이 canonical matrix와 다릅니다: ${error.message}`);
+  }
+
+  const plan = bundle.plan;
+  if (plan.options?.runId !== run.runId
+    || plan.fixtureId !== run.fixtureId
+    || plan.scenario !== run.scenario
+    || plan.candidate !== run.candidate
+    || plan.candidateSha !== run.candidateSha
+    || plan.conditionId !== run.condition?.id
+    || plan.executionModel !== run.condition?.executionModel
+    || plan.distribution !== run.condition?.distribution
+    || plan.concurrency !== run.condition?.concurrency
+    || (expectedCondition && !isDeepStrictEqual(run.condition, expectedCondition))) {
+    issues.push('campaign run과 comparison bundle의 run·fixture·candidate·condition provenance가 다릅니다.');
+  }
+
+  if (finalResult.schemaVersion !== 1
+    || finalResult.runId !== run.runId
+    || finalResult.fixtureId !== run.fixtureId
+    || finalResult.candidate !== run.candidate
+    || finalResult.candidateSha !== run.candidateSha) {
+    issues.push('final-result.json의 run·fixture·candidate provenance가 campaign run과 다릅니다.');
+  }
+  return issues;
+}
+
+function validateComparisonRunManifest(bundleDirectory, run, bundlePlan) {
+  const manifest = readJson(artifactPath(bundleDirectory, ARTIFACTS.runManifest), 'run manifest');
+  const fixturePath = artifactPath(bundleDirectory, ARTIFACTS.fixture);
+  const summaryPath = artifactPath(bundleDirectory, ARTIFACTS.summary);
+  if (manifest.schemaVersion !== 2
+    || manifest.fixtureId !== bundlePlan.fixtureId
+    || manifest.runId !== run.runId
+    || manifest.sourceSha !== run.candidateSha
+    || manifest.runState !== 'COMPLETED'
+    || manifest.completed !== true
+    || manifest.summaryFile !== ARTIFACTS.summary
+    || !SHA256_PATTERN.test(manifest.fixtureSha256 || '')
+    || !SHA256_PATTERN.test(manifest.summarySha256 || '')
+    || !existsSync(fixturePath)
+    || !existsSync(summaryPath)
+    || sha256(readFileSync(fixturePath)) !== manifest.fixtureSha256
+    || sha256(readFileSync(summaryPath)) !== manifest.summarySha256) {
+    fail('run-manifest.json이 현재 comparison run과 fixture·summary artifact에 맞지 않습니다.');
+  }
+  return manifest;
+}
+
+function portableRegressionProvenanceIssues(run, validatedBundle, finalResult) {
+  const issues = [];
+  const validatedOptions = { ...validatedBundle.options };
+  delete validatedOptions.fixtureId;
+  if (validatedBundle.runId !== run.runId
+    || validatedBundle.fixtureId !== run.fixtureId
+    || validatedBundle.scenario !== run.scenario
+    || validatedBundle.sourceRevision !== run.candidateSha
+    || !isDeepStrictEqual(validatedOptions, run.condition.options)) {
+    issues.push('campaign regression과 portable bundle의 run·fixture·scenario·candidate·options provenance가 다릅니다.');
+  }
+  if (finalResult.schemaVersion !== 1
+    || finalResult.runId !== run.runId
+    || finalResult.fixtureId !== run.fixtureId
+    || finalResult.scenario !== run.scenario
+    || !Array.isArray(finalResult.issues)) {
+    issues.push('portable final-result.json의 run·fixture·scenario provenance가 campaign regression과 다릅니다.');
+  }
+  return issues;
+}
+
 function aggregateCampaign(values) {
   const plan = readJson(path.resolve(text(values.plan, '--plan')), 'campaign plan');
   if (plan.schemaVersion !== 1 || !Array.isArray(plan.runs)) {
     fail('campaign plan 형식이 올바르지 않습니다.');
   }
-  let requiredCoreRuns = CORE_PAIRED_RUNS;
-  if (Number.isSafeInteger(plan.contract?.corePairedRuns)) {
-    requiredCoreRuns = plan.contract.corePairedRuns;
-  } else if (Number.isSafeInteger(plan.contract?.minPairedRuns)) {
-    requiredCoreRuns = plan.contract.minPairedRuns;
-  }
+  const expectedPlan = canonicalCampaignPlan(plan);
+  const planIsCanonical = expectedPlan !== null && isDeepStrictEqual(plan, expectedPlan);
+  const requiredCoreRuns = expectedPlan?.contract?.corePairedRuns || CORE_PAIRED_RUNS;
   const candidateRoots = values.candidateRootsFile
     ? candidateRootMap(values.candidateRootsFile)
     : Object.fromEntries(CANDIDATE_LABELS.map((candidate) => [candidate, sourceRepositoryRoot]));
   const report = {
     schemaVersion: 1,
     campaignId: plan.campaignId,
-    status: 'PASS',
+    status: planIsCanonical ? 'PASS' : 'INVALID',
     winner: null,
     winnerDecision: '786은 증거를 만들며 최종 전략 선택·ADR을 자동 생성하지 않습니다.',
     candidates: {},
     regressions: [],
     excludedRuns: [],
   };
+  if (!planIsCanonical) {
+    report.excludedRuns.push({
+      reason: 'campaign plan canonical contract 불일치',
+      issues: ['campaign plan이 현재 도구가 생성하는 A/B/C 1,080회 matrix와 다릅니다.'],
+    });
+  }
   for (const candidate of CANDIDATE_LABELS) {
     report.candidates[candidate] = { candidateSha: plan.candidates[candidate], conditions: {} };
   }
@@ -1454,7 +1574,33 @@ function aggregateCampaign(values) {
         report.excludedRuns.push({ runId: run.runId, reason: 'portable regression final-result.json 누락' });
         continue;
       }
-      const finalResult = readJson(finalPath, 'portable regression final result');
+      let finalResult;
+      try {
+        const validatedBundle = validatePortableBundle(
+          bundlePath,
+          portableBundleContext(candidateRoot),
+          { includeProvenance: true },
+        );
+        finalResult = readJson(finalPath, 'portable regression final result');
+        const provenanceIssues = portableRegressionProvenanceIssues(run, validatedBundle, finalResult);
+        if (provenanceIssues.length > 0) {
+          throw new Error(provenanceIssues.join(' '));
+        }
+      } catch (error) {
+        report.status = 'INVALID';
+        report.excludedRuns.push({ runId: run.runId, reason: 'INVALID', issues: [error.message] });
+        report.regressions.push({
+          runId: run.runId,
+          pairId: run.pairId,
+          candidate: run.candidate,
+          candidateSha: run.candidateSha,
+          scenario: run.scenario,
+          condition: run.condition,
+          status: 'INVALID',
+          issues: [error.message],
+        });
+        continue;
+      }
       const status = ['PASS', 'FAIL', 'INVALID'].includes(finalResult.status)
         ? finalResult.status
         : 'INVALID';
@@ -1481,7 +1627,22 @@ function aggregateCampaign(values) {
       report.excludedRuns.push({ runId: run.runId, reason: 'final-result.json 누락' });
       continue;
     }
+    let bundle;
+    try {
+      bundle = readBundle(bundlePath);
+      validateComparisonRunManifest(bundle.bundleDirectory, run, bundle.plan);
+    } catch (error) {
+      report.status = 'INVALID';
+      report.excludedRuns.push({ runId: run.runId, reason: 'INVALID', issues: [error.message] });
+      continue;
+    }
     const finalResult = readJson(finalPath, 'final result');
+    const provenanceIssues = comparisonRunProvenanceIssues(run, bundle, finalResult);
+    if (provenanceIssues.length > 0) {
+      report.status = 'INVALID';
+      report.excludedRuns.push({ runId: run.runId, reason: 'INVALID', issues: provenanceIssues });
+      continue;
+    }
     const conditionId = `${run.scenario}/${run.condition.id}/c${run.condition.concurrency}`;
     const conditionReport = report.candidates[run.candidate].conditions[conditionId]
       || { requiredRuns: requiredCoreRuns, runs: [], eligibleForTailRanking: false, metrics: [] };
@@ -1512,7 +1673,8 @@ function aggregateCampaign(values) {
     conditionReport.runs.push(metric);
     const eligibleStatuses = conditionReport.runs.length === requiredCoreRuns
       && conditionReport.runs.every((item) => item.status === 'PASS');
-    conditionReport.eligibleForTailRanking = eligibleStatuses
+    conditionReport.eligibleForTailRanking = planIsCanonical
+      && eligibleStatuses
       && run.condition.executionModel === 'constant-arrival-rate'
       && conditionReport.runs.every((item) => item.validSampleGate);
     conditionReport.metrics = conditionReport.runs;

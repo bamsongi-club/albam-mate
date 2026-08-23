@@ -21,17 +21,17 @@ Issue #1026에서 #785가 고정하고 #786에서 축소 실행했던 A/B/C 후�
 
 이 절은 실행 계획과 도구 contract를 기록하며, 원격 campaign 결과를 의미하지 않는다. 2026-08-20의 4회 A/B·C `FAIL`/`INVALID` 기록과 결과 artifact는 그대로 보존한다.
 
-- 핵심: T1·T2 × `barrier-hot`·`barrier-spread`·`constant-hot`·`constant-mixed` × c2·c4·c8·c16 × A/B/C × 10회 = 960 실행
+- 핵심: T1·T2 × `barrier-hot`·`barrier-spread`·`constant-hot`·`constant-mixed` × 제품 유효 동시성 × A/B/C × 10회 = 960 실행. T1 hot은 c2·c4·c8·c10, T1 spread와 T2는 c2·c4·c8·c16을 사용한다.
 - 회귀: T3 15회 + T4 15회 + T5 90회 = 120 실행. 회귀 반복은 5회로 유지한다.
 - 전체: 1,080 실행. 같은 pair의 후보 순서는 seed 기반으로 교차 배치한다.
-- constant rate: c2=2, c4=4, c8=8, c16=16 req/s를 유지한다. c2/c4는 60초 baseline이고, c8/c16의 `constant-hot`·`constant-mixed`는 최소 5,000 표본을 위해 각각 c8=625초·5,000 요청, c16=313초·5,008 요청으로 실행한다.
+- constant rate: c2=2, c4=4, c8=8, c10=10, c16=16 req/s를 유지한다. c2/c4는 60초 baseline이고, tail 조건은 최소 5,000 표본을 위해 c8=625초·5,000 요청, c10=500초·5,000 요청, c16=313초·5,008 요청으로 실행한다. c10은 T1 hot에서만 사용한다.
 - 정합성: 기존 unexpected 4xx/5xx·contract failure·before/after invariant·outcome count·provenance/digest gate를 그대로 적용한다. 예상된 `ROOM_CONCURRENT_MODIFICATION` 409는 별도 business outcome으로 기록한다.
 - 성능: 실행별 p50/p95/p99와 RPS·409·retry·lock wait·DB/pool/CPU를 수집하고, 유효한 10회 paired run의 중앙값·변동성을 비교한다. `FAIL`·`INVALID`는 순위에서 제외한다.
 - 원격 경계: `albam-mate-infra`의 `codex/room-k6-local-runner`는 read-only 실행 기준으로만 사용하며, infra 저장소에는 commit·push·PR을 만들지 않는다. AWS apply/run/destroy는 각 단계별 명시 승인을 거친다.
 
 ## 현재 구현
 
-- `load-tests/k6/jiwon/tools/room-lock-comparison.mjs`: 후보 순서가 섞인 10회 core·5회 regression campaign plan, c16·constant-arrival-rate·mixed fixture, tail 표본 contract, comparison bundle, provenance와 PASS/FAIL/INVALID 집계
+- `load-tests/k6/jiwon/tools/room-lock-comparison.mjs`: 후보 순서가 섞인 10회 core·5회 regression campaign plan, 제품 유효 동시성·constant-arrival-rate·mixed fixture, tail 표본 contract, comparison bundle, provenance와 PASS/FAIL/INVALID 집계
 - `load-tests/k6/jiwon/tests/room-lock-comparison.test.mjs`: matrix·fixture·bundle scenario 계약 회귀
 - [실행 계약](room-lock-strategy-comparison-contract.md): matrix, metric, tail-latency gate, 판정과 운영 게이트
 - [결과 보존 규칙](results/room-lock-strategy-comparison/README.md): timeboxed 결과와 raw archive 제외 범위

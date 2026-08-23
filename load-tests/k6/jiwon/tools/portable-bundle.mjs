@@ -589,12 +589,22 @@ export function renderBundle(values, context, provenanceOverride = undefined) {
   return { bundlePath: outputDirectory, fixtureId: plan.fixtureId, scenario: plan.options.scenario, options: plan.options };
 }
 
-export function validateBundle(rawBundlePath, context, { forExecution = false } = {}) {
+export function validateBundle(rawBundlePath, context, { forExecution = false, includeProvenance = false } = {}) {
   const { bundle } = readBundle(context, rawBundlePath);
   if (forExecution) {
     assertPristineExecutionState(bundle);
   }
-  return { bundlePath: bundle.directory, runId: bundle.manifest.options.runId, fixtureId: bundle.manifest.fixtureId };
+  const result = {
+    bundlePath: bundle.directory,
+    runId: bundle.manifest.options.runId,
+    fixtureId: bundle.manifest.fixtureId,
+  };
+  if (includeProvenance) {
+    result.scenario = bundle.manifest.options.scenario;
+    result.options = bundle.manifest.options;
+    result.sourceRevision = bundle.manifest.sourceRevision;
+  }
+  return result;
 }
 
 export function bundleExecutionOptions(rawBundlePath, context) {

@@ -36,23 +36,23 @@
 
 | condition | 실행 모델 | ROOM 분포 | 동시성 | 반복 |
 | --- | --- | --- | --- | ---: |
-| `barrier-hot` | 기존 wave barrier | hot 최악 경합 | c2·c4·c8·c16 | 10 paired run |
-| `barrier-spread` | 기존 wave barrier | spread 대조군 | c2·c4·c8·c16 | 10 paired run |
-| `constant-hot` | `constant-arrival-rate` | hot 최악 경합 | c2·c4·c8·c16 req/s | 10 paired run |
-| `constant-mixed` | `constant-arrival-rate` | hot 50% + spread 50% | c2·c4·c8·c16 req/s | 10 paired run |
+| `barrier-hot` | 기존 wave barrier | hot 최악 경합 | T1: c2·c4·c8·c10; T2: c2·c4·c8·c16 | 10 paired run |
+| `barrier-spread` | 기존 wave barrier | spread 대조군 | T1·T2: c2·c4·c8·c16 | 10 paired run |
+| `constant-hot` | `constant-arrival-rate` | hot 최악 경합 | T1: c2·c4·c8·c10; T2: c2·c4·c8·c16 req/s | 10 paired run |
+| `constant-mixed` | `constant-arrival-rate` | hot 50% + spread 50% | T1·T2: c2·c4·c8·c16 req/s | 10 paired run |
 
 constant-arrival-rate의 rate는 기존 값을 유지한다.
 
-- rate: 동시성 수준과 같은 초당 요청 수 `c` — c2=2, c4=4, c8=8, c16=16 req/s
+- rate: 동시성 수준과 같은 초당 요청 수 `c` — c2=2, c4=4, c8=8, c10=10, c16=16 req/s
 - c2/c4 baseline: 60초, 최소 유효 표본 `c × 60` — 각각 120·240 요청
-- `constant-hot`·`constant-mixed`의 c8/c16 tail: 실행당 최소 5,000 요청을 위해 `ceil(5000 / c)`초 — c8=625초·5,000 요청, c16=313초·5,008 요청
-- c16의 pre-allocated VU `32`, max VU `64`를 유지하고, 다른 수준도 rate의 2배·4배 headroom 규칙을 적용한다.
+- `constant-hot`·`constant-mixed`의 c8/c10/c16 tail: 실행당 최소 5,000 요청을 위해 `ceil(5000 / c)`초 — c8=625초·5,000 요청, c10=500초·5,000 요청, c16=313초·5,008 요청. c10은 T1 hot에서만 사용한다.
+- c10은 pre-allocated VU `20`, max VU `40`, c16은 pre-allocated VU `32`, max VU `64`를 사용하고, 다른 수준도 rate의 2배·4배 headroom 규칙을 적용한다.
 - 모든 constant-arrival 실행은 측정 구간의 `room_requests`가 `minimumValidSamples`와 정확히 같고 `dropped_iterations=0`이어야 한다. setup·로그인 요청까지 포함하는 `http_reqs`는 이 gate에 사용하지 않는다. VU 부족이나 요청 수 불일치는 `INVALID`다.
 - fixture 준비·로그인·정리 비용은 측정 요청 지연에 포함하지 않으며, 실행 시간 창은 k6 `run-manifest.json`의 UTC 시작·종료 시각으로 고정한다.
 
 `constant-mixed`는 하나의 fixture 안에서 요청 절반을 같은 hot ROOM에, 나머지 절반을 서로 다른 spread ROOM에 배치한다. 따라서 hot 경합과 spread 대조군이 같은 release·환경·실행 창에 존재한다.
 
-핵심 실행 단위는 후보 3개 × 시나리오 2개 × condition 4개 × 동시성 4개 × 반복 10개 = **960회**이며, 각 paired run의 후보 실행 순서는 seed 기반으로 섞는다. A→B→C 고정 순서는 사용하지 않는다.
+핵심 실행 단위는 후보 3개 × 시나리오 2개 × condition 4개 × 시나리오·분포별 제품 유효 동시성 4개 × 반복 10개 = **960회**이며, T1 hot의 c16은 제품 DB 상한 10을 위반하므로 c10으로 대체한다. 각 paired run의 후보 실행 순서는 seed 기반으로 섞는다. A→B→C 고정 순서는 사용하지 않는다.
 
 ### 회귀·배경 실행
 
@@ -69,6 +69,8 @@ T3 15회, T4 15회, T5 90회로 총 **120회**를 기존 portable bundle read-on
 ### provenance 고정
 
 공통 기준 SHA, A/B/C candidate SHA, bundle source revision, fixture schema, release/image revision, infra branch, seed, 실행 순서와 각 artifact SHA-256을 plan·manifest에 고정한다. `sourceRevision`·`candidateSha`·infra `RELEASE_SHA`는 배포된 후보 앱을 식별하고, comparison·portable runner와 fixture runtime은 controller checkout에서 공통으로 bundle에 넣어 후보 간 실행기를 동일하게 유지한다. 공통 runtime의 실제 내용은 bundle immutable SHA-256으로 고정하며, 후보 checkout은 clean HEAD/provenance 확인과 결과 출력 root로만 사용한다. 이슈 #1026의 infra 참조 브랜치는 `albam-mate-infra`의 `codex/room-k6-local-runner`이며, 해당 저장소는 실행 참조만 하고 commit·push·PR을 만들지 않는다.
+
+`aggregate-campaign`은 보고서를 만들기 전에 plan을 현재 도구의 canonical matrix와 대조하고, comparison run마다 bundle immutable artifact·`run-manifest.json`·`final-result.json`의 run/fixture/candidate provenance와 fixture·summary SHA-256을 다시 확인한다. portable T3/T4/T5 regression도 bundle immutable manifest, source revision, run/fixture/scenario/options와 `final-result.json`을 campaign run에 재대조한다. 이 검증을 통과하지 못한 run은 `INVALID`로 보존하며 tail latency ranking이나 regression gate의 PASS에 포함하지 않는다.
 
 ## 기존 전체 실행 matrix (2026-08-20 timeboxed 당시 보류)
 
@@ -144,7 +146,7 @@ FAIL/INVALID 중 하나라도 있으면 해당 candidate/condition의 성능 순
 
 ## tail latency gate
 
-`p95`와 `p99`는 `constant-arrival-rate` open-model 실행에서 해당 run의 `minimumValidSamples`를 충족한 경우에만 후보 우열의 입력으로 사용할 수 있다. #1026에서는 c2/c4가 `c × 60`, c8/c16 `constant-hot`·`constant-mixed`가 각각 5,000 이상이 되도록 설정된 `c × durationSeconds`를 사용한다.
+`p95`와 `p99`는 `constant-arrival-rate` open-model 실행에서 해당 run의 `minimumValidSamples`를 충족한 경우에만 후보 우열의 입력으로 사용할 수 있다. #1026에서는 c2/c4가 `c × 60`, c8/c10/c16 `constant-hot`·`constant-mixed`가 각각 5,000 이상이 되도록 설정된 `c × durationSeconds`를 사용한다.
 
 다음 결과로는 winner를 만들지 않는다.
 
