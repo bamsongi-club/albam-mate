@@ -83,10 +83,10 @@ MVP 신고는 운영자 검토·자동 제재·이의제기와 자유 입력·�
 ## 검증
 
 - 상태: 미검증
-- 근거: 없음
+- 근거:
+    - 구현: MATCH party/access, MATCH 전용 chat, 신고·차단, PREPARING/ACTIVE/CLOSED 복구·정리와 `MatchChatProvisionPort`·`MatchChatCleanupPort` adapter가 생산 코드와 V28/V29에 구현돼 있다.
+    - PostgreSQL 테스트: `MatchLifecycleRecoveryPostgresTest`, `MatchLifecycleConcurrencyPostgresTest`, `MatchChatAdapterTransactionPostgresTest`, `MatchChatPersistencePostgresTest`, `MatchReportPostgresTest`, `MatchReportCleanupPostgresTest`가 원자 확정·복구·중복 방지·정리·보관을 검증한다.
 - 미검증:
-    - #737은 계약 반영만 수행하며, 이를 실행하는 MATCH party/access, MATCH 전용 chat, 신고 raw record의 생산 코드·Flyway·배포는 후속이다.
-    - 전원 수락의 원자 확정, PREPARING 재기동 복구와 중복 채팅 방지, `MatchChatCleanupPort`와 동일 DB 트랜잭션의 5분 실패 정리·WAITING 복귀·CLOSED 7일 purge를 재현하는 PostgreSQL 통합 테스트가 없다.
-    - 신고자·피신고자 조합의 7일 단일 record와 사유 삭제, 운영 측정 결과가 없다.
+    - 운영 배포에서 재기동 복구·보관 정리와 신고 최소 보관을 관측한 결과는 없다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.

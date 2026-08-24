@@ -76,10 +76,11 @@ Hybrid 병합 후보도 기존 `GameListSpecification`으로 P1 hard filter·`pl
 ## 검증
 
 - 상태: 미검증
-- 근거: 없음
+- 근거:
+  - 구현: `StructuredSparseCandidateSource`와 `SemanticGameSearchService`가 Dense + structured/sparse 독립 병렬 실행, 공통 timeout과 RRF 결합을 구현한다.
+  - 계약: [SEARCH-04 명세](../../p2/search.md)는 Sparse candidate K=200·RRF `k`=60·공통 timeout=6초와 회귀 evidence를 기록한다.
+  - H2/PostgreSQL 테스트: `SemanticGameSearchServiceTest`, `StructuredSparseCandidateSourcePostgresTest`, `HybridSemanticGameSearchPostgresTest`, `HybridSemanticGameSearchRegressionPostgresTest`가 결합·부분 실패·회귀 질의를 검증한다.
 - 미검증:
-  - #983의 실제 sparse/structured candidate source·병렬 실행·RRF 결합 구현과 H2/PostgreSQL 검증
-  - candidate K·RRF `k`·timeout production 값의 evidence 기반 확정과 문서 반영
-  - Hybrid/RRF의 운영 배포 이후 latency·장애율 실측
+  - Hybrid/RRF 운영 배포 이후 latency·장애율 실측
 
 > 상태 값과 번호·대체 규칙은 [README](../README.md)를 따른다.

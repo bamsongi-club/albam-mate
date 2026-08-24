@@ -41,7 +41,7 @@ macOS·Linux:
 
 ## PostgreSQL 검증 실행
 
-`postgresTest`는 Testcontainers가 관리하는 PostgreSQL 18.4를 사용한다. 표준 테스트는 shard JVM당 컨테이너 하나를 공유하고 클래스 시작 전에 `public` 사용자 테이블을 `TRUNCATE ... RESTART IDENTITY CASCADE`로 초기화한다. `flyway_schema_history`는 보존한다. Flyway/schema lifecycle, `pg_stat_statements`, Redis, 다중 인스턴스, production OTLP와 별도 옵션이 필요한 테스트는 전용 컨테이너 또는 전용 런타임을 유지한다.
+`postgresTest`는 Testcontainers가 관리하는 `pgvector/pgvector:pg18` 이미지를 사용한다. 이 태그는 PostgreSQL 18 계열과 pgvector 확장을 제공하지만 패치 버전을 고정하지 않는다. 표준 테스트는 shard JVM당 컨테이너 하나를 공유하고 클래스 시작 전에 `public` 사용자 테이블을 `TRUNCATE ... RESTART IDENTITY CASCADE`로 초기화한다. `flyway_schema_history`는 보존한다. Flyway/schema lifecycle, `pg_stat_statements`, Redis, 다중 인스턴스, production OTLP와 별도 옵션이 필요한 테스트는 전용 컨테이너 또는 전용 런타임을 유지한다.
 
 Windows PowerShell:
 

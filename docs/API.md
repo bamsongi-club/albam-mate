@@ -1,6 +1,6 @@
 # 알밤메이트 API 명세서
 
-- 문서 상태: **현재 제공하는 P0·P1·RANK-02(P2)·AI-01a T1~T5 HTTP·WebSocket 인터페이스 계약 (정본) · P2 `AI-01`~`AI-03`·`MATCH-01`의 승인된 목표 API 계약 포함**. 기능 전체의 계약·구현·검증·배포·실측 현재 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)를 따른다.
+- 문서 상태: **현재 제공하는 P0·P1·RANK-02(P2)·AI-01a T1~T5·AI-02·AI-03a T1~T6 HTTP·WebSocket 인터페이스 계약 (정본) · P2 `MATCH-01`의 승인된 목표 API 계약 포함**. 기능 전체의 계약·구현·검증·배포·실측 현재 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)를 따른다.
 - 기준 문서: [PRD](PRD.md), [P2 공통 명세](P2-spec.md), [P2 기능 상태](p2/README.md), [P1 종료 명세](archive/p1/README.md), [P0 완료 명세](archive/p0/P0-spec.md), [ERD](ERD.md)
 
 ### 이 문서의 범위
@@ -11,7 +11,7 @@
 | 이 문서가 담지 않는 것 | 제품 규칙의 배경(→ [P2-spec](P2-spec.md), [P2 기능 문서](p2/README.md), [P1 종료 명세](archive/p1/README.md), [P0 완료 명세](archive/p0/P0-spec.md)), 저장 구조·계산식(→ [ERD](ERD.md)), 되돌리기 어려운 기술 결정과 근거(→ [ADR](adr/README.md)) |
 | 변경 시 함께 갱신 | API 계약을 바꾸면 같은 변경에서 이 문서와 [엔드포인트별 오류 매트릭스](#11-부록-엔드포인트별-오류-매트릭스)를 함께 갱신하고, 관련 P2 기능 명세·[ERD](ERD.md)·[ADR](adr/README.md)과의 정합을 확인한다. 상세 규칙은 [CONVENTIONS](CONVENTIONS.md#api-응답)를 따른다. |
 
-> `P0`, `P1`, `P2`는 API가 도입되는 제품 단계이며 현재 구현 상태값이 아니다. P0·P1·RANK-02(P2) 계약은 현재 제공 인터페이스로 유지한다. P2 AI 기능은 기능별 제공 상태를 따른다. 현재 `AI-01a`의 동의·추천 orchestration T1~T5와 `AI-03a`의 초안·확인 T1~T6 범위는 제공하며, AI-02 provider 운영 세부·AI-04와 후속 범위는 `구현 예정`이므로 현재 요청에 사용하거나 현재 응답으로 기대하면 안 된다. P1 종료 상태는 [P1 기능 종료 상태](archive/p1/README.md#기능별-종료-상태), P2 진행 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)를 따른다.
+> `P0`, `P1`, `P2`는 API가 도입되는 제품 단계이며 현재 구현 상태값이 아니다. P0·P1·RANK-02(P2) 계약은 현재 제공 인터페이스로 유지한다. P2 AI 기능은 기능별 제공 상태를 따른다. 현재 `AI-01a`의 동의·추천 orchestration T1~T5, `AI-02`의 provider adapter·quota·비용·usage와 후보 조회, `AI-03a`의 초안·확인 T1~T6 범위를 제공한다. AI-04 운영 배포·실측과 명시적으로 후속으로 표시한 범위는 현재 제공 완료로 기대하면 안 된다. P1 종료 상태는 [P1 기능 종료 상태](archive/p1/README.md#기능별-종료-상태), P2 진행 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)를 따른다.
 
 ### 도입 단계와 제공 상태
 
@@ -332,7 +332,7 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 
 ### Region
 
-> **도입 단계: P2** · **기능: AI-02·AI-03** · **API 계약 상태: 계약 확정** · **제공 상태: AI-03a T1~T6 검증 범위 제공·AI-02 후속 구현 보류**
+> **도입 단계: P2** · **기능: AI-02·AI-03** · **API 계약 상태: 계약 확정** · **제공 상태: AI-02 provider·후보 조회와 AI-03a T1~T6 검증 범위 제공**
 
 | 값 | 의미 |
 |---|---|
@@ -345,7 +345,7 @@ AI-03 초안 요청에서 `region`을 생략하면 호환 기간 동안 `홍대`
 
 ### AI 기능군 목표 enum
 
-> **도입 단계: P2** · **기능: AI-01·AI-02·AI-03** · **API 계약 상태: 계약 확정** · **제공 상태: AI-01a T1~T5와 AI-03a T1~T6 구현·검증 완료**
+> **도입 단계: P2** · **기능: AI-01·AI-02·AI-03** · **API 계약 상태: 계약 확정** · **제공 상태: AI-01a T1~T5·AI-02 provider/후보 조회·AI-03a T1~T6 구현·검증 완료**
 
 | 이름 | 값 | 의미 |
 |---|---|---|
@@ -391,7 +391,7 @@ AI-03 초안 요청에서 `region`을 생략하면 호환 기간 동안 `홍대`
 |---|---|---|
 | `WAITING` | 현재 대기 중 | 조회 시점의 1 이상 순번 |
 | `PROMOTED` | 빈자리가 생겨 참가자로 자동 승격됨 | `null` |
-| `CANCELED` | 사용자가 직접 대기를 취소함 | `null` |
+| `CANCELED` | 사용자가 직접 대기를 취소했거나, 자동 승격 뒤 참가를 취소해 대기 이력도 종료됨 | `null` |
 | `EXPIRED` | 모임 시작 시각까지 승격되지 못해 대기가 종료됨 | `null` |
 | `ROOM_CANCELED` | 주최자가 방을 취소해 대기가 종료됨 | `null` |
 
@@ -2852,7 +2852,7 @@ MATCHING은 매칭 요청·제안·성공 파티와 그 접근 관계를 소유�
 
 응답은 한 사용자에게 현재 하나인 화면 상태만 반환한다. `WAITING`은 후보 부재로 대기 중인 요청, `PROPOSED`는 응답 기한 안의 열린 제안, `PAUSED`는 본인의 미응답으로 다시 찾기를 기다리는 요청, `PREPARING`은 [제품이 정한 기한](p2/matching.md#성공-파티-채팅) 안의 채팅 준비, `ACTIVE`는 채팅 handoff 상태다. `PREPARING`에는 채팅 경로나 party ID를 반환하지 않으며, `ACTIVE`일 때만 `chat`에 연결 정보를 담는다. 현재 대상이 없으면 `operationTime`을 제외한 `data` 필드가 `null`이다.
 
-조회는 due 상태를 임의로 선택해 숨기지 않는다. due 상태 보정, PostgreSQL `operationTime` 고정, 단일 SQL snapshot과 bounded retry의 실행 계약은 [아키텍처의 MATCH 현재 상태 snapshot](ARCHITECTURE.md#p2-match-현재-상태-snapshot-계획미구현)을 따른다. API는 보정이 끝난 하나의 안정적인 현재 상태만 반환하며, 실행 계약 안에서 안정적인 snapshot을 확보하지 못하면 `MATCH_CURRENT_STATE_NOT_STABLE`을 반환한다.
+조회는 due 상태를 임의로 선택해 숨기지 않는다. due 상태 보정, PostgreSQL `operationTime` 고정, 단일 SQL snapshot과 bounded retry의 실행 계약은 [아키텍처의 MATCH 현재 상태 snapshot](ARCHITECTURE.md#p2-match-현재-상태-snapshot)을 따른다. API는 보정이 끝난 하나의 안정적인 현재 상태만 반환하며, 실행 계약 안에서 안정적인 snapshot을 확보하지 못하면 `MATCH_CURRENT_STATE_NOT_STABLE`을 반환한다.
 
 ### MATCH-01 매칭 요청 등록
 
@@ -2892,7 +2892,7 @@ MATCHING은 매칭 요청·제안·성공 파티와 그 접근 관계를 소유�
 | Request Body / Idempotency-Key | 없음 / 없음 |
 | 성공 | `200 OK`, `data`: `CurrentMatchStateResponse` |
 
-경로와 `DELETE`만으로 본인의 비종료 매칭 요청을 없애는 목표 상태가 결정된다. `WAITING`·`PROPOSED`·`PAUSED` 요청을 취소하며, `PROPOSED` 요청의 취소는 [아키텍처의 Proposal Terminal Executor](ARCHITECTURE.md#p2-match-제안채팅-복구-흐름-계획미구현)에 따라 같은 열린 제안의 `REQUEUE`·`CANCEL`·기한 만료·마지막 `ACCEPT`와 하나의 종결 결과를 경쟁한다. 이 취소가 종결 승자가 되면 다른 사용자의 제안 종료·자동 재대기 규칙도 같은 트랜잭션에서 적용한다. 이미 취소되어 대상이 없으면 반복 요청도 `200 OK`와 모든 필드가 `null`인 현재 상태로 수렴한다. `PREPARING`·`ACTIVE` 성공 파티는 이 API로 취소·퇴장·재매칭하지 않으며 `MATCH_REQUEST_CANCELLATION_NOT_AVAILABLE`를 반환한다. `PAUSED` 사용자가 다시 찾으려면 이 목표 상태 `DELETE` 뒤 새 요청을 등록한다.
+경로와 `DELETE`만으로 본인의 비종료 매칭 요청을 없애는 목표 상태가 결정된다. `WAITING`·`PROPOSED`·`PAUSED` 요청을 취소하며, `PROPOSED` 요청의 취소는 [아키텍처의 Proposal Terminal Executor](ARCHITECTURE.md#p2-match-제안채팅-복구-흐름)에 따라 같은 열린 제안의 `REQUEUE`·`CANCEL`·기한 만료·마지막 `ACCEPT`와 하나의 종결 결과를 경쟁한다. 이 취소가 종결 승자가 되면 다른 사용자의 제안 종료·자동 재대기 규칙도 같은 트랜잭션에서 적용한다. 이미 취소되어 대상이 없으면 반복 요청도 `200 OK`와 모든 필드가 `null`인 현재 상태로 수렴한다. `PREPARING`·`ACTIVE` 성공 파티는 이 API로 취소·퇴장·재매칭하지 않으며 `MATCH_REQUEST_CANCELLATION_NOT_AVAILABLE`를 반환한다. `PAUSED` 사용자가 다시 찾으려면 이 목표 상태 `DELETE` 뒤 새 요청을 등록한다.
 
 ### MATCH-01 제안 응답
 
@@ -2921,7 +2921,7 @@ MATCHING은 매칭 요청·제안·성공 파티와 그 접근 관계를 소유�
 |---|---|:---:|:---:|---|
 | `action` | MatchProposalResponseAction | Y | N | `ACCEPT`, `REQUEUE`, `CANCEL` 중 하나 |
 
-`respondBy` 이전의 본인 열린 제안에 대해서만 첫 유효 응답 하나를 기록한다. 마지막이 아닌 `ACCEPT`는 `PROPOSED`와 `myResponse = ACCEPTED`를 반환한다. 마지막 `ACCEPT`, `REQUEUE`, `CANCEL`, `PROPOSED` 요청의 `DELETE`, 응답 기한 만료가 하나의 종결 결과로 수렴하는 실행 경계는 [아키텍처의 Proposal Terminal Executor](ARCHITECTURE.md#p2-match-제안채팅-복구-흐름-계획미구현)가 소유한다. 종결 결과별 `PREPARING`·`ACTIVE`·`WAITING`·`PAUSED`·취소 전이, 자동 재대기·우선순위와 미응답 정책은 [MATCH-01 후보 파티와 제안](p2/matching.md#후보-파티와-제안)을 따르며, 이 API는 그 규칙으로 확정된 최신 `CurrentMatchStateResponse`를 반환한다.
+`respondBy` 이전의 본인 열린 제안에 대해서만 첫 유효 응답 하나를 기록한다. 마지막이 아닌 `ACCEPT`는 `PROPOSED`와 `myResponse = ACCEPTED`를 반환한다. 마지막 `ACCEPT`, `REQUEUE`, `CANCEL`, `PROPOSED` 요청의 `DELETE`, 응답 기한 만료가 하나의 종결 결과로 수렴하는 실행 경계는 [아키텍처의 Proposal Terminal Executor](ARCHITECTURE.md#p2-match-제안채팅-복구-흐름)가 소유한다. 종결 결과별 `PREPARING`·`ACTIVE`·`WAITING`·`PAUSED`·취소 전이, 자동 재대기·우선순위와 미응답 정책은 [MATCH-01 후보 파티와 제안](p2/matching.md#후보-파티와-제안)을 따르며, 이 API는 그 규칙으로 확정된 최신 `CurrentMatchStateResponse`를 반환한다.
 
 응답 기한이 지났거나, 다른 사용자의 유효 응답으로 제안이 끝났거나, 이 사용자가 이미 다른 키로 첫 유효 응답을 보냈으면 새 명령은 `MATCH_PROPOSAL_RESPONSE_NOT_AVAILABLE`다. 이 오류는 현재 제안 외의 과거 제안에 응답할 수 없다는 의미이며, 같은 멱등키 재시도에는 적용하지 않는다.
 
@@ -3109,7 +3109,7 @@ WebSocket은 수신 전용이다. 클라이언트가 애플리케이션 메시�
 | `NOT_ACCEPTABLE` | 406 | 요청한 응답 미디어 타입을 제공할 수 없습니다. | `Accept` 헤더와 호환되는 응답 미디어 타입이 없음 |
 | `UNSUPPORTED_MEDIA_TYPE` | 415 | 지원하지 않는 요청 미디어 타입입니다. | `Content-Type`이 요청 본문 계약과 호환되지 않거나, PART-04 대기 API에 금지된 `Content-Type`·`Transfer-Encoding`·실제 본문이 포함됨 |
 | `INTERNAL_SERVER_ERROR` | 500 | 서버 오류가 발생했습니다. | 처리하지 않은 예외로 요청을 완료하지 못함 |
-| `SERVICE_UNAVAILABLE` | 503 | 서비스를 일시적으로 사용할 수 없습니다. 잠시 후 다시 시도해 주세요. | 요청 처리에 필수인 세션·인증 요청 제한·전송 제한 또는 AI 비용·사용량 예약 상태 저장소를 확인할 수 없음 |
+| `SERVICE_UNAVAILABLE` | 503 | 현재 서비스를 사용할 수 없습니다. 잠시 후 다시 시도해 주세요. | 요청 처리에 필수인 세션·인증 요청 제한·전송 제한 또는 AI 비용·사용량 예약 상태 저장소를 확인할 수 없음 |
 
 `METHOD_NOT_ALLOWED`, `NOT_ACCEPTABLE`, `UNSUPPORTED_MEDIA_TYPE` 응답은 Spring MVC 예외가 제공하는 `Allow`, `Accept`, `Accept-Patch` 등의 프로토콜 헤더가 있으면 그대로 포함한다.
 

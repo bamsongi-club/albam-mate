@@ -240,7 +240,7 @@ erDiagram
 | room_type | `GAME_FOCUSED`, `PERSON_FOCUSED` | 게임 중심 또는 사람 중심 방 |
 | room_status | `RECRUITING`, `CLOSED`, `CANCELED`, `FINISHED` | 모집 중, 모집 종료, 취소, 종료 |
 | participation_status | `ACTIVE`, `CANCELED` | 활성 참가, 참가 취소 |
-| waitlist_status | `WAITING`, `PROMOTED`, `CANCELED`, `EXPIRED`, `ROOM_CANCELED` | 현재 대기, 승격 완료, 본인 취소, 시작 경계 만료, ROOM 취소 종료 |
+| waitlist_status | `WAITING`, `PROMOTED`, `CANCELED`, `EXPIRED`, `ROOM_CANCELED` | 현재 대기, 승격 완료, 직접 대기 취소 또는 승격 후 참가 취소, 시작 경계 만료, ROOM 취소 종료 |
 | social_provider | `GOOGLE`, `NAVER`, `KAKAO` | 외부 로그인 제공자 |
 | experience_level | `ALL_LEVELS`, `BEGINNER_WELCOME`, `EXPERIENCED_PREFERRED` | 방이 권장하는 경험 수준 |
 | notification_outbox_event_type | `PARTICIPATION_JOINED`, `PARTICIPATION_CANCELED`, `WAITLIST_PROMOTED`, `ROOM_CANCELED` | 참가·재참가 성공, 참가 취소 성공, 대기자 자동 승격 성공, 방 취소 성공이라는 모듈 간 원인 사실 |
@@ -263,6 +263,7 @@ erDiagram
 | email | VARCHAR(255) | UQ, NULL | 이메일 회원의 로그인 이메일 또는 소셜 첫 로그인에서 신뢰 조건을 통과한 선택 이메일. 소셜 신원 키로 사용하지 않음 |
 | password_hash | VARCHAR(255) | NULL | 이메일 회원은 [ADR-0013](adr/auth/0013-p0-password-storage-auth-request-protection.md)의 `{bcrypt}` 식별자와 cost를 포함한 bcrypt 해시. 소셜 전용 사용자는 `NULL`, 원문 저장 금지 |
 | nickname | VARCHAR(50) | NN | 방 개설자·참가자 표시명 |
+| profile_image_url | VARCHAR(2048) | NULL | 저장소가 반환한 프로필 이미지 공개 URL |
 | created_at | TIMESTAMPTZ | NN | 가입 시각 |
 | updated_at | TIMESTAMPTZ | NN | 프로필 수정 시각 |
 
@@ -367,10 +368,10 @@ erDiagram
 |---|---|---|---|
 | id | BIGINT | PK, NN, AI | 내부 카테고리 식별자 |
 | code | VARCHAR(64) | UQ, NN | API 검색에 쓰는 안정적인 UPPER_SNAKE_CASE code |
-| bgg_subdomain | VARCHAR(32) | UQ, NN | 순위 CSV의 BGG subdomain |
+| bgg_subdomain | VARCHAR(64) | UQ, NN | 순위 CSV의 BGG subdomain |
 | name_ko | VARCHAR(100) | NN | 화면 표시 한글명 |
 | name_en | VARCHAR(100) | NN | BGG 영문 그룹명 |
-| display_order | SMALLINT | UQ, NN, 1~8 | 화면 고정 노출 순서 |
+| display_order | INTEGER | UQ, NN, 1~8 | 화면 고정 노출 순서 |
 | created_at | TIMESTAMPTZ | NN | 목록 행 생성 시각 |
 | updated_at | TIMESTAMPTZ | NN | 목록 행 갱신 시각 |
 
@@ -903,6 +904,7 @@ erDiagram
 | room_id | BIGINT | FK → ROOMS.id, NULL | 성공 결과 Room 참조 |
 | chat_room_id | BIGINT | FK → CHAT_ROOMS.id, NULL | 성공 결과 ChatRoom 참조 |
 | created_at | TIMESTAMPTZ | NN | key를 등록한 시각 |
+| updated_at | TIMESTAMPTZ | NN | 멱등성 기록의 마지막 상태 변경 시각 |
 | confirmed_at | TIMESTAMPTZ | NULL | Room·ChatRoom 결과 확정 시각 |
 | expires_at | TIMESTAMPTZ | NN | `PENDING`은 초안 만료 시각, `CONFIRMED`는 확인 시각 + 24시간 |
 
@@ -1077,7 +1079,7 @@ erDiagram
 
 ### P2 MATCH 저장 경계
 
-이 절은 MATCH 테이블의 저장 구조·제약·인덱스와 물리 삭제 효과만 소유한다. 후보 선점, Proposal terminal 경합, 사용자·Party 잠금, 채팅 handoff·복구, 현재 상태 조회와 만료 행의 명령 처리 순서는 [아키텍처](ARCHITECTURE.md#p2-match-제안채팅-복구-흐름-계획미구현)가 유일한 정본이다.
+이 절은 MATCH 테이블의 저장 구조·제약·인덱스와 물리 삭제 효과만 소유한다. 후보 선점, Proposal terminal 경합, 사용자·Party 잠금, 채팅 handoff·복구, 현재 상태 조회와 만료 행의 명령 처리 순서는 [아키텍처](ARCHITECTURE.md#p2-match-제안채팅-복구-흐름)가 유일한 정본이다.
 
 - `MATCH_PROPOSAL_MEMBERS`의 복합 FK와 `MATCH_PARTY_PARTICIPANTS.participant_ref`는 각각 요청 소유자와 Party-scoped 외부 식별자의 저장 불변식을 DB에서 보장한다.
 - `MATCH_REPORTS`와 `MATCH_IDEMPOTENCY_RECORDS`의 시간 없는 UNIQUE 제약은 보관 기간 자체를 판정하지 않는다. 만료된 행을 새 명령이 재사용할 수 있는 규칙은 아키텍처의 operation-time 계약을 따르며, 지연 batch purge에 의존하지 않는다.

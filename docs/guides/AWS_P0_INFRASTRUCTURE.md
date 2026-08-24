@@ -26,7 +26,7 @@ private DB subnet group / 외부 공개 없음
 | --- | --- | --- |
 | 애플리케이션 호스트 | EC2 `t4g.small`, Amazon Linux 2023 ARM64, 한 대 | P0의 작은 시작 규모와 기존 ARM64 측정 환경에 맞춘다. |
 | 실행 단위 | Docker Compose의 애플리케이션 서비스 | 배포 단위를 단순하게 유지하며 운영 Compose에는 PostgreSQL을 넣지 않는다. |
-| 데이터베이스 | RDS PostgreSQL `18.4`, `db.t4g.micro` | 로컬·통합 테스트와 같은 PostgreSQL 18.4 계약을 유지한다. |
+| 데이터베이스 | RDS PostgreSQL `18.4`, `db.t4g.micro` | 운영 데이터베이스 패치 버전을 고정한다. 로컬·통합 테스트는 PostgreSQL 18 계열 pgvector 이미지를 별도로 사용한다. |
 | DB 저장소 | 암호화된 gp3 20 GiB, 백업 7일, Single-AZ | 최소 복구 경로를 두되 P0에서 Multi-AZ 비용은 추가하지 않는다. |
 | 네트워크 | EC2 public subnet, RDS private subnet 두 개 | 사용자 요청 대상과 데이터 저장소의 공개 범위를 분리한다. |
 | DB 접근 | TCP 5432 출발지를 EC2 애플리케이션 보안 그룹으로 제한 | 개발자 IP나 `0.0.0.0/0`로 DB를 열지 않는다. |
@@ -37,7 +37,7 @@ private DB subnet group / 외부 공개 없음
 
 | 구분 | 로컬 | AWS |
 | --- | --- | --- |
-| DB 실행 주체 | [compose.local.yml](../../compose.local.yml)의 `postgres:18.4` | RDS PostgreSQL 18.4 |
+| DB 실행 주체 | [compose.local.yml](../../compose.local.yml)의 `pgvector/pgvector:pg18` | RDS PostgreSQL 18.4 |
 | DB 접속 범위 | 개발 PC의 `127.0.0.1` | VPC 안의 애플리케이션 보안 그룹 |
 | 스키마 | Flyway 마이그레이션 | 같은 Flyway 마이그레이션 |
 | 스키마 검증 | Hibernate `validate` | Hibernate `validate` |
