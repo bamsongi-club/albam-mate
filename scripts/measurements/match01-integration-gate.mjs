@@ -105,11 +105,16 @@ function validateGateDecision(repository, gateDecision) {
     for (const document of documents) {
       const artifactBytes = readFileSync(canonicalArtifactPath(repository, document.path));
       const blobBytes = gitBlobBytes(repository, document.path);
-      if (sha256(blobBytes) !== document.gitCanonicalBlobSha256) {
+      const artifactSha256 = sha256(artifactBytes);
+      const gitCanonicalBlobSha256 = sha256(blobBytes);
+      if (gitCanonicalBlobSha256 !== document.gitCanonicalBlobSha256) {
         return invalid(`${document.label} Git blob SHA-256이 일치하지 않습니다.`);
       }
-      if (sha256(artifactBytes) !== document.artifactSha256) {
+      if (artifactSha256 !== document.artifactSha256) {
         return invalid(`${document.label} artifact SHA-256이 일치하지 않습니다.`);
+      }
+      if (artifactSha256 !== gitCanonicalBlobSha256) {
+        return invalid(`${document.label} artifact가 Git canonical blob과 일치하지 않습니다.`);
       }
     }
   } catch (error) {

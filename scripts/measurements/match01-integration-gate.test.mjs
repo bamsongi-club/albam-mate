@@ -282,6 +282,33 @@ test("ADR-0091 또는 T10 INVALID evidence 내용이 바뀌면 provenance 불일
   assert.match(result.reason, /ADR-0091 artifact SHA-256/u);
 });
 
+test("T10 INVALID evidence 내용이 바뀌면 provenance 불일치로 INVALID다", () => {
+  const repository = createRepository();
+  const gate = completeGate(repository);
+  const invalidEvidencePath = path.join(repository, gate.gateDecision.deferredTests[0].invalidEvidencePath);
+  writeFileSync(invalidEvidencePath, "# MATCH-01 T10 AWS 측정 중단 보고서 changed\n");
+
+  const result = evaluateIntegrationGate(repository, gate);
+
+  assert.equal(result.outcome, "INVALID");
+  assert.match(result.reason, /T10 INVALID evidence artifact SHA-256/u);
+});
+
+test("T10 INVALID evidence artifact digest를 갱신해도 Git canonical blob과 다르면 INVALID다", () => {
+  const repository = createRepository();
+  const gate = completeGate(repository);
+  const deferredTest = gate.gateDecision.deferredTests[0];
+  const invalidEvidencePath = path.join(repository, deferredTest.invalidEvidencePath);
+  const changedContents = Buffer.from("# MATCH-01 T10 AWS 측정 중단 보고서 changed\n");
+  writeFileSync(invalidEvidencePath, changedContents);
+  deferredTest.invalidEvidenceArtifactSha256 = sha256(changedContents);
+
+  const result = evaluateIntegrationGate(repository, gate);
+
+  assert.equal(result.outcome, "INVALID");
+  assert.match(result.reason, /T10 INVALID evidence artifact가 Git canonical blob과 일치하지 않습니다/u);
+});
+
 test("response completion 결과는 candidate와 다른 SHA의 별도 consumer로 허용하되 candidate 입력에 섞이면 INVALID다", () => {
   const repository = createRepository();
   const gate = completeGate(repository);
