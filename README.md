@@ -35,7 +35,7 @@
 
 ## 시스템 구성
 
-단일 Nginx 진입점 뒤에 같은 이미지로 띄운 Spring 인스턴스 두 대를 둡니다. 세션과 실시간 전달, 요청 제한은 Redis가 맡고 업무 데이터와 벡터 색인은 PostgreSQL이 맡습니다.
+단일 Nginx 진입점 뒤에 같은 이미지의 Spring 인스턴스 두 대를 둡니다. 세션과 실시간 전달, 요청 제한은 Redis가 맡고 업무 데이터와 벡터 색인은 PostgreSQL이 맡습니다.
 
 ```mermaid
 flowchart LR
@@ -80,7 +80,7 @@ flowchart LR
 
 ### 장애를 재현하고 수정 전후를 같은 조건으로 쟀습니다
 
-채팅 부하에서 HTTP 500이 쏟아졌습니다. 원인을 Redis 연결에서 찾아, 연결 팩토리를 세션 경로와 나머지로 나누고 남는 연결 실패는 500이 아니라 503으로 응답하도록 고쳤습니다. 그다음 계단과 fixture, 인스턴스 사양을 before와 똑같이 두고 애플리케이션 코드만 바꿔 다시 쟀습니다.
+채팅 부하에서 HTTP 500이 대량으로 발생했습니다. 원인을 Redis 연결에서 찾아, 연결 팩토리를 세션 경로와 나머지로 분리하고 남는 연결 실패는 500이 아니라 503으로 응답하도록 수정했습니다. 그다음 계단과 fixture, 인스턴스 사양을 before와 동일하게 두고 애플리케이션 코드만 바꿔 다시 측정했습니다.
 
 | 지표 | before (3회) | after |
 | --- | ---: | ---: |
@@ -90,23 +90,23 @@ flowchart LR
 | 활성 방 8개 전송 성공률 | 57.1~70% | **100%** |
 | 활성 방 8개 응답 p95 | 3,119~5,105ms | **36ms** |
 
-남은 503 17건은 결함이 아니라 의도한 동작입니다. 연결 실패를 서버 내부 오류가 아니라 일시적인 의존성 장애로 알리는 것까지가 이번 수정이었습니다. 이 캠페인은 1회 실행이라 다음 날 다른 release로 한 번 더 쟀고, 500 0건에 예외 0건, 누적 연결 14,149건으로 같은 결과가 나왔습니다. 아직 남은 WebSocket 위반은 유휴 종료 이슈와 원인을 못 찾은 관측으로 나눠 기록했습니다. [#607 수정 후 측정](docs/measurements/k6/eungi/chat-delivery-capacity-2026-08-12-after-607.md), [재현 측정](docs/measurements/k6/eungi/chat-delivery-capacity-2026-08-13-after-607-repeat.md)
+남은 503 17건은 결함이 아니라 의도한 동작입니다. 연결 실패를 서버 내부 오류가 아니라 일시적인 의존성 장애로 알리는 것까지가 이번 수정이었습니다. 이 캠페인은 1회 실행이라 다음 날 다른 release로 한 번 더 측정했고, 500 0건에 예외 0건, 누적 연결 14,149건으로 같은 결과가 나왔습니다. 남은 WebSocket 위반은 유휴 종료 이슈와 원인을 규명하지 못한 관측으로 나눠 기록했습니다. [#607 수정 후 측정](docs/measurements/k6/eungi/chat-delivery-capacity-2026-08-12-after-607.md), [재현 측정](docs/measurements/k6/eungi/chat-delivery-capacity-2026-08-13-after-607-repeat.md)
 
 ### 인덱스는 측정으로 결정하고 마이그레이션까지 반영했습니다
 
-17만 건 전체 게임 카탈로그를 복원한 임시 AWS 스택에서 `pg_trgm` GIN 인덱스를 껐다 켜며 비교했습니다. release와 fixture, 시나리오는 두 상태에서 같습니다. 게임명 부분일치 검색 p95는 `3,034.1ms → 9.7ms`, p99는 `3,350ms → 10.8ms`로 줄었고 HTTP 실패는 두 상태 모두 0%였습니다. 이 결과로 GIN 도입을 결정해 `V26` 마이그레이션으로 반영했습니다. 다만 같은 실행에서 혼합 부하는 인덱스를 넣고도 전체 p95 `12,748.7ms`로 실패했습니다. 이건 GIN으로 닫히는 문제가 아니라고 보고 별도 병목으로 떼어냈습니다. [인덱스 판단 근거](docs/measurements/k6/yejin/keyword-search-index-decision-2026-08-11.md)
+17만 건 전체 게임 카탈로그를 복원한 임시 AWS 스택에서 `pg_trgm` GIN 인덱스를 켠 상태와 끈 상태로 비교했습니다. release와 fixture, 시나리오는 두 상태에서 같습니다. 게임명 부분일치 검색 p95는 `3,034.1ms → 9.7ms`, p99는 `3,350ms → 10.8ms`로 줄었고 HTTP 실패는 두 상태 모두 0%였습니다. 이 결과로 GIN 도입을 결정해 `V26` 마이그레이션으로 반영했습니다. 다만 같은 실행에서 혼합 부하는 인덱스를 넣고도 전체 p95 `12,748.7ms`로 실패했습니다. 이는 GIN으로 닫히는 문제가 아니라고 보고 별도 병목으로 분리했습니다. [인덱스 판단 근거](docs/measurements/k6/yejin/keyword-search-index-decision-2026-08-11.md)
 
-의미 검색에서도 순서는 같았습니다. Dense와 Sparse를 동시에 실행한 40건 가운데 6건이 공통 6초 deadline에 걸렸고, parallel p95는 `6,002.960ms`로 관측됐습니다. 이 값을 통과 근거로 쓰는 대신 sparse 경로가 병목이라는 신호로 읽었습니다. 이어서 `V39`로 trigram과 bigram GIN 인덱스 7개를 넣어 sparse serving p95를 `330.017ms → 4.547ms`로 낮추고 `games` Seq Scan도 없앴습니다. 대신 V39를 전부 적용하는 데 `23,688.132ms`가 걸립니다. 운영에 넣으려면 쓰기를 멈추는 maintenance window가 필요하다는 점도 함께 적어 뒀습니다. [SEARCH-04e evidence](docs/measurements/search-04e-hybrid-rrf-regression.md)
+의미 검색에서도 순서는 동일했습니다. Dense와 Sparse를 동시에 실행한 40건 가운데 6건이 공통 6초 deadline에 걸렸고, parallel p95는 `6,002.960ms`로 관측됐습니다. 이 값을 통과 근거로 쓰는 대신 sparse 경로가 병목이라는 신호로 읽었습니다. 이어서 `V39`로 trigram과 bigram GIN 인덱스 7개를 추가해 sparse serving p95를 `330.017ms → 4.547ms`로 낮추고 `games` Seq Scan도 제거했습니다. 다만 V39 전체 적용에는 `23,688.132ms`가 걸립니다. 운영에 반영하려면 쓰기를 멈추는 maintenance window가 필요하다는 점도 함께 기록했습니다. [SEARCH-04e evidence](docs/measurements/search-04e-hybrid-rrf-regression.md)
 
 ### 메시지 브로커를 도입하지 않기로 했습니다
 
-알림 fan-out에 Kafka나 RabbitMQ가 정말 필요한지 먼저 재봤습니다. PostgreSQL transactional outbox와 polling relay를 그대로 둔 채 poll 주기 5초, 인스턴스당 batch 50으로 고정하고, App 2대에서 수신자를 1명과 5명, 10명으로 늘려가며 9회 측정했습니다. server-side p95는 `4.210~4.968초`였고 최종 backlog와 실패, retry는 모두 0건입니다. 수신자가 10배로 늘어도 p95 중앙값은 `4.259초`에서 `4.742초`로 오르는 데 그쳤습니다. 이 규모에서 브로커를 들일 근거를 찾지 못해 **현행 outbox를 유지하기로 했습니다**.
+알림 fan-out에 Kafka나 RabbitMQ가 필요한지 먼저 측정했습니다. PostgreSQL transactional outbox와 polling relay를 그대로 둔 채 poll 주기 5초, 인스턴스당 batch 50으로 고정하고, App 2대에서 수신자를 1명과 5명, 10명으로 늘려가며 9회 측정했습니다. server-side p95는 `4.210~4.968초`였고 최종 backlog와 실패, retry는 모두 0건입니다. 수신자가 10배로 늘어도 p95 중앙값은 `4.259초`에서 `4.742초`로 오르는 데 그쳤습니다. 이 규모에서 브로커를 도입할 근거를 찾지 못해 **현행 outbox를 유지하기로 했습니다**.
 
 이 결정은 PostgreSQL relay가 모든 규모를 견딘다는 뜻이 아닙니다. 지속 혼합 부하는 App cgroup OOM 때문에 유효한 정상과 실패 경계를 만들지 못했습니다. relay 포화점은 아직 미측정으로 남아 있습니다. [알림 broker 판단서](docs/measurements/k6/jiho/notification-broker-decision-2026-08-11.md)
 
 ### 개선 후보 두 개를 만들고 측정 결과로 폐기했습니다
 
-참가 취소와 자동 승격의 critical section을 줄여 보려고 후보 두 개를 구현했습니다. 현행 V0까지 셋을 `T1 / stress / hot / c8 / 5 rounds` 조건에서 variant당 3회씩, 모두 9회 돌렸습니다. 아홉 run 전부 provenance와 무결성, 진단 gate를 통과한 `PASS`입니다.
+참가 취소와 자동 승격의 critical section을 줄이려고 후보 두 개를 구현했습니다. 현행 V0까지 셋을 `T1 / stress / hot / c8 / 5 rounds` 조건에서 variant당 3회씩, 모두 9회 실행했습니다. 아홉 run 전부 provenance와 무결성, 진단 gate를 통과한 `PASS`입니다.
 
 | variant | 성공 응답 p95 중앙값 | 판정 |
 | --- | ---: | --- |
@@ -114,7 +114,7 @@ flowchart LR
 | V1 후보 | 457.929ms | p95 96.3% 악화 |
 | V2 후보 | 548.845ms | p95 135.3% 악화 |
 
-채택 기준은 측정 전에 "p95 중앙값 최소 20% 개선"으로 승인해 뒀는데, 어느 후보도 여기에 닿지 못했습니다. 두 후보 PR은 병합하지 않고 Draft로 보존한 뒤 재검토 조건을 [ADR-0087](docs/adr/participation/0087-room-t1-participation-cancel-critical-section-selection.md)에 남겼습니다. [critical section 비교 측정](docs/measurements/k6/jiwon/room-t1-critical-section-comparison-2026-08-21.md)
+채택 기준은 측정 전에 "p95 중앙값 최소 20% 개선"으로 승인했고, 어느 후보도 이를 충족하지 못했습니다. 두 후보 PR은 병합하지 않고 Draft로 보존한 뒤 재검토 조건을 [ADR-0087](docs/adr/participation/0087-room-t1-participation-cancel-critical-section-selection.md)에 남겼습니다. [critical section 비교 측정](docs/measurements/k6/jiwon/room-t1-critical-section-comparison-2026-08-21.md)
 
 ### 지연과 포화는 직접 주입해서 원인 구간을 분리했습니다
 
@@ -127,11 +127,11 @@ flowchart LR
 | db-pool-wait | PostgreSQL 1,500ms 지연 | 19,451.15ms | 최대 35 | 0 |
 | recovery | 제거 | 10.56ms | 0 | 0 |
 
-네 phase 모두 요청 실패와 유실이 0건입니다. pending은 `db-pool-wait`에서만 올라갔습니다. 덕분에 지연의 원인이 애플리케이션 처리가 아니라 커넥션 풀 대기 구간이라고 짚을 수 있었습니다. 임시 검증 스택은 실측을 마치고 철거했습니다. [OPS-02 측정](docs/measurements/k6/jiho/ops02-latency-saturation-2026-08-19.md)
+네 phase 모두 요청 실패와 유실이 0건입니다. pending은 `db-pool-wait`에서만 올라갔습니다. 이로써 지연의 원인이 애플리케이션 처리가 아니라 커넥션 풀 대기 구간임을 분리할 수 있었습니다. 임시 검증 스택은 실측을 마치고 철거했습니다. [OPS-02 측정](docs/measurements/k6/jiho/ops02-latency-saturation-2026-08-19.md)
 
 ### 경합에서 정합성이 깨지지 않는지 확인했습니다
 
-독립 matcher 프로세스 2개가 같은 barrier에서 각 500회씩 claim을 시도합니다. round마다 논리 claim 1,000개가 한꺼번에 몰리고, 이런 measured round를 3회 돌렸습니다. `SELECT … FOR UPDATE SKIP LOCKED` 기반 claim에서 기대한 500개 제안과 1,000개 참가자 전이가 정확히 맞아떨어졌습니다. 한 요청을 둘이 함께 점유하거나, 중복 제안이 나가거나, 참가자 일부만 전이되는 부분 claim은 모두 0건이라 `BASELINE_ACCEPTED`를 받았습니다. candidate claim 트랜잭션 p95는 세 round 중앙값 `33.6ms`에 최대 `36.4ms`, 처리량은 `107.9~137.8 claim/s`입니다. 최종 확정과 복구, 운영 성능은 별도 증거로 판정합니다. [MATCH-01 측정 계약](docs/measurements/match-01-candidate-search-baseline-contract.md)
+독립 matcher 프로세스 2개가 같은 barrier에서 각 500회씩 claim을 시도합니다. round마다 논리 claim 1,000개가 동시에 몰리며, 이런 measured round를 3회 실행했습니다. `SELECT … FOR UPDATE SKIP LOCKED` 기반 claim에서 기대한 500개 제안과 1,000개 참가자 전이가 정확히 일치했습니다. 한 요청을 둘이 함께 점유하거나, 중복 제안이 나가거나, 참가자 일부만 전이되는 부분 claim은 모두 0건이라 `BASELINE_ACCEPTED`를 받았습니다. candidate claim 트랜잭션 p95는 세 round 중앙값 `33.6ms`에 최대 `36.4ms`, 처리량은 `107.9~137.8 claim/s`입니다. 최종 확정과 복구, 운영 성능은 별도 증거로 판정합니다. [MATCH-01 측정 계약](docs/measurements/match-01-candidate-search-baseline-contract.md)
 
 ## 현재 제공 상태
 
@@ -159,7 +159,7 @@ flowchart LR
 
 ## 로컬 실행과 테스트
 
-저장소를 내려받고 10분이면 첫 테스트를 통과시킬 수 있습니다. Java 21과 저장소에 들어 있는 Gradle Wrapper만 있으면 됩니다. 이 첫 테스트에는 Docker도, 따로 띄운 PostgreSQL도 필요 없습니다.
+저장소를 내려받고 10분이면 첫 테스트를 통과시킬 수 있습니다. Java 21과 저장소의 Gradle Wrapper만 있으면 됩니다. 이 첫 테스트에는 Docker와 별도 PostgreSQL이 필요하지 않습니다.
 
 Windows PowerShell:
 
@@ -175,7 +175,7 @@ java --version
 ./gradlew test
 ```
 
-`BUILD SUCCESSFUL`이 뜨거나 명령이 성공으로 끝나면 첫 검증은 여기까지입니다. 전체 화면까지 띄우려면 [.env 준비와 로컬 Compose 실행](docs/guides/LOCAL_DEVELOPMENT.md)을 보고, 자주 쓰는 명령은 [프로젝트 명령](docs/COMMANDS.md)에 정리해 뒀습니다.
+`BUILD SUCCESSFUL`이 표시되거나 명령이 성공으로 끝나면 첫 검증은 끝입니다. 전체 화면을 실행하려면 [.env 준비와 로컬 Compose 실행](docs/guides/LOCAL_DEVELOPMENT.md)을 참고하고, 자주 쓰는 명령은 [프로젝트 명령](docs/COMMANDS.md)에 정리했습니다.
 
 ## 문서 지도
 
