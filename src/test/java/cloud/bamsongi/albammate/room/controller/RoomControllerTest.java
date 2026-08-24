@@ -334,6 +334,34 @@ class RoomControllerTest {
 	}
 
 	@Test
+	void T4_허용되지_않은_region은_VALIDATION_ERROR이고_방을_생성하지_않는다() throws Exception {
+		mockMvc.perform(
+			post("/api/rooms")
+				.with(csrf())
+				.with(authenticationFor(42L))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(validJsonWithRegion("신촌")))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
+
+		verifyNoInteractions(roomCreateService);
+	}
+
+	@Test
+	void T5_region_누락은_홍대로_대체하지_않고_VALIDATION_ERROR다() throws Exception {
+		mockMvc.perform(
+			post("/api/rooms")
+				.with(csrf())
+				.with(authenticationFor(42L))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(validJsonWithoutRegion()))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
+
+		verifyNoInteractions(roomCreateService);
+	}
+
+	@Test
 	void 인증과_CSRF가_있어도_요청값_검증은_VALIDATION_ERROR다() throws Exception {
 		mockMvc.perform(
 			post("/api/rooms")
@@ -661,10 +689,19 @@ class RoomControllerTest {
 			  "experienceLevel": "ALL_LEVELS",
 			  "isRulemasterLed": false,
 			  "startsAt": "2099-01-01T19:00:00+09:00",
+			  "region": "홍대",
 			  "place": "홍대 장소",
 			  "recruitmentCapacity": 3
 			}
 			""";
+	}
+
+	private String validJsonWithRegion(String region) {
+		return validJson().replace("\"region\": \"홍대\"", "\"region\": \"" + region + "\"");
+	}
+
+	private String validJsonWithoutRegion() {
+		return validJson().replace("  \"region\": \"홍대\",\n", "");
 	}
 
 	private ListAppender<ILoggingEvent> attachLogAppender() {
