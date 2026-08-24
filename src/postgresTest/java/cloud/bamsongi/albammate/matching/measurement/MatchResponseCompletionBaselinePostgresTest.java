@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
@@ -30,23 +31,24 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.core.env.Environment;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import cloud.bamsongi.albammate.matching.MatchProposalResponseAction;
@@ -57,7 +59,6 @@ import cloud.bamsongi.albammate.matching.service.command.MatchProposalScheduler;
 import cloud.bamsongi.albammate.testsupport.PgVectorPostgresImages;
 import tools.jackson.databind.ObjectMapper;
 
-@Testcontainers
 @SpringBootTest(properties = {
 	"spring.task.scheduling.enabled=false",
 	"app.notification.relay.enabled=false",
@@ -65,10 +66,56 @@ import tools.jackson.databind.ObjectMapper;
 @Import(MatchResponseCompletionBaselinePostgresTest.ProbeConfiguration.class)
 class MatchResponseCompletionBaselinePostgresTest {
 
-	@Container
-	@ServiceConnection
 	static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(PgVectorPostgresImages.postgres18())
 		.withCommand("postgres", "-c", "shared_preload_libraries=pg_stat_statements");
+	private static final String EXTERNAL_ALLOWED_DATABASE_ENV = "ISSUE776_ALLOWED_DATABASE";
+	private static final String EXTERNAL_ALLOWED_SCHEMA_ENV = "ISSUE776_ALLOWED_SCHEMA";
+	private static final List<String> REQUIRED_EXTERNAL_PROFILE_PROPERTIES = List.of(
+		"issue776.measurement.target",
+		"issue776.environment.stackId",
+		"issue776.environment.region",
+		"issue776.environment.releaseSha",
+		"issue776.environment.appInstanceType",
+		"issue776.environment.postgresInstanceType",
+		"issue776.environment.redisInstanceType",
+		"issue776.environment.backendImage",
+		"issue776.environment.webImage",
+		"issue776.environment.postgresImage",
+		"issue776.environment.redisImage",
+		"issue776.environment.applicationConfigSha256",
+		"issue776.environment.responseTopology");
+
+	@DynamicPropertySource
+	static void configureMeasurementDataSource(DynamicPropertyRegistry registry) {
+		if (externalMeasurement()) {
+			validateExternalMeasurementConfiguration();
+			String externalSchema = requiredEnvironmentVariable(EXTERNAL_ALLOWED_SCHEMA_ENV);
+			registry.add("spring.datasource.url", () -> requiredEnvironmentVariable("ISSUE776_JDBC_URL"));
+			registry.add("spring.datasource.username", () -> requiredEnvironmentVariable("ISSUE776_JDBC_USERNAME"));
+			registry.add("spring.datasource.password", () -> requiredEnvironmentVariable("ISSUE776_JDBC_PASSWORD"));
+			registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
+			registry.add("spring.datasource.hikari.minimum-idle", () -> 0);
+			registry.add("spring.datasource.hikari.connection-init-sql",
+				() -> externalMeasurementSearchPathSql(externalSchema));
+			registry.add("spring.flyway.enabled", () -> false);
+			registry.add("spring.jpa.hibernate.ddl-auto", () -> "none");
+			return;
+		}
+		if (!POSTGRES.isRunning()) {
+			POSTGRES.start();
+		}
+		registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+		registry.add("spring.datasource.username", POSTGRES::getUsername);
+		registry.add("spring.datasource.password", POSTGRES::getPassword);
+		registry.add("spring.datasource.hikari.minimum-idle", () -> 0);
+	}
+
+	@AfterAll
+	static void stopMeasurementPostgres() {
+		if (!externalMeasurement() && POSTGRES.isRunning()) {
+			POSTGRES.stop();
+		}
+	}
 
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
@@ -86,14 +133,44 @@ class MatchResponseCompletionBaselinePostgresTest {
 	private ApplicationContext applicationContext;
 	private Integer controlledMeasurementProposalCount;
 	private String controlledFutureFailureIdempotencyKeySuffix;
+	private boolean externalMeasurementTargetVerified;
+
+	@BeforeEach
+	void prepareFixture() {
+		verifyExternalMeasurementTarget();
+		clearFixture();
+	}
 
 	@AfterEach
-	void clearFixture() {
+	void clearFixtureAfterEach() {
+		if (!externalMeasurement() || externalMeasurementTargetVerified) {
+			clearFixture();
+		}
+		externalMeasurementTargetVerified = false;
+	}
+
+	private void clearFixture() {
+		if (externalMeasurement() && !externalMeasurementTargetVerified) {
+			throw new IllegalStateException("외부 측정 대상 확인 전 fixture를 정리할 수 없습니다.");
+		}
 		jdbcTemplate.execute(
 			"truncate table match_idempotency_records, match_proposal_members, match_proposals, match_party_participants, match_parties, match_requests, users restart identity cascade");
 		completionProbe.clear();
 		controlledMeasurementProposalCount = null;
 		controlledFutureFailureIdempotencyKeySuffix = null;
+	}
+
+	@Test
+	void 외부_측정_대상은_허용된_database_schema이고_비어_있을_때만_통과한다() {
+		assertEquals("set search_path to \"public\", pg_catalog", externalMeasurementSearchPathSql("public"));
+		assertDoesNotThrow(() -> requireExternalMeasurementTarget(
+			"albam_mate_measurement", "albam_mate_measurement", "public", "public", List.of()));
+		assertThrows(IllegalStateException.class, () -> requireExternalMeasurementTarget(
+			"albam_mate_measurement", "albam_mate", "public", "public", List.of()));
+		assertThrows(IllegalStateException.class, () -> requireExternalMeasurementTarget(
+			"albam_mate_measurement", "albam_mate_measurement", "public", "private", List.of()));
+		assertThrows(IllegalStateException.class, () -> requireExternalMeasurementTarget(
+			"albam_mate_measurement", "albam_mate_measurement", "public", "public", List.of("users(1)")));
 	}
 
 	@Test
@@ -238,7 +315,7 @@ class MatchResponseCompletionBaselinePostgresTest {
 			return;
 		}
 		assertDoesNotThrow(MatchResponseCompletionBaselineSupport::requireMeasurementOptIn);
-		Path artifact = runContractMeasurement(Path.of("docs/measurements/results/match-01/response-completion"));
+		Path artifact = runContractMeasurement(measurementOutputDirectory());
 		assertTrue(Files.exists(artifact));
 	}
 
@@ -322,6 +399,13 @@ class MatchResponseCompletionBaselinePostgresTest {
 		return artifact;
 	}
 
+	private static Path measurementOutputDirectory() {
+		String configuredDirectory = System.getProperty("issue776.outputDirectory");
+		return configuredDirectory == null || configuredDirectory.isBlank()
+			? Path.of("docs/measurements/results/match-01/response-completion")
+			: Path.of(configuredDirectory);
+	}
+
 	@Test
 	void artifact_provenance는_실제_SHA와_raw_data_digest를_검증한다() {
 		MatchResponseCompletionBaselineSupport.Artifact artifact = MatchResponseCompletionBaselineSupport
@@ -330,6 +414,19 @@ class MatchResponseCompletionBaselinePostgresTest {
 		assertDoesNotThrow(() -> MatchResponseCompletionBaselineSupport.verifyArtifact(artifact));
 		assertThrows(IllegalArgumentException.class,
 			() -> MatchResponseCompletionBaselineSupport.verifyArtifact(artifact.withRawDataDigest("0".repeat(64))));
+	}
+
+	@Test
+	void 측정_source_rename은_출발지와_목적지를_모두_output_경로로_제한한다() {
+		String outputPath = "docs/measurements/results/match-01/response-completion/";
+		String renamePrefix = "2 R. N... 0000000 0000000 0000000 "
+			+ "0000000000000000000000000000000000000000 "
+			+ "0000000000000000000000000000000000000000 R100 ";
+		String allowedRename = renamePrefix + outputPath + "new.json\0" + outputPath + "old.json\0";
+		String outsideRename = renamePrefix + outputPath + "new.json\0src/main/java/Unexpected.java\0";
+
+		assertTrue(allChangedPathsWithinOutput(allowedRename, outputPath));
+		assertFalse(allChangedPathsWithinOutput(outsideRename, outputPath));
 	}
 
 	private long insertUser() {
@@ -393,16 +490,20 @@ class MatchResponseCompletionBaselinePostgresTest {
 		Instant fixtureReferenceTime = jdbcTemplate.queryForObject("select transaction_timestamp()", Timestamp.class)
 			.toInstant();
 		Instant respondBy = fixtureReferenceTime.plusSeconds(30);
+		List<MatchResponseCompletionBaselineSupport.FixtureRow> proposalRows = rows.stream()
+			.filter(row -> row.memberOrdinal() == 1)
+			.toList();
+		Map<Integer, Long> proposalIds = insertFixtureProposals(proposalRows, fixtureReferenceTime, respondBy);
+		Map<FixtureKey, Long> userIds = insertFixtureUsers(scenario, rows, fixtureReferenceTime);
+		Map<FixtureKey, Long> requestIds = insertFixtureRequests(scenario, rows, userIds, fixtureReferenceTime);
+		insertFixtureProposalMembers(scenario, rows, proposalIds, userIds, requestIds, fixtureReferenceTime);
 		List<ResponseCommand> commands = new ArrayList<>();
 		List<PrivateManifestRow> manifestRows = new ArrayList<>();
-		long proposalId = 0L;
 		for (MatchResponseCompletionBaselineSupport.FixtureRow fixtureRow : rows) {
-			if (fixtureRow.memberOrdinal() == 1) {
-				proposalId = insertOpenProposal(fixtureReferenceTime);
-			}
-			long userId = insertUser(fixtureReferenceTime);
-			long requestId = insertRequest(userId, fixtureReferenceTime);
-			insertProposalMember(proposalId, requestId, userId, fixtureReferenceTime);
+			FixtureKey fixtureKey = fixtureKey(scenario, fixtureRow);
+			long proposalId = requireFixtureId(proposalIds, fixtureRow.proposalOrdinal(), "match proposal");
+			long userId = requireFixtureId(userIds, fixtureKey, "fixture user");
+			long requestId = requireFixtureId(requestIds, fixtureKey, "fixture request");
 			boolean commandTarget = fixtureRow.commandTarget();
 			manifestRows.add(new PrivateManifestRow(fixtureRow.proposalOrdinal(), fixtureRow.memberOrdinal(),
 				proposalId, proposalId, requestId, requestId, scenario.name(), commandTarget,
@@ -417,6 +518,104 @@ class MatchResponseCompletionBaselinePostgresTest {
 			}
 		}
 		return new MaterializedCommands(List.copyOf(commands), List.copyOf(manifestRows), fixtureReferenceTime);
+	}
+
+	private Map<Integer, Long> insertFixtureProposals(
+		List<MatchResponseCompletionBaselineSupport.FixtureRow> proposalRows,
+		Instant fixtureReferenceTime, Instant respondBy) {
+		Timestamp createdAt = Timestamp.from(fixtureReferenceTime);
+		Timestamp respondByTimestamp = Timestamp.from(respondBy);
+		String sql = "insert into match_proposals (party_size, status, respond_by, created_at, updated_at) values "
+			+ "(2, 'OPEN', ?, ?, ?) returning id";
+		Map<Integer, Long> proposalIds = new LinkedHashMap<>();
+		for (MatchResponseCompletionBaselineSupport.FixtureRow row : proposalRows) {
+			Long proposalId = jdbcTemplate.queryForObject(sql, Long.class, respondByTimestamp, createdAt, createdAt);
+			proposalIds.put(row.proposalOrdinal(), requireGeneratedFixtureId(proposalId, "match proposal"));
+		}
+		return Map.copyOf(proposalIds);
+	}
+
+	private Map<FixtureKey, Long> insertFixtureUsers(Scenario scenario,
+		List<MatchResponseCompletionBaselineSupport.FixtureRow> rows, Instant fixtureReferenceTime) {
+		Timestamp createdAt = Timestamp.from(fixtureReferenceTime);
+		String sql = "insert into users (email, password_hash, nickname, created_at, updated_at) values "
+			+ "(?, 'hash', 'issue776', ?, ?) returning id";
+		Map<FixtureKey, Long> userIds = new LinkedHashMap<>();
+		for (MatchResponseCompletionBaselineSupport.FixtureRow row : rows) {
+			String email = "issue776-" + scenario.name() + "-" + row.proposalOrdinal() + "-"
+				+ row.memberOrdinal() + "-" + UUID.randomUUID() + "@example.com";
+			Long userId = jdbcTemplate.queryForObject(sql, Long.class, email, createdAt, createdAt);
+			userIds.put(fixtureKey(scenario, row), requireGeneratedFixtureId(userId, "fixture user"));
+		}
+		return Map.copyOf(userIds);
+	}
+
+	private Map<FixtureKey, Long> insertFixtureRequests(Scenario scenario,
+		List<MatchResponseCompletionBaselineSupport.FixtureRow> rows, Map<FixtureKey, Long> userIds,
+		Instant fixtureReferenceTime) {
+		Timestamp createdAt = Timestamp.from(fixtureReferenceTime);
+		String sql = "insert into match_requests (user_id, min_party_size, max_party_size, status, queued_at, priority_since, proposed_at, created_at, updated_at) values "
+			+ "(?, 2, 4, 'PROPOSED', ?, ?, ?, ?, ?) returning id";
+		Map<FixtureKey, Long> requestIds = new LinkedHashMap<>();
+		for (MatchResponseCompletionBaselineSupport.FixtureRow row : rows) {
+			FixtureKey fixtureKey = fixtureKey(scenario, row);
+			long userId = requireFixtureId(userIds, fixtureKey, "fixture user");
+			Long requestId = jdbcTemplate.queryForObject(sql, Long.class, userId, createdAt, createdAt,
+				createdAt, createdAt, createdAt);
+			requestIds.put(fixtureKey, requireGeneratedFixtureId(requestId, "fixture request"));
+		}
+		return Map.copyOf(requestIds);
+	}
+
+	private void insertFixtureProposalMembers(Scenario scenario,
+		List<MatchResponseCompletionBaselineSupport.FixtureRow> rows, Map<Integer, Long> proposalIds,
+		Map<FixtureKey, Long> userIds, Map<FixtureKey, Long> requestIds, Instant fixtureReferenceTime) {
+		Timestamp createdAt = Timestamp.from(fixtureReferenceTime);
+		String sql = "insert into match_proposal_members (proposal_id, match_request_id, user_id, response_status, created_at, updated_at) values "
+			+ repeatedValues("(?, ?, ?, 'PENDING', ?, ?)", rows.size());
+		jdbcTemplate.update(sql, statement -> {
+			for (int index = 0; index < rows.size(); index++) {
+				MatchResponseCompletionBaselineSupport.FixtureRow row = rows.get(index);
+				FixtureKey fixtureKey = fixtureKey(scenario, row);
+				int parameter = index * 5 + 1;
+				statement.setLong(parameter, requireFixtureId(proposalIds, row.proposalOrdinal(), "match proposal"));
+				statement.setLong(parameter + 1, requireFixtureId(requestIds, fixtureKey, "fixture request"));
+				statement.setLong(parameter + 2, requireFixtureId(userIds, fixtureKey, "fixture user"));
+				statement.setTimestamp(parameter + 3, createdAt);
+				statement.setTimestamp(parameter + 4, createdAt);
+			}
+		});
+	}
+
+	private static FixtureKey fixtureKey(Scenario scenario,
+		MatchResponseCompletionBaselineSupport.FixtureRow row) {
+		return new FixtureKey(scenario.name(), row.proposalOrdinal(), row.memberOrdinal());
+	}
+
+	private static long requireGeneratedFixtureId(Long id, String entityName) {
+		if (id == null) {
+			throw new IllegalStateException(entityName + " generated id가 없습니다.");
+		}
+		return id;
+	}
+
+	private static long requireFixtureId(Map<?, Long> ids, Object key, String entityName) {
+		Long id = ids.get(key);
+		if (id == null) {
+			throw new IllegalStateException(entityName + " fixture 매핑이 없습니다: " + key);
+		}
+		return id;
+	}
+
+	private String repeatedValues(String rowValues, int count) {
+		StringBuilder values = new StringBuilder(rowValues.length() * count + count * 2);
+		for (int index = 0; index < count; index++) {
+			if (index > 0) {
+				values.append(", ");
+			}
+			values.append(rowValues);
+		}
+		return values.toString();
 	}
 
 	private ExecutionResult executeCommandsConcurrently(List<ResponseCommand> commands, boolean duplicate) {
@@ -967,7 +1166,8 @@ class MatchResponseCompletionBaselinePostgresTest {
 		boolean matchesExpectedState = statesByProposal.size() == 500;
 		for (List<String> states : statesByProposal.values()) {
 			matchesExpectedState = matchesExpectedState && states.size() == 2
-				&& states.stream().allMatch(state -> state.equals("PREPARING") || state.equals("ACTIVE"));
+				&& states.stream().allMatch(state -> state.equals("PROPOSED")
+					|| state.equals("PREPARING") || state.equals("ACTIVE"));
 		}
 		long matchedExpectedStateCount = matchesExpectedState ? execution.currentStates().size() : 0L;
 		return new CurrentStateDistribution(proposedCount, terminalCount, otherCount, matchedExpectedStateCount,
@@ -985,6 +1185,9 @@ class MatchResponseCompletionBaselinePostgresTest {
 		List<PrivateManifestRow> privateManifestRows,
 		Path directory) {
 		try {
+			if (Boolean.getBoolean("issue776.measurement")) {
+				requireCleanMeasurementSource(directory);
+			}
 			Files.createDirectories(directory);
 			String commit = new String(
 				new ProcessBuilder("git", "rev-parse", "HEAD").start().getInputStream().readAllBytes()).trim();
@@ -1001,10 +1204,7 @@ class MatchResponseCompletionBaselinePostgresTest {
 			Files.writeString(privateManifest, privateManifestBytes);
 			Map<String, Object> root = new LinkedHashMap<>();
 			root.put("measuredGitCommitSha", commit);
-			root.put("environment", Map.of(
-				"schedulingEnabled", springEnvironment.getProperty("spring.task.scheduling.enabled", "true"),
-				"notificationRelayEnabled", springEnvironment.getProperty("app.notification.relay.enabled", "true"),
-				"chatRetentionEnabled", springEnvironment.getProperty("app.chat.retention.enabled", "true")));
+			root.put("environment", measurementEnvironment());
 			root.put("fixture", Map.of("seed", "MATCH-01-RESPONSE-COMPLETION-V2",
 				"fixtureInput", fixture.csv(),
 				"fixtureInputSha256", fixture.fixtureInputSha256(),
@@ -1079,6 +1279,214 @@ class MatchResponseCompletionBaselinePostgresTest {
 		} catch (Exception exception) {
 			throw new AssertionError("response completion artifact 기록 실패", exception);
 		}
+	}
+
+	private Map<String, Object> measurementEnvironment() {
+		Map<String, Object> environment = new LinkedHashMap<>();
+		environment.put("schedulingEnabled", springEnvironment.getProperty("spring.task.scheduling.enabled", "true"));
+		environment.put("notificationRelayEnabled",
+			springEnvironment.getProperty("app.notification.relay.enabled", "true"));
+		environment.put("chatRetentionEnabled", springEnvironment.getProperty("app.chat.retention.enabled", "true"));
+		environment.put("flywayEnabled", springEnvironment.getProperty("spring.flyway.enabled", "true"));
+		environment.put("hibernateDdlAuto",
+			springEnvironment.getProperty("spring.jpa.hibernate.ddl-auto", "none"));
+		environment.put("fixtureInsertMode", "single-row-returning-identifiers-and-bulk-members");
+
+		Map<String, String> profile = new LinkedHashMap<>();
+		profile.put("target", measurementProfileValue("issue776.measurement.target", "testcontainer"));
+		profile.put("stackId", measurementProfileValue("issue776.environment.stackId", "local"));
+		profile.put("region", measurementProfileValue("issue776.environment.region", "local"));
+		profile.put("releaseSha", measurementProfileValue("issue776.environment.releaseSha", "local"));
+		profile.put("appInstanceType", measurementProfileValue("issue776.environment.appInstanceType", "local"));
+		profile.put("postgresInstanceType",
+			measurementProfileValue("issue776.environment.postgresInstanceType", "local"));
+		profile.put("redisInstanceType", measurementProfileValue("issue776.environment.redisInstanceType", "local"));
+		profile.put("backendImage", measurementProfileValue("issue776.environment.backendImage", "local"));
+		profile.put("webImage", measurementProfileValue("issue776.environment.webImage", "local"));
+		profile.put("postgresImage", measurementProfileValue("issue776.environment.postgresImage", "local"));
+		profile.put("redisImage", measurementProfileValue("issue776.environment.redisImage", "local"));
+		profile.put("applicationConfigSha256",
+			measurementProfileValue("issue776.environment.applicationConfigSha256", "local"));
+		profile.put("responseTopology",
+			measurementProfileValue("issue776.environment.responseTopology", "single-jvm-direct-jdbc"));
+		environment.put("profile", profile);
+		return environment;
+	}
+
+	private static boolean externalMeasurement() {
+		return Boolean.getBoolean("issue776.external");
+	}
+
+	private static String requiredEnvironmentVariable(String name) {
+		String value = System.getenv(name);
+		if (value == null || value.isBlank()) {
+			throw new IllegalStateException(name + " 환경변수가 필요합니다.");
+		}
+		return value;
+	}
+
+	private static void validateExternalMeasurementConfiguration() {
+		requiredEnvironmentVariable("ISSUE776_JDBC_URL");
+		requiredEnvironmentVariable("ISSUE776_JDBC_USERNAME");
+		requiredEnvironmentVariable("ISSUE776_JDBC_PASSWORD");
+		requiredEnvironmentVariable(EXTERNAL_ALLOWED_DATABASE_ENV);
+		requiredEnvironmentVariable(EXTERNAL_ALLOWED_SCHEMA_ENV);
+		for (String propertyName : REQUIRED_EXTERNAL_PROFILE_PROPERTIES) {
+			requiredSystemProperty(propertyName);
+		}
+	}
+
+	private static String requiredSystemProperty(String name) {
+		String value = System.getProperty(name);
+		if (value == null || value.isBlank()) {
+			throw new IllegalStateException(name + " 시스템 속성이 필요합니다.");
+		}
+		return value;
+	}
+
+	private void verifyExternalMeasurementTarget() {
+		if (!externalMeasurement()) {
+			return;
+		}
+		String expectedDatabase = requiredEnvironmentVariable(EXTERNAL_ALLOWED_DATABASE_ENV);
+		String expectedSchema = requiredEnvironmentVariable(EXTERNAL_ALLOWED_SCHEMA_ENV);
+		jdbcTemplate.execute(externalMeasurementSearchPathSql(expectedSchema));
+		String actualDatabase = jdbcTemplate.queryForObject("select current_database()", String.class);
+		String actualSchema = jdbcTemplate.queryForObject("select current_schema()", String.class);
+		List<String> tableNames = jdbcTemplate.queryForList("""
+			select table_name
+			from information_schema.tables
+			where table_schema = current_schema()
+			  and table_type = 'BASE TABLE'
+			  and table_name <> 'flyway_schema_history'
+			order by table_name
+			""", String.class);
+		List<String> nonEmptyTables = new ArrayList<>();
+		for (String tableName : tableNames) {
+			Long rowCount = jdbcTemplate.queryForObject(
+				"select count(*) from " + quoteIdentifier(tableName), Long.class);
+			if (rowCount != null && rowCount > 0) {
+				nonEmptyTables.add(tableName + "(" + rowCount + ")");
+			}
+		}
+		requireExternalMeasurementTarget(expectedDatabase, actualDatabase, expectedSchema, actualSchema,
+			nonEmptyTables);
+		externalMeasurementTargetVerified = true;
+	}
+
+	private static void requireExternalMeasurementTarget(String expectedDatabase, String actualDatabase,
+		String expectedSchema, String actualSchema, List<String> nonEmptyTables) {
+		if (!expectedDatabase.equals(actualDatabase)) {
+			throw new IllegalStateException("외부 측정 database가 허용 대상과 다릅니다: expected=" + expectedDatabase
+				+ ", actual=" + actualDatabase);
+		}
+		if (!expectedSchema.equals(actualSchema)) {
+			throw new IllegalStateException("외부 측정 schema가 허용 대상과 다릅니다: expected=" + expectedSchema
+				+ ", actual=" + actualSchema);
+		}
+		if (!nonEmptyTables.isEmpty()) {
+			throw new IllegalStateException("외부 측정 대상 schema가 비어 있지 않습니다: " + nonEmptyTables);
+		}
+	}
+
+	private static String quoteIdentifier(String identifier) {
+		return "\"" + identifier.replace("\"", "\"\"") + "\"";
+	}
+
+	private static String externalMeasurementSearchPathSql(String schema) {
+		return "set search_path to " + quoteIdentifier(schema) + ", pg_catalog";
+	}
+
+	private static void requireCleanMeasurementSource(Path outputDirectory) throws Exception {
+		Path workingDirectory = Path.of("").toAbsolutePath().normalize();
+		Path absoluteOutputDirectory = outputDirectory.toAbsolutePath().normalize();
+		if (!absoluteOutputDirectory.startsWith(workingDirectory) || absoluteOutputDirectory.equals(workingDirectory)) {
+			throw new IllegalArgumentException("측정 output 디렉터리는 worktree 하위의 별도 경로여야 합니다.");
+		}
+		String allowedOutputPath = workingDirectory.relativize(absoluteOutputDirectory).toString()
+			.replace('\\', '/')
+			.replaceAll("/+$", "") + "/";
+		Process process = new ProcessBuilder("git", "status", "--porcelain=v2", "-z", "--untracked-files=all")
+			.redirectErrorStream(true)
+			.start();
+		String status = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+		int exitCode = process.waitFor();
+		if (exitCode != 0) {
+			throw new IllegalStateException("측정 전 git status 확인에 실패했습니다.");
+		}
+		List<String> unexpectedChanges = parsePorcelainV2Paths(status).stream()
+			.filter(path -> !isAllowedOutputPath(path, allowedOutputPath))
+			.toList();
+		if (!unexpectedChanges.isEmpty()) {
+			throw new IllegalStateException("측정 source가 clean commit이 아닙니다: " + unexpectedChanges);
+		}
+	}
+
+	private static boolean allChangedPathsWithinOutput(String status, String allowedOutputPath) {
+		return parsePorcelainV2Paths(status).stream()
+			.allMatch(path -> isAllowedOutputPath(path, allowedOutputPath));
+	}
+
+	private static boolean isAllowedOutputPath(String path, String allowedOutputPath) {
+		return path.replace('\\', '/').startsWith(allowedOutputPath);
+	}
+
+	private static List<String> parsePorcelainV2Paths(String status) {
+		List<String> paths = new ArrayList<>();
+		int cursor = 0;
+		while (cursor < status.length()) {
+			int recordEnd = status.indexOf('\0', cursor);
+			if (recordEnd < 0) {
+				throw new IllegalStateException("git status porcelain v2 레코드가 종료되지 않았습니다.");
+			}
+			String record = status.substring(cursor, recordEnd);
+			cursor = recordEnd + 1;
+			if (record.isBlank()) {
+				continue;
+			}
+			switch (record.charAt(0)) {
+				case '1' -> paths.add(pathAfterFixedFields(record, 8));
+				case '2' -> {
+					paths.add(pathAfterFixedFields(record, 9));
+					int originalPathEnd = status.indexOf('\0', cursor);
+					if (originalPathEnd < 0) {
+						throw new IllegalStateException("git status rename 원본 경로가 없습니다.");
+					}
+					paths.add(status.substring(cursor, originalPathEnd));
+					cursor = originalPathEnd + 1;
+				}
+				case 'u' -> paths.add(pathAfterFixedFields(record, 10));
+				case '?', '!' -> paths.add(record.substring(2));
+				default -> throw new IllegalStateException("지원하지 않는 git status porcelain v2 레코드입니다: " + record);
+			}
+		}
+		return List.copyOf(paths);
+	}
+
+	private static String pathAfterFixedFields(String record, int separatorCount) {
+		int cursor = 0;
+		for (int separator = 0; separator < separatorCount; separator++) {
+			int nextSeparator = record.indexOf(' ', cursor);
+			if (nextSeparator < 0) {
+				throw new IllegalStateException("git status porcelain v2 경로가 없습니다: " + record);
+			}
+			cursor = nextSeparator + 1;
+		}
+		if (cursor >= record.length()) {
+			throw new IllegalStateException("git status porcelain v2 경로가 비어 있습니다: " + record);
+		}
+		return record.substring(cursor);
+	}
+
+	private static String measurementProfileValue(String propertyName, String localDefault) {
+		String value = System.getProperty(propertyName);
+		if (value != null && !value.isBlank()) {
+			return value;
+		}
+		if (externalMeasurement()) {
+			throw new IllegalStateException(propertyName + " 시스템 속성이 필요합니다.");
+		}
+		return localDefault;
 	}
 
 	private void writeResultDocument(
@@ -1231,7 +1639,7 @@ class MatchResponseCompletionBaselinePostgresTest {
 
 		boolean matchesExpectedCurrentState(String state) {
 			if (this == ACCEPT_FINAL) {
-				return state.equals("PREPARING") || state.equals("ACTIVE");
+				return state.equals("PROPOSED") || state.equals("PREPARING") || state.equals("ACTIVE");
 			}
 			return state.equals(switch (this) {
 				case ACCEPT_NON_TERMINAL -> "PROPOSED";
@@ -1281,6 +1689,8 @@ class MatchResponseCompletionBaselinePostgresTest {
 		}
 	}
 	private record MemberKey(long proposalId, long requestId) {
+	}
+	private record FixtureKey(String scenario, int proposalOrdinal, int memberOrdinal) {
 	}
 	private record MaterializedStateFacts(long proposalMatchCount, long proposalMismatchCount,
 		long memberMatchCount, long memberMismatchCount, long requestMatchCount, long requestMismatchCount,

@@ -1,0 +1,47 @@
+# MATCH-01 T11 response completion before/after 비교
+
+- 판정: RESPONSE_COMPARISON_ACCEPTED
+- before 측정 SHA: c392d66af159a06c32030361ed39c677d46df403
+- before artifact SHA-256: edc89b2265fc10085c54cdca12fdbb0e3d13d66f8ed771fcb7d1e536d309d350
+- after 측정 SHA: c392d66af159a06c32030361ed39c677d46df403
+- after artifact SHA-256: b030f443c82703c4b7669896932c9851cb49e8d271399f057bb8a5a880d48ea8
+- fixture seed: MATCH-01-RESPONSE-COMPLETION-V2
+- fixtureInputSha256: aa24273b455d11d05e54547abc00efb32b0e072d3ec2c016c5ec4bf0bfe6231a
+- comparison runner SHA: c392d66af159a06c32030361ed39c677d46df403
+
+## 동일 환경 profile
+
+~~~json
+{
+  "target": "aws-perf-jiwon-ssm",
+  "stackId": "perf-jiwon",
+  "region": "ap-northeast-2",
+  "releaseSha": "bdc8cd54eba7e63f0ce64745b45bb47fa92ef0bd",
+  "appInstanceType": "t4g.small",
+  "postgresInstanceType": "t4g.small",
+  "redisInstanceType": "t4g.micro",
+  "backendImage": "420551259556.dkr.ecr.ap-northeast-2.amazonaws.com/albam-mate/backend@sha256:a9d522f2377f93708a4e2afc397127d0fd749aac28e4b5603c0df41b8fbf8096",
+  "webImage": "420551259556.dkr.ecr.ap-northeast-2.amazonaws.com/albam-mate/web@sha256:f80f3a50ba00614dfcfdece3d46132436cacaabcdd396d5a5160a09a6586c1ee",
+  "postgresImage": "postgres@sha256:0826e5f2996099babb925e09fb72bf2c6eb5d187cfcae20aa9291af1612307e4",
+  "redisImage": "redis@sha256:78b83aee0bf6781ca973ee5022de73dd16fe93f53593c3a31f079c8c3fa08921",
+  "applicationConfigSha256": "430db589f2519a02df43b3d8d5bc14d661157fa97cb8a7993fcf70266b5f5517",
+  "responseTopology": "single-jvm-direct-jdbc-via-ssm"
+}
+~~~
+
+| 시나리오 | round | before p95 (ns) | after p95 (ns) | delta (ns) | before 처리량 | after 처리량 | before 실패율 | after 실패율 | raw digest pair |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| ACCEPT_NON_TERMINAL | 1 | 4703733700 | 5481123900 | 777390200 | 169.924 | 146.941 | 0.000000 | 0.000000 | b0b3d564841e38d4a4692f3f386e4ea765f28008f56ae71c1fb7a912f66da371 / 293b7be0e7a4ecba4f31ecae58221cad3dbfb997b62a7174314fea194c1bb1ca |
+| ACCEPT_NON_TERMINAL | 2 | 4527793100 | 4597068500 | 69275400 | 179.053 | 173.993 | 0.000000 | 0.000000 | 0c39369ac7f4caeac1a11ab99f55f39fdd92b21dfaadf32d3e73347af21a5468 / d2cbe81b3862ea5df29793ec1bcd4fce5e43030e9972c1db2424aa88a1fa897c |
+| ACCEPT_NON_TERMINAL | 3 | 4568056000 | 4634720000 | 66664000 | 175.450 | 170.274 | 0.000000 | 0.000000 | 065038ef338e94f4d7b73d27034c060e7ded68c32db58ea6b969dcdd15d08083 / 4c50268a468c3592dc619c323a1d6559be669370822429cee0552705895e0641 |
+| ACCEPT_FINAL | 1 | 5891692900 | 5711926400 | -179766500 | 137.830 | 144.600 | 0.000000 | 0.000000 | cb75c78dd6c7b1099cebdcf4156572d7cfc0275f38c6fe92c323b56df9db7684 / 59ed669606f81efcee652323481e34b517480b58dacf224b4f9f1b6011c6e4d9 |
+| ACCEPT_FINAL | 2 | 5577036700 | 5556181200 | -20855500 | 144.540 | 144.175 | 0.000000 | 0.000000 | af6a9c536411bbccb6ee462b1628e6a3ef9074ad7288f110781d0e4c44f578aa / 87091acf95322e248ba8419501bd3a237c41c3dc2be70cdf979fa09c464c8068 |
+| ACCEPT_FINAL | 3 | 5641656000 | 6094171500 | 452515500 | 145.997 | 133.255 | 0.000000 | 0.000000 | 43370f7d979092855714525730624341366c3d977558ae8aa66fb283aafd155d / fe07d08d6bbee963c364657a0d34eaeade599f974412364a56da7191c08312b1 |
+| REQUEUE | 1 | 4064483800 | 3698873900 | -365609900 | 187.352 | 205.294 | 0.000000 | 0.000000 | 367f267ef0ee416d2aad765d08eb0ea3905bd93f599435f28709e7d992ff276f / d249afb83ab8ed89da7ed15b8f83041d217ade7ca36b0c0a1b940f53f669e2b7 |
+| REQUEUE | 2 | 3449549600 | 3687476000 | 237926400 | 218.542 | 204.667 | 0.000000 | 0.000000 | 4b39de728d149d7cb335151de6861c5c5c8cff3ed87d752e979c226be70fba24 / 8d00a425b822ad0cbad9e0430cff531380337147d2c0f24a2bb5b3862201b4d2 |
+| REQUEUE | 3 | 3717030700 | 3958244400 | 241213700 | 197.583 | 193.474 | 0.000000 | 0.000000 | 24cf09f79b3f1fef72ce4b20c3b0513b284090fafb49c08f826260c5bcf7cbc0 / 20656f97a13f971818aa7f8d9a6ec0acdf94881dc6badaeaa2a2f7e7b1e7b638 |
+| CANCEL | 1 | 3671463600 | 3731137500 | 59673900 | 207.670 | 201.745 | 0.000000 | 0.000000 | 4f6924c20ae1d5452ee8b307be4aca2ba575e5432025b8d80226b8af073caa7d / 984ce7ca5ebd954bb03ac65bbdd8c53e797941aa5f9494904858275a67e8a7d6 |
+| CANCEL | 2 | 3680517800 | 3753074300 | 72556500 | 206.448 | 203.308 | 0.000000 | 0.000000 | e67417a4557a74ebb8e54176b0e551a78b1cc629a16b035a8e6ff830af6bc6de / 91e115f8276f6d11e9c153dbabd67ecfa93a04c8d6a4d104b25d4f4fa4c9eab9 |
+| CANCEL | 3 | 3689900300 | 3664216500 | -25683800 | 206.142 | 207.426 | 0.000000 | 0.000000 | d9710c922c2c075a4c1eb2328f868f2248f78dce822d73b79046ae12a3fdd6c3 / c2b78fa5d59b44a5ce90ac8c9d7d416625a80c43d42b8ad432371d02d56b30e6 |
+
+각 행은 양쪽의 p50·p95·p99·처리량·retry·lock wait·실패율·최종 상태 assertion과 raw digest를 함께 보존한다.
