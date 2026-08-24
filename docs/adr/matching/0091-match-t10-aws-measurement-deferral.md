@@ -36,8 +36,8 @@
 3. T11 결과는 T11 자체의 response-completion 증거로만 소비한다. #746 최종 gate가 T11을 사용하려면 머지 후 최종 `develop` SHA, artifact 경로, Git blob hash, 외부 raw digest가 현재 gate manifest와 일치해야 한다. 이전 SHA의 T11 결과를 최종 SHA 증거로 소급하지 않는다.
 4. 현재 gate의 판정 축은 다음처럼 분리한다.
    - 기능·정합성 축: T10 성능 비교를 포함하지 않은 범위의 유효한 통합 evidence만 평가한다. 이 축에서도 모든 포함 artifact의 SHA·경로·hash·결과 정합성을 확인하고, 포함 결과의 `INVALID`·`FAILED`는 통과시키지 않는다.
-   - 성능 축: T10이 유예되었으므로 `미검증`으로 남긴다. T11이 통과해도 T10이 없는 AC9 전체 또는 MATCH-01 전체 성능 완료를 선언하지 않는다.
-5. P2 상태표를 갱신할 때는 기능 정합성 evidence와 운영 성능 evidence를 한 열에서 섞어 `검증 완료`로 표시하지 않는다. T10 유예 사유, PostgreSQL `t4g.micro` 제약, T10 `INVALID` 보존, 성능 결론 부재를 명시하고 운영 성능 상태는 `미검증`으로 유지한다.
+   - 성능 축: T10이 유예되었으므로 `미측정`으로 남긴다. T11이 통과해도 T10이 없는 AC9 전체 또는 MATCH-01 전체 성능 완료를 선언하지 않는다.
+5. P2 상태표를 갱신할 때는 기능 정합성 evidence와 운영 성능 evidence를 한 열에서 섞어 `검증 완료`로 표시하지 않는다. T10 유예 사유, PostgreSQL `t4g.micro` 제약, T10 `INVALID` 보존, 성능 결론 부재를 명시하고 운영 성능 상태는 `미측정`으로 유지한다.
 6. 이 ADR은 #746 이슈 본문의 완료 기준을 자동으로 바꾸거나, #746을 자동으로 완료 처리할 권한을 부여하지 않는다. #746을 기능 gate 결과로 종료하려면 이 ADR을 참조해 이슈의 판정 범위와 결과 이름을 별도로 합의해야 하며, 그렇지 않으면 #746은 T10 미완료 상태로 남긴다.
 
 ## 결과
@@ -48,11 +48,11 @@
     - 최종 SHA·artifact hash·`INVALID`·`FAILED` 판정의 기존 증거 원칙을 기능 gate에 계속 적용한다.
 - 감수할 비용·위험:
     - T10이 유예되므로 AC9와 MATCH-01 전체는 성능 기준에서 미완료다.
-    - 현재 기능 gate에 `DEFERRED_BY_ADR_0091`와 성능 미검증을 표현할 문서·판정 변경이 필요하다.
+    - 현재 기능 gate에 `DEFERRED_BY_ADR_0091`와 성능 미측정을 표현할 문서·판정 변경이 필요하다.
     - PostgreSQL 동시성·lock 대기·candidate claim 성능에 대한 운영 결론을 내릴 수 없다.
 - 후속 작업:
     - #1063은 결정과 후속 정본 반영 상태를 별도 Issue 기록으로 유지하고, #999는 `INVALID` 증거가 보존된 종료 상태로 남긴다. #746을 기능 gate 결과로 종료하려면 이 ADR이 요구하는 별도 판정 범위·결과 이름 합의와 gate manifest 반영을 먼저 완료한 뒤 Issue 상태를 별도로 갱신한다. #1000은 PR #1051이 병합되고 T11 before/after evidence가 확보된 뒤에만 닫는다. 어느 Issue의 종료도 MATCH-01 운영 성능 검증 완료를 뜻하지 않는다.
-    - P2 상태표와 #746 결과에는 이 ADR과 T10 유예를 연결하되, 운영 성능 열은 미검증으로 둔다.
+    - P2 상태표와 #746 결과에는 이 ADR과 T10 유예를 연결하되, 운영 성능 열은 미측정으로 둔다.
     - 별도 infra 결정으로 PostgreSQL 사양 또는 측정 topology가 바뀌면 새 최종 release SHA에서 T10·T11을 다시 검증한다.
 
 ## 적용·호환·rollback
@@ -85,12 +85,17 @@
 ## 검증
 
 - 상태: 미검증
-- 근거:
+- 자동 검증:
+    - 부분 검증: T3 대기 만료·재대기, T6 복구·채팅·rate limit, T8 `CLOSED` 접근 차단·보존·개인정보
+    - 검증 완료: T1 요청 검증·불변식, T2 후보 claim·FIFO, T4 제안·응답·재접속, T5 동시 claim·경합, T7 실시간 복구, T9 차단·신고, T12 현재 상태 보정
+    - 미검증: 없음(개별 T-ID 실행 결과 기준)
+- 실측:
+    - 상태: 미측정
+    - T10 후보 부하·쿼리 전후 비교: 유효한 측정 결과가 없다. [T10 `INVALID` 보고서](../../measurements/results/match-01/candidate-claim/match-01-t10-aws-invalid-2026-08-24.md)는 PostgreSQL `t4g.micro` OOM을 기록한다.
+    - T11 응답 완료 지연 before/after: [독립 비교 evidence](../../measurements/results/match-01/response-completion/match-01-t11-response-completion-before-after-c392d66af159a06c32030361ed39c677d46df403.md)는 `RESPONSE_COMPARISON_ACCEPTED`지만 `MATCH-01-AC9` 전체 성능을 닫지 않는다.
+- 근거와 판정 경계:
     - 계약: [MATCH-01 명세](../../p2/matching.md)의 AC9·T10·T11과 검증 매핑은 T10 후보 부하/전후 비교와 T11 응답 완료 비교를 별도 증거로 요구한다.
-    - 테스트: #776의 T11 response-completion baseline consumer는 T11 자체의 계약 판정을 제공한다. PR #1051은 before/after 측정 경로와 비교 validator를 제공하지만, 현재 비교 evidence가 없어 최종 #746 SHA의 전체 gate 통과 근거가 아니다.
-    - 실행: [#999 T10 측정 이슈](https://github.com/bamsongi-club/albam-mate/issues/999)의 종료 기록은 PostgreSQL `t4g.micro` OOM으로 `INVALID`가 되었음을 보여주며, 유효한 T10 raw·before/after 결과가 없음을 확인한다.
-- 미검증:
-    - 이 ADR의 유예를 반영한 #746 gate manifest·판정기·최종 `develop` SHA 실행은 아직 없다.
-    - T10의 유효한 AWS before/after 성능 결과가 없다.
+    - gate 기록: [#746 gate manifest](../../measurements/results/match-01/gates/match-01-gate.json)는 `MATCH_01_FUNCTIONAL_GATE_ACCEPTED_WITH_T10_DEFERRED`와 `performanceStatus: UNVERIFIED`를 기록한다. #746 gate에 채택된 자동 evidence는 T1·T5~T7·T12이며, 개별 T-ID 실행 결과와 gate 입력 범위는 동일하지 않다.
+    - 현재 `develop`에서 gate validator를 실행하면 manifest의 과거 `measuredGitCommitSha`가 현재 저장소 이력의 조상이 아니어서 `INVALID`가 된다. 따라서 ADR 상태는 미검증으로 유지하며, manifest의 gate decision을 현재 `develop` 재검증 완료로 표시하지 않는다.
 
 > 상태 값과 번호·대체 규칙은 [루트 ADR README](../README.md)를 따른다.

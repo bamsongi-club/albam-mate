@@ -8,8 +8,8 @@
         "testId": "MATCH-01-T10",
         "status": "DEFERRED_BY_ADR_0091",
         "adrPath": "docs/adr/matching/0091-match-t10-aws-measurement-deferral.md",
-        "adrGitCanonicalBlobSha256": "9f25dffebc419f619d7c479a6b094e47bc9ce58eac9a63db6f77236d84067e28",
-        "adrArtifactSha256": "9f25dffebc419f619d7c479a6b094e47bc9ce58eac9a63db6f77236d84067e28",
+        "adrGitCanonicalBlobSha256": "b2b59d80ba5fc4de6c8c063f296f5c6bb32753c2cd093358adcd6ee02101e8dd",
+        "adrArtifactSha256": "b2b59d80ba5fc4de6c8c063f296f5c6bb32753c2cd093358adcd6ee02101e8dd",
         "invalidEvidencePath": "docs/measurements/results/match-01/candidate-claim/match-01-t10-aws-invalid-2026-08-24.md",
         "invalidEvidenceGitCanonicalBlobSha256": "23ac68b4b7f478aca39b06435f8ce3e15ab6f7ecf1830d8ebb507fe276156fe8",
         "invalidEvidenceArtifactSha256": "23ac68b4b7f478aca39b06435f8ce3e15ab6f7ecf1830d8ebb507fe276156fe8"
