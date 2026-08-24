@@ -8,6 +8,12 @@
   <img src="docs/assets/albam-mate-screens.jpg" alt="알밤메이트 홈, 게임 찾기, 모임 찾기, 채팅 화면" width="900">
 </p>
 
+`Java 21` · `Spring Boot 4.1` · `PostgreSQL 18` · `Redis` · `React 19` · `AWS` · `GitHub Actions`
+
+- 채팅 부하 장애를 수정해 HTTP 500 `700~760건 → 0건`, 활성 방 응답 p95 `3,119~5,105ms → 36ms`
+- 17만 건 게임 카탈로그에서 이름 부분일치 검색 p95 `3,034.1ms → 9.7ms`, 측정 뒤 마이그레이션까지 반영
+- 독립 matcher 2개가 동시에 1,000회 경합해도 중복 제안·부분 claim `0건`
+
 ## 해결하려는 문제
 
 보드게임을 하고 싶어도 함께할 사람, 플레이할 게임, 시간과 장소, 규칙을 설명할 사람을 한 번에 맞추기 어렵습니다. 모집 정보가 여러 곳에 흩어지면 초보·라이트 사용자는 자신에게 맞는 모임인지 판단하기도 어렵습니다.
@@ -48,17 +54,17 @@ flowchart LR
 
 ## 설계에서 지키는 핵심 불변식
 
-- 인증·인가·CSRF와 현재 참가 관계는 서버의 요청 경계에서 다시 확인합니다. [API 계약](docs/API.md), [ADR-0003](docs/adr/auth/0003-p0-server-session-spring-security.md)
-- 참가 정원, 중복 참가, 대기열과 상태 전이는 애플리케이션 검사만이 아니라 트랜잭션과 PostgreSQL 제약으로 함께 방어합니다. [ERD](docs/ERD.md), [ADR-0005](docs/adr/participation/0005-room-participation-optimistic-locking.md)
-- 모임 변경과 알림 전달은 같은 트랜잭션 안에서 Outbox 이벤트를 기록하고 commit 이후 relay가 전달합니다. [아키텍처](docs/ARCHITECTURE.md#알림-relay복구정리), [ADR-0029](docs/adr/notification/0029-room-integration-event-transactional-outbox.md)
-- 저장·비교 시각은 UTC로 통일하고, 스키마 변경은 전진 Flyway 마이그레이션과 PostgreSQL 검증을 함께 둡니다. [ADR-0008](docs/adr/platform/0008-flyway-database-migrations.md), [ADR-0009](docs/adr/platform/0009-utc-time-standard.md)
+- **요청 경계에서 다시 확인한다.** 화면에서 감춘 기능도 서버가 인증·인가·CSRF와 현재 참가 관계를 재검사합니다. 클라이언트 상태를 신뢰하면 URL을 직접 호출한 비참가자가 남의 모임 데이터를 읽을 수 있습니다. [API 계약](docs/API.md), [ADR-0003](docs/adr/auth/0003-p0-server-session-spring-security.md)
+- **정원과 상태 전이는 DB가 최종 판정한다.** 정원, 중복 참가, 대기열 전이를 애플리케이션 검사만이 아니라 트랜잭션과 PostgreSQL 제약으로 함께 막습니다. 조회 후 검사만 두면 동시 참가 요청이 같은 자리를 통과해 정원을 넘겨 확정됩니다. [ERD](docs/ERD.md), [ADR-0005](docs/adr/participation/0005-room-participation-optimistic-locking.md)
+- **알림은 업무 변경과 같은 트랜잭션에 묶는다.** 모임 변경과 같은 트랜잭션에서 Outbox 이벤트를 기록하고 commit 이후 relay가 전달합니다. 전송을 트랜잭션 안에서 직접 호출하면 롤백된 변경의 알림이 나가거나, 커밋된 변경의 알림이 유실됩니다. [아키텍처](docs/ARCHITECTURE.md#알림-relay복구정리), [ADR-0029](docs/adr/notification/0029-room-integration-event-transactional-outbox.md)
+- **시각과 스키마는 되돌리지 않는다.** 저장·비교 시각은 UTC로 통일하고, 스키마 변경은 전진 Flyway 마이그레이션과 PostgreSQL 검증을 함께 둡니다. 인스턴스별 로컬 시각과 되돌리는 마이그레이션은 모임 마감 시각과 배포 이력을 인스턴스마다 다르게 만듭니다. [ADR-0008](docs/adr/platform/0008-flyway-database-migrations.md), [ADR-0009](docs/adr/platform/0009-utc-time-standard.md)
 
 ## 기술적 선택
 
 | 문제 | 선택 | 검증 방식 |
 | --- | --- | --- |
-| 코드 구조 | 도메인 중심 모듈러 모놀리스 | 모듈 책임과 의존 방향을 [아키텍처](docs/ARCHITECTURE.md)에 고정하고 `ModuleArchitectureTest`로 검사합니다. |
-| 업무 데이터 | PostgreSQL, Spring Data JPA, Flyway | H2 빠른 테스트와 PostgreSQL 18 Testcontainers 검증의 책임을 분리합니다. |
+| 코드 구조 | Java 21, Spring Boot 4.1 기반 도메인 중심 모듈러 모놀리스 | 모듈 책임과 의존 방향을 [아키텍처](docs/ARCHITECTURE.md)에 고정하고 `ModuleArchitectureTest`로 검사합니다. |
+| 업무 데이터 | PostgreSQL 18, Spring Data JPA, Flyway | H2 빠른 테스트와 PostgreSQL 18 Testcontainers 검증의 책임을 분리합니다. |
 | 인증 | Spring Security 서버 세션 | 세션 쿠키·CSRF·로그아웃과 다중 인스턴스 공유 경계를 HTTP·로컬 통합 테스트로 검증합니다. |
 | 실시간·비동기 전달 | WebSocket, Redis Pub/Sub, Transactional Outbox | 영속 이력을 정본으로 두고 전달 실패·재연결·relay 복구 경계를 독립적으로 검증합니다. |
 | AI 대화·추천 | provider port와 fake·OpenAI adapter, Redis 일 quota와 호출당 고정 예약 비용 | payload allowlist와 quota·비용·usage 경계를 H2·Redis 계약 테스트로 검증합니다. |
@@ -70,13 +76,62 @@ flowchart LR
 
 ## 대표 검증과 실측
 
-아래 수치는 고정한 검증 릴리스와 fixture에서 얻은 결과입니다. 운영 SLO나 현재 서비스 전체의 용량으로 일반화하지 않습니다.
+아래 수치는 고정한 검증 릴리스와 fixture에서 얻은 결과이며, 운영 SLO나 현재 서비스 전체의 용량으로 일반화하지 않습니다.
 
-- 17만 행 게임 fixture의 검색 실험에서 임시 `pg_trgm` GIN 인덱스는 동일한 1 VU 조건의 p95를 `343.8ms`에서 `23.8ms`로 낮췄습니다. 이 수치는 후보 인덱스의 비교 근거이며 운영 스키마 반영 완료를 뜻하지 않습니다. [측정 보고서](docs/measurements/k6/yejin/keyword-search-capacity-2026-08-11.md)
-- 시간 기반 방 상태 보정은 최대 10,000개 due ROOM fixture를 고정 시각·seed와 5회 실측으로 비교했고, 결과를 바탕으로 초기 후보 제한 100과 실행당 최대 batch 100을 정했습니다. 로컬 Testcontainers 기준선이며 운영 용량은 아닙니다. [ROOM-09 기준선](docs/measurements/room-09-bounded-processing-baseline.md)
-- 지연·포화 관측은 고정 release의 임시 AWS에서 네 phase 시나리오로 Nginx·HTTP·Tomcat·Hikari·JVM 지표를 함께 수집해 지연과 포화의 원인 구간을 분리했고, 실측 뒤 스택을 철거했습니다. 임시 검증 배포의 결과이며 운영 SLO가 아닙니다. [OPS-02 측정](docs/measurements/k6/jiho/ops02-latency-saturation-2026-08-19.md)
-- 의미 검색 Hybrid/RRF는 승인 1,000행 corpus와 active pgvector index, 실제 BGE-M3 query embedding을 고정해 후보 수 `K`를 비교했고, full sparse pool 상위 20개와의 일치율이 `K=200`에서 16~19개, `K=400`에서 19~20개임을 확인해 다음 재검토 후보를 `K=400`으로 기록했습니다. 같은 실행에서 40건 중 6건이 공통 6초 deadline에 걸려 관측한 parallel p95 `6,002.960ms`는 통과 근거가 아니라 후속 성능 검토 대상입니다. [SEARCH-04e evidence](docs/measurements/search-04e-hybrid-rrf-regression.md)
-- 매칭 후보 claim은 1,000개 논리 시도를 세 measured round로 고정 측정해 중복 제안과 부분 claim이 0건임을 확인하고 `BASELINE_ACCEPTED`를 받았습니다. candidate claim 구간의 기준선이며 최종 확정·복구와 운영 성능은 별도 증거로 판정합니다. [MATCH-01 후보 탐색 측정 계약](docs/measurements/match-01-candidate-search-baseline-contract.md)
+### 장애를 재현하고 수정 전후를 같은 조건으로 쟀습니다
+
+채팅 부하에서 HTTP 500이 대량 발생했습니다. Redis 연결 팩토리를 세션 경로와 나머지로 분리하고, 남는 연결 실패는 500이 아니라 503으로 응답하도록 고친 뒤 같은 계단·fixture·인스턴스 사양에서 애플리케이션 코드만 바꿔 다시 측정했습니다.
+
+| 지표 | before (3회) | after |
+| --- | ---: | ---: |
+| 채팅 경로 HTTP 500 | 700~760건 | **0건** |
+| `RedisConnectionFailureException` | 2,812~2,928건 | **0건** |
+| Redis 누적 수신 연결 | 99,907~125,678건 | **14,211건** |
+| 활성 방 8개 전송 성공률 | 57.1~70% | **100%** |
+| 활성 방 8개 응답 p95 | 3,119~5,105ms | **36ms** |
+
+남은 503 17건은 결함이 아니라 의도한 동작입니다. 연결 실패를 서버 내부 오류가 아니라 일시적 의존성 장애로 알리는 것이 수정의 일부였습니다. 이 캠페인은 1회 실행이라 다음 날 다른 release로 재현을 확인했고(500 0건, 예외 0건, 누적 연결 14,149건), 남은 WebSocket 위반은 유휴 종료 이슈와 원인 미규명 관측으로 분리해 남겼습니다. [#607 수정 후 측정](docs/measurements/k6/eungi/chat-delivery-capacity-2026-08-12-after-607.md), [재현 측정](docs/measurements/k6/eungi/chat-delivery-capacity-2026-08-13-after-607-repeat.md)
+
+### 인덱스는 측정으로 결정하고 마이그레이션까지 반영했습니다
+
+17만 건 전체 게임 카탈로그를 복원한 임시 AWS 스택에서 같은 release·fixture·시나리오로 `pg_trgm` GIN 인덱스 OFF·ON을 비교했습니다. 게임명 부분일치 검색 p95는 `3,034.1ms → 9.7ms`, p99는 `3,350ms → 10.8ms`로 줄었고 HTTP 실패는 두 상태 모두 0%였습니다. 이 결과로 GIN 도입을 결정해 `V26` 마이그레이션으로 반영했습니다. 같은 실행에서 인덱스를 넣고도 실패한 혼합 부하(전체 p95 `12,748.7ms`)는 GIN으로 닫히는 문제가 아니라고 보고 별도 병목으로 분리했습니다. [인덱스 판단 근거](docs/measurements/k6/yejin/keyword-search-index-decision-2026-08-11.md)
+
+의미 검색에서도 같은 순서를 따랐습니다. Dense·Sparse 병렬 실행 40건 중 6건이 공통 6초 deadline에 걸려 parallel p95가 `6,002.960ms`로 관측됐고, 이를 통과 근거로 쓰지 않고 sparse 경로의 병목 신호로 읽었습니다. 이어서 `V39`로 trigram·bigram GIN 인덱스 7개를 추가해 sparse serving p95를 `330.017ms → 4.547ms`로 낮추고 `games` Seq Scan을 제거했습니다. 다만 V39 전체 적용에 `23,688.132ms`가 걸려 운영 반영에는 쓰기를 멈추는 maintenance window가 필요하다고 함께 기록했습니다. [SEARCH-04e evidence](docs/measurements/search-04e-hybrid-rrf-regression.md)
+
+### 메시지 브로커를 도입하지 않기로 했습니다
+
+알림 fan-out에 Kafka나 RabbitMQ가 필요한지 판단하기 위해, PostgreSQL transactional outbox와 polling relay 그대로 App 2대·poll 5초·인스턴스당 batch 50에서 수신자 1·5·10명 fan-out을 9회 측정했습니다. server-side p95는 `4.210~4.968초`, 최종 backlog·실패·retry는 모두 0건이었고 수신자가 10배가 되어도 p95 중앙값은 `4.259초 → 4.742초`에 그쳤습니다. 이 규모에서 브로커를 도입할 근거를 찾지 못해 **현행 outbox를 유지하기로 결정**했습니다.
+
+이 결정은 PostgreSQL relay가 모든 규모를 견딘다는 뜻이 아닙니다. 지속 혼합 부하는 App cgroup OOM 때문에 유효한 정상·실패 경계를 만들지 못해 relay 포화점은 미측정으로 남겼습니다. [알림 broker 판단서](docs/measurements/k6/jiho/notification-broker-decision-2026-08-11.md)
+
+### 개선 후보 두 개를 만들고 측정 결과로 폐기했습니다
+
+참가 취소·자동 승격의 critical section을 줄이려고 후보 두 개를 구현해, 현행 V0와 함께 `T1 / stress / hot / c8 / 5 rounds` 조건에서 variant당 3회씩 총 9회 실행했습니다. 아홉 run 모두 provenance·무결성·진단 gate를 통과한 `PASS`입니다.
+
+| variant | 성공 응답 p95 중앙값 | 판정 |
+| --- | ---: | --- |
+| V0 (현행) | **233.240ms** | 선택 |
+| V1 후보 | 457.929ms | p95 96.3% 악화 |
+| V2 후보 | 548.845ms | p95 135.3% 악화 |
+
+사전에 승인한 채택 기준은 "p95 중앙값 최소 20% 개선"이었고 어느 후보도 충족하지 못했습니다. 두 후보 PR은 병합하지 않고 Draft로 보존한 뒤 재검토 조건을 [ADR-0087](docs/adr/participation/0087-room-t1-participation-cancel-critical-section-selection.md)에 남겼습니다. [critical section 비교 측정](docs/measurements/k6/jiwon/room-t1-critical-section-comparison-2026-08-21.md)
+
+### 지연과 포화는 직접 주입해서 원인 구간을 분리했습니다
+
+임시 AWS 스택에 지연과 커넥션 풀 대기를 주입해 `baseline → slow-request → db-pool-wait → recovery` 네 phase를 한 릴리스에서 실행했습니다.
+
+| phase | 주입 | 응답 p95 | Hikari pending | 요청 실패 |
+| --- | --- | ---: | ---: | ---: |
+| baseline | 없음 | 11.07ms | 0 | 0 |
+| slow-request | App2 400ms 지연 | 1,611.85ms | 0 | 0 |
+| db-pool-wait | PostgreSQL 1,500ms 지연 | 19,451.15ms | 최대 35 | 0 |
+| recovery | 제거 | 10.56ms | 0 | 0 |
+
+네 phase 모두 요청 실패·유실이 0건이었고 pending이 `db-pool-wait`에서만 올라가, 지연의 원인이 애플리케이션 처리가 아니라 커넥션 풀 대기 구간임을 분리할 수 있었습니다. 임시 검증 스택은 실측 뒤 철거했습니다. [OPS-02 측정](docs/measurements/k6/jiho/ops02-latency-saturation-2026-08-19.md)
+
+### 경합에서 정합성이 깨지지 않는지 확인했습니다
+
+독립 matcher 프로세스 2개가 같은 barrier에서 각 500회씩, round당 1,000개 논리 claim을 동시에 시도하는 measured round를 3회 실행했습니다. `SELECT … FOR UPDATE SKIP LOCKED` 기반 claim에서 기대한 500개 제안과 1,000개 참가자 전이가 정확히 일치했고, 한 요청의 이중 점유·중복 제안·참가자 일부만 전이된 부분 claim이 모두 0건이어서 `BASELINE_ACCEPTED`를 받았습니다. candidate claim 트랜잭션 p95는 세 round 중앙값 `33.6ms`(최대 `36.4ms`), 처리량은 `107.9~137.8 claim/s`였습니다. 최종 확정·복구와 운영 성능은 별도 증거로 판정합니다. [MATCH-01 측정 계약](docs/measurements/match-01-candidate-search-baseline-contract.md)
 
 ## 현재 제공 상태
 
