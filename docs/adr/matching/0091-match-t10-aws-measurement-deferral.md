@@ -87,10 +87,12 @@
 - 상태: 미검증
 - 근거:
     - 계약: [MATCH-01 명세](../../p2/matching.md)의 AC9·T10·T11과 검증 매핑은 T10 후보 부하/전후 비교와 T11 응답 완료 비교를 별도 증거로 요구한다.
-    - 테스트: #776의 T11 response-completion baseline consumer는 T11 자체의 계약 판정을 제공한다. PR #1051은 before/after 측정 경로와 비교 validator를 제공하지만, 현재 비교 evidence가 없어 최종 #746 SHA의 전체 gate 통과 근거가 아니다.
-    - 실행: [#999 T10 측정 이슈](https://github.com/bamsongi-club/albam-mate/issues/999)의 종료 기록은 PostgreSQL `t4g.micro` OOM으로 `INVALID`가 되었음을 보여주며, 유효한 T10 raw·before/after 결과가 없음을 확인한다.
+    - gate 기록: [#746 gate manifest](../../measurements/results/match-01/gates/match-01-gate.json)는 `MATCH_01_FUNCTIONAL_GATE_ACCEPTED_WITH_T10_DEFERRED`와 `performanceStatus: UNVERIFIED`를 기록하고, T10을 `DEFERRED_BY_ADR_0091` 및 보존된 `INVALID` evidence에 연결한다. #746의 종료는 이 기능 gate campaign의 종료이며 MATCH-01 운영 성능 완료를 뜻하지 않는다.
+    - 테스트: #776의 T11 response-completion baseline consumer는 T11 자체의 계약 판정을 제공한다. [#1000 T11 before/after 비교 결과](../../measurements/results/match-01/response-completion/match-01-t11-response-completion-before-after-c392d66af159a06c32030361ed39c677d46df403.md)는 동일 fixture·환경 profile의 `RESPONSE_COMPARISON_ACCEPTED` evidence를 보존하며, PR #1051은 그 측정 경로와 비교 validator를 제공한다. 이 결과는 T10을 대체하지 않고 최종 develop gate evidence로 자동 소급하지 않는다.
+    - 실행: [#999 T10 측정 이슈](https://github.com/bamsongi-club/albam-mate/issues/999)의 종료 기록과 [T10 `INVALID` 보고서](../../measurements/results/match-01/candidate-claim/match-01-t10-aws-invalid-2026-08-24.md)는 PostgreSQL `t4g.micro` OOM으로 유효한 raw·before/after 결과가 생성되지 않았음을 확인한다.
 - 미검증:
-    - 이 ADR의 유예를 반영한 #746 gate manifest·판정기·최종 `develop` SHA 실행은 아직 없다.
+    - 현재 `develop`에서 gate validator를 실행하면 manifest의 과거 `measuredGitCommitSha`가 현재 저장소 이력의 조상이 아니어서 `INVALID`가 된다. 따라서 manifest의 gate decision은 #746 campaign에 기록된 판정으로 보존하며, 현재 `develop`의 재검증 완료로 표시하지 않는다.
     - T10의 유효한 AWS before/after 성능 결과가 없다.
+    - T10이 유예된 상태이므로 `MATCH-01-AC9`와 MATCH-01 전체 운영 성능 완료를 선언하지 않는다.
 
 > 상태 값과 번호·대체 규칙은 [루트 ADR README](../README.md)를 따른다.
