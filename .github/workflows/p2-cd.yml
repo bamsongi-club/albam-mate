@@ -196,6 +196,10 @@ jobs:
             [[ "$1" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo 'invalid image digest' >&2; exit 1; }
           }
 
+          require_runtime_secret_prefix() {
+            [[ "$1" =~ ^/[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)+$ ]] || { echo 'invalid runtime secret prefix' >&2; exit 1; }
+          }
+
           wait_for_command() {
             local command_id="$1"
             local instance_id="$2"
@@ -215,11 +219,12 @@ jobs:
             local label="$1"
             local operation="$2"
             local instance_id="$3"
-            local release_sha="$4"
-            local backend_digest="$5"
-            local web_digest="$6"
+            local runtime_secret_prefix="$4"
+            local release_sha="$5"
+            local backend_digest="$6"
+            local web_digest="$7"
             local command_id
-            command_id="$(aws ssm send-command --document-name "$SSM_DOCUMENT" --instance-ids "$instance_id" --parameters "operation=${operation},sourceSha=${release_sha},backendDigest=${backend_digest},webDigest=${web_digest}" --comment "P2 CD ${label} ${release_sha}" --query 'Command.CommandId' --output text)"
+            command_id="$(aws ssm send-command --document-name "$SSM_DOCUMENT" --instance-ids "$instance_id" --parameters "operation=${operation},sourceSha=${release_sha},backendDigest=${backend_digest},webDigest=${web_digest},runtimeSecretPrefix=${runtime_secret_prefix}" --comment "P2 CD ${label} ${release_sha}" --query 'Command.CommandId' --output text)"
             receipt "phase=${label} source_sha=${release_sha} target=${instance_id} command_id=${command_id} status=started"
             if wait_for_command "$command_id" "$instance_id"; then
               receipt "phase=${label} source_sha=${release_sha} target=${instance_id} command_id=${command_id} status=success"
@@ -231,15 +236,15 @@ jobs:
 
           rollback_app2() {
             receipt 'phase=rollback-app2 status=started'
-            invoke rollback-app2 rollback-app2 "$APP2_INSTANCE_ID" "$LKG_SHA" "$LKG_BACKEND_DIGEST" "$LKG_WEB_DIGEST" || true
-            invoke rollback-app2-verify verify-app2 "$APP2_INSTANCE_ID" "$LKG_SHA" "$LKG_BACKEND_DIGEST" "$LKG_WEB_DIGEST" || true
+            invoke rollback-app2 rollback-app2 "$APP2_INSTANCE_ID" "$RUNTIME_SECRET_PREFIX" "$LKG_SHA" "$LKG_BACKEND_DIGEST" "$LKG_WEB_DIGEST" || true
+            invoke rollback-app2-verify verify-app2 "$APP2_INSTANCE_ID" "$RUNTIME_SECRET_PREFIX" "$LKG_SHA" "$LKG_BACKEND_DIGEST" "$LKG_WEB_DIGEST" || true
             receipt 'phase=rollback-app2 status=finished'
           }
 
           rollback_app1_app2() {
             receipt 'phase=rollback-app1-app2 status=started'
-            invoke rollback-app1 rollback-app1 "$APP1_INSTANCE_ID" "$LKG_SHA" "$LKG_BACKEND_DIGEST" "$LKG_WEB_DIGEST" || true
-            invoke rollback-app1-verify verify-app1 "$APP1_INSTANCE_ID" "$LKG_SHA" "$LKG_BACKEND_DIGEST" "$LKG_WEB_DIGEST" || true
+            invoke rollback-app1 rollback-app1 "$APP1_INSTANCE_ID" "$RUNTIME_SECRET_PREFIX" "$LKG_SHA" "$LKG_BACKEND_DIGEST" "$LKG_WEB_DIGEST" || true
+            invoke rollback-app1-verify verify-app1 "$APP1_INSTANCE_ID" "$RUNTIME_SECRET_PREFIX" "$LKG_SHA" "$LKG_BACKEND_DIGEST" "$LKG_WEB_DIGEST" || true
             rollback_app2
             receipt 'phase=rollback-app1-app2 status=finished'
           }
@@ -252,12 +257,15 @@ jobs:
           contract="$(aws ssm get-parameter --name "$DEPLOYMENT_CONTRACT_PARAMETER" --query 'Parameter.Value' --output text)"
           APP1_INSTANCE_ID="$(jq -er '.app1InstanceId | select(type == "string" and test("^i-[0-9a-f]+$"))' <<< "$contract")"
           APP2_INSTANCE_ID="$(jq -er '.app2InstanceId | select(type == "string" and test("^i-[0-9a-f]+$"))' <<< "$contract")"
-          jq -e --arg document "$SSM_DOCUMENT" --arg lkg "$LKG_PARAMETER" --arg backend "$BACKEND_REPOSITORY" --arg web "$WEB_REPOSITORY" '
+          RUNTIME_SECRET_PREFIX="$(jq -er '.runtimeSecretPrefix | select(type == "string" and test("^/[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)+$"))' <<< "$contract")"
+          require_runtime_secret_prefix "$RUNTIME_SECRET_PREFIX"
+          jq -e --arg document "$SSM_DOCUMENT" --arg lkg "$LKG_PARAMETER" --arg backend "$BACKEND_REPOSITORY" --arg web "$WEB_REPOSITORY" --arg runtime_prefix "$RUNTIME_SECRET_PREFIX" '
             .environment == "p2" and
             .documentName == $document and
             .lastKnownGoodParameter == $lkg and
             .backendRepository == $backend and
             .webRepository == $web and
+            .runtimeSecretPrefix == $runtime_prefix and
             .databaseRollbackSupported == false
           ' <<< "$contract" >/dev/null
 
@@ -268,14 +276,14 @@ jobs:
           receipt "phase=preflight source_sha=${SOURCE_SHA} ci_url=${CI_URL} backend_digest=${BACKEND_DIGEST} web_digest=${WEB_DIGEST} lkg_status=loaded"
 
           # LKG preflight completes before any candidate mutation.
-          invoke preflight-app2-current current "$APP2_INSTANCE_ID" "$LKG_SHA" "$LKG_BACKEND_DIGEST" "$LKG_WEB_DIGEST" || { receipt 'phase=preflight status=failed'; exit 1; }
-          invoke preflight-app1-current current "$APP1_INSTANCE_ID" "$LKG_SHA" "$LKG_BACKEND_DIGEST" "$LKG_WEB_DIGEST" || { receipt 'phase=preflight status=failed'; exit 1; }
+          invoke preflight-app2-current current "$APP2_INSTANCE_ID" "$RUNTIME_SECRET_PREFIX" "$LKG_SHA" "$LKG_BACKEND_DIGEST" "$LKG_WEB_DIGEST" || { receipt 'phase=preflight status=failed'; exit 1; }
+          invoke preflight-app1-current current "$APP1_INSTANCE_ID" "$RUNTIME_SECRET_PREFIX" "$LKG_SHA" "$LKG_BACKEND_DIGEST" "$LKG_WEB_DIGEST" || { receipt 'phase=preflight status=failed'; exit 1; }
 
-          invoke migrate-app2-candidate migrate "$APP2_INSTANCE_ID" "$SOURCE_SHA" "$BACKEND_DIGEST" "$WEB_DIGEST" || { receipt 'phase=migrate-app2-candidate status=failed'; exit 1; }
-          invoke deploy-app2-candidate deploy-app2 "$APP2_INSTANCE_ID" "$SOURCE_SHA" "$BACKEND_DIGEST" "$WEB_DIGEST" || { rollback_app2; exit 1; }
-          invoke verify-app2-candidate verify-app2 "$APP2_INSTANCE_ID" "$SOURCE_SHA" "$BACKEND_DIGEST" "$WEB_DIGEST" || { rollback_app2; exit 1; }
-          invoke deploy-app1-candidate deploy-app1 "$APP1_INSTANCE_ID" "$SOURCE_SHA" "$BACKEND_DIGEST" "$WEB_DIGEST" || { rollback_app1_app2; exit 1; }
-          invoke verify-app1-candidate verify-app1 "$APP1_INSTANCE_ID" "$SOURCE_SHA" "$BACKEND_DIGEST" "$WEB_DIGEST" || { rollback_app1_app2; exit 1; }
+          invoke migrate-app2-candidate migrate "$APP2_INSTANCE_ID" "$RUNTIME_SECRET_PREFIX" "$SOURCE_SHA" "$BACKEND_DIGEST" "$WEB_DIGEST" || { receipt 'phase=migrate-app2-candidate status=failed'; exit 1; }
+          invoke deploy-app2-candidate deploy-app2 "$APP2_INSTANCE_ID" "$RUNTIME_SECRET_PREFIX" "$SOURCE_SHA" "$BACKEND_DIGEST" "$WEB_DIGEST" || { rollback_app2; exit 1; }
+          invoke verify-app2-candidate verify-app2 "$APP2_INSTANCE_ID" "$RUNTIME_SECRET_PREFIX" "$SOURCE_SHA" "$BACKEND_DIGEST" "$WEB_DIGEST" || { rollback_app2; exit 1; }
+          invoke deploy-app1-candidate deploy-app1 "$APP1_INSTANCE_ID" "$RUNTIME_SECRET_PREFIX" "$SOURCE_SHA" "$BACKEND_DIGEST" "$WEB_DIGEST" || { rollback_app1_app2; exit 1; }
+          invoke verify-app1-candidate verify-app1 "$APP1_INSTANCE_ID" "$RUNTIME_SECRET_PREFIX" "$SOURCE_SHA" "$BACKEND_DIGEST" "$WEB_DIGEST" || { rollback_app1_app2; exit 1; }
 
           new_lkg="$(jq -nc --arg source_sha "$SOURCE_SHA" --arg backend_digest "$BACKEND_DIGEST" --arg web_digest "$WEB_DIGEST" '{sourceSha: $source_sha, backendDigest: $backend_digest, webDigest: $web_digest}')"
           lkg_version="$(aws ssm put-parameter --name "$LKG_PARAMETER" --type String --value "$new_lkg" --overwrite --query Version --output text)"

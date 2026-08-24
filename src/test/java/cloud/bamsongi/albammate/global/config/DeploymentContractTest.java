@@ -83,6 +83,8 @@ class DeploymentContractTest {
 		assertTrue(workflow.contains("aws ssm get-parameter"));
 		assertTrue(workflow.contains("aws ssm send-command"));
 		assertTrue(workflow.contains("--document-name \"$SSM_DOCUMENT\""));
+		assertTrue(workflow.contains("runtimeSecretPrefix"));
+		assertTrue(workflow.contains("RUNTIME_SECRET_PREFIX"));
 		assertFalse(workflow.contains("AWS_ACCESS_KEY_ID"));
 		assertFalse(workflow.contains("AWS_SECRET_ACCESS_KEY"));
 	}
