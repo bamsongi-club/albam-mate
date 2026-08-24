@@ -323,7 +323,7 @@
     }
   },
   "teardown": {
-    "status": "destroyed-and-verified",
+    "status": "destroyed-with-limitations",
     "terraformDestroyExitCode": 0,
     "destroyedResourceCount": 94,
     "terraformOutputsAfterDestroy": {},
@@ -331,11 +331,13 @@
     "perfEnvRestored": true,
     "infraPush": false,
     "infraPullRequest": false,
+    "residualVerificationStatus": "NOT_COMPLETED",
+    "costVerificationStatus": "NOT_COMPLETED",
     "sharedResourcesPreserved": [
       "shared ECR",
       "shared SSM"
     ],
-    "residualScope": "Terraform-managed stack state and run.sh status verified; no independent broad AWS residual inventory was retained"
+    "residualScope": "Terraform-managed stack state and run.sh status verified; independent AWS test-owned residual inventory and cost exposure re-query were not completed"
   },
   "artifactBoundary": {
     "rawArtifactRetention": "local-only",

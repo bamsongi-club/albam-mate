@@ -110,7 +110,7 @@ R2·R3은 R1의 deterministic contract invalid를 해결하지 않은 상태에�
 
 ## Teardown과 보존 경계
 
-Terraform stack은 94개 managed resource를 destroy exit 0으로 정리했다. destroy 후 Terraform outputs는 `{}`였고 `run.sh status`는 올라온 stack이 없음을 반환했다. 임시 `perf.env`는 원본 SHA로 복원했다. 공유 ECR·SSM은 campaign 소유가 아니므로 삭제하지 않았다.
+Terraform stack은 94개 managed resource를 destroy exit 0으로 정리했다. destroy 후 Terraform outputs는 `{}`였고 `run.sh status`는 올라온 stack이 없음을 반환했다. 임시 `perf.env`는 원본 SHA로 복원했다. 공유 ECR·SSM은 campaign 소유가 아니므로 삭제하지 않았다. 이 확인은 Terraform-managed stack 정리와 runner 상태에 한정되며, 독립적인 AWS test-owned 잔여 resource inventory와 비용 노출 재조회는 수행하지 못했다. 따라서 teardown 운영 gate는 미완료로 남긴다.
 
 원시 bundle은 local-only로 보존하며, Git에는 비밀이 아닌 campaign metadata·coverage·aggregate·SHA-256만 남겼다. password, credential-derived hash, token, CSRF, target URL, fixture/resource ID, raw SQL과 raw log는 문서와 manifest에 넣지 않았다. 이 저장소의 SHA-256만으로 local-only raw bundle 내용을 독립 재검증할 수는 없다.
 
