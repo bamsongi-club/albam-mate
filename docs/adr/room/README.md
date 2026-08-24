@@ -15,3 +15,4 @@
 | [0056](0056-postgresql-room-query-snapshot-without-global-pre-correction.md) | 사전 전역 보정 없는 ROOM 조회의 PostgreSQL 일관 snapshot | 승인됨 | 2026-08-10 | 검증됨 |
 | [0075](0075-p2-ai-draft-confirmation-and-idempotent-room-command.md) | P2 AI 임시 초안·확인형 Room command와 멱등성 | 승인됨 | 2026-08-18 | 검증됨 |
 | [0076](0076-p2-room-region-closed-set-and-compatibility.md) | P2 Room 지역 닫힌 집합과 기존 요청 호환 | 승인됨 | 2026-08-18 | 미검증 |
+| [0092](0092-p2-direct-room-create-region-required.md) | P2 일반 Room 생성 region 필수화와 홍대 fallback 폐기 | 승인됨 | 2026-08-24 | 검증됨 |

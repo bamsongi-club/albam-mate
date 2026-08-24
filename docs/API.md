@@ -1860,11 +1860,12 @@ Vary: Cookie
 | `experienceLevel` | ExperienceLevel | Y | N | 검색 필터·참가 제한으로 사용하지 않음 |
 | `isRulemasterLed` | boolean | Y | N | 모든 로그인 사용자가 설정 가능 |
 | `startsAt` | string(date-time) | Y | N | 오프셋 필수. 요청 처리 시점보다 미래여야 함 |
+| `region` | Region | Y | N | `홍대`, `강남`, `건대`, `잠실` 중 하나 |
 | `place` | string | Y | N | 앞뒤 공백 제거 후 1~100자, 제어문자 금지 |
 | `recruitmentCapacity` | integer | Y | N | 주최자를 제외한 모집 인원, 1~10 |
 
 - `startsAt`의 누락·`null`·오프셋 없음·형식 오류·현재·과거 시각은 `VALIDATION_ERROR`다.
-- `region`은 요청으로 받지 않으며 응답에서는 항상 `홍대`다. `status`도 요청으로 받지 않으며 생성 결과는 `RECRUITING`이다.
+- `region`의 누락·`null`·허용하지 않는 값은 `VALIDATION_ERROR`다. `status`는 요청으로 받지 않으며 생성 결과는 `RECRUITING`이다.
 - `PERSON_FOCUSED`에 존재하는 `gameId`가 오면 선택 게임으로 저장한다. 태그·카테고리·BGG Weight는 요청으로 받지 않는다.
 
 #### 요청 예시
@@ -1880,6 +1881,7 @@ Vary: Cookie
   "experienceLevel": "ALL_LEVELS",
   "isRulemasterLed": true,
   "startsAt": "2099-01-01T19:00:00+09:00",
+  "region": "홍대",
   "place": "홍대입구역 인근 보드게임 카페",
   "recruitmentCapacity": 3
 }
@@ -1896,6 +1898,7 @@ Vary: Cookie
   "experienceLevel": "BEGINNER_WELCOME",
   "isRulemasterLed": false,
   "startsAt": "2099-01-01T19:00:00+09:00",
+  "region": "강남",
   "place": "홍대입구역 인근",
   "recruitmentCapacity": 3
 }
