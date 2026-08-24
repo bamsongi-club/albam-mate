@@ -91,20 +91,45 @@ public final class MatchCandidateClaimBaselineExternalRunner {
 	}
 
 	private static String readWorktreeStatus() {
+		Path statusOutput = null;
+		Process process = null;
 		try {
-			Process process = new ProcessBuilder("git", "status", "--porcelain=v1", "--untracked-files=all")
+			statusOutput = Files.createTempFile("match01-git-status-", ".log");
+			process = new ProcessBuilder("git", "status", "--porcelain=v1", "--untracked-files=all")
 				.redirectErrorStream(true)
+				.redirectOutput(statusOutput.toFile())
 				.start();
-			String status = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-			if (!process.waitFor(5, TimeUnit.SECONDS) || process.exitValue() != 0) {
+			awaitWorktreeStatusProcess(process);
+			if (process.exitValue() != 0) {
 				throw new IllegalStateException("측정 worktree 상태를 확인하지 못했습니다.");
 			}
-			return status;
+			return Files.readString(statusOutput, StandardCharsets.UTF_8);
 		} catch (java.io.IOException exception) {
 			throw new IllegalStateException("측정 worktree 상태를 확인하지 못했습니다.", exception);
 		} catch (InterruptedException exception) {
+			if (process != null && process.isAlive()) {
+				process.destroyForcibly();
+			}
 			Thread.currentThread().interrupt();
 			throw new IllegalStateException("측정 worktree 상태 확인이 중단되었습니다.", exception);
+		} finally {
+			if (process != null && process.isAlive()) {
+				process.destroyForcibly();
+			}
+			if (statusOutput != null) {
+				try {
+					Files.deleteIfExists(statusOutput);
+				} catch (java.io.IOException exception) {
+					statusOutput.toFile().deleteOnExit();
+				}
+			}
+		}
+	}
+
+	static void awaitWorktreeStatusProcess(Process process) throws InterruptedException {
+		if (!process.waitFor(5, TimeUnit.SECONDS)) {
+			process.destroyForcibly();
+			throw new IllegalStateException("측정 worktree 상태를 확인하지 못했습니다.");
 		}
 	}
 

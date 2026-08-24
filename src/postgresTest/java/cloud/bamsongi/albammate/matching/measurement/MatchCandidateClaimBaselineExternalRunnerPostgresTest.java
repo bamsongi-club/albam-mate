@@ -6,10 +6,13 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
@@ -120,6 +123,15 @@ class MatchCandidateClaimBaselineExternalRunnerPostgresTest {
 	void 외부_측정은_dirty_worktree를_거절한다() {
 		assertThrows(IllegalArgumentException.class,
 			() -> MatchCandidateClaimBaselineExternalRunner.requireCleanWorktree(" M src/example.java\n?? secret.txt"));
+	}
+
+	@Test
+	void git_status가_제한시간을_초과하면_프로세스를_강제_종료한다() {
+		TimeoutProcess process = new TimeoutProcess();
+
+		assertThrows(IllegalStateException.class,
+			() -> MatchCandidateClaimBaselineExternalRunner.awaitWorktreeStatusProcess(process));
+		assertTrue(process.destroyed());
 	}
 
 	@Test
@@ -431,5 +443,60 @@ class MatchCandidateClaimBaselineExternalRunnerPostgresTest {
 		properties.setProperty("match01.external.output",
 			"build/reports/match01-external-input.json");
 		return properties;
+	}
+
+	private static final class TimeoutProcess extends Process {
+
+		private boolean destroyed;
+
+		@Override
+		public OutputStream getOutputStream() {
+			return OutputStream.nullOutputStream();
+		}
+
+		@Override
+		public InputStream getInputStream() {
+			return InputStream.nullInputStream();
+		}
+
+		@Override
+		public InputStream getErrorStream() {
+			return InputStream.nullInputStream();
+		}
+
+		@Override
+		public int waitFor() {
+			return 137;
+		}
+
+		@Override
+		public boolean waitFor(long timeout, TimeUnit unit) {
+			return false;
+		}
+
+		@Override
+		public int exitValue() {
+			throw new IllegalThreadStateException();
+		}
+
+		@Override
+		public void destroy() {
+			destroyed = true;
+		}
+
+		@Override
+		public Process destroyForcibly() {
+			destroyed = true;
+			return this;
+		}
+
+		@Override
+		public boolean isAlive() {
+			return !destroyed;
+		}
+
+		boolean destroyed() {
+			return destroyed;
+		}
 	}
 }
