@@ -390,6 +390,16 @@ const MATCH_CHAT_RECONNECT_LIMIT = 3;
 const MS_PER_HOUR = 60 * 60 * 1000;
 const MS_PER_MINUTE = 60 * 1000;
 
+function blurChatInputOnSurfacePointerDown(event) {
+  if (event.target?.closest?.('.chat-compose')) return;
+  const activeElement = document.activeElement;
+  if (activeElement?.matches?.('input, textarea')) activeElement.blur();
+}
+
+function preserveChatInputFocusOnSendPointerDown(event) {
+  event.preventDefault();
+}
+
 function formatRemainingClose(closesAtIso) {
   const remainingMs = new Date(closesAtIso) - Date.now();
   if (remainingMs <= 0) return '곧 문을 닫아요';
@@ -713,7 +723,7 @@ export function MatchChatView({ onBack, onNavigate, onToast }) {
   const memberByRef = new Map(handoff.members.map((member, index) => [member.participantRef, { ...member, index }]));
 
   return (
-    <div className="chat-screen">
+    <div className="chat-screen" onClick={blurChatInputOnSurfacePointerDown}>
       <div className="chat-topbar">
         <button type="button" className="icon-btn" aria-label="뒤로 가기" onClick={onBack}><BackIcon /></button>
         <div className="chat-topbar-copy">
@@ -752,8 +762,8 @@ export function MatchChatView({ onBack, onNavigate, onToast }) {
 
       <form className="chat-compose" onSubmit={submit}>
         <label className="sr-only" htmlFor="match-chat-message">메시지</label>
-        <input id="match-chat-message" value={content} onChange={(event) => setContent(event.target.value)} disabled={chatClosed || sending} placeholder="메시지 입력" />
-        <button className="chat-send" type="submit" disabled={chatClosed || sending || !content.trim()} aria-label="보내기"><SendIcon /></button>
+        <input id="match-chat-message" value={content} onChange={(event) => setContent(event.target.value)} readOnly={sending} aria-busy={sending} disabled={chatClosed} placeholder="메시지 입력" />
+        <button className="chat-send" onPointerDown={preserveChatInputFocusOnSendPointerDown} type="submit" disabled={chatClosed || sending || !content.trim()} aria-label="보내기"><SendIcon /></button>
       </form>
       {chatClosed && !error && <p className="chat-fail" role="status" style={{ margin: '0 18px 14px' }}>채팅방 상태를 확인하고 있어요.</p>}
       {sendError && <div className="chat-fail" style={{ margin: '0 18px 14px' }} role="alert"><span>{sendError}</span></div>}

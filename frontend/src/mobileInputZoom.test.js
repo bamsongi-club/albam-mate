@@ -16,6 +16,10 @@ describe('#1070 iOS 입력 확대 방지', () => {
     expect(stylesCss).toMatch(/\.chat-compose input\s*\{[^}]*font-size:\s*16px;/s);
   });
 
+  it('모바일 브라우저가 입력 포커스에서 텍스트를 자동 보정하지 않도록 고정한다', () => {
+    expect(stylesCss).toMatch(/html\s*,\s*body\s*\{[^}]*-webkit-text-size-adjust:\s*100%;[^}]*text-size-adjust:\s*100%;/s);
+  });
+
   it('사용자 수동 확대를 막는 viewport 설정을 추가하지 않는다', () => {
     expect(indexHtml).toMatch(/width=device-width/);
     expect(indexHtml).not.toMatch(/user-scalable\s*=\s*no/i);

@@ -1464,6 +1464,16 @@ const CHAT_CONNECTION_STATUS = {
   restricted: '이 채팅의 실시간 연결이 종료됐어요. 채팅 목록에서 다시 들어가 주세요.'
 };
 
+function blurChatInputOnSurfacePointerDown(event) {
+  if (event.target?.closest?.('.chat-compose')) return;
+  const activeElement = document.activeElement;
+  if (activeElement?.matches?.('input, textarea')) activeElement.blur();
+}
+
+function preserveChatInputFocusOnSendPointerDown(event) {
+  event.preventDefault();
+}
+
 function chatStreamMessage(payload, roomId) {
   if (!payload || payload.type !== 'MESSAGE_CREATED' || !payload.message) return null;
   if (String(payload.message.roomId) !== String(roomId) || payload.message.messageId === undefined) return null;
@@ -1767,7 +1777,7 @@ export function ChatRoomView({ roomId, dataVersion, onBack, onChatRead }) {
   const senderColor = (nickname) => (participantOrder.has(nickname) ? playerColor(participantOrder.get(nickname)) : nameColor(nickname));
 
   return (
-    <div className="chat-screen">
+    <div className="chat-screen" onClick={blurChatInputOnSurfacePointerDown}>
       <div className="chat-topbar">
         <button type="button" className="icon-btn" aria-label="뒤로 가기" onClick={onBack}>
           <BackIcon />
@@ -1828,7 +1838,7 @@ export function ChatRoomView({ roomId, dataVersion, onBack, onChatRead }) {
         <form className="chat-compose" onSubmit={submit}>
           <label className="sr-only" htmlFor="chat-message">메시지</label>
           <textarea id="chat-message" readOnly={sending} aria-busy={sending} maxLength="500" value={content} onChange={(event) => { setContent(event.target.value); setSendError(''); setSendResultUnknown(false); }} onKeyDown={handleComposeKeyDown} placeholder="메시지 입력" />
-          <button className="chat-send" disabled={sending} type="submit" aria-label={sending ? '전송 중…' : sendResultUnknown ? '다시 시도' : '전송'}>
+          <button className="chat-send" onPointerDown={preserveChatInputFocusOnSendPointerDown} disabled={sending} type="submit" aria-label={sending ? '전송 중…' : sendResultUnknown ? '다시 시도' : '전송'}>
             <SendIcon />
           </button>
         </form>

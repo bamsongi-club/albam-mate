@@ -484,7 +484,11 @@ describe('#431 CHAT-03 실시간 수신·재연결', () => {
     const input = screen.getByLabelText('메시지');
     input.focus();
     fireEvent.change(input, { target: { value: '이어서 칠게요' } });
-    fireEvent.click(screen.getByRole('button', { name: '전송' }));
+    const sendButton = screen.getByRole('button', { name: '전송' });
+    const pointerDown = new Event('pointerdown', { bubbles: true, cancelable: true });
+    fireEvent(sendButton, pointerDown);
+    expect(pointerDown.defaultPrevented).toBe(true);
+    fireEvent.click(sendButton);
 
     await waitFor(() => expect(api.sendChatMessage).toHaveBeenCalled());
     expect(input.disabled).toBe(false);
@@ -524,6 +528,26 @@ describe('#431 CHAT-03 실시간 수신·재연결', () => {
     await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
     expect(input.disabled).toBe(false);
     expect(input.readOnly).toBe(false);
+    expect(document.activeElement).toBe(input);
+  });
+
+  it('채팅 입력 바깥을 누르면 포커스를 해제하고 입력을 누르면 유지한다', async () => {
+    useFakeWebSocket();
+    vi.spyOn(api, 'getChatMessages').mockResolvedValue({ messages: [], nextBeforeMessageId: null, hasNext: false });
+
+    const { container } = render(<ChatRoomView roomId="7" dataVersion={0} />);
+    await waitFor(() => expect(screen.getByLabelText('메시지')).toBeTruthy());
+
+    const input = screen.getByLabelText('메시지');
+    const chatLog = container.querySelector('.chat-log');
+    input.focus();
+    fireEvent.pointerDown(chatLog);
+    expect(document.activeElement).toBe(input);
+    fireEvent.click(chatLog);
+    expect(document.activeElement).not.toBe(input);
+
+    input.focus();
+    fireEvent.pointerDown(input);
     expect(document.activeElement).toBe(input);
   });
 
