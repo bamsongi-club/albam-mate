@@ -21,8 +21,8 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import cloud.bamsongi.albammate.room.dto.CreateRoomRequest;
 import cloud.bamsongi.albammate.room.dto.ParticipantRoomResponse;
@@ -44,8 +44,9 @@ class RoomCreateServiceTest {
 	private RoomRepository roomRepository;
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
+
 	@ParameterizedTest
-	@ValueSource(strings = { "홍대", "강남", "건대", "잠실" })
+	@ValueSource(strings = {"홍대", "강남", "건대", "잠실"})
 	void T1_게임_중심_생성은_요청한_네_지역을_응답과_저장값에_보존한다(String region) throws Exception {
 		Long hostUserId = insertUser("game-region-" + region + "@example.com", "방장");
 		Long gameId = insertGame(2000L + region.hashCode());
@@ -58,7 +59,7 @@ class RoomCreateServiceTest {
 	}
 
 	@ParameterizedTest
-	@ValueSource(strings = { "홍대", "강남", "건대", "잠실" })
+	@ValueSource(strings = {"홍대", "강남", "건대", "잠실"})
 	void T2_사람_중심_생성은_요청한_네_지역을_응답과_저장값에_보존한다(String region) throws Exception {
 		Long hostUserId = insertUser("person-region-" + region + "@example.com", "방장");
 		CreateRoomRequest request = requestFromJson(RoomType.PERSON_FOCUSED, null, region, "사람 장소");
