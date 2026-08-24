@@ -154,6 +154,84 @@ class RoomParticipationCancelExecutorTest {
 	}
 
 	@Test
+	void 자동_승격된_참가자가_취소하면_참가와_PROMOTED_대기가_함께_CANCELED가_된다() {
+		long hostUserId = insertUser("promoted-cancel-host@example.com", "방장");
+		long leavingUserId = insertUser("promoted-cancel-leaving@example.com", "첫 취소자");
+		long promotedUserId = insertUser("promoted-cancel-user@example.com", "자동 승격자");
+		Room room = createRoom(hostUserId, 1, NOW.plusSeconds(3600));
+		participationRepository.saveAndFlush(
+			Participation.createActive(room, leavingUserId, NOW.minusSeconds(60)));
+		room.addActiveParticipant();
+		roomRepository.saveAndFlush(room);
+		roomWaitlistRepository.saveAndFlush(
+			RoomWaitlist.create(room.getId(), promotedUserId, 10L, NOW.minusSeconds(30)));
+
+		roomParticipationCancelService.cancelParticipation(leavingUserId, room.getId());
+		roomParticipationCancelService.cancelParticipation(promotedUserId, room.getId());
+
+		clearPersistenceContext();
+		assertEquals(ParticipationStatus.CANCELED, participationRepository
+			.findByRoomIdAndUserId(room.getId(), promotedUserId)
+			.orElseThrow()
+			.getStatus());
+		assertEquals(RoomWaitlistStatus.CANCELED, roomWaitlistRepository
+			.findById(new RoomWaitlistId(room.getId(), promotedUserId))
+			.orElseThrow()
+			.getStatus());
+		assertEquals(1, jdbcTemplate.queryForObject("""
+			select count(*)
+			from notification_outbox_events
+			where room_id = ? and event_type = 'WAITLIST_PROMOTED'
+			""", Integer.class, room.getId()));
+	}
+
+	@Test
+	void PROMOTED_대기_취소_전이_오류가_발생하면_참가_대기_ROOM과_이벤트가_함께_롤백된다() {
+		long hostUserId = insertUser("promoted-rollback-host@example.com", "방장");
+		long promotedUserId = insertUser("promoted-rollback-user@example.com", "자동 승격자");
+		Room room = createRoom(hostUserId, 1, NOW.plusSeconds(3600));
+		participationRepository.saveAndFlush(
+			Participation.createActive(room, promotedUserId, NOW.minusSeconds(60)));
+		room.addActiveParticipant();
+		roomRepository.saveAndFlush(room);
+		roomWaitlistRepository.saveAndFlush(
+			RoomWaitlist.create(room.getId(), promotedUserId, 10L, NOW.minusSeconds(30)));
+		jdbcTemplate.update(
+			"update room_waitlists set status = 'PROMOTED' where room_id = ? and user_id = ?",
+			room.getId(),
+			promotedUserId);
+		jdbcTemplate.execute("""
+			alter table room_waitlists
+			add constraint ck_fail_promoted_waitlist_cancellation
+			check (user_id <> %d or status <> 'CANCELED')
+			""".formatted(promotedUserId));
+
+		try {
+			assertThrows(
+				RuntimeException.class,
+				() -> roomParticipationCancelService.cancelParticipation(promotedUserId, room.getId()));
+		} finally {
+			jdbcTemplate.execute("alter table room_waitlists drop constraint ck_fail_promoted_waitlist_cancellation");
+		}
+
+		clearPersistenceContext();
+		assertEquals(ParticipationStatus.ACTIVE, participationRepository
+			.findByRoomIdAndUserId(room.getId(), promotedUserId)
+			.orElseThrow()
+			.getStatus());
+		assertEquals(RoomWaitlistStatus.PROMOTED, roomWaitlistRepository
+			.findById(new RoomWaitlistId(room.getId(), promotedUserId))
+			.orElseThrow()
+			.getStatus());
+		assertEquals(1, roomRepository.findById(room.getId()).orElseThrow().getActiveParticipantCount());
+		assertEquals(0, jdbcTemplate.queryForObject("""
+			select count(*)
+			from notification_outbox_events
+			where room_id = ?
+			""", Integer.class, room.getId()));
+	}
+
+	@Test
 	void 현재_FIFO_첫_WAITING만_승격하고_뒤_대기자는_남긴다() {
 		long hostUserId = insertUser("fifo-host@example.com", "방장");
 		long leavingUserId = insertUser("fifo-leaving@example.com", "취소자");

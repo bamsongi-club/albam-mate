@@ -48,6 +48,8 @@ import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.entity.RoomWaitlist;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
 import cloud.bamsongi.albammate.room.repository.RoomWaitlistRepository;
+import cloud.bamsongi.albammate.room.service.command.RoomParticipationCancelService;
+import cloud.bamsongi.albammate.room.service.command.RoomParticipationService;
 import cloud.bamsongi.albammate.room.service.command.RoomWaitlistCommandService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletRequestWrapper;
@@ -68,6 +70,10 @@ class RoomWaitlistApiIntegrationTest {
 	private RoomWaitlistRepository roomWaitlistRepository;
 	@Autowired
 	private RoomWaitlistCommandService roomWaitlistCommandService;
+	@Autowired
+	private RoomParticipationCancelService roomParticipationCancelService;
+	@Autowired
+	private RoomParticipationService roomParticipationService;
 	@Autowired
 	private RoomWaitlistController roomWaitlistController;
 	@Autowired
@@ -90,6 +96,8 @@ class RoomWaitlistApiIntegrationTest {
 	void tearDown() {
 		responseReadFailureGate.reset();
 		roomStatusCorrectionFailureGate.reset();
+		jdbcTemplate.update(
+			"delete from notification_outbox_events where room_id in (select id from rooms where title = '대기 API 테스트 방')");
 		jdbcTemplate
 			.update("delete from room_waitlists where room_id in (select id from rooms where title = '대기 API 테스트 방')");
 		jdbcTemplate
@@ -186,6 +194,40 @@ class RoomWaitlistApiIntegrationTest {
 	@Test
 	void T2_PROMOTED_관계는_새_마지막_순번으로_재신청한다() throws Exception {
 		assertReapplication("PROMOTED");
+	}
+
+	@Test
+	void 자동_승격_취소_뒤_명시적_대기_신청만_CANCELED_관계를_WAITING으로_재활성화한다() throws Exception {
+		long leavingUserId = insertUser("waitlist-api-promoted-leaving@example.com");
+		long nextWaitingUserId = insertUser("waitlist-api-promoted-next@example.com");
+		insertActiveParticipation(roomId, leavingUserId);
+
+		mockMvc.perform(post(waitlistPath()).with(authenticationFor(waitingUserId)).with(csrf()))
+			.andExpect(status().isCreated());
+		mockMvc.perform(post(waitlistPath()).with(authenticationFor(nextWaitingUserId)).with(csrf()))
+			.andExpect(status().isCreated());
+		roomParticipationCancelService.cancelParticipation(leavingUserId, roomId);
+		roomParticipationCancelService.cancelParticipation(waitingUserId, roomId);
+
+		org.junit.jupiter.api.Assertions.assertEquals(
+			"CANCELED",
+			jdbcTemplate.queryForObject(
+				"select status from room_waitlists where room_id = ? and user_id = ?",
+				String.class,
+				roomId,
+				waitingUserId));
+		org.junit.jupiter.api.Assertions.assertEquals(
+			"PROMOTED",
+			jdbcTemplate.queryForObject(
+				"select status from room_waitlists where room_id = ? and user_id = ?",
+				String.class,
+				roomId,
+				nextWaitingUserId));
+
+		mockMvc.perform(post(waitlistPath()).with(authenticationFor(waitingUserId)).with(csrf()))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.data.waitlistStatus").value("WAITING"))
+			.andExpect(jsonPath("$.data.position").value(1));
 	}
 
 	@Test

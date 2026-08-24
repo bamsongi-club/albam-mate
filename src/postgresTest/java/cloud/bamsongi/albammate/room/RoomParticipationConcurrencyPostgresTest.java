@@ -759,7 +759,7 @@ class RoomParticipationConcurrencyPostgresTest extends SharedPostgresIntegration
 		assertEquals(RoomWaitlistStatus.PROMOTED, waitlistStatus(room.getId(), reapplyingUserId));
 		assertEquals(ParticipationStatus.ACTIVE, participationStatus(room.getId(), reapplyingUserId));
 		roomParticipationCancelService.cancelParticipation(reapplyingUserId, room.getId());
-		assertEquals(RoomWaitlistStatus.PROMOTED, waitlistStatus(room.getId(), reapplyingUserId));
+		assertEquals(RoomWaitlistStatus.CANCELED, waitlistStatus(room.getId(), reapplyingUserId));
 		assertEquals(ParticipationStatus.CANCELED, participationStatus(room.getId(), reapplyingUserId));
 		roomParticipationService.participate(leavingUserId, room.getId());
 		return new ReapplicationFixture(room, leavingUserId, reapplyingUserId);
