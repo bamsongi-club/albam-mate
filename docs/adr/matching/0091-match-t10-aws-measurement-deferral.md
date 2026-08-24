@@ -3,7 +3,7 @@
 - 상태: 승인됨
 - 작성일: 2026-08-24
 - 결정일: 2026-08-24
-- 관련: [결정 이슈 #1063](https://github.com/bamsongi-club/albam-mate/issues/1063), [MATCH-01 통합 정합성 검증 이슈 #746](https://github.com/bamsongi-club/albam-mate/issues/746), [#999](https://github.com/bamsongi-club/albam-mate/issues/999), [#1000](https://github.com/bamsongi-club/albam-mate/issues/1000), [PR #1047](https://github.com/bamsongi-club/albam-mate/pull/1047), [PR #1051](https://github.com/bamsongi-club/albam-mate/pull/1051), [MATCH-01 명세](../../p2/matching.md), [candidate 측정 계약](../../measurements/match-01-candidate-search-baseline-contract.md), [response 측정 계약](../../measurements/match-01-response-completion-baseline-contract.md), [ADR-0063](0063-match-baseline-measurement-gate.md), [ADR-0065](0065-match-candidate-claim-baseline-scope.md)
+- 관련: [결정 이슈 #1063](https://github.com/bamsongi-club/albam-mate/issues/1063), [MATCH-01 통합 정합성 검증 이슈 #746](https://github.com/bamsongi-club/albam-mate/issues/746), [T10 측정 이슈 #999](https://github.com/bamsongi-club/albam-mate/issues/999), [T10 runner PR #1047](https://github.com/bamsongi-club/albam-mate/pull/1047), [T11 baseline evidence #776](https://github.com/bamsongi-club/albam-mate/issues/776), [T11 비교 이슈 #1000](https://github.com/bamsongi-club/albam-mate/issues/1000), [T11 측정 경로 PR #1051](https://github.com/bamsongi-club/albam-mate/pull/1051), [MATCH-01 명세](../../p2/matching.md), [candidate 측정 계약](../../measurements/match-01-candidate-search-baseline-contract.md), [response 측정 계약](../../measurements/match-01-response-completion-baseline-contract.md), [ADR-0063](0063-match-baseline-measurement-gate.md), [ADR-0065](0065-match-candidate-claim-baseline-scope.md)
 - 대체 대상: 없음
 - 후속 ADR: 없음
 
@@ -13,7 +13,7 @@
 
 현재까지 확인한 사실은 다음과 같다.
 
-- #1000의 T11 전용 CI와 response before/after 비교는 자체 계약 기준으로 `RESPONSE_COMPARISON_ACCEPTED`를 기록했다. 그러나 해당 결과는 #746 머지 후 최종 `develop` SHA와 다른 측정 SHA에서 만들어졌으므로, 최종 #746 gate의 동일 SHA 증거로 자동 재사용할 수 없다.
+- #776의 T11 response-completion baseline consumer는 자체 계약 기준으로 `RESPONSE_BASELINE_ACCEPTED`를 기록했다. 이는 개선 전후 비교쌍이나 최종 #746 gate의 동일 SHA 증거가 아니다. #1000과 PR #1051은 T11 before/after 측정·비교를 위한 후속 범위이며, 현재 그 비교 evidence는 없다.
 - #999의 T10 AWS 직접 실행은 PostgreSQL `t4g.micro`에서 애플리케이션·runner·PostgreSQL이 같은 측정 환경 자원을 공유하는 동안 OOM으로 종료되어 `INVALID`가 됐다. 유효한 T10 raw measurement와 개선 전후 비교 결과는 생성되지 않았다.
 - 현재 인프라 결정은 App1·App2를 `t4g.small`로 두되 PostgreSQL은 `t4g.micro`로 유지한다. PostgreSQL 증설은 이 작업의 승인 범위에 없으며, App 계층 상향만으로 PostgreSQL의 메모리 제약을 해소할 수 없다.
 - 해당 AWS 임시 스택은 철거됐다. 같은 조건에서 T10을 다시 실행하려면 PostgreSQL 사양 또는 측정 topology를 바꾸는 별도 인프라 결정이 필요하다.
@@ -32,7 +32,7 @@
 ## 결정
 
 1. `MATCH-01-AC9`, `MATCH-01-T10`, `MATCH-01-T11`의 원래 계약은 삭제·축소·T-ID 변경 없이 유지한다. 이 ADR은 제품 성능 요구를 없애는 결정이 아니라, 현재 MVP 기능 gate에서 T10 측정을 유예하는 결정이다.
-2. 현재 #746 실행에서는 T10을 `DEFERRED_BY_ADR_0091`로 별도 기록한다. T10의 AWS `INVALID` artifact는 append-only 증거로 보존하며 `PASS`·`ACCEPTED`·유효 성능 결과로 재분류하지 않는다.
+2. #746 gate가 이 ADR을 참조해 판정 문서·gate manifest에 유예를 명시하고 그 manifest로 실행될 때에만 T10을 `DEFERRED_BY_ADR_0091`로 별도 기록한다. 현재 #746 gate는 T10 미완료 상태로 유지한다. T10의 AWS `INVALID` artifact는 append-only 증거로 보존하며 `PASS`·`ACCEPTED`·유효 성능 결과로 재분류하지 않는다.
 3. T11 결과는 T11 자체의 response-completion 증거로만 소비한다. #746 최종 gate가 T11을 사용하려면 머지 후 최종 `develop` SHA, artifact 경로, Git blob hash, 외부 raw digest가 현재 gate manifest와 일치해야 한다. 이전 SHA의 T11 결과를 최종 SHA 증거로 소급하지 않는다.
 4. 현재 gate의 판정 축은 다음처럼 분리한다.
    - 기능·정합성 축: T10 성능 비교를 포함하지 않은 범위의 유효한 통합 evidence만 평가한다. 이 축에서도 모든 포함 artifact의 SHA·경로·hash·결과 정합성을 확인하고, 포함 결과의 `INVALID`·`FAILED`는 통과시키지 않는다.
@@ -51,7 +51,7 @@
     - 현재 기능 gate에 `DEFERRED_BY_ADR_0091`와 성능 미검증을 표현할 문서·판정 변경이 필요하다.
     - PostgreSQL 동시성·lock 대기·candidate claim 성능에 대한 운영 결론을 내릴 수 없다.
 - 후속 작업:
-    - 현재 확보된 evidence와 이 결정을 기록한 뒤 #1063·#746·#999를 이번 범위에서 닫는다. #1000은 관련 PR #1051이 병합된 뒤 닫으며, 어느 Issue의 종료도 MATCH-01 운영 성능 검증 완료를 뜻하지 않는다.
+    - #1063은 결정과 후속 정본 반영 상태를 별도 Issue 기록으로 유지하고, #999는 `INVALID` 증거가 보존된 종료 상태로 남긴다. #746을 기능 gate 결과로 종료하려면 이 ADR이 요구하는 별도 판정 범위·결과 이름 합의와 gate manifest 반영을 먼저 완료한 뒤 Issue 상태를 별도로 갱신한다. #1000은 PR #1051이 병합되고 T11 before/after evidence가 확보된 뒤에만 닫는다. 어느 Issue의 종료도 MATCH-01 운영 성능 검증 완료를 뜻하지 않는다.
     - P2 상태표와 #746 결과에는 이 ADR과 T10 유예를 연결하되, 운영 성능 열은 미검증으로 둔다.
     - 별도 infra 결정으로 PostgreSQL 사양 또는 측정 topology가 바뀌면 새 최종 release SHA에서 T10·T11을 다시 검증한다.
 
@@ -59,7 +59,7 @@
 
 - 적용: 이 ADR 승인 후 #746의 판정 문서·gate manifest가 T10 유예를 명시할 때만 적용한다. 유예를 증거 누락의 은폐 수단으로 사용하지 않으며, 유효한 기능 evidence의 SHA·경로·hash 검증은 생략하지 않는다.
 - 호환: ADR-0063의 PostgreSQL 우선 원칙과 ADR-0065의 candidate claim·최종 상태 evidence 분리 및 동일 SHA·Git blob hash 원칙은 유지한다. 이 ADR은 candidate 측정 계약의 fixture·metric·acceptance를 바꾸지 않는다.
-- rollback: 팀이 T10 유예를 승인하지 않으면 기존 #746 계약으로 돌아가 T10 `INVALID`를 blocker로 유지하고, 기능 상태·P2 검증 완료 갱신을 중단한다. 이후 비교 가능한 topology에서 유효한 T10 before/after 결과가 확보되면 이 ADR의 유예를 해제하고 검증 근거만 갱신하거나, 결정 범위가 바뀌면 후속 ADR로 대체한다.
+- rollback: 승인된 T10 유예를 철회하거나 결정 범위를 바꾸려면 후속 ADR로 이 ADR을 대체하고, 후속 ADR 승인 및 #746 gate manifest 반영 뒤 상태를 전환한다. 그 전까지 T10 `INVALID`를 blocker로 유지하고 기능 상태·P2 검증 완료 갱신을 중단한다. 이후 비교 가능한 topology에서 유효한 T10 before/after 결과가 확보되면 후속 ADR의 결정에 따라 유예를 해제하고 검증 근거를 갱신한다.
 
 ## 보류 및 재검토
 
@@ -79,19 +79,18 @@
 - [MATCH 응답 완료 지연 측정 계약](../../measurements/match-01-response-completion-baseline-contract.md)
 - [ADR-0063: MATCH 후보 탐색 성능 baseline 측정 gate](0063-match-baseline-measurement-gate.md)
 - [ADR-0065: MATCH candidate claim baseline 범위와 종합 정합성 gate](0065-match-candidate-claim-baseline-scope.md)
-- [#999 T10 runner·AWS 측정 PR](https://github.com/bamsongi-club/albam-mate/pull/1047)
-- [#1000 T11 response completion runner·비교 PR](https://github.com/bamsongi-club/albam-mate/pull/1051)
+- [T10 runner PR #1047](https://github.com/bamsongi-club/albam-mate/pull/1047) — AWS 측정 실행 경로
+- [T11 측정 경로 PR #1051](https://github.com/bamsongi-club/albam-mate/pull/1051) — before/after 측정·비교 validator 경로이며 비교 evidence 자체는 아님
 
 ## 검증
 
 - 상태: 미검증
 - 근거:
     - 계약: [MATCH-01 명세](../../p2/matching.md)의 AC9·T10·T11과 검증 매핑은 T10 후보 부하/전후 비교와 T11 응답 완료 비교를 별도 증거로 요구한다.
-    - 테스트: [PR #1051](https://github.com/bamsongi-club/albam-mate/pull/1051)의 전용 CI와 T11 response-completion 비교 결과는 T11 자체의 계약 판정을 제공한다. 이는 최종 #746 SHA의 전체 gate 통과 근거가 아니다.
-    - 실행: [PR #1047](https://github.com/bamsongi-club/albam-mate/pull/1047)의 T10 AWS 실행 보고는 PostgreSQL `t4g.micro` OOM으로 `INVALID`를 기록하며, 유효한 T10 raw·before/after 결과가 없음을 보여준다.
+    - 테스트: #776의 T11 response-completion baseline consumer는 T11 자체의 계약 판정을 제공한다. PR #1051은 before/after 측정 경로와 비교 validator를 제공하지만, 현재 비교 evidence가 없어 최종 #746 SHA의 전체 gate 통과 근거가 아니다.
+    - 실행: [#999 T10 측정 이슈](https://github.com/bamsongi-club/albam-mate/issues/999)의 종료 기록은 PostgreSQL `t4g.micro` OOM으로 `INVALID`가 되었음을 보여주며, 유효한 T10 raw·before/after 결과가 없음을 확인한다.
 - 미검증:
     - 이 ADR의 유예를 반영한 #746 gate manifest·판정기·최종 `develop` SHA 실행은 아직 없다.
     - T10의 유효한 AWS before/after 성능 결과가 없다.
-    - P2 상태표와 #746의 예외 판정 범위가 아직 이 ADR을 반영하지 않았다.
 
 > 상태 값과 번호·대체 규칙은 [루트 ADR README](../README.md)를 따른다.
