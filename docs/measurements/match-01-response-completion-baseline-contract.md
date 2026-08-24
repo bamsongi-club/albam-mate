@@ -31,14 +31,33 @@ artifact의 environment.profile에는 before/after 동일 환경 여부를 재�
 | responseTopology | 응답 측정 runner와 PostgreSQL 연결 topology |
 
 기본 runner는 Testcontainers PostgreSQL을 사용한다. AWS 측정은 measurement 전용 외부 datasource 경로를 명시적으로 켜고, infra 저장소가 전달한 접속 환경변수와 위 profile 시스템 속성을 사용한다. 외부 모드에서 접속 비밀값이 없거나 profile 항목이 누락되면 결과를 만들지 않는다.
-외부 datasource 경로는 Flyway를 실행하지 않고 Hibernate schema validation도 끈다. 이 runner는 배포 DB를 초기화하거나 pending migration을 적용하는 역할이 아니라, 이미 배포된 MATCH 응답 테이블에서 fixture·응답 전이·관측만 수행한다. 응답 측정에 필요한 MATCH 스키마가 없거나 컬럼 계약이 다르면 fixture 또는 명령 실행이 실패해 결과를 채택하지 않는다. 1,000개 fixture는 각 테이블을 단일 multi-values SQL로 materialize해 fixture 생성 시간이 고정된 30초 응답 창을 침범하지 않도록 한다.
-measurement opt-in 실행은 response-completion 결과 디렉터리에서 생성되는 산출물만 허용하고, 그 밖의 source 변경이 남아 있으면 artifact 기록 전에 중단한다. 따라서 `measuredGitCommitSha`는 실제 측정 코드가 포함된 clean commit을 가리켜야 한다.
+외부 datasource 경로는 Flyway를 실행하지 않고 Hibernate schema validation도 끈다. 이 runner는 배포 DB를 초기화하거나 pending migration을 적용하는 역할이 아니라, 측정 전용으로 허용된 외부 DB에서 fixture·응답 전이·관측만 수행한다. 외부 모드에서는 `ISSUE776_ALLOWED_DATABASE`와 `ISSUE776_ALLOWED_SCHEMA`를 반드시 지정하고, 모든 connection pool connection의 `search_path`를 허용 schema와 `pg_catalog`으로 고정한다. 연결 직후 `current_database()`·`current_schema()`가 두 값과 일치하는지도 확인한다. 선택된 schema의 `flyway_schema_history`를 제외한 모든 base table이 비어 있지 않으면 `TRUNCATE` 전에 중단한다. 따라서 외부 대상은 전용 빈 DB/schema이고 동시 업무 쓰기가 없어야 하며, 대상 확인이 끝나기 전에는 fixture 정리를 실행하지 않는다. 응답 측정에 필요한 MATCH 스키마가 없거나 컬럼 계약이 다르면 fixture 또는 명령 실행이 실패해 결과를 채택하지 않는다. 식별자를 반환해야 하는 Proposal·User·Request는 각 입력 행을 `INSERT ... RETURNING id`로 개별 삽입하고, Member는 반환된 ID map을 명시적으로 사용한다. fixture 생성·정리와 identifier 반환 순서 검증은 측정 구간 밖에서 수행하므로 응답 latency에 포함하지 않는다.
+measurement opt-in 실행은 response-completion 결과 디렉터리에서 생성되는 산출물만 허용하고, 그 밖의 source 변경이 남아 있으면 artifact 기록 전에 중단한다. Git rename/copy 상태도 원본과 목적지 경로를 모두 확인한다. 따라서 `measuredGitCommitSha`는 실제 측정 코드가 포함된 clean commit을 가리켜야 한다.
 
 ~~~powershell
-$env:ISSUE776_JDBC_URL = "jdbc:postgresql://127.0.0.1:15432/albam_mate?sslmode=disable&ApplicationName=match-01-response-completion"
+$env:ISSUE776_JDBC_URL = "jdbc:postgresql://127.0.0.1:15432/albam_mate_measurement?sslmode=disable&ApplicationName=match-01-response-completion"
 $env:ISSUE776_JDBC_USERNAME = "<infra가 전달한 DB 사용자>"
 $env:ISSUE776_JDBC_PASSWORD = "<infra가 전달한 DB 비밀번호>"
-.\gradlew.bat "-Dissue776.measurement=true" "-Dissue776.external=true" postgresMeasurementTest --tests "cloud.bamsongi.albammate.matching.measurement.MatchResponseCompletionBaselinePostgresTest"
+$env:ISSUE776_ALLOWED_DATABASE = "albam_mate_measurement"
+$env:ISSUE776_ALLOWED_SCHEMA = "public"
+# 아래 <...> 값은 같은 release와 stack의 실제 infra/profile 값으로 교체한다.
+.\gradlew.bat `
+  "-Dissue776.measurement=true" `
+  "-Dissue776.external=true" `
+  "-Dissue776.measurement.target=aws" `
+  "-Dissue776.environment.stackId=<stack-id>" `
+  "-Dissue776.environment.region=<aws-region>" `
+  "-Dissue776.environment.releaseSha=<release-sha>" `
+  "-Dissue776.environment.appInstanceType=<app-instance-type>" `
+  "-Dissue776.environment.postgresInstanceType=<postgres-instance-type>" `
+  "-Dissue776.environment.redisInstanceType=<redis-instance-type>" `
+  "-Dissue776.environment.backendImage=<backend-image-digest>" `
+  "-Dissue776.environment.webImage=<web-image-digest>" `
+  "-Dissue776.environment.postgresImage=<postgres-image-digest>" `
+  "-Dissue776.environment.redisImage=<redis-image-digest>" `
+  "-Dissue776.environment.applicationConfigSha256=<application-config-sha256>" `
+  "-Dissue776.environment.responseTopology=<response-topology>" `
+  postgresMeasurementTest --tests "cloud.bamsongi.albammate.matching.measurement.MatchResponseCompletionBaselinePostgresTest"
 ~~~
 
 위 명령의 실제 AWS 자원 생성·SSM tunnel·destroy는 albam-mate-infra 저장소가 소유하며, 이 저장소에는 접속 비밀값을 남기지 않는다.
@@ -52,7 +71,7 @@ $env:ISSUE776_JDBC_PASSWORD = "<infra가 전달한 DB 비밀번호>"
 | `REQUEUE` | Proposal `DECLINED`; 대상 Member `REQUEUED`; 대상 요청은 새 `queuedAt`·`prioritySince`의 `WAITING`; 비대상 Member는 `PENDING`, 비대상 요청은 기존 `queuedAt`·`prioritySince`를 유지한 `WAITING`; Party 0개 |
 | `CANCEL` | Proposal `CANCELED`; 대상 Member `CANCELED`; 대상 요청 `CANCELED`; 비대상 Member는 `PENDING`, 비대상 요청은 기존 `queuedAt`·`prioritySince`를 유지한 `WAITING`; Party 0개 |
 
-fixture 생성·truncate·통계 초기화는 측정 구간 밖에서 끝낸다. 각 시나리오와 round는 위 전체 상태의 Proposal·Member·연결 요청을 새로 만들며 이전 응답·Party·잠금 상태를 재사용하지 않는다. DB 삽입 전 `scenario,proposalOrdinal,memberOrdinal,userFixtureOrdinal,minPartySize,maxPartySize,partySize,initialRequestStatus,initialResponseStatus,commandTarget` 열 순서와 Proposal·Member ordinal 오름차순, UTF-8·LF·마지막 LF를 사용하는 CSV를 만들고 SHA-256을 `fixtureInputSha256`으로 기록한다. materialized fixture manifest에는 이 입력과 실제 Proposal·Member·request ID, 기대 결과 집합을 보존하되 결과 artifact에는 사용자 식별자를 원문으로 공개하지 않는다.
+fixture 생성·truncate·통계 초기화는 측정 구간 밖에서 끝낸다. 외부 모드의 첫 fixture 정리 전에 위 database/schema allow-list와 빈 schema guard를 통과해야 하며, 이후 정리는 전용 대상과 동시 쓰기가 없다는 전제에서만 수행한다. 각 시나리오와 round는 위 전체 상태의 Proposal·Member·연결 요청을 새로 만들며 이전 응답·Party·잠금 상태를 재사용하지 않는다. DB 삽입 전 `scenario,proposalOrdinal,memberOrdinal,userFixtureOrdinal,minPartySize,maxPartySize,partySize,initialRequestStatus,initialResponseStatus,commandTarget` 열 순서와 Proposal·Member ordinal 오름차순, UTF-8·LF·마지막 LF를 사용하는 CSV를 만들고 SHA-256을 `fixtureInputSha256`으로 기록한다. materialized fixture manifest에는 이 입력과 실제 Proposal·Member·request ID, 기대 결과 집합을 보존하되 결과 artifact에는 사용자 식별자를 원문으로 공개하지 않는다.
 
 correctness-only 중복 경합은 네 시나리오 각각에 대해 같은 전체 fixture와 1,000개 논리 명령을 새로 만든 뒤, 각 논리 명령을 같은 action·body·`Idempotency-Key`로 동시에 두 번 보내는 2,000개 물리 요청으로 고정한다. latency 표본에는 넣지 않고, 키별 멱등성 기록 1개·논리 명령 한 번의 상태 전이·위 표의 최종 상태를 assertion한다. 마지막 `ACCEPT`에서만 Proposal당 Party 1개를 요구하며 나머지 세 시나리오는 Party 0개를 요구한다.
 
