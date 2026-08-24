@@ -99,6 +99,16 @@ async function renderApp(hash) {
   return view;
 }
 
+function deferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((nextResolve, nextReject) => {
+    resolve = nextResolve;
+    reject = nextReject;
+  });
+  return { promise, resolve, reject };
+}
+
 function toastText() {
   return document.getElementById('toast').textContent;
 }
@@ -213,11 +223,37 @@ describe('P2 시안은 서버가 할 일을 실행하지 않는다', () => {
 });
 
 describe('MATCH-01 실시간 파티 매칭', () => {
+  it('현재 상태 조회가 일시 실패해도 마지막 상태로 폴링을 계속한다', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    const waiting = {
+      operationTime: OPERATION_TIME,
+      state: 'WAITING',
+      request: { minPlayers: 2, maxPlayers: 2, queuedAt: OPERATION_TIME },
+      proposal: null,
+      preparing: null,
+      chat: null
+    };
+    api.getCurrentMatch
+      .mockResolvedValueOnce(waiting)
+      .mockRejectedValueOnce(new Error('일시적인 네트워크 오류'))
+      .mockResolvedValue(waiting);
+
+    await renderApp('#/match');
+    await waitFor(() => expect(screen.getByText(/사람을 찾고 있어요/)).toBeTruthy());
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(3500); });
+    expect(api.getCurrentMatch).toHaveBeenCalledTimes(2);
+    expect(screen.getByText(/사람을 찾고 있어요/)).toBeTruthy();
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(3500); });
+    expect(api.getCurrentMatch).toHaveBeenCalledTimes(3);
+  });
+
   it('원하는 인원으로 매칭을 요청하면 대기 화면으로 바뀐다', async () => {
     const waiting = {
       operationTime: OPERATION_TIME,
       state: 'WAITING',
-      request: { minPlayers: 2, maxPlayers: 4, queuedAt: OPERATION_TIME },
+      request: { minPlayers: 2, maxPlayers: 6, queuedAt: OPERATION_TIME },
       proposal: null,
       preparing: null,
       chat: null
@@ -227,11 +263,14 @@ describe('MATCH-01 실시간 파티 매칭', () => {
 
     await renderApp('#/match');
     await waitFor(() => expect(screen.getByRole('button', { name: '매칭 시작하기' })).toBeTruthy());
+    const maxTrigger = screen.getAllByRole('button', { name: /^\d명$/ })[1];
+    await act(async () => { maxTrigger.click(); });
+    await act(async () => { screen.getByRole('button', { name: '6명' }).click(); });
 
     await press('매칭 시작하기');
 
-    await waitFor(() => expect(screen.getByText('사람을 찾는 중')).toBeTruthy());
-    expect(api.createMatchRequest).toHaveBeenCalledWith({ minPlayers: 2, maxPlayers: 4 }, expect.any(String));
+    await waitFor(() => expect(screen.getByText(/사람을 찾고 있어요/)).toBeTruthy());
+    expect(api.createMatchRequest).toHaveBeenCalledWith({ minPlayers: 2, maxPlayers: 6 }, expect.any(String));
     expect(screen.getByRole('button', { name: '매칭 취소' })).toBeTruthy();
   });
 
@@ -276,9 +315,9 @@ describe('MATCH-01 실시간 파티 매칭', () => {
     await renderApp('#/match');
 
     await waitFor(() => expect(screen.getByRole('button', { name: '수락' })).toBeTruthy());
-    expect(screen.getByRole('button', { name: '건너뛰고 재대기' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '건너뛰고 다시 기다리기' })).toBeTruthy();
     expect(screen.getByRole('button', { name: '매칭 취소' })).toBeTruthy();
-    expect(screen.getByText(/\d+초/)).toBeTruthy();
+    expect(screen.getByText(/초 안에 답해 주세요/)).toBeTruthy();
     expect(screen.queryByText('지현')).toBeNull();
     expect(screen.queryByText('테스터')).toBeNull();
   });
@@ -317,17 +356,26 @@ describe('MATCH-01 실시간 파티 매칭', () => {
       state: 'PREPARING',
       request: null,
       proposal: null,
-      preparing: { preparingStartedAt: OPERATION_TIME, prepareUntil: OPERATION_TIME },
+      preparing: {
+        preparingStartedAt: OPERATION_TIME,
+        prepareUntil: OPERATION_TIME,
+        members: [
+          { nickname: '밤돌이', profileImageUrl: null, isMine: true },
+          { nickname: '주사위굴러', profileImageUrl: null, isMine: false }
+        ]
+      },
       chat: null
     };
     api.getCurrentMatch.mockResolvedValue(preparing);
 
     await renderApp('#/match');
 
-    await waitFor(() => expect(screen.getByText('채팅 준비 중')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/채팅방을 열고/)).toBeTruthy());
+    expect(screen.getByText('밤돌이')).toBeTruthy();
+    expect(screen.getByText('주사위굴러')).toBeTruthy();
     expect(screen.queryByRole('button', { name: '수락' })).toBeNull();
     expect(screen.queryByRole('button', { name: '매칭 취소' })).toBeNull();
-    expect(screen.queryByRole('button', { name: '건너뛰고 재대기' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '건너뛰고 다시 기다리기' })).toBeNull();
   });
 
   it('상태가 ACTIVE가 되면 매칭 채팅으로 자동 이동한다', async () => {
@@ -357,7 +405,151 @@ describe('MATCH-01 실시간 파티 매칭', () => {
     await renderApp('#/match');
 
     await waitFor(() => expect(window.location.hash).toBe('#/match-chat'));
-    await waitFor(() => expect(screen.getByText('매칭 채팅')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('온라인 매칭 · 2명')).toBeTruthy());
+  });
+
+  it('채팅 이력을 받은 최신 messageId 이후에 WebSocket을 구독한다', async () => {
+    const active = {
+      operationTime: OPERATION_TIME,
+      state: 'ACTIVE',
+      request: null,
+      proposal: null,
+      preparing: null,
+      chat: {
+        partyId: 9,
+        members: [
+          { participantRef: 'me', nickname: '테스터', profileImageUrl: null, isMine: true },
+          { participantRef: 'other', nickname: '민경', profileImageUrl: null, isMine: false }
+        ],
+        chatOpenedAt: OPERATION_TIME,
+        closesAt: new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(),
+        historyPath: '/api/matches/parties/9/chat/messages',
+        sendPath: '/api/matches/parties/9/chat/messages',
+        webSocketPath: '/api/matches/parties/9/chat/ws'
+      }
+    };
+    const history = deferred();
+    api.getCurrentMatch.mockResolvedValue(active);
+    vi.spyOn(api, 'getMatchChatMessages').mockReturnValue(history.promise);
+    const sockets = useFakeWebSocket();
+
+    await renderApp('#/match-chat');
+    await waitFor(() => expect(screen.getByText('온라인 매칭 · 2명')).toBeTruthy());
+    expect(sockets).toHaveLength(0);
+
+    await act(async () => {
+      history.resolve({
+        messages: [{
+          messageId: 4,
+          partyId: 9,
+          type: 'SYSTEM',
+          content: '채팅방이 열렸어요.',
+          sender: null
+        }],
+        nextBeforeMessageId: null,
+        hasNext: false
+      });
+      await history.promise;
+    });
+
+    await waitFor(() => expect(sockets).toHaveLength(1));
+    expect(sockets[0].url).toContain('afterMessageId=4');
+  });
+
+  it('WebSocket 재연결 때 마지막 messageId를 cursor로 유지하고 중복 이벤트를 한 번만 표시한다', async () => {
+    const active = {
+      operationTime: OPERATION_TIME,
+      state: 'ACTIVE',
+      request: null,
+      proposal: null,
+      preparing: null,
+      chat: {
+        partyId: 9,
+        members: [
+          { participantRef: 'me', nickname: '테스터', profileImageUrl: null, isMine: true },
+          { participantRef: 'other', nickname: '민경', profileImageUrl: null, isMine: false }
+        ],
+        chatOpenedAt: OPERATION_TIME,
+        closesAt: new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(),
+        historyPath: '/api/matches/parties/9/chat/messages',
+        sendPath: '/api/matches/parties/9/chat/messages',
+        webSocketPath: '/api/matches/parties/9/chat/ws'
+      }
+    };
+    const firstMessage = {
+      messageId: 1,
+      partyId: 9,
+      type: 'USER',
+      content: '먼저 온 메시지',
+      sender: { participantRef: 'other', nickname: '민경' },
+      isMine: false,
+      createdAt: OPERATION_TIME
+    };
+    const secondMessage = {
+      ...firstMessage,
+      messageId: 2,
+      content: '좋아요'
+    };
+    api.getCurrentMatch.mockResolvedValue(active);
+    vi.spyOn(api, 'getMatchChatMessages').mockResolvedValue({ messages: [firstMessage], nextBeforeMessageId: null, hasNext: false });
+    const sockets = useFakeWebSocket();
+
+    await renderApp('#/match-chat');
+    await waitFor(() => expect(screen.getByText('온라인 매칭 · 2명')).toBeTruthy());
+    await waitFor(() => expect(sockets).toHaveLength(1));
+    const event = { eventId: 2, type: 'MESSAGE_CREATED', message: secondMessage };
+    await act(async () => { sockets[0].message(event); });
+    await waitFor(() => expect(screen.getByText('좋아요')).toBeTruthy());
+
+    sockets[0].drop();
+    await waitFor(() => expect(sockets).toHaveLength(2));
+    expect(sockets[1].url).toContain('afterMessageId=2');
+
+    await act(async () => { sockets[1].message(event); });
+    expect(screen.getAllByText('좋아요')).toHaveLength(1);
+  });
+
+  it('채팅 만료 시 현재 상태를 다시 조회하고 입력과 소켓 재연결을 중단한다', async () => {
+    vi.useFakeTimers();
+    const active = {
+      operationTime: OPERATION_TIME,
+      state: 'ACTIVE',
+      request: null,
+      proposal: null,
+      preparing: null,
+      chat: {
+        partyId: 9,
+        members: [{ participantRef: 'me', nickname: '테스터', profileImageUrl: null, isMine: true }],
+        chatOpenedAt: OPERATION_TIME,
+        closesAt: new Date(Date.now() + 1000).toISOString(),
+        historyPath: '/api/matches/parties/9/chat/messages',
+        sendPath: '/api/matches/parties/9/chat/messages',
+        webSocketPath: '/api/matches/parties/9/chat/ws'
+      }
+    };
+    const closeCheck = deferred();
+    api.getCurrentMatch.mockResolvedValueOnce(active).mockReturnValueOnce(closeCheck.promise);
+    vi.spyOn(api, 'getMatchChatMessages').mockResolvedValue({ messages: [], nextBeforeMessageId: null, hasNext: false });
+    const sockets = useFakeWebSocket();
+
+    await renderApp('#/match-chat');
+    await act(async () => {});
+    expect(screen.getByText('온라인 매칭 · 1명')).toBeTruthy();
+    expect(sockets).toHaveLength(1);
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+    expect(api.getCurrentMatch).toHaveBeenCalledTimes(2);
+    expect(screen.getByLabelText('메시지').disabled).toBe(true);
+
+    sockets[0].drop();
+    await act(async () => { await vi.advanceTimersByTimeAsync(6000); });
+    expect(sockets).toHaveLength(1);
+
+    await act(async () => {
+      closeCheck.resolve(NO_CURRENT_MATCH);
+      await closeCheck.promise;
+    });
+    expect(window.location.hash).toBe('#/match');
   });
 
   it('매칭 채팅에서 메시지를 보내고 실시간으로 받은 메시지를 표시한다', async () => {
@@ -389,7 +581,7 @@ describe('MATCH-01 실시간 파티 매칭', () => {
     const sockets = useFakeWebSocket();
 
     await renderApp('#/match-chat');
-    await waitFor(() => expect(screen.getByText('매칭 채팅')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('온라인 매칭 · 2명')).toBeTruthy());
     await act(async () => { sockets[0]?.open(); });
 
     await act(async () => { fireEvent.change(screen.getByLabelText('메시지'), { target: { value: '같이 해요' } }); });
@@ -436,8 +628,10 @@ describe('MATCH-01 실시간 파티 매칭', () => {
     useFakeWebSocket();
 
     await renderApp('#/match-chat');
-    await waitFor(() => expect(screen.getByRole('button', { name: '채팅방 나가기' })).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole('button', { name: '참가자' })).toBeTruthy());
+    await press('참가자');
 
+    await waitFor(() => expect(screen.getByRole('button', { name: '채팅방 나가기' })).toBeTruthy());
     await press('채팅방 나가기');
 
     expect(api.leaveMatchParty).toHaveBeenCalledWith(9);

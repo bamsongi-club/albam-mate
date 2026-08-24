@@ -38,12 +38,18 @@ export const MatchIcon = ({ size = 21 }) => <Stroke size={size}><rect x="2" y="1
 export const EditIcon = ({ size = 19 }) => <Stroke size={size}><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" /><path d="m15 5 4 4" /></Stroke>;
 export const EyeOffIcon = ({ size = 18 }) => <Stroke size={size}><path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49" /><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242" /><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143" /><path d="m2 2 20 20" /></Stroke>;
 export const MailIcon = ({ size = 19 }) => <Stroke size={size} width={1.9}><rect x="2" y="4" width="20" height="16" rx="2" /><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" /></Stroke>;
+export const UsersIcon = ({ size = 19 }) => <Stroke size={size}><path d="M18 21a8 8 0 0 0-16 0" /><circle cx="10" cy="8" r="5" /><path d="M22 20c0-3.37-2-6.5-4-8a5 5 0 0 0-.45-8.3" /></Stroke>;
+export const PersonSilhouetteIcon = ({ size = 24 }) => <Stroke size={size} width={1.6}><path d="M18 20a6 6 0 0 0-12 0" /><circle cx="12" cy="10" r="4" /><circle cx="12" cy="12" r="10" /></Stroke>;
+export const ChevronDownIcon = ({ size = 18 }) => <Stroke size={size} width={2}><path d="m6 9 6 6 6-6" /></Stroke>;
+export const ChevronUpIcon = ({ size = 18 }) => <Stroke size={size} width={2}><path d="m18 15-6-6-6 6" /></Stroke>;
 
 /** 뒤로가기 바. 아이콘 옆에 title을 두면 같은 줄에서 제목을 보여준다. 오른쪽 보조 조작은 action으로 넘긴다. */
-export function TopBar({ onBack, backLabel = '뒤로 가기', title, action }) {
+export function TopBar({ onBack, backLabel = '뒤로 가기', title, action, closeIcon = false }) {
   return (
     <div className="topbar">
-      <button type="button" className="icon-btn" aria-label={backLabel} onClick={onBack}><BackIcon /></button>
+      <button type="button" className="icon-btn" aria-label={closeIcon ? '닫기' : backLabel} onClick={onBack}>
+        {closeIcon ? <CloseIcon /> : <BackIcon />}
+      </button>
       {title && <h1 className="topbar-title"><span>{title}</span></h1>}
       {action}
     </div>

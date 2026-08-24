@@ -81,6 +81,45 @@ class MatchCurrentStateSnapshotPostgresTest extends SharedPostgresIntegrationSup
 	}
 
 	@Test
+	void PREPARING_상태는_확정된_파티_참가자_전원의_공개_프로필을_members로_반환하고_재조회해도_같은_순서를_유지한다() {
+		long userId = insertUser();
+		long otherUserId = insertUser();
+		long partyId = insertPreparingParty(Instant.now().minusSeconds(10));
+		insertParticipant(partyId, userId);
+		insertParticipant(partyId, otherUserId);
+
+		CurrentMatchStateResponse first = currentStateReadService.read(userId);
+		CurrentMatchStateResponse second = currentStateReadService.read(userId);
+
+		assertEquals(MatchCurrentState.PREPARING, first.state());
+		assertEquals(2, first.preparing().members().size());
+		assertEquals("participant", first.preparing().members().get(0).nickname());
+		assertEquals(null, first.preparing().members().get(0).profileImageUrl());
+		assertEquals(true, first.preparing().members().get(0).isMine());
+		assertEquals(false, first.preparing().members().get(1).isMine());
+		assertEquals(first.preparing().members(), second.preparing().members());
+	}
+
+	@Test
+	void 준비_중_채팅_생성이_실패해_기한을_넘기면_연결된_매칭_요청은_WAITING으로_돌아가고_preparing은_사라진다() {
+		long userId = insertUser();
+		long requestId = insertProposedRequest(userId);
+		long proposalId = insertDueOpenProposal();
+		insertProposalMember(proposalId, requestId, userId);
+		long partyId = insertPreparingPartyWithProposal(Instant.now().minusSeconds(301), proposalId);
+		insertParticipant(partyId, userId);
+
+		CurrentMatchStateResponse response = currentStateQueryCoordinator.read(userId);
+
+		assertEquals(MatchCurrentState.WAITING, response.state());
+		assertEquals(null, response.preparing());
+		assertEquals("WAITING",
+			jdbcTemplate.queryForObject("select status from match_requests where id = ?", String.class, requestId));
+		assertEquals(0,
+			jdbcTemplate.queryForObject("select count(*) from match_parties where id = ?", Integer.class, partyId));
+	}
+
+	@Test
 	void scheduler가_실행되지_않아도_기한을_넘긴_PREPARING_Party를_정리한_뒤_안정된_빈_상태를_반환한다() {
 		long userId = insertUser();
 		long partyId = insertPreparingParty(Instant.now().minusSeconds(301));
@@ -228,6 +267,13 @@ class MatchCurrentStateSnapshotPostgresTest extends SharedPostgresIntegrationSup
 		return jdbcTemplate.queryForObject(
 			"insert into match_parties (status, preparing_started_at, created_at, updated_at) values ('PREPARING', ?, ?, ?) returning id",
 			Long.class, Timestamp.from(preparingStartedAt), Timestamp.from(preparingStartedAt),
+			Timestamp.from(preparingStartedAt));
+	}
+
+	private long insertPreparingPartyWithProposal(Instant preparingStartedAt, long proposalId) {
+		return jdbcTemplate.queryForObject(
+			"insert into match_parties (status, proposal_id, preparing_started_at, created_at, updated_at) values ('PREPARING', ?, ?, ?, ?) returning id",
+			Long.class, proposalId, Timestamp.from(preparingStartedAt), Timestamp.from(preparingStartedAt),
 			Timestamp.from(preparingStartedAt));
 	}
 

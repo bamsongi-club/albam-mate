@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import mascotCut from '../../assets/mascot-cut.png';
 import { ApiError, api, messageForError } from '../api';
 import { usePaginatedRequest } from '../shared/async';
 import { playerColor } from '../shared/players';
-import { Avatar, BackIcon, ErrorBox, InfoIcon, Pagination, SendIcon, StateBlock, TopBar } from '../shared/ui';
+import { Avatar, BackIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon, ErrorBox, InfoIcon, Pagination, PersonSilhouetteIcon, SendIcon, StateBlock, TopBar, UsersIcon } from '../shared/ui';
 
 /**
  * MATCH-01 실시간 파티 매칭. 서버가 현재 상태의 정본이라 화면은 주소가 아니라
@@ -20,6 +21,30 @@ function partySizeLabel(minPlayers, maxPlayers) {
   return minPlayers === maxPlayers ? minPlayers + '인' : minPlayers + '~' + maxPlayers + '인';
 }
 
+const KOREAN_COUNT = { 1: '한', 2: '두', 3: '세', 4: '네', 5: '다섯', 6: '여섯', 7: '일곱', 8: '여덟' };
+function partyCountLabel(count) {
+  return (KOREAN_COUNT[count] || count) + ' 명';
+}
+
+function useElapsed(sinceIso) {
+  const compute = () => Math.max(0, Date.now() - new Date(sinceIso));
+  const [elapsedMs, setElapsedMs] = useState(compute);
+  useEffect(() => {
+    setElapsedMs(compute());
+    const timer = setInterval(() => setElapsedMs(compute()), 1000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sinceIso]);
+  return elapsedMs;
+}
+
+function formatElapsed(elapsedMs) {
+  const totalSeconds = Math.floor(elapsedMs / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return minutes > 0 ? minutes + '분 ' + seconds + '초' : seconds + '초';
+}
+
 function useCurrentMatch() {
   const [snapshot, setSnapshot] = useState({ data: null, loading: true, error: '' });
 
@@ -27,7 +52,11 @@ function useCurrentMatch() {
     .then((data) => setSnapshot({ data, loading: false, error: '' }))
     .catch((error) => {
       if (error?.name === 'AbortError') return;
-      setSnapshot({ data: null, loading: false, error: messageForError(error) });
+      setSnapshot((current) => ({
+        data: current.data,
+        loading: false,
+        error: messageForError(error)
+      }));
     }), []);
 
   useEffect(() => {
@@ -47,23 +76,57 @@ function useCurrentMatch() {
   return { data: snapshot.data, loading: snapshot.loading, error: snapshot.error, reload: load };
 }
 
-const PARTY_SIZE_PRESETS = [
-  { min: 2, max: 2 },
-  { min: 2, max: 4 },
-  { min: 3, max: 4 },
-  { min: 4, max: 4 }
-];
+const PARTY_SIZE_OPTIONS = [2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+function MatchCountSelect({ label, value, onChange }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="match-select-col">
+      <span>{label}</span>
+      <button type="button" className={'match-select-trigger' + (open ? ' on' : '')} onClick={() => setOpen(!open)}>
+        <b>{value}명</b>
+        {open ? <ChevronUpIcon size={18} /> : <ChevronDownIcon size={18} />}
+      </button>
+      {open && (
+        <div className="match-select-list">
+          <p className="match-select-list-label">{label} 인원</p>
+          {PARTY_SIZE_OPTIONS.map((count) => (
+            <button
+              key={count}
+              type="button"
+              className={'match-select-option' + (count === value ? ' on' : '')}
+              onClick={() => { onChange(count); setOpen(false); }}
+            >
+              {count}명
+              {count === value && <CheckIcon size={17} width={2.6} />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function MatchRequestForm({ onSubmitted, onToast }) {
-  const [range, setRange] = useState(PARTY_SIZE_PRESETS[1]);
+  const [min, setMin] = useState(2);
+  const [max, setMax] = useState(4);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  const changeMin = (value) => {
+    setMin(value);
+    if (value > max) setMax(value);
+  };
+  const changeMax = (value) => {
+    setMax(value);
+    if (value < min) setMin(value);
+  };
 
   const submit = async () => {
     setSubmitting(true);
     setError('');
     try {
-      await api.createMatchRequest({ minPlayers: range.min, maxPlayers: range.max }, createIdempotencyKey());
+      await api.createMatchRequest({ minPlayers: min, maxPlayers: max }, createIdempotencyKey());
       onSubmitted();
     } catch (cause) {
       if (cause instanceof ApiError && cause.code === 'MATCH_REQUEST_ALREADY_ACTIVE') {
@@ -79,34 +142,32 @@ function MatchRequestForm({ onSubmitted, onToast }) {
 
   return (
     <>
-      <p className="section-label" style={{ marginTop: 26 }}>원하는 인원</p>
-      <div className="chiprow">
-        {PARTY_SIZE_PRESETS.map((preset) => {
-          const on = range.min === preset.min && range.max === preset.max;
-          return (
-            <button
-              className={'chip' + (on ? ' on' : '')}
-              type="button"
-              key={preset.min + '-' + preset.max}
-              aria-pressed={on}
-              onClick={() => setRange(preset)}
-            >
-              {partySizeLabel(preset.min, preset.max)}
-            </button>
-          );
-        })}
+      <div className="match-scroll">
+        <p className="section-label" style={{ marginTop: 26 }}>몇 명이서 할까요</p>
+        <div className="match-select-row">
+          <MatchCountSelect label="최소" value={min} onChange={changeMin} />
+          <span className="match-select-sep">–</span>
+          <MatchCountSelect label="최대" value={max} onChange={changeMax} />
+        </div>
+        <div className="match-hint">
+          <InfoIcon size={17} />
+          <p>나와 원하는 인원대가 겹치는 사람끼리 묶여요. 범위를 넓게 잡으면 더 빨리 만나요.</p>
+        </div>
+        {error && <div style={{ marginTop: 16 }}><ErrorBox message={error} onRetry={submit} /></div>}
+        <p className="screen-note">오프라인 모임과는 별개라 내 모임에 쌓이지 않아요.</p>
       </div>
-      {error && <div style={{ marginTop: 16 }}><ErrorBox message={error} onRetry={submit} /></div>}
-      <button className="btn cta" type="button" style={{ marginTop: 26 }} disabled={submitting} onClick={submit}>
-        {submitting ? '요청하는 중…' : '매칭 시작하기'}
-      </button>
-      <p className="screen-note">사람이 모이면 전용 채팅방이 열려요. 게임은 채팅에서 함께 정해요.</p>
+      <div className="match-footer">
+        <button className="btn cta" type="button" disabled={submitting} onClick={submit}>
+          {submitting ? '요청하는 중…' : '매칭 시작하기'}
+        </button>
+      </div>
     </>
   );
 }
 
 function MatchWaiting({ request, onChanged, onToast }) {
   const [canceling, setCanceling] = useState(false);
+  const elapsed = useElapsed(request.queuedAt);
   const cancel = async () => {
     setCanceling(true);
     try {
@@ -119,14 +180,23 @@ function MatchWaiting({ request, onChanged, onToast }) {
     }
   };
   return (
-    <section className="match-card">
-      <p className="match-lead">사람을 찾는 중</p>
-      <h2>{partySizeLabel(request.minPlayers, request.maxPlayers)}</h2>
-      <p className="screen-note">인원이 모이면 제안을 보내드려요.</p>
-      <button className="btn white" type="button" style={{ marginTop: 22 }} disabled={canceling} onClick={cancel}>
-        {canceling ? '취소하는 중…' : '매칭 취소'}
-      </button>
-    </section>
+    <>
+      <div className="match-center">
+        <h2 className="match-headline">{partySizeLabel(request.minPlayers, request.maxPlayers)}로<br />사람을 찾고 있어요</h2>
+        <p className="match-status-dot"><i />원하는 인원대가 겹치는 사람을 찾는 중</p>
+        <p className="match-elapsed">기다린 시간 {formatElapsed(elapsed)}</p>
+        <div className="match-hint">
+          <img src={mascotCut} alt="" />
+          <p>기다리는 시간에 제한은 없어요. 사람이 모이면 채팅방이 열리고, 할 게임은 거기서 정해요.</p>
+        </div>
+      </div>
+      <div className="match-footer plain">
+        <button className="btn fill" type="button" disabled={canceling} onClick={cancel}>
+          {canceling ? '취소하는 중…' : '매칭 취소'}
+        </button>
+        <p className="screen-note" style={{ margin: 0, textAlign: 'center' }}>화면을 닫아도 매칭은 계속돼요. 모이면 알림으로 알려드려요.</p>
+      </div>
+    </>
   );
 }
 
@@ -187,8 +257,12 @@ function useCountdown(deadlineIso) {
   return remainingMs;
 }
 
+const PROPOSAL_RESPOND_WINDOW_MS = 30000;
+
 function MatchProposed({ proposal, onChanged, onToast }) {
-  const remainingSeconds = Math.max(0, Math.ceil(useCountdown(proposal.respondBy) / 1000));
+  const remainingMs = useCountdown(proposal.respondBy);
+  const remainingSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
+  const progress = Math.max(0, Math.min(100, (remainingMs / PROPOSAL_RESPOND_WINDOW_MS) * 100));
   const [pending, setPending] = useState('');
   const accepted = proposal.myResponse === 'ACCEPTED';
   const disabled = accepted || Boolean(pending);
@@ -206,45 +280,69 @@ function MatchProposed({ proposal, onChanged, onToast }) {
   };
 
   return (
-    <section className="match-card">
-      <p className="match-lead">제안이 왔어요 · {remainingSeconds}초</p>
-      <h2>{proposal.partySize}인 파티</h2>
-      {/* 전원 수락 전에는 닉네임을 보여주지 않는다. 프로필 이미지만 익명으로 나열한다. */}
-      <div className="match-avatars">
-        {proposal.members.map((member, index) => (
-          <Avatar key={index} imageUrl={member.profileImageUrl} name="" index={index} />
-        ))}
+    <>
+      <div className="match-center">
+        <div className="match-countdown"><b>{remainingSeconds}</b><span>초 안에 답해 주세요</span></div>
+        <div className="match-progress"><i style={{ width: progress + '%' }} /></div>
+        <h2 className="match-headline">{partyCountLabel(proposal.partySize)} 모였어요<br />같이 하실래요?</h2>
+        <p className="screen-note">모두 수락하면 채팅방이 열리고 서로 닉네임이 보여요.</p>
+        {/* 전원 수락 전에는 닉네임·사진을 보여주지 않는다. 익명 인원 수만 표시한다. */}
+        <div className="match-anon-avatars" aria-hidden="true">
+          {proposal.members.map((member, index) => (
+            <span className="match-anon-avatar" key={index}><PersonSilhouetteIcon size={26} /></span>
+          ))}
+        </div>
+        {accepted && <p className="screen-note" style={{ marginTop: 18 }}>다른 인원을 기다리는 중이에요.</p>}
       </div>
-      {accepted && <p className="screen-note" style={{ marginTop: 18 }}>다른 인원을 기다리는 중이에요.</p>}
-      <div className="btn-row" style={{ marginTop: 22 }}>
+      <div className="match-footer plain">
         <button className="btn cta" type="button" disabled={disabled} onClick={() => respond('ACCEPT')}>
           {accepted ? '수락함' : pending === 'ACCEPT' ? '수락하는 중…' : '수락'}
         </button>
-      </div>
-      <div className="btn-row" style={{ marginTop: 8 }}>
         <button className="btn fill" type="button" disabled={disabled} onClick={() => respond('REQUEUE')}>
-          {pending === 'REQUEUE' ? '처리 중…' : '건너뛰고 재대기'}
+          {pending === 'REQUEUE' ? '처리 중…' : '건너뛰고 다시 기다리기'}
         </button>
-        <button className="btn fill" type="button" disabled={disabled} onClick={() => respond('CANCEL')}>
+        <button className="btn-text-link" type="button" disabled={disabled} onClick={() => respond('CANCEL')}>
           {pending === 'CANCEL' ? '처리 중…' : '매칭 취소'}
         </button>
       </div>
-    </section>
+    </>
   );
 }
 
-function MatchPreparing() {
+function MatchPreparing({ preparing }) {
+  const members = preparing.members;
   return (
-    <section className="match-card">
-      <p className="match-lead">채팅 준비 중</p>
-      <h2>곧 채팅방이 열려요</h2>
-      <div className="match-seats searching" aria-hidden="true">
-        <span className="match-seat"><i /><b /></span>
-        <span className="match-seat"><i /><b /></span>
-        <span className="match-seat"><i /><b /></span>
+    <>
+      <div className="match-center">
+        <div className="match-accepted-label">
+          <span className="match-check" aria-hidden="true"><CheckIcon size={18} width={3} /></span>
+          {partyCountLabel(members.length)} 모두 수락했어요
+        </div>
+        <div className="match-progress done"><i style={{ width: '100%' }} /></div>
+        <h2 className="match-headline">채팅방을 열고 있어요</h2>
+        <p className="screen-note">이제 서로 닉네임이 보여요.</p>
+        <div className="match-roster">
+          {members.map((member, index) => (
+            <div className="match-roster-col" key={index}>
+              <Avatar name={member.nickname} imageUrl={member.profileImageUrl} index={index} />
+              <strong>{member.nickname}</strong>
+              {member.isMine && <span>나</span>}
+            </div>
+          ))}
+        </div>
+        <div className="match-hint">
+          <InfoIcon size={17} />
+          <p>채팅방은 24시간 뒤 문을 닫아요. 할 게임은 채팅에서 정하고 보드게임아레나에서 같이 해요.</p>
+        </div>
       </div>
-      <p className="screen-note">채팅이 열리면 자동으로 들어가요. 채팅방은 연 뒤 24시간 동안만 열려 있어요.</p>
-    </section>
+      <div className="match-footer plain">
+        <div className="match-status-pill">
+          <i />
+          <b>준비되면 자동으로 들어가요</b>
+          <span>보통 10초</span>
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -259,18 +357,28 @@ export function MatchView({ onBack, onNavigate, onToast }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
 
+  const hasTopBar = !['PROPOSED', 'PREPARING'].includes(state);
+  const flexBody = !state || ['WAITING', 'PROPOSED', 'PREPARING'].includes(state);
+
   return (
     <div className="screen sub">
-      <TopBar onBack={onBack} title="실시간 파티 매칭" />
-      <div className="screen-body pad-bottom">
-        <p className="screen-lead">원하는 인원을 등록하면 사람이 모였을 때 전용 채팅으로 연결해요.</p>
-        {error && <div style={{ marginTop: 16 }}><ErrorBox message={error} onRetry={() => reload()} /></div>}
+      {hasTopBar && (
+        state === 'WAITING'
+          ? <TopBar onBack={onBack} closeIcon />
+          : <TopBar onBack={onBack} title="온라인 매칭" />
+      )}
+      <div className={'screen-body pad-bottom' + (hasTopBar ? '' : ' pad-top') + (flexBody ? ' match-flex' : '')}>
+        {!state && !loading && (
+          <p className="screen-lead" style={{ flex: 'none' }}>사람이 모이면 채팅방이 열려요. 할 게임을 정하고 보드게임아레나에서 같이 해요.</p>
+        )}
+        {error && !data && <div style={{ marginTop: 16 }}><ErrorBox message={error} onRetry={() => reload()} /></div>}
+        {error && data && <p className="screen-note" role="status">잠시 연결이 불안정해 이전 상태를 보여드리며 다시 확인하고 있어요.</p>}
         {!error && loading && !data && <p className="screen-note">불러오는 중…</p>}
         {!error && !loading && !state && <MatchRequestForm onSubmitted={() => reload()} onToast={onToast} />}
-        {!error && state === 'WAITING' && <MatchWaiting request={data.request} onChanged={() => reload()} onToast={onToast} />}
-        {!error && state === 'PAUSED' && <MatchPaused request={data.request} onChanged={() => reload()} onToast={onToast} />}
-        {!error && state === 'PROPOSED' && <MatchProposed proposal={data.proposal} onChanged={() => reload()} onToast={onToast} />}
-        {!error && state === 'PREPARING' && <MatchPreparing />}
+        {data && state === 'WAITING' && <MatchWaiting request={data.request} onChanged={() => reload()} onToast={onToast} />}
+        {data && state === 'PAUSED' && <MatchPaused request={data.request} onChanged={() => reload()} onToast={onToast} />}
+        {data && state === 'PROPOSED' && <MatchProposed proposal={data.proposal} onChanged={() => reload()} onToast={onToast} />}
+        {data && state === 'PREPARING' && <MatchPreparing preparing={data.preparing} />}
       </div>
     </div>
   );
@@ -279,7 +387,6 @@ export function MatchView({ onBack, onNavigate, onToast }) {
 // ---- MATCH 채팅 ----
 
 const MATCH_CHAT_RECONNECT_LIMIT = 3;
-const MATCH_CHAT_RECONNECT_DELAY_MS = 2000;
 const MS_PER_HOUR = 60 * 60 * 1000;
 const MS_PER_MINUTE = 60 * 1000;
 
@@ -313,7 +420,7 @@ const REPORT_REASONS = [
   { value: 'OTHER_RULE_VIOLATION', label: '그 밖의 위반' }
 ];
 
-function MatchRosterSheet({ partyId, members, onClose, onToast }) {
+function MatchRosterSheet({ partyId, members, onClose, onToast, onLeave }) {
   const [reportTarget, setReportTarget] = useState(null);
   const [busyRef, setBusyRef] = useState('');
 
@@ -381,6 +488,9 @@ function MatchRosterSheet({ partyId, members, onClose, onToast }) {
             </div>
           ))}
         </div>
+        <div style={{ padding: '0 var(--pad) 22px' }}>
+          <button type="button" className="btn fill" onClick={onLeave}>채팅방 나가기</button>
+        </div>
       </section>
     </div>
   );
@@ -425,31 +535,63 @@ export function MatchChatView({ onBack, onNavigate, onToast }) {
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState('');
   const [rosterOpen, setRosterOpen] = useState(false);
+  const [chatClosed, setChatClosed] = useState(false);
+  const [socketGeneration, setSocketGeneration] = useState(0);
   const lastEventIdRef = useRef(null);
+  const connectedPartyRef = useRef(null);
+  const reconnectAttemptsRef = useRef(0);
+  const checkingChatRef = useRef(false);
+  const navigateRef = useRef(onNavigate);
   const chatLogRef = useRef(null);
+  navigateRef.current = onNavigate;
+
+  const refreshCurrentMatch = useCallback(async ({ reconnect = false } = {}) => {
+    if (checkingChatRef.current) return null;
+    checkingChatRef.current = true;
+    setChatClosed(true);
+    try {
+      const data = await api.getCurrentMatch();
+      if (data?.state === 'ACTIVE' && data.chat) {
+        setHandoff(data.chat);
+        setError('');
+        if (reconnect) {
+          setChatClosed(false);
+          setSocketGeneration((current) => current + 1);
+        } else {
+          setError('채팅 연결이 끊겼어요. 다시 시도해 주세요.');
+        }
+        return data;
+      }
+      navigateRef.current('/match', { replace: true });
+      return null;
+    } catch (cause) {
+      if (cause?.name !== 'AbortError') setError(messageForError(cause));
+      return null;
+    } finally {
+      checkingChatRef.current = false;
+    }
+  }, []);
 
   useEffect(() => {
-    if (!partyId) return undefined;
-    let active = true;
-    api.getMatchChatMessages(partyId)
-      .then((page) => {
-        if (!active) return;
-        const latest = (page.messages || []).reduce((max, message) => Math.max(max, Number(message.messageId) || 0), 0);
-        if (latest > 0) lastEventIdRef.current = latest;
-        setMessages((current) => mergeMatchChatMessages(current, page.messages || []));
-        setNextBeforeMessageId(page.nextBeforeMessageId ?? null);
-        setHasNext(Boolean(page.hasNext));
-      })
-      .catch((cause) => { if (active) setError(messageForError(cause)); });
-    return () => { active = false; };
-  }, [partyId]);
+    if (!handoff?.closesAt || !partyId) return undefined;
+    const remainingMs = new Date(handoff.closesAt).getTime() - Date.now();
+    if (remainingMs <= 0) {
+      refreshCurrentMatch({ reconnect: true });
+      return undefined;
+    }
+    const timer = setTimeout(() => refreshCurrentMatch({ reconnect: true }), remainingMs);
+    return () => clearTimeout(timer);
+  }, [handoff?.closesAt, partyId, refreshCurrentMatch]);
 
   useEffect(() => {
-    if (!partyId) return undefined;
+    if (!partyId || chatClosed) return undefined;
     let active = true;
     let socket;
-    let reconnectTimer;
-    let reconnectAttempts = 0;
+    if (connectedPartyRef.current !== partyId) {
+      connectedPartyRef.current = partyId;
+      lastEventIdRef.current = null;
+      reconnectAttemptsRef.current = 0;
+    }
 
     const connect = () => {
       if (!active) return;
@@ -460,7 +602,7 @@ export function MatchChatView({ onBack, onNavigate, onToast }) {
       } catch {
         return;
       }
-      currentSocket.onopen = () => { reconnectAttempts = 0; };
+      currentSocket.onopen = () => { reconnectAttemptsRef.current = 0; };
       currentSocket.onmessage = (event) => {
         if (!active) return;
         let payload;
@@ -475,19 +617,33 @@ export function MatchChatView({ onBack, onNavigate, onToast }) {
         setMessages((current) => mergeMatchChatMessages(current, [message]));
       };
       currentSocket.onclose = () => {
-        if (!active || reconnectAttempts >= MATCH_CHAT_RECONNECT_LIMIT) return;
-        reconnectAttempts += 1;
-        reconnectTimer = setTimeout(connect, MATCH_CHAT_RECONNECT_DELAY_MS);
+        if (!active) return;
+        const reconnect = reconnectAttemptsRef.current < MATCH_CHAT_RECONNECT_LIMIT;
+        if (reconnect) reconnectAttemptsRef.current += 1;
+        refreshCurrentMatch({ reconnect });
       };
     };
 
-    connect();
+    api.getMatchChatMessages(partyId)
+      .then((page) => {
+        if (!active) return;
+        const latest = (page.messages || []).reduce((max, message) => Math.max(max, Number(message.messageId) || 0), 0);
+        if (latest > 0) lastEventIdRef.current = Math.max(lastEventIdRef.current || 0, latest);
+        setMessages((current) => mergeMatchChatMessages(current, page.messages || []));
+        setNextBeforeMessageId(page.nextBeforeMessageId ?? null);
+        setHasNext(Boolean(page.hasNext));
+        connect();
+      })
+      .catch((cause) => {
+        if (!active) return;
+        setError(messageForError(cause));
+        connect();
+      });
     return () => {
       active = false;
-      clearTimeout(reconnectTimer);
       socket?.close();
     };
-  }, [partyId]);
+  }, [chatClosed, partyId, refreshCurrentMatch, socketGeneration]);
 
   useEffect(() => {
     const log = chatLogRef.current;
@@ -511,6 +667,7 @@ export function MatchChatView({ onBack, onNavigate, onToast }) {
 
   const submit = async (event) => {
     event.preventDefault();
+    if (chatClosed) return;
     const trimmed = content.trim();
     if (!trimmed) return;
     setSending(true);
@@ -539,7 +696,7 @@ export function MatchChatView({ onBack, onNavigate, onToast }) {
   if (loading) {
     return (
       <div className="screen sub">
-        <TopBar onBack={onBack} title="매칭 채팅" />
+        <TopBar onBack={onBack} title="온라인 매칭" />
         <div className="screen-body pad-bottom"><p className="screen-note">불러오는 중…</p></div>
       </div>
     );
@@ -547,7 +704,7 @@ export function MatchChatView({ onBack, onNavigate, onToast }) {
   if (error || !handoff) {
     return (
       <div className="screen sub">
-        <TopBar onBack={onBack} title="매칭 채팅" />
+        <TopBar onBack={onBack} title="온라인 매칭" />
         <div className="screen-body pad-bottom"><ErrorBox message={error || '채팅을 열 수 없어요.'} /></div>
       </div>
     );
@@ -558,12 +715,12 @@ export function MatchChatView({ onBack, onNavigate, onToast }) {
   return (
     <div className="chat-screen">
       <div className="chat-topbar">
-        <button type="button" className="icon-btn" aria-label="채팅방 나가기" onClick={leave}><BackIcon /></button>
+        <button type="button" className="icon-btn" aria-label="뒤로 가기" onClick={onBack}><BackIcon /></button>
         <div className="chat-topbar-copy">
-          <strong>매칭 채팅</strong>
+          <strong>온라인 매칭 · {handoff.members.length}명</strong>
           <span>{formatRemainingClose(handoff.closesAt)}</span>
         </div>
-        <button type="button" className="icon-btn" aria-label="참가자" onClick={() => setRosterOpen(true)}><InfoIcon /></button>
+        <button type="button" className="icon-btn" aria-label="참가자" onClick={() => setRosterOpen(true)}><UsersIcon /></button>
       </div>
 
       <div className="chat-log" ref={chatLogRef}>
@@ -595,13 +752,20 @@ export function MatchChatView({ onBack, onNavigate, onToast }) {
 
       <form className="chat-compose" onSubmit={submit}>
         <label className="sr-only" htmlFor="match-chat-message">메시지</label>
-        <input id="match-chat-message" value={content} onChange={(event) => setContent(event.target.value)} disabled={sending} placeholder="메시지 입력" />
-        <button className="chat-send" type="submit" disabled={sending || !content.trim()} aria-label="보내기"><SendIcon /></button>
+        <input id="match-chat-message" value={content} onChange={(event) => setContent(event.target.value)} disabled={chatClosed || sending} placeholder="메시지 입력" />
+        <button className="chat-send" type="submit" disabled={chatClosed || sending || !content.trim()} aria-label="보내기"><SendIcon /></button>
       </form>
+      {chatClosed && !error && <p className="chat-fail" role="status" style={{ margin: '0 18px 14px' }}>채팅방 상태를 확인하고 있어요.</p>}
       {sendError && <div className="chat-fail" style={{ margin: '0 18px 14px' }} role="alert"><span>{sendError}</span></div>}
 
       {rosterOpen && (
-        <MatchRosterSheet partyId={partyId} members={handoff.members} onClose={() => setRosterOpen(false)} onToast={onToast} />
+        <MatchRosterSheet
+          partyId={partyId}
+          members={handoff.members}
+          onClose={() => setRosterOpen(false)}
+          onToast={onToast}
+          onLeave={leave}
+        />
       )}
     </div>
   );
