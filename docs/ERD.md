@@ -1139,6 +1139,13 @@ erDiagram
 - PostgreSQL은 `pg_trgm` extension과 `ix_games_name_lower_trgm` GIN 인덱스(`lower(name) gin_trgm_ops`)로 `lower(name) LIKE '%keyword%'` 부분일치와 3글자 이상 `similarity(lower(name), lower(keyword)) >= 0.3` 게임명 오타 유사 조회를 지원한다.
 - 3글자 이상 검색어는 정확 일치·부분 일치를 먼저 두고 유사도 내림차순, `name ASC`, `id ASC`으로 정렬한다. 1·2글자는 trgm 선택도가 낮을 수 있으므로 기존 부분일치·planner 경로를 유지한다.
 
+### SEARCH-04 sparse 후보 텍스트 인덱스
+
+- PostgreSQL 전용 V39은 `pg_trgm`을 재사용하고 `ix_games_english_name_lower_trgm`, `ix_games_alias_lower_trgm`, `ix_games_description_lower_trgm` GIN 인덱스(`lower(column) gin_trgm_ops`)를 추가한다.
+- 1·2글자 token은 pg_trgm이 선택할 삼중문자를 만들 수 없으므로, V39의 immutable `game_search_bigrams(text)`와 `ix_games_{name,english_name,alias,description}_lower_bigram` expression GIN 인덱스로 두 글자 substring을 보존한다. 3글자 이상 token은 trigram 경로를 사용한다.
+- `StructuredSparseCandidateSource`의 이름·영문명·별칭 경로는 token 길이별·column별 predicate를 `UNION`으로 분리해 인덱스를 사용하고, `game_id`·token 중복을 제거해 기존 필드 점수를 보존한다. description 경로도 같은 길이별 인덱스 계약을 사용한다.
+- 이 인덱스는 SEARCH-04 sparse 후보 생성 전용이며 dense 후보, Cloudflare provider, 게임 목록 API의 정렬·페이지 계약을 변경하지 않는다. 배포 전 승인 fixture의 `EXPLAIN (ANALYZE, BUFFERS)`와 6초 deadline 측정을 다시 수행한다.
+
 ### 해 본 게임 관계 인덱스
 
 - `UNIQUE (user_id, game_id)`가 만드는 유일 인덱스로 본인 관계 확인과 `PLAYED_ONLY`·`EXCLUDE_PLAYED`의 사용자 선두 `EXISTS`·`NOT EXISTS` 조회를 지원한다. 같은 선두 열의 중복 인덱스는 만들지 않는다.

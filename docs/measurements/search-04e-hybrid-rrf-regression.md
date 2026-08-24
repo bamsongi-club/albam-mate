@@ -87,6 +87,23 @@ Common query 4개 모두 Sparse full count가 200을 넘고 Stone Age 질의 4�
 
 `parallel` p95는 각 요청에서 Dense와 Sparse를 실제 동시 시작한 뒤의 요청별 경과시간 p95이고, `observedParallelP95Ms`는 여기에 완료된 요청의 fusion p95를 더한 `6,004.534ms`입니다. Cloudflare provider timeout은 5초로 고정하고 공통 deadline은 6초로 비교했습니다. 6건의 timeout이 관측되었으므로 공통 timeout 6초를 통과했다고 해석하지 않으며, 이 값은 실제 장애율·p99 SLO를 확정하는 측정도 아닙니다.
 
+### #1053 sparse 텍스트 인덱스 후속 측정
+
+2026-08-24 KST에 승인된 catalog release의 `01-games-full.sql` artifact(170,005행, SHA-256 `7866812e8ecd22942eccc3dee4553b49161af6297399c907b6a2953a9abb3c19`, 206,704,274 bytes)를 PostgreSQL 18 Testcontainers에 적재하고, `rejuvenation` 3글자 이상 sparse serving query를 migration 전후 5회씩 실행했다. baseline은 V39의 새 trigram·bigram 인덱스를 제거한 상태이며, 최종 token 길이별 `UNION` query shape는 유지했다. candidate에서는 기존 2글자 이름 검색 계약을 대표하는 `게임` query도 5회 실행했다. 같은 T5 실행에서 V39의 extension·function과 7개 GIN 인덱스를 포함한 전체 migration wall-clock도 기록한다.
+
+| 상태 | 실행 시간 배열 (ms) | p50 (ms) | p95 (ms) | max (ms) |
+| --- | --- | ---: | ---: | ---: |
+| V39 migration 전체 적용 | `23,688.132` | - | - | 23,688.132 |
+| baseline · `rejuvenation` | `[282.373, 330.017, 273.574, 268.916, 277.177]` | 277.177 | 330.017 | 330.017 |
+| V39 candidate · `rejuvenation` | `[4.547, 2.656, 2.729, 2.690, 2.554]` | 2.690 | 4.547 | 4.547 |
+| V39 candidate · `게임` | `[53.013, 38.613, 30.443, 30.287, 29.778]` | 30.443 | 53.013 | 53.013 |
+
+baseline 계획에는 `Seq Scan on games`가 있었고, `rejuvenation` candidate 계획은 4개 trigram GIN 경로를, `게임` candidate 계획은 4개 bigram expression GIN 경로를 사용하며 두 계획 모두 `games` Seq Scan이 없었다. 두 candidate max 모두 6초 deadline보다 작았다. 이 결과는 승인 fixture에서의 PostgreSQL 계획·회귀 측정이며, 기존 40건 live evidence의 timeout 관측값이나 production p95/p99 SLO를 대체하지 않는다. fixture가 없는 일반 CI에서는 T5 대규모 측정을 실행하지 않고, 승인 artifact 경로를 제공한 측정 환경에서만 checksum·행 수와 함께 재현한다. 이번 실행의 V39 전체 적용 시간은 `migrationMs=23,688.132ms`였다.
+
+#### V39 배포 경계
+
+V39은 일반 `CREATE INDEX`로 7개 GIN 인덱스를 순차 생성한다. PostgreSQL의 일반 인덱스 생성은 각 빌드 동안 `games` 쓰기와 경합할 수 있으므로, 아래 `migrationMs`는 승인 fixture와 Testcontainers에서의 참고값일 뿐 production 허용 다운타임이나 무중단 보장이 아니다. 현재 저장소의 Flyway는 애플리케이션 시작 시 transactional migration을 실행하므로 `CREATE INDEX CONCURRENTLY` 전환은 별도 non-transactional migrator와 배포 절차 승인이 필요한 후속 운영 범위다. 운영 적용 전에는 실제 DB 인스턴스에서 V39 전체 적용 시간을 재측정하고 쓰기 유입을 멈추는 maintenance window를 확보한다.
+
 ## 현재 상수 판정
 
 | 상수 | 현재 serving 값 | 이번 live evidence 판정 |
