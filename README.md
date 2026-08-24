@@ -56,11 +56,25 @@ flowchart LR
 
 아래는 코드가 어떻게 바뀌어도 깨지면 안 되는 명제입니다.
 
-- **정원을 넘긴 참가는 커밋되지 않는다.** 조회한 뒤 애플리케이션에서만 검사하면 동시 참가 요청이 같은 자리를 함께 통과합니다. 정원과 중복 참가, 대기열 전이를 트랜잭션과 PostgreSQL 제약으로 함께 막습니다. [ERD](docs/ERD.md), [ADR-0005](docs/adr/participation/0005-room-participation-optimistic-locking.md)
-- **한 요청은 동시에 두 제안에 속하지 않는다.** matcher가 여러 개여도 같은 대기 요청을 두 파티에 밀어 넣지 않고, 참가자 일부만 전이된 제안도 남기지 않습니다. [아래 실측](#경합에서-정합성이-깨지지-않는지-확인했습니다)에서 1,000회 경합 중 0건을 확인했습니다. [ADR-0061](docs/adr/matching/0061-postgresql-candidate-reservation-idempotency.md)
-- **서버가 거부한 요청은 클라이언트가 무엇을 보내도 통과하지 못한다.** 화면에서 감춘 기능이라도 인증과 인가, CSRF, 현재 참가 관계를 요청 경계에서 다시 검사합니다. 클라이언트 상태를 신뢰하면 URL을 직접 호출한 비참가자가 남의 모임 데이터를 읽습니다. [API 계약](docs/API.md), [ADR-0003](docs/adr/auth/0003-p0-server-session-spring-security.md)
-- **커밋된 모임 변경에는 알림 이벤트가 정확히 하나 남는다.** 모임 변경과 같은 트랜잭션에서 Outbox에 기록하고 commit 이후 relay가 전달합니다. 전송을 트랜잭션 안에서 직접 호출하면 롤백된 변경의 알림이 나가거나, 커밋된 변경의 알림이 유실됩니다. [아키텍처](docs/ARCHITECTURE.md#알림-relay복구정리), [ADR-0029](docs/adr/notification/0029-room-integration-event-transactional-outbox.md)
-- **같은 시각 비교는 어느 인스턴스에서든 같은 결과를 낸다.** 저장하고 비교하는 시각을 모두 UTC로 통일합니다. 인스턴스별 로컬 시각을 쓰면 같은 모임의 마감 판정이 인스턴스마다 갈립니다. [ADR-0009](docs/adr/platform/0009-utc-time-standard.md)
+1. **정원을 넘긴 참가는 커밋되지 않는다.**
+
+   조회한 뒤 애플리케이션에서만 검사하면 동시 참가 요청이 같은 자리를 함께 통과합니다. 정원과 중복 참가, 대기열 전이를 트랜잭션과 PostgreSQL 제약으로 함께 막습니다. [ERD](docs/ERD.md), [ADR-0005](docs/adr/participation/0005-room-participation-optimistic-locking.md)
+
+2. **한 요청은 동시에 두 제안에 속하지 않는다.**
+
+   matcher가 여러 개여도 같은 대기 요청을 두 파티에 밀어 넣지 않고, 참가자 일부만 전이된 제안도 남기지 않습니다. [아래 실측](#경합에서-정합성이-깨지지-않는지-확인했습니다)에서 1,000회 경합 중 0건을 확인했습니다. [ADR-0061](docs/adr/matching/0061-postgresql-candidate-reservation-idempotency.md)
+
+3. **서버가 거부한 요청은 클라이언트가 무엇을 보내도 통과하지 못한다.**
+
+   화면에서 감춘 기능이라도 인증과 인가, CSRF, 현재 참가 관계를 요청 경계에서 다시 검사합니다. 클라이언트 상태를 신뢰하면 URL을 직접 호출한 비참가자가 남의 모임 데이터를 읽습니다. [API 계약](docs/API.md), [ADR-0003](docs/adr/auth/0003-p0-server-session-spring-security.md)
+
+4. **커밋된 모임 변경에는 알림 이벤트가 정확히 하나 남는다.**
+
+   모임 변경과 같은 트랜잭션에서 Outbox에 기록하고 commit 이후 relay가 전달합니다. 전송을 트랜잭션 안에서 직접 호출하면 롤백된 변경의 알림이 나가거나, 커밋된 변경의 알림이 유실됩니다. [아키텍처](docs/ARCHITECTURE.md#알림-relay복구정리), [ADR-0029](docs/adr/notification/0029-room-integration-event-transactional-outbox.md)
+
+5. **같은 시각 비교는 어느 인스턴스에서든 같은 결과를 낸다.**
+
+   저장하고 비교하는 시각을 모두 UTC로 통일합니다. 인스턴스별 로컬 시각을 쓰면 같은 모임의 마감 판정이 인스턴스마다 갈립니다. [ADR-0009](docs/adr/platform/0009-utc-time-standard.md)
 
 ## 기술적 선택
 
