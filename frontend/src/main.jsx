@@ -432,6 +432,7 @@ function roomFormFromRoom(room, initialGame = null) {
     description: room?.description || '',
     date: room ? isoDateInSeoul(room.startsAt) : defaultRoomDate(),
     time: room ? timeInSeoul(room.startsAt) : '19:00',
+    region: room?.region || '',
     place: room?.place || '',
     recruitmentCapacity: room?.recruitmentCapacity || 3,
     experienceLevel: room?.experienceLevel || 'BEGINNER_WELCOME',
@@ -439,7 +440,7 @@ function roomFormFromRoom(room, initialGame = null) {
   };
 }
 
-function validateRoomForm(form, roomType) {
+function validateRoomForm(form, roomType, includesRegion = false) {
   const startsAt = startsAtFromDateAndTime(form.date, form.time);
   const room = {
     title: form.title.trim(),
@@ -456,10 +457,12 @@ function validateRoomForm(form, roomType) {
   if (!room.title) return { error: '모임 제목을 입력해주세요.' };
   if (room.title.length > 100) return { error: '모임 제목은 100자 이내로 입력해주세요.' };
   if (room.description.length > 255) return { error: '설명은 255자 이내로 입력해주세요.' };
+  if (includesRegion && !form.region) return { error: '지역을 선택해주세요.' };
   if (!room.place) return { error: '장소를 입력해주세요.' };
   if (room.place.length > 100) return { error: '장소는 100자 이내로 입력해주세요.' };
   if (!room.startsAt || Date.parse(room.startsAt) <= Date.now()) return { error: '시작 시간은 현재 시각 이후여야 해요.' };
   if (!Number.isInteger(room.recruitmentCapacity) || room.recruitmentCapacity < 1 || room.recruitmentCapacity > MAX_CAPACITY) return { error: '모집 정원은 본인 제외 1~10명이어야 해요.' };
+  if (includesRegion) room.region = form.region;
   return { room };
 }
 
@@ -1002,7 +1005,7 @@ function SessionDetailContent({ room, roomRefreshing, me, onBack, onApply, onCan
   );
 }
 
-function RoomFormFields({ form, onChange, roomType, onOpenGamePicker, today }) {
+function RoomFormFields({ form, onChange, roomType, onOpenGamePicker, today, showsRegion = false }) {
   const gameFocused = roomType === 'GAME_FOCUSED';
   const update = (field, value) => onChange({ ...form, [field]: value });
   const selectedGame = form.selectedGame;
@@ -1040,8 +1043,18 @@ function RoomFormFields({ form, onChange, roomType, onOpenGamePicker, today }) {
       <div className="field">
         <label className="field-label" htmlFor="room-place">장소</label>
         <input id="room-place" className="field-input" maxLength="100" value={form.place} onChange={(event) => update('place', event.target.value)} placeholder="예) 주사위섬 합정점" />
-        <p className="field-hint">지역은 홍대로 고정돼요.</p>
       </div>
+
+      {showsRegion && <div className="field">
+        <label className="field-label" htmlFor="room-region">지역</label>
+        <select id="room-region" className="field-input" value={form.region} onChange={(event) => update('region', event.target.value)}>
+          <option value="">지역을 선택해주세요</option>
+          <option value="홍대">홍대</option>
+          <option value="강남">강남</option>
+          <option value="건대">건대</option>
+          <option value="잠실">잠실</option>
+        </select>
+      </div>}
 
       <div className="field">
         <span className="field-label" id="room-capacity-label">모집 인원 (본인 제외)</span>
@@ -1105,7 +1118,7 @@ function CreateView({ createMode, onCreateModeChange, initialGame, onCreate, onB
     setForm((current) => current.date === previousDefaultDate ? { ...current, date: nextDefaultDate } : current);
     defaultDateRef.current = nextDefaultDate;
   }, [today]);
-  const ready = Boolean(form.title.trim() && form.place.trim());
+  const ready = Boolean(form.title.trim() && form.region && form.place.trim());
   const submit = async (event) => {
     event.preventDefault();
     setSubmitting(true);
@@ -1138,11 +1151,11 @@ function CreateView({ createMode, onCreateModeChange, initialGame, onCreate, onB
             </button>
           </div>
         </div>
-        <RoomFormFields form={form} onChange={setForm} roomType={createMode} onOpenGamePicker={() => setGamePickerOpen(true)} today={today} />
+        <RoomFormFields form={form} onChange={setForm} roomType={createMode} onOpenGamePicker={() => setGamePickerOpen(true)} today={today} showsRegion />
       </div>
       <div className="stickybar">
         <button className={'btn cta' + (ready ? '' : ' off')} disabled={submitting} type="submit">
-          {submitting ? '모임을 여는 중…' : ready ? '모임 열기' : '제목과 장소를 채워주세요'}
+          {submitting ? '모임을 여는 중…' : ready ? '모임 열기' : '제목, 지역과 장소를 채워주세요'}
         </button>
       </div>
       <GamePickerDialog isOpen={gamePickerOpen} selectedGameId={form.gameId} allowClear={!gameFocused} onSelect={(game) => setForm((current) => ({ ...current, gameId: game.id, selectedGame: game }))} onClear={() => setForm((current) => ({ ...current, gameId: '', selectedGame: null }))} onClose={() => setGamePickerOpen(false)} />
@@ -2434,7 +2447,7 @@ export function App() {
       showToast('로그인이 필요합니다.', 'err');
       return false;
     }
-    const result = validateRoomForm(form, createMode);
+    const result = validateRoomForm(form, createMode, true);
     if (result.error) {
       showToast(result.error, 'err');
       return false;
