@@ -1,0 +1,105 @@
+# P0 게임 목록 구현 명세
+
+이 문서는 P0의 게임 목록·검색, 상세 조회와 카탈로그 출처 표시를 독립적으로 구현·검증하기 위한 기준이다. 전체 범위·공통 규칙은 [P0 명세](P0-spec.md), HTTP 계약은 [API 명세](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/API.md), 저장 계약은 [ERD](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/ERD.md)를 따른다.
+
+필수 ADR의 현재 승인·검증 상태는 [Game ADR](../../adr/game/README.md)과 [Platform ADR](../../adr/platform/README.md) 인덱스에서 확인하고, 구현 근거는 각 개별 ADR의 `검증` 절에서 확인한다.
+
+## GAME-01 게임 목록·검색
+
+### 구현 컨텍스트
+
+| 구분 | 정본 |
+| --- | --- |
+| API 계약 | [게임 목록·검색](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/API.md#game-01-게임-목록검색) |
+| 공통 규칙 | [권한과 공개 범위](P0-spec.md#권한과-공개-범위) |
+| 데이터 모델 | [GAMES](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/ERD.md#games), [ROOMS](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/ERD.md#rooms) |
+| 필수 ADR | [ADR-0006: 내부 ID와 외부 식별자 분리](../../adr/platform/0006-p0-bigint-identity-ids.md), [ADR-0008: 스키마와 대규모 데이터 적재 분리](../../adr/platform/0008-flyway-database-migrations.md), [ADR-0015: BGG 기준 스냅샷·팀 수집 자료 결합](../../adr/game/0015-bgg-baseline-team-collected-game-list.md) |
+
+### 기능 규칙
+
+- 게임 목록과 검색은 인증 없이 공개한다.
+- 검색은 게임 이름의 부분 일치 키워드, 예정 모임 존재 여부와 페이지 조회만 지원한다.
+- `upcomingOnly=true`이면 조회 시점에 예정 모임이 한 개 이상인 게임만 반환하고, 생략하거나 `false`이면 전체 게임을 반환한다.
+- `keyword`와 `upcomingOnly=true`를 함께 사용하면 두 조건을 모두 만족하는 게임만 반환한다.
+- 게임 응답은 알밤메이트 내부 `id`와 BGG 외부 식별자 `bggId`를 함께 반환한다.
+- 게임 카드의 정확한 응답 필드는 API 명세를 따른다.
+- 예정 모임 수는 저장하지 않고 [GAMES 계산 규칙](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/ERD.md#games)에 따라 조회 시 계산한다.
+
+### 완료 기준
+
+- `GAME-01-AC1` 검색어가 없으면 운영자가 준비한 게임 목록을 페이지 단위로 조회할 수 있다.
+- `GAME-01-AC2` 검색어가 있으면 이름이 부분 일치하는 게임만 조회된다.
+- `GAME-01-AC3` 각 게임의 예정 모임 수가 현재 방 데이터로부터 계산되어 반환된다.
+- `GAME-01-AC4` 사용자용 게임 생성·수정·삭제 API가 노출되지 않는다.
+- `GAME-01-AC5` `upcomingOnly=true`이면 예정 모임이 한 개 이상인 게임만 페이지 단위로 조회되며, 페이지 메타데이터도 필터 결과를 기준으로 계산된다.
+
+### 제외 범위
+
+- 인원·시간·난이도·태그 복합 필터
+- 사용자의 게임 등록·수정·삭제
+- 외부 게임 데이터의 자동 동기화
+
+## GAME-02 게임 상세 조회
+
+### 구현 컨텍스트
+
+| 구분 | 정본 |
+| --- | --- |
+| API 계약 | [게임 상세 조회](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/API.md#game-02-게임-상세-조회) |
+| 공통 규칙 | [권한과 공개 범위](P0-spec.md#권한과-공개-범위) |
+| 데이터 모델 | [GAMES](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/ERD.md#games), [ROOMS](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/ERD.md#rooms) |
+| 필수 ADR | [ADR-0006: 내부 ID와 외부 식별자 분리](../../adr/platform/0006-p0-bigint-identity-ids.md), [ADR-0008: 스키마와 대규모 데이터 적재 분리](../../adr/platform/0008-flyway-database-migrations.md), [ADR-0015: BGG 기준 스냅샷·팀 수집 자료 결합](../../adr/game/0015-bgg-baseline-team-collected-game-list.md) |
+
+### 기능 규칙
+
+- 게임 상세는 인증 없이 공개한다.
+- 내부 게임 ID로 운영자가 준비한 게임을 조회한다.
+- 상세 응답 필드와 게임 없음 오류는 API 명세를 따른다.
+- 예정 모임 수는 [GAME-01](#game-01-게임-목록검색)과 같은 저장·계산 기준을 사용한다.
+
+### 완료 기준
+
+- `GAME-02-AC1` 존재하는 게임 ID로 게임 상세와 예정 모임 수를 조회할 수 있다.
+- `GAME-02-AC2` 존재하지 않는 게임 ID는 [게임 상세 오류 계약](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/API.md#game-02-게임-상세-조회)에 따라 처리된다.
+- `GAME-02-AC3` 목록과 상세에서 같은 게임의 `id`, `bggId`와 예정 모임 수가 일관된다.
+
+### 제외 범위
+
+- 게임 리뷰와 평가
+- 게임별 룰마스터 명단
+- 상세 화면을 통한 게임 데이터 편집
+
+## GAME-03 게임 카탈로그 출처 표시
+
+### 구현 컨텍스트
+
+| 구분 | 정본 |
+| --- | --- |
+| API 계약 | 해당 없음. 서버 API 없이 프런트엔드 화면에서 표시한다. |
+| 공통 규칙 | [권한과 공개 범위](P0-spec.md#권한과-공개-범위) |
+| 데이터 모델 | 해당 없음 |
+| 필수 ADR | [ADR-0015: BGG 기준 스냅샷·팀 수집 자료 결합](../../adr/game/0015-bgg-baseline-team-collected-game-list.md), [ADR-0025: 게임 카탈로그 출처를 전역 푸터와 공개 출처 페이지에 표시](../../adr/game/0025-game-catalog-public-source-attribution.md) |
+
+### 기능 규칙
+
+- 서비스의 모든 공개 화면 하단에 공통 푸터를 둔다. 게임 카탈로그가 노출되지 않는 화면도 포함한다.
+- 푸터에는 BoardGameGeek로 연결되는 `Powered by BGG` 로고를 로고 안의 텍스트를 읽을 수 있는 크기로 표시한다.
+- 푸터에는 게임 정보가 BGG, 국내 보드게임 자료와 팀의 직접 작성·검수 및 플레이 경험을 바탕으로 구성됐다는 요약을 함께 표시한다.
+- `데이터 출처`, `이용약관`, `개인정보처리방침` 링크는 각 페이지를 공개한 시점에 추가하고, 아직 없는 페이지의 링크는 노출하지 않는다.
+- 게임 카드와 상세 화면의 마크업은 바꾸지 않는다.
+- 출처별 이용 조건이 게임 카드·상세 같은 더 가까운 위치의 표기를 요구하면 그 요구를 우선하며 공통 푸터로 대체하지 않는다.
+
+### 완료 기준
+
+- `GAME-03-AC1` 서비스의 모든 공개 화면에서 공통 푸터가 화면당 한 번 노출된다.
+- `GAME-03-AC2` 푸터의 `Powered by BGG` 로고가 로고 안 텍스트를 읽을 수 있는 크기로 표시되고 BoardGameGeek로 연결된다.
+- `GAME-03-AC3` 푸터에 게임 정보의 출처 구성 요약이 표시된다.
+- `GAME-03-AC4` 콘텐츠 높이가 화면보다 짧은 화면에서도 푸터가 화면 최하단에 놓인다.
+- `GAME-03-AC5` 푸터의 본문과 링크가 배경 대비 WCAG AA 명도 대비를 만족하고, 링크는 색 외의 시각 단서를 함께 제공한다.
+
+### 제외 범위
+
+- `데이터 출처` 페이지 본문
+- 이용약관·개인정보처리방침 본문
+- 게임 카드·상세의 개별 출처 표기
+- 게임 이미지의 다운로드·변환·재호스팅

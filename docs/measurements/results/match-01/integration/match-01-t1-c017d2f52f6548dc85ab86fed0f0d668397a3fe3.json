@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "measuredGitCommitSha": "c017d2f52f6548dc85ab86fed0f0d668397a3fe3",
+  "outcome": "PASSED",
+  "id": "MATCH-01-T1",
+  "task": "test and postgresTest",
+  "selectors": [
+    "cloud.bamsongi.albammate.matching.MatchRequestTest.인원_범위는_저장_타입을_넘거나_유효하지_않으면_거절한다",
+    "cloud.bamsongi.albammate.matching.MatchRequestHttpIntegrationTest",
+    "cloud.bamsongi.albammate.matching.MatchRequestInvariantPostgresTest"
+  ],
+  "purpose": "최소·최대 인원 범위, 저장값·WAITING 보존, 인증·CSRF·멱등성·취소와 단일 비종료 요청 불변식을 H2·PostgreSQL에서 검증한다."
+}

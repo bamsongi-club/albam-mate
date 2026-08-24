@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "measuredGitCommitSha": "c017d2f52f6548dc85ab86fed0f0d668397a3fe3",
+  "outcome": "PASSED",
+  "id": "MATCH-01-T5",
+  "task": "postgresTest",
+  "selectors": [
+    "cloud.bamsongi.albammate.matching.integration.MatchLifecycleConcurrencyPostgresTest",
+    "cloud.bamsongi.albammate.matching.MatchProposalTerminalPostgresTest",
+    "cloud.bamsongi.albammate.matching.MatchRequestInvariantPostgresTest"
+  ],
+  "purpose": "독립 matcher의 후보 점유, 전원 수락·응답 기한 만료·취소 경합, 중복·부분 성공 방지와 terminal 상태 수렴을 PostgreSQL에서 검증한다."
+}

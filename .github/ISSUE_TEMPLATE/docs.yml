@@ -1,0 +1,63 @@
+name: 문서 작성·갱신
+description: 정본·가이드·운영 문서의 신규 작성 또는 갱신
+title: "[DOCS] "
+labels:
+  - docs
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        이미 확정된 사실과 문서 변경 범위만 적는다. 정본 문장을 이슈에 복제하지 말고 Markdown 링크로 참조한다.
+        문서 책임·해석·공개 계약을 새로 결정하거나 바꾸는 일은 팀 결정 이슈로 전환한다.
+
+  - type: textarea
+    id: purpose
+    attributes:
+      label: 목적·배경
+      placeholder: |
+        - 현재:
+        - 목표:
+        - 대상 독자:
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: 대상 문서·범위
+      placeholder: |
+        - 대상 문서:
+        - 추가·갱신할 절:
+        - 정본·근거:
+        - 제외:
+    validations:
+      required: true
+
+  - type: textarea
+    id: dependency
+    attributes:
+      label: 영향·의존성
+      placeholder: |
+        - 함께 갱신할 문서·링크:
+        - 선행 조건: 없음
+        - 영향받는 이슈·PR:
+        - Blocks: 없음
+    validations:
+      required: true
+
+  - type: textarea
+    id: done
+    attributes:
+      label: 완료 기준
+      value: |
+        - [ ] 대상 문서의 범위·정본 책임을 확인
+        - [ ] 관련 문서·링크·앵커를 갱신
+        - [ ] `node scripts/docs/check-doc-links.mjs` 통과
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        **중단:** 문서 책임 충돌·공개 계약 변경·미결정 사항이 있으면 `DECISION_NEEDED`로 전환한다. 구현이 필요하면 기능 또는 버그 이슈로 분리한다.

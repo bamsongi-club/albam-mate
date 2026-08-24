@@ -1,0 +1,163 @@
+services:
+  spring:
+    image: ${ALBAM_MATE_IMAGE_NAMESPACE:?ALBAM_MATE_IMAGE_NAMESPACE must be set}/backend:${ALBAM_MATE_RELEASE:?ALBAM_MATE_RELEASE must be set}
+    platform: linux/arm64
+    pull_policy: always
+    restart: unless-stopped
+    init: true
+    environment:
+      SPRING_PROFILES_ACTIVE: production
+      SPRING_FLYWAY_ENABLED: false
+      JDK_JAVA_OPTIONS: -Xmx256m
+      ALBAM_MATE_RELEASE: ${ALBAM_MATE_RELEASE:?ALBAM_MATE_RELEASE must be set}
+      ALBAM_MATE_DB_HOST: ${ALBAM_MATE_DB_HOST:?ALBAM_MATE_DB_HOST must be set}
+      ALBAM_MATE_DB_PORT: ${ALBAM_MATE_DB_PORT:-5432}
+      ALBAM_MATE_DB_NAME: ${ALBAM_MATE_DB_NAME:?ALBAM_MATE_DB_NAME must be set}
+      ALBAM_MATE_DB_USER: ${ALBAM_MATE_DB_USER:?ALBAM_MATE_DB_USER must be set}
+      ALBAM_MATE_DB_PASSWORD: ${ALBAM_MATE_DB_PASSWORD:?ALBAM_MATE_DB_PASSWORD must be set}
+      ALBAM_MATE_DB_MAXIMUM_POOL_SIZE: ${ALBAM_MATE_DB_MAXIMUM_POOL_SIZE:-8}
+      ALBAM_MATE_DB_MINIMUM_IDLE: ${ALBAM_MATE_DB_MINIMUM_IDLE:-2}
+      ALBAM_MATE_REDIS_HOST: ${ALBAM_MATE_REDIS_HOST:?ALBAM_MATE_REDIS_HOST must be set}
+      ALBAM_MATE_REDIS_PORT: ${ALBAM_MATE_REDIS_PORT:-6379}
+      ALBAM_MATE_SEARCH_CLOUDFLARE_ENABLED: ${ALBAM_MATE_SEARCH_CLOUDFLARE_ENABLED:-true}
+      CLOUDFLARE_ACCOUNT_ID: ${CLOUDFLARE_ACCOUNT_ID:-}
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
+      ALBAM_MATE_SEARCH_RELEASE_ID: ${ALBAM_MATE_SEARCH_RELEASE_ID:-}
+      ALBAM_MATE_SEARCH_FIELD_VERSION: ${ALBAM_MATE_SEARCH_FIELD_VERSION:-}
+      ALBAM_MATE_SEARCH_MANIFEST_SHA256: ${ALBAM_MATE_SEARCH_MANIFEST_SHA256:-}
+      ALBAM_MATE_SEARCH_TEXT_CHECKSUM: ${ALBAM_MATE_SEARCH_TEXT_CHECKSUM:-}
+      ALBAM_MATE_ASSISTANT_ENABLED: ${ALBAM_MATE_ASSISTANT_ENABLED:-true}
+      ALBAM_MATE_ASSISTANT_PROVIDER: ${ALBAM_MATE_ASSISTANT_PROVIDER:-fake}
+      ALBAM_MATE_ASSISTANT_PROVIDER_CONFIGURED: ${ALBAM_MATE_ASSISTANT_PROVIDER_CONFIGURED:-true}
+      ALBAM_MATE_ASSISTANT_NO_RETENTION_VERIFIED: ${ALBAM_MATE_ASSISTANT_NO_RETENTION_VERIFIED:-false}
+      ALBAM_MATE_ASSISTANT_NO_TRAINING_VERIFIED: ${ALBAM_MATE_ASSISTANT_NO_TRAINING_VERIFIED:-false}
+      ALBAM_MATE_ASSISTANT_RETENTION_MODE: ${ALBAM_MATE_ASSISTANT_RETENTION_MODE:-unverified}
+      ALBAM_MATE_ASSISTANT_POLICY_VERSION: ${ALBAM_MATE_ASSISTANT_POLICY_VERSION:-}
+      ALBAM_MATE_ASSISTANT_POLICY_URL: ${ALBAM_MATE_ASSISTANT_POLICY_URL:-}
+      ALBAM_MATE_ASSISTANT_PRICING_SNAPSHOT: ${ALBAM_MATE_ASSISTANT_PRICING_SNAPSHOT:-}
+      ALBAM_MATE_ASSISTANT_INPUT_TOKEN_PRICE_USD_PER_MILLION: ${ALBAM_MATE_ASSISTANT_INPUT_TOKEN_PRICE_USD_PER_MILLION:-0}
+      ALBAM_MATE_ASSISTANT_OUTPUT_TOKEN_PRICE_USD_PER_MILLION: ${ALBAM_MATE_ASSISTANT_OUTPUT_TOKEN_PRICE_USD_PER_MILLION:-0}
+      ALBAM_MATE_ASSISTANT_MAX_INPUT_TOKENS: ${ALBAM_MATE_ASSISTANT_MAX_INPUT_TOKENS:-4096}
+      ALBAM_MATE_ASSISTANT_MAX_OUTPUT_TOKENS: ${ALBAM_MATE_ASSISTANT_MAX_OUTPUT_TOKENS:-256}
+      ALBAM_MATE_ASSISTANT_OPENAI_API_KEY: ${ALBAM_MATE_ASSISTANT_OPENAI_API_KEY:-}
+      APP_SECURITY_AUTHREQUEST_LOGINFAILURELIMIT: ${APP_SECURITY_AUTHREQUEST_LOGINFAILURELIMIT:-5}
+      APP_SECURITY_AUTHREQUEST_SIGNUPLIMIT: ${APP_SECURITY_AUTHREQUEST_SIGNUPLIMIT:-5}
+      APP_SECURITY_AUTHREQUEST_HASHSLOTS: ${APP_SECURITY_AUTHREQUEST_HASHSLOTS:-4}
+      APP_SECURITY_PASSWORD_BCRYPTCOST: ${APP_SECURITY_PASSWORD_BCRYPTCOST:-10}
+      APP_NOTIFICATION_RELAY_POLLINTERVAL: ${APP_NOTIFICATION_RELAY_POLLINTERVAL:-5s}
+      APP_NOTIFICATION_RELAY_MAXEVENTSPERRUN: ${APP_NOTIFICATION_RELAY_MAXEVENTSPERRUN:-50}
+      MANAGEMENT_SERVER_PORT: ${MANAGEMENT_SERVER_PORT:-9090}
+      MANAGEMENT_SERVER_ADDRESS: 127.0.0.1
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: ${MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE:-health,metrics}
+      ALBAM_MATE_OTLP_METRICS_URL: ${ALBAM_MATE_OTLP_METRICS_URL:-http://host.docker.internal:4318/v1/metrics}
+      ALBAM_MATE_ENVIRONMENT: ${ALBAM_MATE_ENVIRONMENT:?ALBAM_MATE_ENVIRONMENT must be set}
+      ALBAM_MATE_STACK_ID: ${ALBAM_MATE_STACK_ID:?ALBAM_MATE_STACK_ID must be set}
+      ALBAM_MATE_ROLE: ${ALBAM_MATE_ROLE:-app1}
+      ALBAM_MATE_INSTANCE_ID: ${ALBAM_MATE_INSTANCE_ID:?ALBAM_MATE_INSTANCE_ID must be set}
+      SERVER_TOMCAT_MBEANREGISTRY_ENABLED: ${SERVER_TOMCAT_MBEANREGISTRY_ENABLED:-false}
+      # 소셜 제공자는 ID와 secret이 모두 있을 때만 활성화된다. 비우면 그 제공자만 숨겨지고 기동은 막지 않는다.
+      ALBAM_MATE_GOOGLE_OAUTH_CLIENT_ID: ${ALBAM_MATE_GOOGLE_OAUTH_CLIENT_ID:-}
+      ALBAM_MATE_GOOGLE_OAUTH_CLIENT_SECRET: ${ALBAM_MATE_GOOGLE_OAUTH_CLIENT_SECRET:-}
+      ALBAM_MATE_NAVER_OAUTH_CLIENT_ID: ${ALBAM_MATE_NAVER_OAUTH_CLIENT_ID:-}
+      ALBAM_MATE_NAVER_OAUTH_CLIENT_SECRET: ${ALBAM_MATE_NAVER_OAUTH_CLIENT_SECRET:-}
+      ALBAM_MATE_KAKAO_OAUTH_CLIENT_ID: ${ALBAM_MATE_KAKAO_OAUTH_CLIENT_ID:-}
+      ALBAM_MATE_KAKAO_OAUTH_CLIENT_SECRET: ${ALBAM_MATE_KAKAO_OAUTH_CLIENT_SECRET:-}
+      # 채팅 WebSocket handshake가 허용할 운영 Origin. 비우면 모든 handshake를 거절한다.
+      ALBAM_MATE_CHAT_WEBSOCKET_ALLOWED_ORIGIN: ${ALBAM_MATE_CHAT_WEBSOCKET_ALLOWED_ORIGIN:-}
+      # 부하 측정은 계정 수만큼 로그인하므로 기본 30회/10분에 먼저 막힌다. 측정 창에서만 올린다.
+      ALBAM_MATE_LOGIN_LIMIT: ${ALBAM_MATE_LOGIN_LIMIT:-30}
+      TZ: UTC
+    expose:
+      - "8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD-SHELL", "/app/backend-entrypoint.sh --validate-release-only && wget --quiet --output-document=/dev/null 'http://127.0.0.1:9090/actuator/health'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 90s
+    volumes:
+      # 이 named volume은 이 호스트에만 있다. P1 종료 토폴로지(docs/archive/p1/README.md의 AUTH-05 운영 배포·실측 =
+      # 미배포·미측정)는 ALB 뒤 여러 인스턴스인데, 여러 인스턴스가 뜨면 각자 로컬 volume이라 서로 다른 인스턴스가
+      # 저장·서빙한 이미지를 못 본다. 실제 scale-out 검증 전에는 이 스토리지를 공용 객체 스토리지(S3 등)로
+      # 옮겨야 한다 — 이 프로젝트의 다른 AWS scale-out 항목과 같은 후속 OPS로 추적한다.
+      - type: volume
+        source: profile-images
+        target: /app/uploads/profile
+      - type: bind
+        source: ${ALBAM_MATE_OBSERVABILITY_LOG_PATH:?ALBAM_MATE_OBSERVABILITY_LOG_PATH must be set}
+        target: /var/log/albam-mate
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 256
+    mem_limit: 1g
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: ${ALBAM_MATE_LOG_MAX_SIZE:-10m}
+        max-file: ${ALBAM_MATE_LOG_MAX_FILES:-5}
+    networks:
+      - application
+
+  web:
+    image: ${ALBAM_MATE_IMAGE_NAMESPACE:?ALBAM_MATE_IMAGE_NAMESPACE must be set}/web:${ALBAM_MATE_RELEASE:?ALBAM_MATE_RELEASE must be set}
+    platform: linux/arm64
+    pull_policy: always
+    restart: unless-stopped
+    init: true
+    environment:
+      ALBAM_MATE_RELEASE: ${ALBAM_MATE_RELEASE:?ALBAM_MATE_RELEASE must be set}
+      # App2 EC2의 private DNS. entrypoint에서 envsubst가 nginx.conf upstream에 치환한다.
+      ALBAM_MATE_APP2_HOST: ${ALBAM_MATE_APP2_HOST:?ALBAM_MATE_APP2_HOST must be set}
+    depends_on:
+      spring:
+        condition: service_healthy
+        restart: true
+    ports:
+      - "${ALBAM_MATE_HTTPS_BIND_ADDRESS:-0.0.0.0}:443:8443"
+    healthcheck:
+      test: ["CMD-SHELL", "/usr/local/bin/albam-mate-entrypoint --validate-release-only && wget --quiet --output-document=/dev/null http://127.0.0.1:8080/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    volumes:
+      - type: bind
+        source: ${ALBAM_MATE_TLS_PATH:?ALBAM_MATE_TLS_PATH must be set}
+        target: /etc/albam-mate/tls
+        read_only: true
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    pids_limit: 128
+    mem_limit: ${ALBAM_MATE_WEB_MEMORY_LIMIT:-128m}
+    stop_grace_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: ${ALBAM_MATE_LOG_MAX_SIZE:-10m}
+        max-file: ${ALBAM_MATE_LOG_MAX_FILES:-5}
+    networks:
+      - application
+
+networks:
+  application:
+    driver: bridge
+
+volumes:
+  profile-images:

@@ -1,0 +1,102 @@
+{
+  "outcome" : "RUN_FAILURE",
+  "throughputFormula" : "throughputPerSecond = changedCount * 1_000_000_000 / elapsedNanos",
+  "measurementStartEnvironment" : {
+    "gitSha" : "4688316415113b4457f03628d77bdcb7f594c294",
+    "javaVersion" : "21.0.11",
+    "postgresqlVersion" : "18.4 (Debian 18.4-1.pgdg13+1)",
+    "operatingSystem" : "Windows 11",
+    "operatingSystemVersion" : "10.0",
+    "cpuCount" : 24,
+    "startUsedHeapBytes" : 115549056,
+    "maxHeapBytes" : 536870912,
+    "configuration" : {
+      "roomStatusCorrectionTriggerDelay" : "24h",
+      "dockerVersion" : "29.4.3",
+      "measurementProperty" : "false",
+      "roomStatusCorrectionTriggerJitter" : "0s",
+      "chatRetentionEnabled" : "false",
+      "notificationCleanupInterval" : "24h",
+      "notificationRelayEnabled" : "false",
+      "notificationCleanupJitter" : "0s",
+      "sharedPreloadLibraries" : "pg_stat_statements",
+      "postgresImage" : "postgres:18.4",
+      "profile" : "small"
+    }
+  },
+  "fixture" : {
+    "profile" : "small",
+    "roomCount" : 100,
+    "dueRoomCount" : 20,
+    "nonDueRoomCount" : 80,
+    "nonDueClosedRoomCount" : 10,
+    "waitingRoomCount" : 0,
+    "requestTime" : "2026-08-06T00:00:00Z",
+    "seed" : "ROOM-09c-baseline-v1",
+    "dataIdentifier" : "ROOM-09c-baseline-v1:small:100:20"
+  },
+  "warmUpRuns" : [ ],
+  "measuredRuns" : [ ],
+  "partialRuns" : [ {
+    "phase" : "warm-up",
+    "iteration" : 1,
+    "candidateCount" : 20,
+    "changedCount" : null,
+    "elapsedNanos" : 96432600,
+    "throughputPerSecond" : null,
+    "runStartEnvironment" : {
+      "gitSha" : "4688316415113b4457f03628d77bdcb7f594c294",
+      "javaVersion" : "21.0.11",
+      "postgresqlVersion" : "18.4 (Debian 18.4-1.pgdg13+1)",
+      "operatingSystem" : "Windows 11",
+      "operatingSystemVersion" : "10.0",
+      "cpuCount" : 24,
+      "startUsedHeapBytes" : 163282840,
+      "maxHeapBytes" : 536870912,
+      "configuration" : {
+        "roomStatusCorrectionTriggerDelay" : "24h",
+        "dockerVersion" : "29.4.3",
+        "measurementProperty" : "false",
+        "roomStatusCorrectionTriggerJitter" : "0s",
+        "chatRetentionEnabled" : "false",
+        "notificationCleanupInterval" : "24h",
+        "notificationRelayEnabled" : "false",
+        "notificationCleanupJitter" : "0s",
+        "sharedPreloadLibraries" : "pg_stat_statements",
+        "postgresImage" : "postgres:18.4",
+        "profile" : "small"
+      }
+    },
+    "pgStatStatements" : [ {
+      "query" : "select r1_0.id,r1_0.active_participant_count,r1_0.capacity,r1_0.created_at,r1_0.description,r1_0.experience_level,r1_0.game_id,r1_0.host_user_id,r1_0.place,r1_0.region,r1_0.room_type,r1_0.is_rulemaster_led,r1_0.start_at,r1_0.status,r1_0.title,r1_0.updated_at,r1_0.version from rooms r1_0 where (r1_0.status=$3 and r1_0.start_at<=$1) or (r1_0.status=$4 and r1_0.start_at<=$2)",
+      "queryId" : "3846884529641494299",
+      "calls" : 1,
+      "totalExecutionTimeMs" : 0.069202,
+      "rows" : 20,
+      "sharedBufferHits" : 6,
+      "sharedBufferReads" : 0
+    }, {
+      "query" : "ROLLBACK",
+      "queryId" : "-7676915344437841334",
+      "calls" : 1,
+      "totalExecutionTimeMs" : 0.001509,
+      "rows" : 0,
+      "sharedBufferHits" : 0,
+      "sharedBufferReads" : 0
+    }, {
+      "query" : "BEGIN",
+      "queryId" : "4854991825702068830",
+      "calls" : 1,
+      "totalExecutionTimeMs" : 0.001262,
+      "rows" : 0,
+      "sharedBufferHits" : 0,
+      "sharedBufferReads" : 0
+    } ]
+  } ],
+  "runFailure" : {
+    "exceptionType" : "org.springframework.orm.jpa.JpaSystemException",
+    "category" : "현행 일괄 트랜잭션 실패"
+  },
+  "roomFailures" : [ ],
+  "summary" : null
+}

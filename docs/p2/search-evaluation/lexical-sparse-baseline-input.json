@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "kind": "search-04-baseline-input",
+  "upstreamPullRequest": 861,
+  "datasetRelease": {
+    "releaseId": "bgg-catalog-170k-v4-2026-08-19",
+    "datasetId": "bgg-catalog-170k",
+    "manifestSha256": "9b1341775977078d70ca91d741ad6420ec443ced6b50a98ab4ff46638fb9f2c5"
+  },
+  "qualityCorpus": {
+    "releaseId": "boardlife-quality-top1000-2026-08-19",
+    "corpusVersion": "boardlife-quality-top1000-v2",
+    "sha256": "0ce65a0ab500054c11548fe487afab8247b8f09282087f6db4d144d0783c87e8"
+  },
+  "approvedFields": [
+    "name",
+    "englishName",
+    "alias",
+    "mechanism",
+    "category",
+    "theme",
+    "description",
+    "detailDescription"
+  ],
+  "pocManifest": {
+    "reference": "lexical-sparse/fixtures/poc-search-text-manifest.json",
+    "sha256": "b9793fa757c953c3bbc7724f665160874274111b65fbec7bba9d06f63c854f40"
+  },
+  "searchTextArtifact": {
+    "reference": "lexical-sparse/fixtures/search-text-top1000.json",
+    "sha256": "ec364be3a34268d1bb6d27e3c41e2cdd31852565eec79fa31faaacda17af4ece",
+    "gamesSha256": "03aa685a5828208f53912a0507d45f1b4db191eeb4e63d76d9e2cde9b890049f",
+    "gameCount": 1000
+  }
+}

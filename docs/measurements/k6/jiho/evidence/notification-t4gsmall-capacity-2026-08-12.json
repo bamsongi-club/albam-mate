@@ -1,0 +1,170 @@
+{
+  "schemaVersion": 1,
+  "campaignId": "t4gsmall-20260812",
+  "generatedAt": "2026-08-12T10:35:54.6865819+09:00",
+  "campaignStatus": "INVALID",
+  "documentStatus": "current",
+  "measurementWindow": {
+    "startedAt": "2026-08-12T01:09:50+00:00",
+    "finishedAt": "2026-08-12T01:25:10+00:00",
+    "displayKst": "2026-08-12 10:09:50~10:25:10 KST"
+  },
+  "documents": {
+    "index": "../../README.md",
+    "report": "../notification-t4gsmall-capacity-2026-08-12.md",
+    "predecessor": "../notification-tomcat64-capacity-2026-08-11.md"
+  },
+  "lineage": {
+    "follows": "tomcat64-20260811",
+    "supersedes": [],
+    "supersededBy": null,
+    "reason": "The changed resource envelope removed the observed OOM, but the only measured run was INVALID and establishes no capacity boundary."
+  },
+  "sources": {
+    "application": {
+      "repository": "https://github.com/bamsongi-club/albam-mate.git",
+      "releaseSha": "1e8427328064ca4f8594d377f27272172aaa0a24",
+      "scenarioPath": "load-tests/k6/auth-notification/mixed-load-capacity.js",
+      "scenarioSha256": "cd73bba55a5c18df402752049efbabaaa162290d32122db1ee818c93bd1c35c1",
+      "usersFixtureSha256": "52e99eec1a6da697666f572e046e89517303cf4574dc32fba554a009b8b55180",
+      "notificationBacklogFixtureSha256": "a385ccb42c27efcd1b5038626a6813f8f540b596ab632d52d7d44e9820a319ec"
+    },
+    "infrastructure": {
+      "repository": "https://github.com/bamsongi-club/albam-mate-infra.git",
+      "headSha": "85ad96b7306e630dbeca4e742b4eea4c44f9fc45",
+      "dirty": true,
+      "dirtyPatchSha256": "8713ad2ccf2cdd3c8ca9b42ad56d953ce7d013938d5a27c1519e0c7acd2452c3"
+    }
+  },
+  "configuration": {
+    "stackId": "perf-jiho",
+    "appInstanceType": "t4g.small",
+    "cpuCreditMode": "standard",
+    "tomcatThreadsMax": 64,
+    "containerMemoryBytes": 1073741824,
+    "jvmXmx": "256m",
+    "hikariMaximumPoolSize": 8,
+    "k6Version": "1.3.0",
+    "multiplier": 0.5,
+    "fixtureUsers": 340
+  },
+  "images": {
+    "backend": "sha256:d352c3e69461b18a75e5873dde0554f4f1b08c74588e28c07e38c0c17aaad957",
+    "web": "sha256:af6821438f427094c351e979e326c91145ffe14c9f1fffc1762bffbfcdd28585",
+    "postgres": "sha256:a02db8cac496f15b094798a38254f14d6e00741f709360e5e00bb6668ea31636",
+    "redis": "sha256:bd4a0d37e7cd830117ffec9329052b4a1887afa060c265e1768f82b177ff6f43"
+  },
+  "artifacts": {
+    "availability": "local-only",
+    "siblingRepository": "albam-mate-infra",
+    "resultPath": ".run/results/t4gsmall-20260812-tomcat64-x05-valid-n1/",
+    "excludedPreflightResultPath": ".run/results/t4gsmall-20260812-tomcat64-x05-n1/",
+    "manifestSha256": "ca1fc4e4b973612cad13d048d9ca87581c40ad9f50d78f993692800e9f3262cd",
+    "judgmentSha256": "77a24730b1c4983d17c8ecf9a1662bf43d2e0f6c5564b7f7a107396608572372",
+    "k6SummarySha256": "064786aea26485d437a52b5e887a99c4e90c00f738696ebb2cf1f147160bf4ef",
+    "cloudwatchSummarySha256": "a2927bc9ee6f153911518dc6be71fce8c94965ad8602035648eda0023ddd1540",
+    "metricsApp1Sha256": "ed0e4740b4981c246fe662b588917c8ccd9ffeca738cc1079c700623f24ae0aa",
+    "metricsApp2Sha256": "cc3757b2271ee308c211b1999193bb7e70ccae2279ce304f94f972fab453741f",
+    "infraSourceSha256": "d19ecc2b8a00cee042cc966ee56cfccc1c2a718f00e3d0b35e58effe16b6afb5",
+    "runSummarySha256": "66517043cf96576a425ccb4a6115e9d8e9503561d660307dc1f23207ef8ca1f0"
+  },
+  "excludedPreflightRun": {
+    "runId": "t4gsmall-20260812-tomcat64-x05-n1",
+    "status": "INVALID",
+    "reportDisposition": "excluded-operational-precondition",
+    "reason": "Nginx remained bound to loopback because the test access rule was opened after deployment; all 155 setup requests failed before workload measurement."
+  },
+  "run": {
+    "runId": "t4gsmall-20260812-tomcat64-x05-valid-n1",
+    "status": "INVALID",
+    "reportDisposition": "included-diagnostic-only",
+    "k6ExitCode": 99,
+    "httpFailureRate": 0.6784854596317741,
+    "mixedRequestErrorRate": 0.6963177771783113,
+    "setupFailureRate": 0,
+    "resolvedBrowsingVus": 150,
+    "droppedParticipationIterations": 0,
+    "relayDeliverySamples": 0,
+    "measurementP95Ms": {
+      "unreadCount": 6048.5648685,
+      "notificationList": 6053.2957909,
+      "roomJoin": 5635.342286099999,
+      "roomCancel": 968.5303127999991
+    },
+    "operationErrorRates": {
+      "unreadCount": 0.7023359288097887,
+      "notificationList": 0.6421686746987951,
+      "roomJoin": 0.8064516129032258,
+      "roomCancel": 0.08333333333333333
+    },
+    "app1": {
+      "maxContainerMemoryBytes": 495661875,
+      "maxContainerMemoryPercent": 46.16,
+      "minHostAvailableMemoryBytes": 827895808,
+      "maxTomcatBusy": 45,
+      "tomcatMax": 64,
+      "maxHikariPending": 4,
+      "maxJvmLiveThreads": 90,
+      "postRunRestartCount": 0
+    },
+    "app2": {
+      "maxContainerMemoryBytes": 522610278,
+      "maxContainerMemoryPercent": 48.67,
+      "minHostAvailableMemoryBytes": 827314176,
+      "maxTomcatBusy": 39,
+      "tomcatMax": 64,
+      "maxHikariPending": 3,
+      "maxJvmLiveThreads": 86,
+      "postRunRestartCount": 0
+    },
+    "cpuCredits": {
+      "app1Start": 11.046229966666667,
+      "app1End": 13.512053716666667,
+      "app2Start": 11.134057183333333,
+      "app2End": 13.7835118
+    },
+    "finalPostgresState": {
+      "connections": 25,
+      "activeConnections": 1,
+      "waitingLocks": 0,
+      "processableOutboxCount": 0,
+      "oldestProcessableAgeMs": 0
+    },
+    "redis": {
+      "postRunRestartCount": 0,
+      "postRunHealthy": true,
+      "maxHostCpuPercent": 8.113,
+      "maxUsedMemoryBytes": 2229560,
+      "maxConnectedClients": 5,
+      "maxOpsPerSecond": 1340,
+      "finalRejectedConnections": 0,
+      "finalEvictedKeys": 0,
+      "finalTotalErrorReplies": 64267
+    }
+  },
+  "postRunKernelEvidence": {
+    "source": "Read-only journalctl -k query over SSM before teardown",
+    "app1OomMatches": 0,
+    "app2OomMatches": 0,
+    "redisOomMatches": 0
+  },
+  "teardown": {
+    "terraformDestroyedResources": 93,
+    "terraformStateResourcesAfter": 0,
+    "activeEc2After": [],
+    "ebsVolumesAfter": [],
+    "vpcsAfter": [],
+    "elasticIpsAfter": [],
+    "localAppInstanceTypeAfter": "t4g.micro",
+    "localSpringMemoryLimitAfter": "512MiB-default",
+    "loadTestAccessEnabledLocalAfter": false,
+    "infraTrackedStatusCleanAfter": true,
+    "rawResultsPreserved": true
+  },
+  "knownLimitations": [
+    "The only workload-bearing run was INVALID because it had zero relay delivery samples, so no capacity boundary was established.",
+    "Instance type and container memory limit changed together as a resource-envelope experiment; their individual effects cannot be separated.",
+    "Redis connection timeouts and error replies were observed, but the evidence does not distinguish client pool, network, DNS, or command-level causes.",
+    "Raw artifacts are local-only; hashes identify the preserved bundle but do not make it independently accessible from this repository."
+  ]
+}

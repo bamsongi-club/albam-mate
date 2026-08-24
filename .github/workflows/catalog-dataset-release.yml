@@ -1,0 +1,64 @@
+name: Catalog Dataset Release
+
+on:
+  pull_request:
+    branches: [develop, main]
+    paths:
+      - "scripts/game-catalog/catalog-dataset-release-manifest.mjs"
+      - "scripts/game-catalog/catalog-dataset-release-manifest.test.mjs"
+      - "scripts/game-catalog/catalog-dataset-release-measurement.mjs"
+      - "scripts/game-catalog/catalog-dataset-release-measurement.test.mjs"
+      - "scripts/game-catalog/measure-catalog-dataset-release.mjs"
+      - "scripts/game-catalog/prepare-game-catalog.mjs"
+      - "scripts/game-catalog/prepare-game-catalog.test.mjs"
+      - "scripts/game-catalog/extract-catalog-dataset-ids.mjs"
+      - "scripts/game-catalog/extract-catalog-dataset-ids.test.mjs"
+      - "docs/game-catalog/SEARCH_04_CATALOG_DATASET_RELEASE.md"
+      - "docs/game-catalog/catalog-dataset-release*.json"
+      - ".github/workflows/catalog-dataset-release.yml"
+  push:
+    branches: [develop, main]
+    paths:
+      - "scripts/game-catalog/catalog-dataset-release-manifest.mjs"
+      - "scripts/game-catalog/catalog-dataset-release-manifest.test.mjs"
+      - "scripts/game-catalog/catalog-dataset-release-measurement.mjs"
+      - "scripts/game-catalog/catalog-dataset-release-measurement.test.mjs"
+      - "scripts/game-catalog/measure-catalog-dataset-release.mjs"
+      - "scripts/game-catalog/prepare-game-catalog.mjs"
+      - "scripts/game-catalog/prepare-game-catalog.test.mjs"
+      - "scripts/game-catalog/extract-catalog-dataset-ids.mjs"
+      - "scripts/game-catalog/extract-catalog-dataset-ids.test.mjs"
+      - "docs/game-catalog/SEARCH_04_CATALOG_DATASET_RELEASE.md"
+      - "docs/game-catalog/catalog-dataset-release*.json"
+      - ".github/workflows/catalog-dataset-release.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate catalog dataset release gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Test catalog dataset release gate
+        run: node --test scripts/game-catalog/catalog-dataset-release*.test.mjs
+
+      - name: Test execution manifest handoff
+        run: node --test scripts/game-catalog/prepare-game-catalog.test.mjs
+
+      - name: Test catalog dataset id extraction
+        run: node --test scripts/game-catalog/extract-catalog-dataset-ids.test.mjs
+
+      - name: Check release scripts syntax
+        run: |
+          node --check scripts/game-catalog/catalog-dataset-release-manifest.mjs
+          node --check scripts/game-catalog/catalog-dataset-release-measurement.mjs
+          node --check scripts/game-catalog/measure-catalog-dataset-release.mjs
+          node --check scripts/game-catalog/extract-catalog-dataset-ids.mjs

@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "measuredGitCommitSha": "c017d2f52f6548dc85ab86fed0f0d668397a3fe3",
+  "outcome": "PASSED",
+  "id": "MATCH-01-T7",
+  "task": "postgresTest",
+  "selectors": [
+    "cloud.bamsongi.albammate.matching.integration.MatchLifecycleRecoveryPostgresTest",
+    "cloud.bamsongi.albammate.chat.match.MatchChatWebSocketRestartRecoveryPostgresTest",
+    "cloud.bamsongi.albammate.chat.match.MatchChatWebSocketCrossInstanceDeliveryPostgresTest",
+    "cloud.bamsongi.albammate.chat.match.MatchChatWebSocketHandlerTest",
+    "cloud.bamsongi.albammate.chat.match.MatchChatWebSocketHandlerReconnectRecoveryTest",
+    "cloud.bamsongi.albammate.chat.match.MatchChatWebSocketHandlerRealtimeDeliveryTest"
+  ],
+  "purpose": "실시간 이벤트의 유실·중복·역순 전달, 재연결 catch-up, 서버 재시작·교차 인스턴스 전달과 연결 종료를 명시적 나가기로 해석하지 않는 상태 복구를 검증한다."
+}

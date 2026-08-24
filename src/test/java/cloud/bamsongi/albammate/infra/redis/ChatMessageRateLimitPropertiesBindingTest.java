@@ -1,0 +1,44 @@
+package cloud.bamsongi.albammate.infra.redis;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+
+import java.time.Duration;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+
+class ChatMessageRateLimitPropertiesBindingTest {
+
+	@Test
+	void T1_기본_전송_제한_속성은_사용자_오십건_방_백건_십초로_바인딩된다() {
+		contextRunnerWith().run(context -> {
+			assertNull(context.getStartupFailure());
+			ChatMessageRateLimitProperties properties = context.getBean(ChatMessageRateLimitProperties.class);
+			assertEquals(50, properties.userLimit());
+			assertEquals(100, properties.roomLimit());
+			assertEquals(Duration.ofSeconds(10), properties.window());
+		});
+	}
+
+	@Test
+	void T5_잘못된_전송_제한_속성은_바인딩_실패로_끝난다() {
+		assertBindingFailure("app.chat.rate-limit.user-limit=0");
+		assertBindingFailure("app.chat.rate-limit.room-limit=0");
+		assertBindingFailure("app.chat.rate-limit.window=0s");
+		assertBindingFailure("app.chat.rate-limit.window=999us");
+		assertBindingFailure("app.chat.rate-limit.window=PT9223372036854776S");
+	}
+
+	private ApplicationContextRunner contextRunnerWith(String... properties) {
+		return new ApplicationContextRunner()
+			.withInitializer(context -> context.getEnvironment().setActiveProfiles("local"))
+			.withUserConfiguration(RedisChatMessageRateLimiterConfiguration.class)
+			.withPropertyValues(properties);
+	}
+
+	private void assertBindingFailure(String property) {
+		contextRunnerWith(property).run(context -> assertNotNull(context.getStartupFailure()));
+	}
+}

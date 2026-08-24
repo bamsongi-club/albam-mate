@@ -1,0 +1,18 @@
+{
+  "defaultProfiles" : [ {
+    "name" : "small",
+    "roomCount" : 100,
+    "dueRoomCount" : 20
+  } ],
+  "explicitProfiles" : [ {
+    "name" : "medium",
+    "roomCount" : 10000,
+    "dueRoomCount" : 2000
+  }, {
+    "name" : "large",
+    "roomCount" : 50000,
+    "dueRoomCount" : 10000
+  } ],
+  "command" : "$hadJavaToolOptions = Test-Path Env:JAVA_TOOL_OPTIONS\n$previousJavaToolOptions = $env:JAVA_TOOL_OPTIONS\ntry {\n    $env:JAVA_TOOL_OPTIONS = if ([string]::IsNullOrWhiteSpace($previousJavaToolOptions)) {\n        '-Dissue383.measurement=true'\n    } else {\n        \"$previousJavaToolOptions -Dissue383.measurement=true\".Trim()\n    }\n    .\\gradlew.bat postgresTest --tests \"cloud.bamsongi.albammate.room.measurement.RoomStatusCorrectionBaselineMeasurementPostgresTest.승인_규모_기준선을_측정한다\" --rerun --fail-fast\n} finally {\n    if ($hadJavaToolOptions) {\n        $env:JAVA_TOOL_OPTIONS = $previousJavaToolOptions\n    } else {\n        Remove-Item Env:JAVA_TOOL_OPTIONS -ErrorAction SilentlyContinue\n    }\n}",
+  "throughputFormula" : "throughputPerSecond = changedCount * 1_000_000_000 / elapsedNanos"
+}

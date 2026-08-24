@@ -1,0 +1,65 @@
+name: 버그
+description: 기존 동작이 기대와 다르거나 회귀한 문제
+title: "[BUG] "
+labels:
+  - bug
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        버그는 기존 동작의 문제를 다룬다.
+        새로운 동작이 필요하면 기능 이슈로, 외부 동작을 바꾸지 않는 구조 개선이면 리팩터링 이슈로 분리한다.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: 문제·재현
+      placeholder: |
+        - 현재 동작:
+        - 기대 동작:
+        - 재현 절차:
+        - 환경·조건:
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: 범위·소유
+      placeholder: |
+        - 영향 경로·API:
+        - 관련 기준:
+        - 제외:
+        - 공유 파일: 수정 없음
+    validations:
+      required: true
+
+  - type: textarea
+    id: dependency
+    attributes:
+      label: 영향·의존성
+      placeholder: |
+        - 사용자·데이터 영향:
+        - 선행 조건: 없음
+        - 영향받는 모듈·PR:
+        - Blocks: 없음
+    validations:
+      required: true
+
+  - type: textarea
+    id: done
+    attributes:
+      label: 완료 기준
+      value: |
+        - [ ] 문제 재현 경로가 수정됨
+        - [ ] 사람이 확정한 최신 GitHub Issue 코멘트의 `T1`…`Tn` 전체에 재발 방지 테스트 추가·수정
+        - [ ] 관련 테스트와 포맷 검사 통과
+        - [ ] API·문서 변경이 필요하면 정본에 반영
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        **중단:** 공개 계약·정본 충돌·범위 밖 공유 파일 수정이 필요하면 `DECISION_NEEDED`로 전환한다.

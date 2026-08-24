@@ -35,3 +35,22 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### macOS ###
+.DS_Store
+
+### iCloud·Finder 중복 사본 ###
+# 동기화 충돌로 생기는 `이름 2.확장자`, `이름 2` 형태의 사본을 무시한다.
+# 이름에 공백과 숫자가 들어간 정상 파일이 필요하면 `git add -f`로 추가한다.
+* [0-9].*
+* [0-9]
+
+.env
+.env.*
+*.env
+!.env.example
+!.env.production.example
+/src/test/http/http-client.private.env.json
+
+### Graphify ###
+graphify-out/

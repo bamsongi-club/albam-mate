@@ -1,0 +1,629 @@
+{
+  "schema": "k6-campaign-manifest-v3",
+  "kind": "room-t1-critical-section-comparison",
+  "campaignId": "room-t1-critical-section-comparison-2026-08-21",
+  "issueNumber": 781,
+  "campaignStatus": "completed",
+  "documentStatus": "current",
+  "reportStatus": "PASS",
+  "purpose": "Issue #781의 승인된 T1~T5 계약으로 ROOM T1 참가 취소·자동 승격 persistence variant V0/V1/V2를 T1 hot c8에서 각 3회 비교하고, ADR-0087의 V0 선택 근거를 기록한다.",
+  "report": "../room-t1-critical-section-comparison-2026-08-21.md",
+  "contract": {
+    "source": "Issue #781 최신 승인 T1~T5 댓글",
+    "validTIds": [
+      "T1",
+      "T2",
+      "T3",
+      "T4",
+      "T5"
+    ],
+    "scenario": "T1 / stress / hot / c8 / 5 rounds",
+    "requiredVariants": 3,
+    "requiredRepeatsPerVariant": 3,
+    "requiredIndependentRuns": 9,
+    "primaryMetric": "room_request_duration{outcome:success} p95의 variant별 3회 중앙값",
+    "guardrails": [
+      "성공 건수 V0 이상",
+      "허용된 ROOM_CONCURRENT_MODIFICATION 409 V0 이하",
+      "resource-signals.http.rps 악화 없음"
+    ],
+    "selection": "후보 3회가 모두 PASS/VALID이고 p95 중앙값이 V0보다 최소 20% 개선되며 최소 2/3 Run이 같은 개선 방향일 때 후보 채택, 그 외 RETAIN_V0; PR lifecycle은 ADR 선택과 별도로 명시적인 지시가 있을 때만 결정"
+  },
+  "window": {
+    "startedAtUtc": "2026-08-20T22:55:23Z",
+    "endedAtUtc": "2026-08-20T23:56:16Z"
+  },
+  "provenance": {
+    "targetEnvironment": "aws-room-k6",
+    "executionPath": "portable bundle -> albam-mate-infra run.sh room-k6",
+    "k6VersionValues": [
+      "1.3.0"
+    ],
+    "portableBundle": {
+      "kind": "albam-mate-room-k6-bundle",
+      "schemaVersion": 2,
+      "fixtureSchemaVersion": 2,
+      "cleanSourceRuns": 9,
+      "sourceDirtyRuns": 0
+    },
+    "variants": [
+      {
+        "variant": "V0",
+        "originalSha": "d3ea2a9ca9c972c9fdbcd8800d9c63de0240f9cc",
+        "derivedSha": "43b074570fc7de25bacb3f972868b2c86bfd1839",
+        "directParentSha": "d3ea2a9ca9c972c9fdbcd8800d9c63de0240f9cc",
+        "derivedTreeSha": "c920cf2b90c162ceda88eb3291a818f2c8505fb1"
+      },
+      {
+        "variant": "V1",
+        "originalSha": "e4d104a5ef6f2c8fa06b144acc6b0a44d89be076",
+        "derivedSha": "b8504236619d78824e5ee85c2e4588f39d736b89",
+        "directParentSha": "e4d104a5ef6f2c8fa06b144acc6b0a44d89be076",
+        "derivedTreeSha": "93db82959f68fabe388fce7aab2af35afda2dc81"
+      },
+      {
+        "variant": "V2",
+        "originalSha": "3c6aa743e1371af23962de142ee4b37e1df136fc",
+        "derivedSha": "f08c59e4934c764ef187639a2935e41414b03280",
+        "directParentSha": "3c6aa743e1371af23962de142ee4b37e1df136fc",
+        "derivedTreeSha": "daa6fa5a568ec4518bdc379e33c2d68ff6d0fc11"
+      }
+    ],
+    "fixtureCompatibilityPatch": {
+      "commitSubject": "test: ROOM k6 fixture 지역 값 보정",
+      "stablePatchId": "012423435125b5674f572f432d54b186bf4b9212",
+      "directParentMatchesOriginalForAllVariants": true,
+      "samePatchForAllVariants": true,
+      "changedFileCount": 2,
+      "changedFiles": [
+        {
+          "path": "load-tests/k6/jiwon/tools/fixture-model.mjs",
+          "originalBlobSha": "f351d94495ca47fc7d72c1d0c01025a1ab7e2af8",
+          "derivedBlobSha": "810bbc453692f2accd33e15358f332828cb72e51",
+          "change": "rooms.region literal ROOM-K6을 홍대로 교체"
+        },
+        {
+          "path": "load-tests/k6/jiwon/tests/fixture-model.test.mjs",
+          "originalBlobSha": "76406d0f00a360bfd12dbf12a1054e4c2aeefe3e",
+          "derivedBlobSha": "c5ecf56dd7947516b11e4905cb112619848a680c",
+          "change": "홍대 포함과 ROOM-K6 부재 assertion 2개 추가"
+        }
+      ],
+      "canonicalDiffLocation": "../room-t1-critical-section-comparison-2026-08-21.md#입력-source와-fixture-호환-patch",
+      "verification": {
+        "nameStatus": "각 original..derived diff가 두 changedFiles만 포함",
+        "patchId": "각 original..derived diff의 git patch-id --stable가 stablePatchId와 일치",
+        "fixtureRegressionCommand": "node --test --test-name-pattern=fixture SQL은 필수 users timestamp와 정확한 ID 기반 cleanup을 만들고 prefix 전체 삭제를 쓰지 않는다 load-tests/k6/jiwon/tests/fixture-model.test.mjs",
+        "fixtureRegressionPassRuns": 3
+      }
+    }
+  },
+  "coverage": [
+    {
+      "variant": "V0",
+      "condition": "T1 / stress / hot / c8 / 5 rounds",
+      "requiredRuns": 3,
+      "actualRuns": 3,
+      "validRuns": 3,
+      "status": "PASS"
+    },
+    {
+      "variant": "V1",
+      "condition": "T1 / stress / hot / c8 / 5 rounds",
+      "requiredRuns": 3,
+      "actualRuns": 3,
+      "validRuns": 3,
+      "status": "PASS"
+    },
+    {
+      "variant": "V2",
+      "condition": "T1 / stress / hot / c8 / 5 rounds",
+      "requiredRuns": 3,
+      "actualRuns": 3,
+      "validRuns": 3,
+      "status": "PASS"
+    }
+  ],
+  "selection": {
+    "plannedRunCount": 9,
+    "includedRunCount": 9,
+    "excludedRunCount": 0,
+    "baselineVariant": "V0",
+    "decision": "RETAIN_V0",
+    "automatedT5Result": "RETAIN_V0",
+    "decisionAuthority": "ADR-0087",
+    "candidateResults": [
+      {
+        "variant": "V1",
+        "successP95Milliseconds": [
+          457.9286923,
+          625.6170062,
+          150.5928895
+        ],
+        "medianMilliseconds": 457.9286923,
+        "medianChangeFromV0Percent": 96.3,
+        "lowerP95ThanV0Runs": 2,
+        "successCount": 45,
+        "allowed409Count": 75,
+        "httpRpsMedian": 0.6636424093702595,
+        "eligible": false,
+        "reasons": [
+          "p95 중앙값 최소 20% 개선 미충족",
+          "성공 건수 V0 미만",
+          "허용 409 V0 초과"
+        ]
+      },
+      {
+        "variant": "V2",
+        "successP95Milliseconds": [
+          548.845082,
+          567.9467957,
+          179.0446149
+        ],
+        "medianMilliseconds": 548.845082,
+        "medianChangeFromV0Percent": 135.3,
+        "lowerP95ThanV0Runs": 2,
+        "successCount": 48,
+        "allowed409Count": 72,
+        "httpRpsMedian": 0.6637835648614607,
+        "eligible": false,
+        "reasons": [
+          "p95 중앙값 최소 20% 개선 미충족"
+        ]
+      }
+    ]
+  },
+  "validity": {
+    "runStatusCounts": {
+      "PASS": 9,
+      "FAIL": 0,
+      "INVALID": 0
+    },
+    "sourceIntegrity": {
+      "checkedRuns": 9,
+      "manifestSourceDirtyFalseRuns": 9,
+      "manifestSourceMatchesRunManifestRuns": 9,
+      "infraRevisionMatchesRunManifestRuns": 9
+    },
+    "artifactIntegrity": {
+      "checkedRuns": 9,
+      "fixtureHashMatchesRunManifestRuns": 9,
+      "summaryHashMatchesRunManifestRuns": 9,
+      "consoleHashMatchesRunManifestRuns": 9,
+      "resourceSignalsPassRuns": 9
+    },
+    "execution": {
+      "completedRuns": 9,
+      "k6ExitCodeZeroRuns": 9,
+      "allInfraPhaseExitCodeZeroRuns": 9,
+      "beforeDiagnosisPassRuns": 9,
+      "afterDiagnosisPassRuns": 9,
+      "finalResultPassRuns": 9
+    }
+  },
+  "aggregate": {
+    "requestCount": 360,
+    "successCount": 141,
+    "businessFailureCount": 0,
+    "concurrencyFailureCount": 219,
+    "unexpectedCount": 0,
+    "baseline": {
+      "variant": "V0",
+      "successP95Milliseconds": [
+        613.3867125,
+        233.23963625,
+        190.07010025
+      ],
+      "medianMilliseconds": 233.23963625,
+      "successCount": 48,
+      "allowed409Count": 72,
+      "httpRpsMedian": 0.6570894163076241
+    },
+    "diagnosticResourceSignals": {
+      "selectionUse": "diagnostic-only; aggregate query and transaction values are not statement-level attribution",
+      "byVariant": [
+        {
+          "variant": "V0",
+          "queryCallCount": 2664,
+          "queryTimeMilliseconds": 11535.425431,
+          "transactionDurationMillisecondsRange": [
+            6.187,
+            32.116
+          ],
+          "maximumLockWaitCount": 7,
+          "maximumHikariPendingThreads": 0,
+          "postgresCpuPercentRange": [
+            5.12,
+            7.49
+          ]
+        },
+        {
+          "variant": "V1",
+          "queryCallCount": 2853,
+          "queryTimeMilliseconds": 11967.684365,
+          "transactionDurationMillisecondsRange": [
+            7.409,
+            46.336
+          ],
+          "maximumLockWaitCount": 5,
+          "maximumHikariPendingThreads": 1,
+          "postgresCpuPercentRange": [
+            5.6,
+            8.56
+          ]
+        },
+        {
+          "variant": "V2",
+          "queryCallCount": 2603,
+          "queryTimeMilliseconds": 11789.387058,
+          "transactionDurationMillisecondsRange": [
+            7.246,
+            41.506
+          ],
+          "maximumLockWaitCount": 5,
+          "maximumHikariPendingThreads": 0,
+          "postgresCpuPercentRange": [
+            5.4,
+            13.01
+          ]
+        }
+      ]
+    }
+  },
+  "teardown": {
+    "destroyedDedicatedResourceCount": 94,
+    "terraformStateAfterDestroy": "empty",
+    "status": "PASS",
+    "sharedResources": "shared ECR, SSM, state storage는 이 campaign teardown 대상이 아님"
+  },
+  "artifactBoundary": {
+    "rawArtifactRetention": "local-only",
+    "repositoryRelativePathTemplate": "build/k6/room/<run-id>/<fixture-id>/",
+    "retainedInGit": [
+      "campaign metadata",
+      "variant source/tree/patch provenance",
+      "per-run non-secret aggregate metrics",
+      "fixture, manifest, summary, console, resource-signals SHA-256",
+      "validity, selection, teardown summary"
+    ],
+    "prohibitedFromGit": [
+      "password",
+      "credential-derived hash",
+      "token",
+      "session",
+      "CSRF value",
+      "URL",
+      "actual fixture or resource ID",
+      "raw SQL",
+      "raw log",
+      "raw k6 summary"
+    ],
+    "independentVerificationLimitation": "원시 bundle은 local-only이므로 이 저장소만으로 원자료 내용을 독립 재검증할 수 없다. 이 evidence의 digest와 source/tree/patch provenance는 보존된 원자료의 변경 여부와 측정 입력을 감사하는 경계다."
+  },
+  "runs": [
+    {
+      "sequence": 1,
+      "variant": "V0",
+      "runId": "room-781-v0-region-c8-r01-20260821",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-20T22:55:23Z",
+        "endedAtUtc": "2026-08-20T22:57:06Z"
+      },
+      "provenance": {
+        "sourceSha": "43b074570fc7de25bacb3f972868b2c86bfd1839",
+        "fixtureSha256": "fe17032439d80ca08fc0eb26b518f4c61f948bfc6585eb5c2418e5b5dc0bc15d",
+        "manifestSha256": "f55c207828c9f720321f7ba4ac878bcebaf4e340076585e115c8806226c08612",
+        "resourceSignalsSha256": "adeda7422970fe31eb2c83b598f0715fa41ec4b9949a244bbf1cc1120c615c54",
+        "summarySha256": "2e45d73c295b6c711dd23b94b820c7056d27e40baec014fac15fd303d4b9cb89",
+        "consoleSha256": "78b4599612601d2b7f20f2f9019708319d26a121852b43c22bedd755d4f360e7"
+      },
+      "metrics": {
+        "requestCount": 40,
+        "successCount": 16,
+        "allowed409Count": 24,
+        "successP95Milliseconds": 613.3867125,
+        "httpRps": 0.6570894163076241
+      },
+      "checks": {
+        "sourceDirty": false,
+        "runState": "COMPLETED",
+        "k6ExitCode": 0,
+        "infraPhaseExitCodes": [0, 0, 0, 0, 0],
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalResult": "PASS",
+        "resourceSignals": "PASS"
+      }
+    },
+    {
+      "sequence": 2,
+      "variant": "V0",
+      "runId": "room-781-v0-region-c8-r02-20260821",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-20T22:59:58Z",
+        "endedAtUtc": "2026-08-20T23:01:42Z"
+      },
+      "provenance": {
+        "sourceSha": "43b074570fc7de25bacb3f972868b2c86bfd1839",
+        "fixtureSha256": "e9d45e91e6cf608ed9f5cbe7fa02bfee1f2fabf1c5b6e7030395131d63355226",
+        "manifestSha256": "1ce1758c86e26dee1c4c0956edafbed05b6fcde452bb055988496093dde93371",
+        "resourceSignalsSha256": "6500a0405ed87e45e1da95fe2d78a6e6804e2a920ec32d9036d653a6d93993ec",
+        "summarySha256": "54a88b2190091af9754267441f70f99f8000827a07272b6ba7f988d49ee0e067",
+        "consoleSha256": "f44cccd35ea2b8711f53a35f5a4fc6665284e1f41bcd3ccd3bd9d8330a783668"
+      },
+      "metrics": {
+        "requestCount": 40,
+        "successCount": 16,
+        "allowed409Count": 24,
+        "successP95Milliseconds": 233.23963625,
+        "httpRps": 0.6484884623981781
+      },
+      "checks": {
+        "sourceDirty": false,
+        "runState": "COMPLETED",
+        "k6ExitCode": 0,
+        "infraPhaseExitCodes": [0, 0, 0, 0, 0],
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalResult": "PASS",
+        "resourceSignals": "PASS"
+      }
+    },
+    {
+      "sequence": 3,
+      "variant": "V0",
+      "runId": "room-781-v0-region-c8-r03-20260821",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-20T23:04:32Z",
+        "endedAtUtc": "2026-08-20T23:06:14Z"
+      },
+      "provenance": {
+        "sourceSha": "43b074570fc7de25bacb3f972868b2c86bfd1839",
+        "fixtureSha256": "07cf02dcbbcf31c1b64ca7a67985a89fe7e0ce4d49f950090ea2ec8594a0f334",
+        "manifestSha256": "29792caae6c7c620224b4030631e77d618895b891108bdcb380684e437823e99",
+        "resourceSignalsSha256": "b71000af0cda0160cd1e5d407c0c80ea4028e15454377739ced0a214338ccdb1",
+        "summarySha256": "68d53e2882882e785dcbf42c3172ca93e99bfb741e23320e882a30e1028eb0cb",
+        "consoleSha256": "f908da6479268eff0163ba19478b1e38232aa416118294ef23560f0b7869b0c1"
+      },
+      "metrics": {
+        "requestCount": 40,
+        "successCount": 16,
+        "allowed409Count": 24,
+        "successP95Milliseconds": 190.07010025,
+        "httpRps": 0.6642502490359317
+      },
+      "checks": {
+        "sourceDirty": false,
+        "runState": "COMPLETED",
+        "k6ExitCode": 0,
+        "infraPhaseExitCodes": [0, 0, 0, 0, 0],
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalResult": "PASS",
+        "resourceSignals": "PASS"
+      }
+    },
+    {
+      "sequence": 4,
+      "variant": "V1",
+      "runId": "room-781-v1-region-c8-r01-20260821",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-20T23:17:45Z",
+        "endedAtUtc": "2026-08-20T23:19:28Z"
+      },
+      "provenance": {
+        "sourceSha": "b8504236619d78824e5ee85c2e4588f39d736b89",
+        "fixtureSha256": "5c0ffd45f6a8a8a2acc927e2b45f858edd1f9bbf314b1690eb8386e8620d13ec",
+        "manifestSha256": "935d39231f0955baf2e4d11e9e052bb3847cc3869d72b7fbfc9d5a036e9ca99b",
+        "resourceSignalsSha256": "37721f4b3abad11e065ee374e2e17ec9c20d8b980380deb5401a8656e809beff",
+        "summarySha256": "cda27bf3e80bfe26a40e627b3e6a4d21a5b02ed505e6680f1872a70d27e5948b",
+        "consoleSha256": "e23d196fd63439e32a0b6a95c6bf993105ced0ca3c01debcba077b70f7aef0cc"
+      },
+      "metrics": {
+        "requestCount": 40,
+        "successCount": 15,
+        "allowed409Count": 25,
+        "successP95Milliseconds": 457.9286923,
+        "httpRps": 0.6574020905820201
+      },
+      "checks": {
+        "sourceDirty": false,
+        "runState": "COMPLETED",
+        "k6ExitCode": 0,
+        "infraPhaseExitCodes": [0, 0, 0, 0, 0],
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalResult": "PASS",
+        "resourceSignals": "PASS"
+      }
+    },
+    {
+      "sequence": 5,
+      "variant": "V1",
+      "runId": "room-781-v1-region-c8-r02-20260821",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-20T23:22:24Z",
+        "endedAtUtc": "2026-08-20T23:24:06Z"
+      },
+      "provenance": {
+        "sourceSha": "b8504236619d78824e5ee85c2e4588f39d736b89",
+        "fixtureSha256": "3d426ace847840c6eb30e37819bdd9d32b9eed91e34f98aee2d9cba94320ac9c",
+        "manifestSha256": "2cfbf6c46e2f5ff49abfe741e4b00c7c17bab5b64ed5bfee780bcb4c3cffaa0f",
+        "resourceSignalsSha256": "805ecc8010b35c79400d7fc7af017e350abd8879c659bc02f30649d70a46c662",
+        "summarySha256": "82b21c390d757583cc1be211259f32b1aaef487fb892eee266291d34dd2c4ad1",
+        "consoleSha256": "291f79a4a362ff70044a57c9f4e3025f7851f46ad70463caf880096f26599bba"
+      },
+      "metrics": {
+        "requestCount": 40,
+        "successCount": 15,
+        "allowed409Count": 25,
+        "successP95Milliseconds": 625.6170062,
+        "httpRps": 0.6636424093702595
+      },
+      "checks": {
+        "sourceDirty": false,
+        "runState": "COMPLETED",
+        "k6ExitCode": 0,
+        "infraPhaseExitCodes": [0, 0, 0, 0, 0],
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalResult": "PASS",
+        "resourceSignals": "PASS"
+      }
+    },
+    {
+      "sequence": 6,
+      "variant": "V1",
+      "runId": "room-781-v1-region-c8-r03-20260821",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-20T23:27:38Z",
+        "endedAtUtc": "2026-08-20T23:29:20Z"
+      },
+      "provenance": {
+        "sourceSha": "b8504236619d78824e5ee85c2e4588f39d736b89",
+        "fixtureSha256": "289aa6b6101af5ed4efdb0edeeaf5c77a785398420b5d48452078b887b357aa3",
+        "manifestSha256": "b45143cd73427b9382bdb0b1d81235f4d1eeb19740405aac58aaaa989bec03b6",
+        "resourceSignalsSha256": "e57c24f11bd5a43515062f6067c1b7f0e8cb9ef4b9a074fb9209948eaa974a05",
+        "summarySha256": "36f79365ae802ecf69b140b0cf9ab07f3b93398750992100568f99001eb1f80f",
+        "consoleSha256": "854bb1c1cb58f46977e45a96674f28f3b7e78bcd0dd99433e30c9d80143f9ab3"
+      },
+      "metrics": {
+        "requestCount": 40,
+        "successCount": 15,
+        "allowed409Count": 25,
+        "successP95Milliseconds": 150.5928895,
+        "httpRps": 0.6639834963686637
+      },
+      "checks": {
+        "sourceDirty": false,
+        "runState": "COMPLETED",
+        "k6ExitCode": 0,
+        "infraPhaseExitCodes": [0, 0, 0, 0, 0],
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalResult": "PASS",
+        "resourceSignals": "PASS"
+      }
+    },
+    {
+      "sequence": 7,
+      "variant": "V2",
+      "runId": "room-781-v2-region-c8-r01-20260821",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-20T23:44:02Z",
+        "endedAtUtc": "2026-08-20T23:45:45Z"
+      },
+      "provenance": {
+        "sourceSha": "f08c59e4934c764ef187639a2935e41414b03280",
+        "fixtureSha256": "ef117539bab118a149b4e00ac621feb546a6b8cebf0478b077c8ba93a73d7ed3",
+        "manifestSha256": "25bc8e768ec071bc425a22abb1bc5323b6a01ca4a751d32f697f3c947f6af706",
+        "resourceSignalsSha256": "7a30e659b582efe71c7dc241d179edf1384354a89c2f5367047e0b40356736b1",
+        "summarySha256": "ae936cd8dbcded5a0bf163fdd27b798581516769fc33f0aa7833e2289c0c8fde",
+        "consoleSha256": "76ceab9efd951f23601a71e747720ae18529cefa18ebc2d71cb3c8c2f0ab877f"
+      },
+      "metrics": {
+        "requestCount": 40,
+        "successCount": 15,
+        "allowed409Count": 25,
+        "successP95Milliseconds": 548.845082,
+        "httpRps": 0.6571475677517643
+      },
+      "checks": {
+        "sourceDirty": false,
+        "runState": "COMPLETED",
+        "k6ExitCode": 0,
+        "infraPhaseExitCodes": [0, 0, 0, 0, 0],
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalResult": "PASS",
+        "resourceSignals": "PASS"
+      }
+    },
+    {
+      "sequence": 8,
+      "variant": "V2",
+      "runId": "room-781-v2-region-c8-r02-20260821",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-20T23:49:21Z",
+        "endedAtUtc": "2026-08-20T23:51:03Z"
+      },
+      "provenance": {
+        "sourceSha": "f08c59e4934c764ef187639a2935e41414b03280",
+        "fixtureSha256": "3f24e786c214a698de60b2138acd1b32654ba7c02a9a779e91095678edf76177",
+        "manifestSha256": "218302d8ff01ce815dd859982e6c704e41808afc2d24f6ab15cb37afc13a9b2f",
+        "resourceSignalsSha256": "4409093a289f7b5df76e3b1a4dd3fb5db2d3c3e5edfb21689ce64406d1096a82",
+        "summarySha256": "7b7158c1f4dada00701be599492b1a4cdae7037bf13813bf8dfb9ad7c4350bb3",
+        "consoleSha256": "dfdaf97b90ec1fb3d0a6af093acde7ebdfcd4a22c432e437ccd1ac79c3a60f19"
+      },
+      "metrics": {
+        "requestCount": 40,
+        "successCount": 18,
+        "allowed409Count": 22,
+        "successP95Milliseconds": 567.9467957,
+        "httpRps": 0.6637835648614607
+      },
+      "checks": {
+        "sourceDirty": false,
+        "runState": "COMPLETED",
+        "k6ExitCode": 0,
+        "infraPhaseExitCodes": [0, 0, 0, 0, 0],
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalResult": "PASS",
+        "resourceSignals": "PASS"
+      }
+    },
+    {
+      "sequence": 9,
+      "variant": "V2",
+      "runId": "room-781-v2-region-c8-r03-20260821",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-20T23:54:33Z",
+        "endedAtUtc": "2026-08-20T23:56:16Z"
+      },
+      "provenance": {
+        "sourceSha": "f08c59e4934c764ef187639a2935e41414b03280",
+        "fixtureSha256": "8bf81f47b2bd2588989fe6d366fa0bfbf8e014aac53f71dea98d93b3edd82433",
+        "manifestSha256": "7beac4ed2fa85b06538a5631f3d38e532b272ffe4f6d9f13ba64c0bd663edbd6",
+        "resourceSignalsSha256": "06176cc5c958bcc79a734138f987d68e7e475baee677b84e104337dc07cf1424",
+        "summarySha256": "f2eead1def9f5c271b026a2bc4b5c6752068fef7c1ed3c8da18544c63e3f1950",
+        "consoleSha256": "99c1c833010a8e6f3f6063f153113a68af012b815218d3e35facc3dda97d7773"
+      },
+      "metrics": {
+        "requestCount": 40,
+        "successCount": 15,
+        "allowed409Count": 25,
+        "successP95Milliseconds": 179.0446149,
+        "httpRps": 0.6639841416229553
+      },
+      "checks": {
+        "sourceDirty": false,
+        "runState": "COMPLETED",
+        "k6ExitCode": 0,
+        "infraPhaseExitCodes": [0, 0, 0, 0, 0],
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalResult": "PASS",
+        "resourceSignals": "PASS"
+      }
+    }
+  ]
+}

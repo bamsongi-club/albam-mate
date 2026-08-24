@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "kind": "search-04e-hybrid-rrf-live-execution-manifest",
+  "issue": 1002,
+  "featureId": "SEARCH-04",
+  "catalogRelease": {
+    "path": "docs/game-catalog/catalog-dataset-release.json",
+    "sha256": "9b1341775977078d70ca91d741ad6420ec443ced6b50a98ab4ff46638fb9f2c5",
+    "releaseId": "bgg-catalog-170k-v4-2026-08-19",
+    "datasetId": "bgg-catalog-170k",
+    "fieldVersion": "catalog-fields-v1"
+  },
+  "qualityCorpus": {
+    "path": "docs/p2/search-evaluation/dense-bge-m3/quality-corpus.json",
+    "sha256": "0ce65a0ab500054c11548fe487afab8247b8f09282087f6db4d144d0783c87e8",
+    "rowCount": 1000,
+    "gameIdMembershipSha256": "87aff382f7a91bff93d5eddf4ee7b048bbef22e5e220a6295c0c09821d87a353"
+  },
+  "searchText": {
+    "path": "docs/p2/search-evaluation/dense-bge-m3/search-text-top1000.json",
+    "sha256": "ec364be3a34268d1bb6d27e3c41e2cdd31852565eec79fa31faaacda17af4ece",
+    "rowCount": 1000,
+    "gameIdMembershipSha256": "87aff382f7a91bff93d5eddf4ee7b048bbef22e5e220a6295c0c09821d87a353"
+  },
+  "executionInput": {
+    "path": "docs/p2/search-evaluation/lexical-sparse/fixtures/poc-search-text-manifest.json",
+    "sha256": "b9793fa757c953c3bbc7724f665160874274111b65fbec7bba9d06f63c854f40"
+  },
+  "runner": {
+    "path": "scripts/measurements/search-04e-hybrid-rrf-live.mjs",
+    "sourceGitHead": "086b8e4378aea5b6673b274440b5adf28ce5b541",
+    "fileSha256": "30d05620b42fd431bb22e889816d55c13419dd4b4aa29a2e90a14c9f0f6aecbb",
+    "sourceClean": false,
+    "snapshotPath": "docs/measurements/results/search-04e-hybrid-rrf-live-runner-snapshot.mjs"
+  },
+  "index": {
+    "id": "c245b97b-0b4e-43ec-987c-ea359e4a2e37",
+    "version": "c245b97b-0b4e-43ec-987c-ea359e4a2e37",
+    "releaseId": "bgg-catalog-170k-v4-2026-08-19",
+    "fieldVersion": "catalog-fields-v1",
+    "manifestSha256": "fdcf8bacd8b8a7c5e8961c02b50ff727ca3460f6846b5b3dddc9dae16d1c1c92",
+    "searchTextChecksum": "ec364be3a34268d1bb6d27e3c41e2cdd31852565eec79fa31faaacda17af4ece",
+    "bggGameIdMembershipSha256": "87aff382f7a91bff93d5eddf4ee7b048bbef22e5e220a6295c0c09821d87a353",
+    "internalGameIdMembershipSha256": "fdcf8bacd8b8a7c5e8961c02b50ff727ca3460f6846b5b3dddc9dae16d1c1c92",
+    "provider": "cloudflare-workers-ai",
+    "model": "@cf/baai/bge-m3",
+    "embeddingMode": "text",
+    "dimension": 1024,
+    "l2Normalized": true,
+    "status": "READY",
+    "rowCount": 1000,
+    "internalGameIdMembershipSha256": "fdcf8bacd8b8a7c5e8961c02b50ff727ca3460f6846b5b3dddc9dae16d1c1c92"
+  },
+  "result": {
+    "path": "docs/measurements/search-04e-hybrid-rrf-live.json",
+    "sha256": "0c7570965bd504fdee115c073a27b655ec4f1e1394d747c27bcb6d79d82390bd"
+  }
+}

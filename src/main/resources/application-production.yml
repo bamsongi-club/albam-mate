@@ -1,0 +1,161 @@
+spring:
+  config:
+    activate:
+      on-profile: production
+  datasource:
+    url: "jdbc:postgresql://${ALBAM_MATE_DB_HOST}:${ALBAM_MATE_DB_PORT}/${ALBAM_MATE_DB_NAME}?sslmode=disable&ApplicationName=albam-mate"
+    username: ${ALBAM_MATE_DB_USER}
+    password: ${ALBAM_MATE_DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      connection-init-sql: SET TIME ZONE 'UTC'
+      maximum-pool-size: ${ALBAM_MATE_DB_MAXIMUM_POOL_SIZE:8}
+      minimum-idle: ${ALBAM_MATE_DB_MINIMUM_IDLE:2}
+  flyway:
+    enabled: true
+    locations: classpath:db/migration,classpath:db/vendor-migration/postgresql
+    # one-shot migrator는 아직 적용되지 않은 version을 허용해 validate 뒤 migrate한다.
+    ignore-migration-patterns: "*:pending"
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+  data:
+    redis:
+      host: ${ALBAM_MATE_REDIS_HOST}
+      port: ${ALBAM_MATE_REDIS_PORT:6379}
+  ai:
+    openai:
+      api-key: ${ALBAM_MATE_ASSISTANT_OPENAI_API_KEY:}
+
+server:
+  forward-headers-strategy: framework
+  shutdown: graceful
+
+management:
+  server:
+    port: ${MANAGEMENT_SERVER_PORT:9090}
+    address: 127.0.0.1
+  metrics:
+    enable:
+      all: false
+      "http.server.requests": true
+      "jvm.memory.used": true
+      "jvm.memory.max": true
+      "tomcat.threads.busy": true
+      "tomcat.threads.config.max": true
+      "hikaricp.connections.pending": true
+      "hikaricp.connections.max": true
+      "albam.dependency.health": true
+      "chat.message.operations": true
+      "notification.relay.events": true
+      "notification.relay.delivery.duration": true
+      "notification.relay.oldest.processable.age": true
+      "room.waitlist.operations": true
+      "assistant.usage.events": true
+      "assistant.usage.tokens": true
+      # OTLP CloudWatch Agent는 Summary datapoint를 수용하지 않아 같은 배치의 Counter도 버린다.
+      "assistant.usage.latency": false
+      "assistant.cost.warning.events": true
+    distribution:
+      percentiles:
+        http.server.requests: [0.5, 0.95, 0.99]
+      percentiles-histogram:
+        http.server.requests: true
+  opentelemetry:
+    resource-attributes:
+      environment: ${ALBAM_MATE_ENVIRONMENT}
+      stackId: ${ALBAM_MATE_STACK_ID}
+      service: albam-mate
+      role: ${ALBAM_MATE_ROLE}
+      instanceId: ${ALBAM_MATE_INSTANCE_ID}
+      release: ${ALBAM_MATE_RELEASE}
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  otlp:
+    metrics:
+      export:
+        enabled: true
+        url: ${ALBAM_MATE_OTLP_METRICS_URL:http://host.docker.internal:4318/v1/metrics}
+        step: ${ALBAM_MATE_OTLP_METRICS_STEP:5m}
+        batch-size: 1000
+        connect-timeout: 1s
+        read-timeout: 2s
+
+logging:
+  structured:
+    format:
+      console: logstash
+      file: logstash
+    json:
+      exclude: email,ip,session,cookie,token,authorization,requestBody,responseBody,queryString,prompt,response,toolArgs,toolResult,chatContent,notificationPayload,rawSql,userId,actorUserId
+      customizer: cloud.bamsongi.albammate.monitoring.MonitoringStructuredLoggingCustomizer
+      add:
+        environment: ${ALBAM_MATE_ENVIRONMENT}
+        stackId: ${ALBAM_MATE_STACK_ID}
+        service: albam-mate
+        role: ${ALBAM_MATE_ROLE}
+        instanceId: ${ALBAM_MATE_INSTANCE_ID}
+        release: ${ALBAM_MATE_RELEASE}
+  file:
+    name: /var/log/albam-mate/events.json
+  logback:
+    rollingpolicy:
+      max-file-size: 10MB
+      max-history: 4
+      total-size-cap: 40MB
+
+app:
+  search:
+    cloudflare:
+      enabled: ${ALBAM_MATE_SEARCH_CLOUDFLARE_ENABLED:true}
+      account-id: ${CLOUDFLARE_ACCOUNT_ID:}
+      api-token: ${CLOUDFLARE_API_TOKEN:}
+      timeout: 5s
+      release-id: ${ALBAM_MATE_SEARCH_RELEASE_ID:}
+      field-version: ${ALBAM_MATE_SEARCH_FIELD_VERSION:}
+      manifest-sha256: ${ALBAM_MATE_SEARCH_MANIFEST_SHA256:}
+      search-text-checksum: ${ALBAM_MATE_SEARCH_TEXT_CHECKSUM:}
+  assistant:
+    enabled: ${ALBAM_MATE_ASSISTANT_ENABLED:true}
+    provider: ${ALBAM_MATE_ASSISTANT_PROVIDER:fake}
+    provider-configured: ${ALBAM_MATE_ASSISTANT_PROVIDER_CONFIGURED:true}
+    no-retention-verified: ${ALBAM_MATE_ASSISTANT_NO_RETENTION_VERIFIED:false}
+    no-training-verified: ${ALBAM_MATE_ASSISTANT_NO_TRAINING_VERIFIED:false}
+    retention-mode: ${ALBAM_MATE_ASSISTANT_RETENTION_MODE:unverified}
+    policy-version: ${ALBAM_MATE_ASSISTANT_POLICY_VERSION:}
+    policy-url: ${ALBAM_MATE_ASSISTANT_POLICY_URL:}
+    pricing-snapshot: ${ALBAM_MATE_ASSISTANT_PRICING_SNAPSHOT:}
+    input-token-price-usd-per-million: ${ALBAM_MATE_ASSISTANT_INPUT_TOKEN_PRICE_USD_PER_MILLION:0}
+    output-token-price-usd-per-million: ${ALBAM_MATE_ASSISTANT_OUTPUT_TOKEN_PRICE_USD_PER_MILLION:0}
+    max-input-tokens: ${ALBAM_MATE_ASSISTANT_MAX_INPUT_TOKENS:4096}
+    max-output-tokens: ${ALBAM_MATE_ASSISTANT_MAX_OUTPUT_TOKENS:256}
+  monitoring:
+    upstream-role: ${ALBAM_MATE_ROLE}
+    dependency-health:
+      enabled: true
+      poll-interval: 10s
+  security:
+    cookie:
+      secure: true
+    auth-request:
+      # 부하 측정은 계정 수만큼 로그인을 반복하므로 기본 30회/10분에 먼저 걸린다.
+      # 측정 창에서만 올리고 끝나면 되돌린다. 지정하지 않으면 기본값을 그대로 쓴다.
+      login-limit: ${ALBAM_MATE_LOGIN_LIMIT:30}
+  redis:
+    host: ${ALBAM_MATE_REDIS_HOST}
+    port: ${ALBAM_MATE_REDIS_PORT:6379}
+  chat:
+    websocket:
+      allowed-origin: ${ALBAM_MATE_CHAT_WEBSOCKET_ALLOWED_ORIGIN:}

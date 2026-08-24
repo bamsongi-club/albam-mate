@@ -1,0 +1,258 @@
+# 알밤메이트 P0 1차 MVP 명세
+
+> 이 문서는 알밤메이트 P0의 범위, 핵심 사용자 흐름, 여러 기능이 함께 사용하는 공통 규칙과 구현 완료 기준을 정의한다.
+>
+> 기능별 상세 규칙은 `docs/archive/p0/` 문서 묶음에서 관리한다. 정원, 상태 전이, 권한처럼 여러 기능이 함께 사용하는 규칙은 이 문서에 한 번만 두고 기능 문서에서는 링크로 참조한다.
+>
+> 요청·응답 필드와 오류 코드는 API 명세서, 데이터 구조와 제약은 ERD, 기술 선택과 근거는 ADR에서 관리한다.
+
+## 관련 문서
+
+| 문서 | 책임 |
+| --- | --- |
+| 본 문서 | P0 범위, 핵심 흐름, 공통 규칙, 구현 완료 기준 |
+| [인증·프로필](auth-profile.md) | CSRF, 회원가입, 로그인·로그아웃, 내 프로필 |
+| [게임 목록](game-catalog.md) | 게임 목록·검색·상세와 데이터 범위 |
+| [방](room.md) | 방 탐색·상세·생성·수정·취소·종료 |
+| [참가·내 모임](participation.md) | 참가·취소·재참가와 내 모임 |
+| [기반 작업](foundation.md) | 기능 구현보다 먼저 필요한 공유 기반 항목과 의존 순서 |
+| [API 명세서](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/API.md) | 요청·응답, 페이지네이션, HTTP 상태와 오류 계약 |
+| [ERD](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/ERD.md) | 테이블, 데이터 제약과 계산식 |
+| [PRD](../../PRD.md) | 전체 제품 목표와 P0 이후 기능 후보 |
+
+문서 내용이 겹칠 때는 공통 제품 규칙은 본 문서, 기능별 제품 규칙은 해당 기능 문서, HTTP 계약은 API 명세서, 저장 계약은 ERD, 기술 결정은 ADR을 따른다.
+
+### 완료 기준 ID
+
+기능 문서와 [기반 작업 문서](foundation.md)는 다음 규칙을 사용한다.
+
+- 형식은 `{기능 또는 기반 작업 ID}-AC{번호}`이며 각 ID 안에서 `AC1`부터 시작한다.
+- 예: `GAME-01-AC1`, `FND-01-AC1`
+- 이슈와 작업 범위는 완료 기준 문장 대신 고유 ID로 지정한다.
+- 부여한 번호는 바꾸지 않는다. 새 항목은 뒤에 추가하고, 항목을 삭제해도 남은 번호를 당기지 않는다.
+
+---
+
+## 서비스 개요
+
+### 서비스 비전
+
+알밤메이트는 게임 정보·모임 조건을 바탕으로 일반 유저나 룰마스터가 만든 모임을 찾고 참가하도록 돕는 보드게임 플레이 매칭 플랫폼이다.
+
+### P0 정의
+
+P0에서는 홍대에서 열리는 오프라인 보드게임 방을 대상으로 다음 경험을 제공한다.
+
+- `게임부터 찾기`와 `사람부터 만나기` 두 가지 탐색 방식
+- 게임 목록·검색·상세 조회
+- 게임 중심·사람 중심 방 탐색과 생성
+- 방의 일시, 홍대 지역, 정원, 경험 수준, 룰마스터 진행 여부 확인
+- 남은 자리에 선착순 참가·취소·재참가
+- 내가 참가하거나 개설한 방 확인
+- 주최자와 현재 `ACTIVE` 참가자의 정확한 장소와 참가자 확인
+
+### 해결하려는 문제와 검증 가설
+
+원하는 시간·장소에 함께할 사람·게임·규칙 설명자가 맞지 않아 보드게임 모임이 성립하지 않는 문제를 해결한다.
+
+> 게임, 일시, 장소, 경험 수준, 룰마스터 진행 여부와 남은 자리를 확인할 수 있다면, 함께할 사람이 없는 유저도 보드게임 방 참가를 완료할 수 있다.
+
+### 대상 유저와 역할
+
+핵심 대상은 일행을 구하기 어려운 보드게임 카페 방문 유저, 새 게임을 가볍게 경험하려는 초보·라이트 유저, 아는 게임을 설명·진행하려는 유저다.
+
+한 명의 유저는 방에 따라 여러 역할을 수행할 수 있다.
+
+- 참가자: 게임 또는 사람 중심 방을 탐색하고 참가·취소하며, 참가한 방을 확인한다.
+- 주최자: 방을 생성·수정·취소·종료하고 참가자를 확인한다.
+- 룰마스터: 방에서 규칙 설명과 게임 진행을 담당한다고 직접 표시하는 주최자 역할이다. P0에서는 별도의 유저 유형이나 인증 자격이 아니다.
+
+---
+
+## 구현 원칙
+
+### 성공 흐름 우선
+
+P0 구현은 다음 세 가지 흐름을 처음부터 끝까지 연결한다.
+
+1. 게임부터 찾고 방에 참가하는 흐름
+2. 사람 중심 방을 찾고 참가하는 흐름
+3. 주최자가 방을 만들고 참가자를 확인하는 흐름
+
+### 문서별 단일 책임
+
+문서 책임과 내용이 겹칠 때의 우선순위는 [관련 문서](#관련-문서)를 따른다.
+
+### P0 밖의 정책
+
+운영 제재, 결제와 대규모 동시 요청의 성능 목표처럼 P0에 포함하지 않는 정책은 실제 도입 시 별도로 결정한다. 후속 기능 후보는 [PRD](../../PRD.md)에서 관리한다.
+
+---
+
+## P0 범위
+
+### 포함 범위
+
+| 기능 | 범위 | 상세 문서 |
+| --- | --- | --- |
+| 인증·프로필 | CSRF 토큰, 회원가입, 로그인·로그아웃, 내 프로필 조회·수정 | [인증·프로필](auth-profile.md) |
+| 게임 목록 | 게임 목록·게임명 검색·상세 조회 | [게임 목록](game-catalog.md) |
+| 방 | 게임·사람 중심 방 목록·상세·생성·수정·취소·종료 | [방](room.md) |
+| 참가·내 모임 | 선착순 참가, 참가 취소·재참가, 내 모임 조회 | [참가·내 모임](participation.md) |
+
+### 제외·후속 범위
+
+- 기능별 제외 범위는 [인증·프로필](auth-profile.md), [게임 목록](game-catalog.md), [방](room.md), [참가·내 모임](participation.md)의 각 기능 ID 절에서 확인한다.
+- 운영 제재, 결제, 알림과 대규모 동시 요청의 처리 순서 공정성·성능 목표는 P0 범위에서 제외한다.
+- P0 이후 기능 후보와 도입 순서는 [PRD](../../PRD.md)의 후속 기능 후보를 따른다.
+
+---
+
+## 핵심 사용자 흐름
+
+### 게임부터 찾기
+
+세부 규칙은 [게임 목록](game-catalog.md), [방](room.md), [참가·내 모임](participation.md), [인증·프로필](auth-profile.md)에서 확인한다.
+
+~~~text
+게임부터 찾기
+→ 게임 목록·검색
+→ 게임 상세
+→ 선택한 게임의 게임 중심 방 목록
+→ 방 상세
+→ 회원가입 후 로그인 또는 기존 계정으로 로그인
+→ 방 참가
+→ 내 모임에서 참가한 방 확인
+~~~
+
+### 사람부터 만나기
+
+세부 규칙은 [방](room.md), [참가·내 모임](participation.md), [인증·프로필](auth-profile.md)에서 확인한다.
+
+~~~text
+사람부터 만나기
+→ 사람 중심 방 목록
+→ 방 상세
+→ 회원가입 후 로그인 또는 기존 계정으로 로그인
+→ 방 참가
+→ 내 모임에서 참가한 방 확인
+~~~
+
+### 방 만들기
+
+세부 규칙은 [방](room.md), [게임 목록](game-catalog.md), [참가·내 모임](participation.md), [인증·프로필](auth-profile.md)에서 확인한다.
+
+~~~text
+회원가입 후 로그인 또는 기존 계정으로 로그인
+→ 게임 중심 또는 사람 중심 방 선택
+→ 게임 중심인 경우 게임 검색·선택
+→ 모임 정보와 룰마스터 진행 여부 입력
+→ 방 생성
+→ 내 모임에서 개설한 방 확인
+→ 방 상세에서 참가자 확인
+→ 모임 진행 후 방 종료
+~~~
+
+---
+
+## 공통 규칙
+
+### 정원(Capacity)
+
+`recruitmentCapacity`는 주최자를 제외한 모집 인원이며 1명 이상 10명 이하다. 주최자는 방 생성 시 표시상 참가자 목록에 포함되지만 `PARTICIPATIONS` 행으로 저장하지 않는다.
+
+| 표시·판정 항목 | 계산식 |
+| --- | --- |
+| 전체 정원 | `recruitmentCapacity + 1` |
+| 현재 참가자 수 | 주최자 1명 + 현재 `ACTIVE` 참가 관계 수 |
+| 남은 모집 좌석 | `recruitmentCapacity - 현재 ACTIVE 참가 관계 수` |
+| 참가자 목록 | 주최자 + 현재 `ACTIVE` 참가자 |
+
+예를 들어 `recruitmentCapacity = 8`이면 전체 정원은 9명이다. 어떤 요청에서도 현재 `ACTIVE` 참가 관계 수가 모집 정원을 초과해서는 안 된다. 저장 필드와 DB 제약은 [ERD의 정원·참가자 표시 규칙](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/ERD.md#정원참가자-표시-규칙)을 따른다.
+
+### 방 상태(RoomStatus)
+
+P0에서는 다음 상태를 사용한다.
+
+- `RECRUITING`: 모집 중이며 시작 시각 전 참가할 수 있는 상태
+- `CLOSED`: 정원이 찼거나 시작 시각에 도달하여 모집이 종료된 상태
+- `CANCELED`: 주최자가 취소한 상태
+- `FINISHED`: 주최자가 종료했거나 시스템이 자동 종료한 상태
+
+상태 전이는 다음 규칙을 단일 기준으로 사용한다.
+
+- 방은 생성 직후 `RECRUITING`으로 시작한다.
+- 모집 정원이 모두 차거나 `now >= startsAt`이면 `RECRUITING → CLOSED`로 전환한다.
+- 시작 시각 전 참가 취소로 빈자리가 생기면 `CLOSED → RECRUITING`으로 되돌아간다.
+- 주최자는 `RECRUITING`, `CLOSED` 방을 `CANCELED`로 변경할 수 있다.
+- 주최자의 종료 요청은 상태 정합화 후 이미 `FINISHED`이면 상태를 다시 변경하지 않고 성공하며, `status = CLOSED && now >= startsAt`이면 `FINISHED`로 변경한다.
+- `now >= startsAt + 24시간`이고 방이 여전히 `CLOSED`이면 시스템이 `FINISHED`로 변경한다.
+- `CANCELED`, `FINISHED`는 최종 상태이며 수정하거나 참가할 수 없다. 이미 `FINISHED`인 방에 대한 동일 종료 요청의 멱등 성공은 최종 상태를 수정하지 않는다.
+
+시간 기반 상태를 저장값에 반영하는 방식은 [ADR-0012](../../adr/room/0012-room-request-boundary-state-reconciliation.md)를 따른다. 대체된 이전 결정은 [ADR-0004](../../adr/room/0004-room-state-transition-scheduler.md)에서 확인한다.
+
+### 권한과 공개 범위
+
+| 요청자 | 조회 범위 | 허용되는 주요 행위 |
+| --- | --- | --- |
+| 비로그인 유저 | 게임 공개 정보, `RECRUITING`·`CLOSED` 방 공개 정보 | CSRF 토큰 조회, 회원가입, 로그인 |
+| 방 관계가 없는 로그인 유저 | 비로그인 공개 범위와 본인 프로필·내 모임 | 방 생성, 참가 가능한 방 참가 |
+| 주최자 | 공개 정보와 정확한 장소·주최자·현재 참가자 정보 | 자신이 만든 방의 수정·취소·종료 |
+| 현재 `ACTIVE` 참가자 | 공개 정보와 정확한 장소·주최자·현재 참가자 정보 | 시작 전 본인 참가 취소 |
+
+- 공개 방 응답에는 사용자 ID, 주최자·참가자 목록과 정확한 장소를 포함하지 않는다.
+- `CANCELED`, `FINISHED` 방의 직접 상세는 주최자와 현재 `ACTIVE` 참가자만 조회할 수 있으며, 그 외 요청에는 존재 여부를 숨기기 위해 404를 반환한다.
+- 내 모임은 본인만 조회할 수 있고 목록에는 정확한 장소와 참가자 목록을 포함하지 않는다.
+- 이메일, 비밀번호, 세션과 인증 정보, 사용자 ID는 다른 유저에게 노출하지 않는다.
+- 세부 응답 필드와 권한 실패 오류는 [API 명세서](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/API.md)를 따른다.
+
+### 시간 경계
+
+- 방 생성·수정의 `startsAt`은 요청 처리 시점보다 미래여야 한다.
+- 방 참가와 참가 취소는 `now < startsAt`일 때만 가능하다.
+- 주최자 수동 종료의 상태·시간 조건과 멱등성은 [방 상태](#방-상태roomstatus)의 종료 전이를 따른다.
+- 시각 요청 형식과 응답 변환은 [API 명세서](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/API.md#1-공통-계약), 내부 저장·비교 기준은 [ADR-0009](../../adr/platform/0009-utc-time-standard.md)를 따른다.
+
+### 상태 정합성과 동시 변경
+
+- 방 목록·상세·내 모임 조회와 상태에 의존하는 명령은 각 조회·명령 로직보다 먼저 같은 기준 시각의 현재 방 상태를 사용한다.
+- 참가·재참가·참가 취소와 정원 변경이 겹쳐도 정원 초과와 중복 활성 참가가 발생하지 않아야 한다.
+- 상태 보정은 [ADR-0012](../../adr/room/0012-room-request-boundary-state-reconciliation.md), 참가 동시성은 [ADR-0005](../../adr/participation/0005-room-participation-optimistic-locking.md), 저장 불변식은 [ERD](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/ERD.md#필수-제약과-계산-규칙)를 따른다.
+- 충돌 재시도와 외부 오류 계약은 [API 명세서](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/API.md#9-오류-코드)를 따른다.
+
+---
+
+## 기능별 문서와 API 목록
+
+P0는 총 17개의 API를 제공한다. 아래 표는 인벤토리이며, 인증 필요 여부, CSRF, 쿼리 파라미터, 요청·응답 모델, HTTP 상태와 오류 코드는 [API 명세서](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/API.md)를 따른다.
+
+| # | API | 메서드·경로 | 기능 문서 |
+| ---: | --- | --- | --- |
+| 1 | CSRF 토큰 조회 | `GET /api/auth/csrf` | [AUTH-01](auth-profile.md#auth-01-csrf-토큰-조회) |
+| 2 | 회원가입 | `POST /api/auth/signup` | [AUTH-02](auth-profile.md#auth-02-회원가입) |
+| 3 | 로그인 | `POST /api/auth/login` | [AUTH-03](auth-profile.md#auth-03-로그인로그아웃) |
+| 4 | 로그아웃 | `POST /api/auth/logout` | [AUTH-03](auth-profile.md#auth-03-로그인로그아웃) |
+| 5 | 내 프로필 조회 | `GET /api/users/me` | [AUTH-04](auth-profile.md#auth-04-내-프로필-조회수정) |
+| 6 | 내 프로필 수정 | `PATCH /api/users/me` | [AUTH-04](auth-profile.md#auth-04-내-프로필-조회수정) |
+| 7 | 게임 목록·검색 | `GET /api/games` | [GAME-01](game-catalog.md#game-01-게임-목록검색) |
+| 8 | 게임 상세 조회 | `GET /api/games/{gameId}` | [GAME-02](game-catalog.md#game-02-게임-상세-조회) |
+| 9 | 방 생성 | `POST /api/rooms` | [ROOM-03](room.md#room-03-방-생성) |
+| 10 | 방 목록 조회 | `GET /api/rooms` | [ROOM-01](room.md#room-01-방-탐색) |
+| 11 | 방 상세 조회 | `GET /api/rooms/{roomId}` | [ROOM-02](room.md#room-02-방-상세) |
+| 12 | 방 수정 | `PATCH /api/rooms/{roomId}` | [ROOM-04](room.md#room-04-방-수정) |
+| 13 | 방 취소 | `DELETE /api/rooms/{roomId}` | [ROOM-05](room.md#room-05-방-취소종료) |
+| 14 | 방 종료 | `PATCH /api/rooms/{roomId}/status` | [ROOM-05](room.md#room-05-방-취소종료) |
+| 15 | 방 참가 | `POST /api/rooms/{roomId}/participants` | [PART-01](participation.md#part-01-방-참가재참가) |
+| 16 | 참가 취소 | `DELETE /api/rooms/{roomId}/participants/me` | [PART-02](participation.md#part-02-참가-취소) |
+| 17 | 내 모임 조회 | `GET /api/users/me/rooms` | [PART-03](participation.md#part-03-내-모임-조회) |
+
+---
+
+## 구현 완료 기준
+
+- 세 가지 [핵심 사용자 흐름](#핵심-사용자-흐름)이 처음부터 끝까지 연결된다.
+- [기반 작업](foundation.md)의 `FND-01`부터 `FND-08`까지 완료 기준을 만족한다.
+- [인증·프로필](auth-profile.md), [게임 목록](game-catalog.md), [방](room.md), [참가·내 모임](participation.md)의 모든 기능 ID별 완료 기준을 만족한다.
+- 17개 API가 [API 명세서](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/API.md)의 요청·응답·HTTP 상태·오류 계약대로 재현된다.
+- 정원, 방 상태, 권한, 시간과 동시 변경이 이 문서의 [공통 규칙](#공통-규칙)을 일관되게 따른다.
+- 데이터 제약은 [ERD](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/ERD.md), 기술 구현과 검증 근거는 각 기능에서 연결한 승인 ADR을 따른다.

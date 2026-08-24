@@ -1,0 +1,2856 @@
+{
+  "schema": "k6-campaign-manifest-v3",
+  "campaignId": "chat-delivery-capacity-2026-08-13-repeat2",
+  "campaignStatus": "completed-with-limitations",
+  "documentStatus": "current",
+  "purpose": "이 문서는 #608 WebSocket 유휴 timeout 분리가 포함된 동일 release에서 채팅 전송·전달 6개 축을 다시 완주하고, 연결 성립·세션 정상·전달 완료 관측을 분리해 기록한다.",
+  "supersedes": "chat-delivery-capacity-2026-08-13",
+  "window": {
+    "startedAt": "2026-08-13T14:47:59Z",
+    "endedAt": "2026-08-13T16:03:43Z",
+    "startedAtKst": "2026-08-13T23:47:59+09:00",
+    "endedAtKst": "2026-08-14T01:03:43+09:00",
+    "durationSeconds": 4544
+  },
+  "release": {
+    "sha": "69438fd3a30150623e5801ff6bff5f4705b6a795",
+    "subject": "fix: 유휴 WebSocket timeout 분리",
+    "backendImage": "sha256:9311e1dc14a57fb8314317c0d695b03733bb062fa14826f8505a2884c3933ab4",
+    "webImage": "sha256:9ec386df04a54c71ee5dd838067bb18c4fa2fd3e316d22175b52620e847a0200",
+    "postgresImage": "postgres@sha256:0826e5f2996099babb925e09fb72bf2c6eb5d187cfcae20aa9291af1612307e4",
+    "redisImage": "redis@sha256:78b83aee0bf6781ca973ee5022de73dd16fe93f53593c3a31f079c8c3fa08921"
+  },
+  "fixture": {
+    "seedSql": "load-tests/k6/eungi/fixtures/rooms.sql",
+    "cleanupSql": "load-tests/k6/eungi/fixtures/cleanup.sql",
+    "roomCount": 8,
+    "accountsPerRoom": 9,
+    "messagesPerRoom": 150,
+    "totalAccounts": 72,
+    "runIdPattern": "chat-delivery-capacity-2026-08-13-repeat2-<ordinal>-<scenario>"
+  },
+  "observations": {
+    "deployment": {
+      "app": "t4g.micro 2대, Nginx + Spring, Hikari max 8",
+      "dataStores": "PostgreSQL t4g.micro 1대 / Redis t4g.micro 1대",
+      "loadGenerator": "c7g.large 1대, k6 1.3.0",
+      "loginLimit": "App·k6 모두 300회/10분",
+      "runner": "albam-mate-infra/run.sh loadtest",
+      "generalPublicIngressCidrs": []
+    },
+    "observabilityArtifacts": [
+      {
+        "file": "01-throughput-during.json",
+        "sha256": "ec3418aa282c060256bb17baf44de9e88da6cc3b2c32f62a6cd5851909b8698d",
+        "label": "01-throughput-during",
+        "capturedAtUtc": "2026-08-13T14:52:07Z",
+        "logWindow": "10m",
+        "nodes": [
+          {
+            "role": "app",
+            "capturedAtUtc": "2026-08-13T14:51:52Z",
+            "logWindow": "10m",
+            "captureStatus": null,
+            "container": {
+              "present": true,
+              "status": "running",
+              "restartCount": null,
+              "oomKilled": null,
+              "startedAtUtc": "2026-08-13T14:45:04.305939173Z"
+            },
+            "actuator": {
+              "up": true,
+              "hikari": {
+                "active": 0,
+                "idle": 8,
+                "pending": 0,
+                "max": 8
+              },
+              "chat": {
+                "websocketActive": 4,
+                "websocketDeliveryFailures": 0,
+                "websocketDeliveryLatencyCount": 136,
+                "websocketRecoveredMessages": 136,
+                "messageDeliveryFailures": 0,
+                "messageDeliveryDurationCount": 51
+              }
+            },
+            "logs": {
+              "hikariAcquisitionTimeoutCount": null,
+              "cannotCreateTransactionCount": null
+            },
+            "pubsub": null
+          },
+          {
+            "role": "app",
+            "capturedAtUtc": "2026-08-13T14:51:58Z",
+            "logWindow": "10m",
+            "captureStatus": null,
+            "container": {
+              "present": true,
+              "status": "running",
+              "restartCount": null,
+              "oomKilled": null,
+              "startedAtUtc": "2026-08-13T14:42:12.318152986Z"
+            },
+            "actuator": {
+              "up": true,
+              "hikari": {
+                "active": 0,
+                "idle": 8,
+                "pending": 0,
+                "max": 8
+              },
+              "chat": {
+                "websocketActive": 4,
+                "websocketDeliveryFailures": 0,
+                "websocketDeliveryLatencyCount": 144,
+                "websocketRecoveredMessages": 144,
+                "messageDeliveryFailures": 0,
+                "messageDeliveryDurationCount": 54
+              }
+            },
+            "logs": {
+              "hikariAcquisitionTimeoutCount": null,
+              "cannotCreateTransactionCount": null
+            },
+            "pubsub": null
+          },
+          {
+            "role": "redis",
+            "capturedAtUtc": "2026-08-13T14:52:04Z",
+            "logWindow": null,
+            "captureStatus": null,
+            "container": {
+              "present": true,
+              "status": "running",
+              "restartCount": null,
+              "oomKilled": null,
+              "startedAtUtc": "2026-08-13T14:41:24.098874757Z"
+            },
+            "actuator": null,
+            "logs": null,
+            "pubsub": {
+              "channel": "albam-mate:production:chat:events",
+              "numsub": null
+            }
+          }
+        ]
+      },
+      {
+        "file": "01-throughput-late.json",
+        "sha256": "109add8cba4af4e41e60c2dba6950ddc829c11496113f904a18244904067c46f",
+        "label": "01-throughput-late",
+        "capturedAtUtc": "2026-08-13T14:55:33Z",
+        "logWindow": "15m",
+        "nodes": [
+          {
+            "role": "app",
+            "capturedAtUtc": "2026-08-13T14:55:23Z",
+            "logWindow": "15m",
+            "captureStatus": null,
+            "container": {
+              "present": true,
+              "status": "running",
+              "restartCount": null,
+              "oomKilled": null,
+              "startedAtUtc": "2026-08-13T14:45:04.305939173Z"
+            },
+            "actuator": {
+              "up": true,
+              "hikari": {
+                "active": 1,
+                "idle": 7,
+                "pending": 0,
+                "max": 8
+              },
+              "chat": {
+                "websocketActive": 4,
+                "websocketDeliveryFailures": 0,
+                "websocketDeliveryLatencyCount": 593,
+                "websocketRecoveredMessages": 593,
+                "messageDeliveryFailures": 0,
+                "messageDeliveryDurationCount": 223
+              }
+            },
+            "logs": {
+              "hikariAcquisitionTimeoutCount": null,
+              "cannotCreateTransactionCount": null
+            },
+            "pubsub": null
+          },
+          {
+            "role": "app",
+            "capturedAtUtc": "2026-08-13T14:55:26Z",
+            "logWindow": "15m",
+            "captureStatus": null,
+            "container": {
+              "present": true,
+              "status": "running",
+              "restartCount": null,
+              "oomKilled": null,
+              "startedAtUtc": "2026-08-13T14:42:12.318152986Z"
+            },
+            "actuator": {
+              "up": true,
+              "hikari": {
+                "active": 0,
+                "idle": 8,
+                "pending": 0,
+                "max": 8
+              },
+              "chat": {
+                "websocketActive": 4,
+                "websocketDeliveryFailures": 0,
+                "websocketDeliveryLatencyCount": 605,
+                "websocketRecoveredMessages": 605,
+                "messageDeliveryFailures": 0,
+                "messageDeliveryDurationCount": 227
+              }
+            },
+            "logs": {
+              "hikariAcquisitionTimeoutCount": null,
+              "cannotCreateTransactionCount": null
+            },
+            "pubsub": null
+          },
+          {
+            "role": "redis",
+            "capturedAtUtc": "2026-08-13T14:55:30Z",
+            "logWindow": null,
+            "captureStatus": null,
+            "container": {
+              "present": true,
+              "status": "running",
+              "restartCount": null,
+              "oomKilled": null,
+              "startedAtUtc": "2026-08-13T14:41:24.098874757Z"
+            },
+            "actuator": null,
+            "logs": null,
+            "pubsub": {
+              "channel": "albam-mate:production:chat:events",
+              "numsub": null
+            }
+          }
+        ]
+      },
+      {
+        "file": "01-throughput-post.json",
+        "sha256": "f2b71c3ba8c713d3f3927f2349f2a9b6e5a83d95e47ae0f6cd3e6ee57bf2dd1d",
+        "label": "01-throughput-post",
+        "capturedAtUtc": "2026-08-13T15:04:34Z",
+        "logWindow": "20m",
+        "nodes": [
+          {
+            "role": "app",
+            "capturedAtUtc": "2026-08-13T15:04:24Z",
+            "logWindow": "20m",
+            "captureStatus": null,
+            "container": {
+              "present": true,
+              "status": "running",
+              "restartCount": 0,
+              "oomKilled": false,
+              "startedAtUtc": "2026-08-13T14:45:04.305939173Z"
+            },
+            "actuator": {
+              "up": true,
+              "hikari": {
+                "active": 0,
+                "idle": 8,
+                "pending": 0,
+                "max": 8
+              },
+              "chat": {
+                "websocketActive": 2,
+                "websocketDeliveryFailures": 0,
+                "websocketDeliveryLatencyCount": 2197,
+                "websocketRecoveredMessages": 2197,
+                "messageDeliveryFailures": 0,
+                "messageDeliveryDurationCount": 824
+              }
+            },
+            "logs": {
+              "hikariAcquisitionTimeoutCount": 5,
+              "cannotCreateTransactionCount": 10
+            },
+            "pubsub": null
+          },
+          {
+            "role": "app",
+            "capturedAtUtc": "2026-08-13T15:04:28Z",
+            "logWindow": "20m",
+            "captureStatus": null,
+            "container": {
+              "present": true,
+              "status": "running",
+              "restartCount": 0,
+              "oomKilled": false,
+              "startedAtUtc": "2026-08-13T14:42:12.318152986Z"
+            },
+            "actuator": {
+              "up": true,
+              "hikari": {
+                "active": 0,
+                "idle": 8,
+                "pending": 0,
+                "max": 8
+              },
+              "chat": {
+                "websocketActive": 3,
+                "websocketDeliveryFailures": 0,
+                "websocketDeliveryLatencyCount": 2197,
+                "websocketRecoveredMessages": 2197,
+                "messageDeliveryFailures": 0,
+                "messageDeliveryDurationCount": 823
+              }
+            },
+            "logs": {
+              "hikariAcquisitionTimeoutCount": 5,
+              "cannotCreateTransactionCount": 10
+            },
+            "pubsub": null
+          },
+          {
+            "role": "redis",
+            "capturedAtUtc": "2026-08-13T15:04:31Z",
+            "logWindow": null,
+            "captureStatus": null,
+            "container": {
+              "present": true,
+              "status": "running",
+              "restartCount": 0,
+              "oomKilled": false,
+              "startedAtUtc": "2026-08-13T14:41:24.098874757Z"
+            },
+            "actuator": null,
+            "logs": null,
+            "pubsub": {
+              "channel": "albam-mate:production:chat:events",
+              "numsub": 2
+            }
+          }
+        ]
+      },
+      {
+        "file": "02-connections-during.json",
+        "sha256": "efc9a9f56a19ffc4538f599041292a0913ee68e66efc1d46b4e4616dbb91b787",
+        "label": "02-connections-during",
+        "capturedAtUtc": "2026-08-13T15:10:24Z",
+        "logWindow": "15m",
+        "nodes": [
+          {
+            "role": "app",
+            "capturedAtUtc": "2026-08-13T15:10:14Z",
+            "logWindow": "15m",
+            "captureStatus": null,
+            "container": {
+              "present": true,
+              "status": "running",
+              "restartCount": 0,
+              "oomKilled": false,
+              "startedAtUtc": "2026-08-13T14:45:04.305939173Z"
+            },
+            "actuator": {
+              "up": true,
+              "hikari": {
+                "active": 0,
+                "idle": 8,
+                "pending": 0,
+                "max": 8
+              },
+              "chat": {
+                "websocketActive": 10,
+                "websocketDeliveryFailures": 0,
+                "websocketDeliveryLatencyCount": 2197,
+                "websocketRecoveredMessages": 2197,
+                "messageDeliveryFailures": 0,
+                "messageDeliveryDurationCount": 824
+              }
+            },
+            "logs": {
+              "hikariAcquisitionTimeoutCount": 0,
+              "cannotCreateTransactionCount": 0
+            },
+            "pubsub": null
+          },
+          {
+            "role": "app",
+            "capturedAtUtc": "2026-08-13T15:10:17Z",
+            "logWindow": "15m",
+            "captureStatus": null,
+            "container": {
+              "present": true,
+              "status": "running",
+              "restartCount": 0,
+              "oomKilled": false,
+              "startedAtUtc": "2026-08-13T14:42:12.318152986Z"
+            },
+            "actuator": {
+              "up": true,
+              "hikari": {
+                "active": 0,
+                "idle": 5,
+                "pending": 0,
+                "max": 8
+              },
+              "chat": {
+                "websocketActive": 11,
+                "websocketDeliveryFailures": 0,
+                "websocketDeliveryLatencyCount": 2197,
+                "websocketRecoveredMessages": 2197,
+                "messageDeliveryFailures": 0,
+                "messageDeliveryDurationCount": 823
+              }
+            },
+            "logs": {
+              "hikariAcquisitionTimeoutCount": 0,
+              "cannotCreateTransactionCount": 0
+            },
+            "pubsub": null
+          },
+          {
+            "role": "redis",
+            "capturedAtUtc": "2026-08-13T15:10:21Z",
+            "logWindow": null,
+            "captureStatus": null,
+            "container": {
+              "present": true,
+              "status": "running",
+              "restartCount": 0,
+              "oomKilled": false,
+              "startedAtUtc": "2026-08-13T14:41:24.098874757Z"
+            },
+            "actuator": null,
+            "logs": null,
+            "pubsub": {
+              "channel": "albam-mate:production:chat:events",
+              "numsub": 2
+            }
+          }
+        ]
+      },
+      {
+        "file": "03-history-during.json",
+        "sha256": "f3a9929068665ef557e70adb8579b243f109b0f0500ad5e432d9d188d0c92be0",
+        "label": "03-history-during",
+        "capturedAtUtc": "2026-08-13T15:23:39Z",
+        "logWindow": "20m",
+        "nodes": [
+          {
+            "role": "app",
+            "capturedAtUtc": "2026-08-13T15:23:29Z",
+            "logWindow": "20m",
+            "captureStatus": null,
+            "container": {
+              "present": true,
+              "status": "running",
+              "restartCount": 0,
+              "oomKilled": false,
+              "startedAtUtc": "2026-08-13T14:45:04.305939173Z"
+            },
+            "actuator": {
+              "up": true,
+              "hikari": {
+                "active": 0,
+                "idle": 3,
+                "pending": 0,
+                "max": 8
+              },
+              "chat": {
+                "websocketActive": 0,
+                "websocketDeliveryFailures": 0,
+                "websocketDeliveryLatencyCount": 2197,
+                "websocketRecoveredMessages": 2197,
+                "messageDeliveryFailures": 0,
+                "messageDeliveryDurationCount": 824
+              }
+            },
+            "logs": {
+              "hikariAcquisitionTimeoutCount": 0,
+              "cannotCreateTransactionCount": 0
+            },
+            "pubsub": null
+          },
+          {
+            "role": "app",
+            "capturedAtUtc": "2026-08-13T15:23:33Z",
+            "logWindow": "20m",
+            "captureStatus": null,
+            "container": {
+              "present": true,
+              "status": "running",
+              "restartCount": 0,
+              "oomKilled": false,
+              "startedAtUtc": "2026-08-13T14:42:12.318152986Z"
+            },
+            "actuator": {
+              "up": true,
+              "hikari": {
+                "active": 0,
+                "idle": 3,
+                "pending": 0,
+                "max": 8
+              },
+              "chat": {
+                "websocketActive": 0,
+                "websocketDeliveryFailures": 0,
+                "websocketDeliveryLatencyCount": 2197,
+                "websocketRecoveredMessages": 2197,
+                "messageDeliveryFailures": 0,
+                "messageDeliveryDurationCount": 823
+              }
+            },
+            "logs": {
+              "hikariAcquisitionTimeoutCount": 0,
+              "cannotCreateTransactionCount": 0
+            },
+            "pubsub": null
+          },
+          {
+            "role": "redis",
+            "capturedAtUtc": "2026-08-13T15:23:36Z",
+            "logWindow": null,
+            "captureStatus": null,
+            "container": {
+              "present": true,
+              "status": "running",
+              "restartCount": 0,
+              "oomKilled": false,
+              "startedAtUtc": "2026-08-13T14:41:24.098874757Z"
+            },
+            "actuator": null,
+            "logs": null,
+            "pubsub": {
+              "channel": "albam-mate:production:chat:events",
+              "numsub": 2
+            }
+          }
+        ]
+      },
+      {
+        "file": "04-fanout-during.json",
+        "sha256": "94a6f7d69c2d79eef8ac9d0e3929a05c02a9657d8be95b13d23b0e135e5bc9ff",
+        "label": "04-fanout-during",
+        "capturedAtUtc": "2026-08-13T15:32:05Z",
+        "logWindow": "15m",
+        "nodes": [
+          {
+            "role": "app",
+            "capturedAtUtc": "2026-08-13T15:31:54Z",
+            "logWindow": "15m",
+            "captureStatus": null,
+            "container": {
+              "present": true,
+              "status": "running",
+              "restartCount": 0,
+              "oomKilled": false,
+              "startedAtUtc": "2026-08-13T14:45:04.305939173Z"
+            },
+            "actuator": {
+              "up": true,
+              "hikari": {
+                "active": 0,
+                "idle": 4,
+                "pending": 0,
+                "max": 8
+              },
+              "chat": {
+                "websocketActive": 2,
+                "websocketDeliveryFailures": 0,
+                "websocketDeliveryLatencyCount": 2991,
+                "websocketRecoveredMessages": 2991,
+                "messageDeliveryFailures": 0,
+                "messageDeliveryDurationCount": 1037
+              }
+            },
+            "logs": {
+              "hikariAcquisitionTimeoutCount": 0,
+              "cannotCreateTransactionCount": 0
+            },
+            "pubsub": null
+          },
+          {
+            "role": "app",
+            "capturedAtUtc": "2026-08-13T15:31:58Z",
+            "logWindow": "15m",
+            "captureStatus": null,
+            "container": {
+              "present": true,
+              "status": "running",
+              "restartCount": 0,
+              "oomKilled": false,
+              "startedAtUtc": "2026-08-13T14:42:12.318152986Z"
+            },
+            "actuator": {
+              "up": true,
+              "hikari": {
+                "active": 1,
+                "idle": 2,
+                "pending": 0,
+                "max": 8
+              },
+              "chat": {
+                "websocketActive": 1,
+                "websocketDeliveryFailures": 0,
+                "websocketDeliveryLatencyCount": 2213,
+                "websocketRecoveredMessages": 2214,
+                "messageDeliveryFailures": 0,
+                "messageDeliveryDurationCount": 1043
+              }
+            },
+            "logs": {
+              "hikariAcquisitionTimeoutCount": 0,
+              "cannotCreateTransactionCount": 0
+            },
+            "pubsub": null
+          },
+          {
+            "role": "redis",
+            "capturedAtUtc": "2026-08-13T15:32:02Z",
+            "logWindow": null,
+            "captureStatus": null,
+            "container": {
+              "present": true,
+              "status": "running",
+              "restartCount": 0,
+              "oomKilled": false,
+              "startedAtUtc": "2026-08-13T14:41:24.098874757Z"
+            },
+            "actuator": null,
+            "logs": null,
+            "pubsub": {
+              "channel": "albam-mate:production:chat:events",
+              "numsub": 2
+            }
+          }
+        ]
+      },
+      {
+        "file": "05-rooms-during.json",
+        "sha256": "371b139e0225802c1c0a7cfe46b4d0661391a44e25d3366b53480fabd47e983b",
+        "label": "05-rooms-during",
+        "capturedAtUtc": "2026-08-13T15:43:15Z",
+        "logWindow": "15m",
+        "nodes": [
+          {
+            "role": "app",
+            "capturedAtUtc": "2026-08-13T15:43:05Z",
+            "logWindow": "15m",
+            "captureStatus": null,
+            "container": {
+              "present": true,
+              "status": "running",
+              "restartCount": 0,
+              "oomKilled": false,
+              "startedAtUtc": "2026-08-13T14:45:04.305939173Z"
+            },
+            "actuator": {
+              "up": true,
+              "hikari": {
+                "active": 0,
+                "idle": 4,
+                "pending": 0,
+                "max": 8
+              },
+              "chat": {
+                "websocketActive": 2,
+                "websocketDeliveryFailures": 0,
+                "websocketDeliveryLatencyCount": 6967,
+                "websocketRecoveredMessages": 6967,
+                "messageDeliveryFailures": 0,
+                "messageDeliveryDurationCount": 1469
+              }
+            },
+            "logs": {
+              "hikariAcquisitionTimeoutCount": 0,
+              "cannotCreateTransactionCount": 0
+            },
+            "pubsub": null
+          },
+          {
+            "role": "app",
+            "capturedAtUtc": "2026-08-13T15:43:09Z",
+            "logWindow": "15m",
+            "captureStatus": null,
+            "container": {
+              "present": true,
+              "status": "running",
+              "restartCount": 0,
+              "oomKilled": false,
+              "startedAtUtc": "2026-08-13T14:42:12.318152986Z"
+            },
+            "actuator": {
+              "up": true,
+              "hikari": {
+                "active": 0,
+                "idle": 6,
+                "pending": 0,
+                "max": 8
+              },
+              "chat": {
+                "websocketActive": 1,
+                "websocketDeliveryFailures": 0,
+                "websocketDeliveryLatencyCount": 7239,
+                "websocketRecoveredMessages": 7240,
+                "messageDeliveryFailures": 0,
+                "messageDeliveryDurationCount": 1472
+              }
+            },
+            "logs": {
+              "hikariAcquisitionTimeoutCount": 0,
+              "cannotCreateTransactionCount": 0
+            },
+            "pubsub": null
+          },
+          {
+            "role": "redis",
+            "capturedAtUtc": "2026-08-13T15:43:12Z",
+            "logWindow": null,
+            "captureStatus": null,
+            "container": {
+              "present": true,
+              "status": "running",
+              "restartCount": 0,
+              "oomKilled": false,
+              "startedAtUtc": "2026-08-13T14:41:24.098874757Z"
+            },
+            "actuator": null,
+            "logs": null,
+            "pubsub": {
+              "channel": "albam-mate:production:chat:events",
+              "numsub": 2
+            }
+          }
+        ]
+      },
+      {
+        "file": "06-mixed-during.json",
+        "sha256": "ec3292fef55a078fc5033f1eabac324db249a9c7102f8fc3aeb2f8b57705239c",
+        "label": "06-mixed-during",
+        "capturedAtUtc": "2026-08-13T15:55:53Z",
+        "logWindow": "15m",
+        "nodes": [
+          {
+            "role": "app",
+            "capturedAtUtc": "2026-08-13T15:55:44Z",
+            "logWindow": "15m",
+            "captureStatus": null,
+            "container": {
+              "present": true,
+              "status": "running",
+              "restartCount": 0,
+              "oomKilled": false,
+              "startedAtUtc": "2026-08-13T14:45:04.305939173Z"
+            },
+            "actuator": {
+              "up": true,
+              "hikari": {
+                "active": 0,
+                "idle": 4,
+                "pending": 0,
+                "max": 8
+              },
+              "chat": {
+                "websocketActive": 3,
+                "websocketDeliveryFailures": 0,
+                "websocketDeliveryLatencyCount": 8183,
+                "websocketRecoveredMessages": 8183,
+                "messageDeliveryFailures": 0,
+                "messageDeliveryDurationCount": 2251
+              }
+            },
+            "logs": {
+              "hikariAcquisitionTimeoutCount": 0,
+              "cannotCreateTransactionCount": 0
+            },
+            "pubsub": null
+          },
+          {
+            "role": "app",
+            "capturedAtUtc": "2026-08-13T15:55:47Z",
+            "logWindow": "15m",
+            "captureStatus": null,
+            "container": {
+              "present": true,
+              "status": "running",
+              "restartCount": 0,
+              "oomKilled": false,
+              "startedAtUtc": "2026-08-13T14:42:12.318152986Z"
+            },
+            "actuator": {
+              "up": true,
+              "hikari": {
+                "active": 0,
+                "idle": 4,
+                "pending": 0,
+                "max": 8
+              },
+              "chat": {
+                "websocketActive": 2,
+                "websocketDeliveryFailures": 0,
+                "websocketDeliveryLatencyCount": 8325,
+                "websocketRecoveredMessages": 8325,
+                "messageDeliveryFailures": 0,
+                "messageDeliveryDurationCount": 2259
+              }
+            },
+            "logs": {
+              "hikariAcquisitionTimeoutCount": 0,
+              "cannotCreateTransactionCount": 0
+            },
+            "pubsub": null
+          },
+          {
+            "role": "redis",
+            "capturedAtUtc": "2026-08-13T15:55:50Z",
+            "logWindow": null,
+            "captureStatus": null,
+            "container": {
+              "present": true,
+              "status": "running",
+              "restartCount": 0,
+              "oomKilled": false,
+              "startedAtUtc": "2026-08-13T14:41:24.098874757Z"
+            },
+            "actuator": null,
+            "logs": null,
+            "pubsub": {
+              "channel": "albam-mate:production:chat:events",
+              "numsub": 2
+            }
+          }
+        ]
+      },
+      {
+        "file": "06-mixed-post.json",
+        "sha256": "ddd316ae6be825bd0d99935e0d80eda2a217e8262f5a0bfa6069b7c18fc78e9c",
+        "label": "06-mixed-post",
+        "capturedAtUtc": "2026-08-13T16:04:10Z",
+        "logWindow": "25m",
+        "nodes": [
+          {
+            "role": "app",
+            "capturedAtUtc": "2026-08-13T16:04:00Z",
+            "logWindow": "25m",
+            "captureStatus": null,
+            "container": {
+              "present": true,
+              "status": "running",
+              "restartCount": 0,
+              "oomKilled": false,
+              "startedAtUtc": "2026-08-13T14:45:04.305939173Z"
+            },
+            "actuator": {
+              "up": true,
+              "hikari": {
+                "active": 0,
+                "idle": 4,
+                "pending": 0,
+                "max": 8
+              },
+              "chat": {
+                "websocketActive": 0,
+                "websocketDeliveryFailures": 0,
+                "websocketDeliveryLatencyCount": 9034,
+                "websocketRecoveredMessages": 9034,
+                "messageDeliveryFailures": 0,
+                "messageDeliveryDurationCount": 2734
+              }
+            },
+            "logs": {
+              "hikariAcquisitionTimeoutCount": 0,
+              "cannotCreateTransactionCount": 0
+            },
+            "pubsub": null
+          },
+          {
+            "role": "app",
+            "capturedAtUtc": "2026-08-13T16:04:03Z",
+            "logWindow": "25m",
+            "captureStatus": null,
+            "container": {
+              "present": true,
+              "status": "running",
+              "restartCount": 0,
+              "oomKilled": false,
+              "startedAtUtc": "2026-08-13T14:42:12.318152986Z"
+            },
+            "actuator": {
+              "up": true,
+              "hikari": {
+                "active": 0,
+                "idle": 5,
+                "pending": 0,
+                "max": 8
+              },
+              "chat": {
+                "websocketActive": 0,
+                "websocketDeliveryFailures": 0,
+                "websocketDeliveryLatencyCount": 9157,
+                "websocketRecoveredMessages": 9157,
+                "messageDeliveryFailures": 0,
+                "messageDeliveryDurationCount": 2770
+              }
+            },
+            "logs": {
+              "hikariAcquisitionTimeoutCount": 0,
+              "cannotCreateTransactionCount": 0
+            },
+            "pubsub": null
+          },
+          {
+            "role": "redis",
+            "capturedAtUtc": "2026-08-13T16:04:07Z",
+            "logWindow": null,
+            "captureStatus": null,
+            "container": {
+              "present": true,
+              "status": "running",
+              "restartCount": 0,
+              "oomKilled": false,
+              "startedAtUtc": "2026-08-13T14:41:24.098874757Z"
+            },
+            "actuator": null,
+            "logs": null,
+            "pubsub": {
+              "channel": "albam-mate:production:chat:events",
+              "numsub": 2
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "knownLimitations": [
+    "Raw k6 summary setup_data is intentionally excluded. Only .metrics is extracted for this manifest.",
+    "Raw summary and console artifacts remain local-only and are integrity-referenced by SHA-256.",
+    "동일 release의 단일 반복이므로 이전 campaign과의 차이만으로 개선·악화를 판정하지 않는다.",
+    "App runtime snapshot의 rolling log count는 시점 집계이며 정확한 per-stage delta가 아니다.",
+    "fanout, rooms, mixed의 세션 정상과 전달 완료는 2분 callback을 끝낸 표본만 분모로 하며 ramp-down에 중단된 VU를 포함하지 않는다."
+  ],
+  "artifacts": {
+    "location": "local-only",
+    "directory": "albam-mate-infra/.run/results/",
+    "campaignLog": "chat-delivery-capacity-2026-08-13-repeat2.campaign.log",
+    "campaignLogSha256": "a63b23c8085d86733bf6ec1d42b83943834a7eb6602f6777654c8d6e6d1f7963",
+    "runCount": 6,
+    "includedRunCount": 6,
+    "excludedAttemptCount": 0,
+    "rawArtifactsMayContainFixtureCredentials": true,
+    "rawSummaryAccess": ".metrics only",
+    "report": "docs/measurements/k6/eungi/chat-delivery-capacity-2026-08-13-repeat2.md",
+    "sourceArtifacts": [
+      {
+        "path": "load-throughput.js",
+        "sha256": "a16eed278969d7d6f7838999027f43286ea4e99e2b02b176495645d1d7293d30"
+      },
+      {
+        "path": "load-connections.js",
+        "sha256": "0b9d63702b055ef760b377758aabb3cc13a4e1bc28bab34565b2be10111e368f"
+      },
+      {
+        "path": "load-history.js",
+        "sha256": "baca25cddccddb77c6db70231b76b11f8abda7b8a72c7087ea571d3585f86e1c"
+      },
+      {
+        "path": "load-fanout.js",
+        "sha256": "5b222c2af24c6acd6e185c7f705423fcedd450b152c9fdbe6e3adb5fcc61c837"
+      },
+      {
+        "path": "load-rooms.js",
+        "sha256": "88e5b2e449c334811ae5e8766638e3430cccbd512af2e064ae5622eb642ec672"
+      },
+      {
+        "path": "load-mixed.js",
+        "sha256": "ea227cfaf86021d5585ec70de7ec14383833be19bc9d1bad8b23a2aa4efbb205"
+      },
+      {
+        "path": "lib/chat.js",
+        "sha256": "f4f9eed6ecff70e157d566135679646dd1de88b7da6c43f2b207a13d4b56b4db"
+      },
+      {
+        "path": "fixtures/rooms.sql",
+        "sha256": "b98a39e7608de8634a09e28656f517d70703ed5bbfe9dc1b094c10e8404c9eff"
+      },
+      {
+        "path": "fixtures/cleanup.sql",
+        "sha256": "d316e590b7fe306dec4a2bb818e70ad28ea07ce841de8cf16572d73cd2c925b9"
+      }
+    ]
+  },
+  "excludedAttempts": [],
+  "runs": [
+    {
+      "scenario": "load-throughput",
+      "runId": "chat-delivery-capacity-2026-08-13-repeat2-01-throughput",
+      "startedAt": "2026-08-13T14:47:59Z",
+      "endedAt": "2026-08-13T15:02:07Z",
+      "exit": 2,
+      "runnerExit": 2,
+      "k6Exit": 99,
+      "k6ExitDerivation": "summary .metrics threshold state only; raw console is not parsed",
+      "status": "COMPLETED_WITH_THRESHOLD_VIOLATIONS",
+      "reportDisposition": "included",
+      "summary": "summary-20260813T144839Z.json",
+      "console": "console-20260813T144839Z.log",
+      "summarySha256": "d033412be610edca77a703e1a7557a20db388c30bdf96e2eea9c58113a8a74aa",
+      "consoleSha256": "8b3b398ed8c8a76a4130d8ed04fb7070c464e7ca8442a69c13e94f42d7002f40",
+      "droppedIterations": 0,
+      "httpReqFailed": {
+        "rate": 0.0010723860589812334,
+        "failedRequests": 2,
+        "totalRequests": 1865
+      },
+      "thresholdViolations": [
+        {
+          "metric": "chat_websocket_opened",
+          "threshold": "rate>=0.99"
+        },
+        {
+          "metric": "chat_websocket_session_healthy",
+          "threshold": "rate>=0.99"
+        }
+      ],
+      "execution": {
+        "runner": "albam-mate-infra/run.sh loadtest",
+        "k6Version": "1.3.0",
+        "resolvedScenarioEnvironment": {
+          "K6_LOAD_SEND_RATES": "1,2,3,4,5",
+          "K6_LOAD_STEP_DURATION": "2m",
+          "K6_LOAD_SUBSCRIBERS_PER_ROOM": 6,
+          "K6_LOAD_THROUGHPUT_ROOMS": 3,
+          "K6_LOAD_WARMUP_DURATION": "30s",
+          "K6_LOGIN_LIMIT": 300
+        }
+      },
+      "websocket": {
+        "opened": {
+          "rate": 0.4444444444444444,
+          "passes": 8,
+          "fails": 10,
+          "total": 18
+        },
+        "sessionHealthy": {
+          "rate": 0.4444444444444444,
+          "passes": 8,
+          "fails": 10,
+          "total": 18
+        },
+        "deliveryComplete": null
+      },
+      "stages": [
+        {
+          "stage": 1,
+          "target": "1 req/s",
+          "httpP95": 58.11892579999999,
+          "send": {
+            "rate": 1,
+            "passes": 120,
+            "fails": 0,
+            "total": 120
+          },
+          "deliveryP95": 56,
+          "connectP95": 0,
+          "opened": {
+            "rate": 0,
+            "passes": 0,
+            "fails": 0,
+            "total": 0
+          },
+          "subscriberDelivery": null,
+          "subscriberReceivedMessages": null
+        },
+        {
+          "stage": 2,
+          "target": "2 req/s",
+          "httpP95": 51.170146349999996,
+          "send": {
+            "rate": 1,
+            "passes": 180,
+            "fails": 0,
+            "total": 180
+          },
+          "deliveryP95": 51,
+          "connectP95": 0,
+          "opened": {
+            "rate": 0,
+            "passes": 0,
+            "fails": 0,
+            "total": 0
+          },
+          "subscriberDelivery": null,
+          "subscriberReceivedMessages": null
+        },
+        {
+          "stage": 3,
+          "target": "3 req/s",
+          "httpP95": 46.52344929999998,
+          "send": {
+            "rate": 0.9966666666666667,
+            "passes": 299,
+            "fails": 1,
+            "total": 300
+          },
+          "deliveryP95": 44,
+          "connectP95": 0,
+          "opened": {
+            "rate": 0,
+            "passes": 0,
+            "fails": 0,
+            "total": 0
+          },
+          "subscriberDelivery": null,
+          "subscriberReceivedMessages": null
+        },
+        {
+          "stage": 4,
+          "target": "4 req/s",
+          "httpP95": 42.37544829999998,
+          "send": {
+            "rate": 0.9976190476190476,
+            "passes": 419,
+            "fails": 1,
+            "total": 420
+          },
+          "deliveryP95": 41,
+          "connectP95": 0,
+          "opened": {
+            "rate": 0,
+            "passes": 0,
+            "fails": 0,
+            "total": 0
+          },
+          "subscriberDelivery": null,
+          "subscriberReceivedMessages": null
+        },
+        {
+          "stage": 5,
+          "target": "5 req/s",
+          "httpP95": 44.120438400000005,
+          "send": {
+            "rate": 1,
+            "passes": 615,
+            "fails": 0,
+            "total": 615
+          },
+          "deliveryP95": 41,
+          "connectP95": 0,
+          "opened": {
+            "rate": 0,
+            "passes": 0,
+            "fails": 0,
+            "total": 0
+          },
+          "subscriberDelivery": null,
+          "subscriberReceivedMessages": null
+        }
+      ]
+    },
+    {
+      "scenario": "load-connections",
+      "runId": "chat-delivery-capacity-2026-08-13-repeat2-02-connections",
+      "startedAt": "2026-08-13T15:02:07Z",
+      "endedAt": "2026-08-13T15:15:26Z",
+      "exit": 0,
+      "runnerExit": 0,
+      "k6Exit": 0,
+      "k6ExitDerivation": "summary .metrics threshold state only; raw console is not parsed",
+      "status": "COMPLETED",
+      "reportDisposition": "included",
+      "summary": "summary-20260813T150248Z.json",
+      "console": "console-20260813T150248Z.log",
+      "summarySha256": "71a7474ea2a52d56d25780854d8f34a4a322a6d20b7a580a247cbd82d033729e",
+      "consoleSha256": "212243780b09be4fcb0d21e067c76ec16c17becf62c6c22e8158b6caaa7a9040",
+      "droppedIterations": 0,
+      "httpReqFailed": {
+        "rate": 0,
+        "failedRequests": 0,
+        "totalRequests": 216
+      },
+      "thresholdViolations": [],
+      "execution": {
+        "runner": "albam-mate-infra/run.sh loadtest",
+        "k6Version": "1.3.0",
+        "resolvedScenarioEnvironment": {
+          "K6_LOAD_CONNECTION_STEPS": "5,10,20,40,80",
+          "K6_LOAD_STEP_DURATION": "2m",
+          "K6_LOAD_WARMUP_DURATION": "30s",
+          "K6_LOGIN_LIMIT": 300
+        }
+      },
+      "websocket": {
+        "opened": {
+          "rate": 1,
+          "passes": 170,
+          "fails": 0,
+          "total": 170
+        },
+        "sessionHealthy": {
+          "rate": 1,
+          "passes": 97,
+          "fails": 0,
+          "total": 97
+        },
+        "deliveryComplete": null
+      },
+      "stages": [
+        {
+          "stage": 1,
+          "target": "5 concurrent WebSocket connections",
+          "httpP95": 0,
+          "send": {
+            "rate": 0,
+            "passes": 0,
+            "fails": 0,
+            "total": 0
+          },
+          "deliveryP95": 0,
+          "connectP95": 37.4,
+          "opened": {
+            "rate": 1,
+            "passes": 5,
+            "fails": 0,
+            "total": 5
+          },
+          "subscriberDelivery": null,
+          "subscriberReceivedMessages": null
+        },
+        {
+          "stage": 2,
+          "target": "10 concurrent WebSocket connections",
+          "httpP95": 0,
+          "send": {
+            "rate": 0,
+            "passes": 0,
+            "fails": 0,
+            "total": 0
+          },
+          "deliveryP95": 0,
+          "connectP95": 27,
+          "opened": {
+            "rate": 1,
+            "passes": 9,
+            "fails": 0,
+            "total": 9
+          },
+          "subscriberDelivery": null,
+          "subscriberReceivedMessages": null
+        },
+        {
+          "stage": 3,
+          "target": "20 concurrent WebSocket connections",
+          "httpP95": 0,
+          "send": {
+            "rate": 0,
+            "passes": 0,
+            "fails": 0,
+            "total": 0
+          },
+          "deliveryP95": 0,
+          "connectP95": 29,
+          "opened": {
+            "rate": 1,
+            "passes": 19,
+            "fails": 0,
+            "total": 19
+          },
+          "subscriberDelivery": null,
+          "subscriberReceivedMessages": null
+        },
+        {
+          "stage": 4,
+          "target": "40 concurrent WebSocket connections",
+          "httpP95": 0,
+          "send": {
+            "rate": 0,
+            "passes": 0,
+            "fails": 0,
+            "total": 0
+          },
+          "deliveryP95": 0,
+          "connectP95": 30,
+          "opened": {
+            "rate": 1,
+            "passes": 39,
+            "fails": 0,
+            "total": 39
+          },
+          "subscriberDelivery": null,
+          "subscriberReceivedMessages": null
+        },
+        {
+          "stage": 5,
+          "target": "80 concurrent WebSocket connections",
+          "httpP95": 0,
+          "send": {
+            "rate": 0,
+            "passes": 0,
+            "fails": 0,
+            "total": 0
+          },
+          "deliveryP95": 0,
+          "connectP95": 31,
+          "opened": {
+            "rate": 1,
+            "passes": 21,
+            "fails": 0,
+            "total": 21
+          },
+          "subscriberDelivery": null,
+          "subscriberReceivedMessages": null
+        }
+      ]
+    },
+    {
+      "scenario": "load-history",
+      "runId": "chat-delivery-capacity-2026-08-13-repeat2-03-history",
+      "startedAt": "2026-08-13T15:15:26Z",
+      "endedAt": "2026-08-13T15:26:28Z",
+      "exit": 0,
+      "runnerExit": 0,
+      "k6Exit": 0,
+      "k6ExitDerivation": "summary .metrics threshold state only; raw console is not parsed",
+      "status": "COMPLETED",
+      "reportDisposition": "included",
+      "summary": "summary-20260813T151607Z.json",
+      "console": "console-20260813T151607Z.log",
+      "summarySha256": "39b64f19f9dca45e5afe2307612c6b2ca49eea53e848290b07a4538be19eef9a",
+      "consoleSha256": "48c14ccb60eee2e760b691ed46bc3a69e53a71d660232cccf574fe9a6f19f9b7",
+      "droppedIterations": 0,
+      "httpReqFailed": {
+        "rate": 0,
+        "failedRequests": 0,
+        "totalRequests": 1731
+      },
+      "thresholdViolations": [],
+      "execution": {
+        "runner": "albam-mate-infra/run.sh loadtest",
+        "k6Version": "1.3.0",
+        "resolvedScenarioEnvironment": {
+          "K6_LOAD_HISTORY_RATES": "1,2,4,8",
+          "K6_LOAD_STEP_DURATION": "2m",
+          "K6_LOAD_WARMUP_DURATION": "30s",
+          "K6_LOGIN_LIMIT": 300
+        }
+      },
+      "websocket": {
+        "opened": {
+          "rate": 0,
+          "passes": 0,
+          "fails": 0,
+          "total": 0
+        },
+        "sessionHealthy": {
+          "rate": 0,
+          "passes": 0,
+          "fails": 0,
+          "total": 0
+        },
+        "deliveryComplete": null
+      },
+      "stages": [
+        {
+          "stage": 1,
+          "target": "1 req/s",
+          "httpP95": 32.823932850000006,
+          "send": {
+            "rate": 1,
+            "passes": 120,
+            "fails": 0,
+            "total": 120
+          },
+          "deliveryP95": 0,
+          "connectP95": 0,
+          "opened": {
+            "rate": 0,
+            "passes": 0,
+            "fails": 0,
+            "total": 0
+          },
+          "subscriberDelivery": null,
+          "subscriberReceivedMessages": null
+        },
+        {
+          "stage": 2,
+          "target": "2 req/s",
+          "httpP95": 28.873355399999994,
+          "send": {
+            "rate": 1,
+            "passes": 180,
+            "fails": 0,
+            "total": 180
+          },
+          "deliveryP95": 0,
+          "connectP95": 0,
+          "opened": {
+            "rate": 0,
+            "passes": 0,
+            "fails": 0,
+            "total": 0
+          },
+          "subscriberDelivery": null,
+          "subscriberReceivedMessages": null
+        },
+        {
+          "stage": 3,
+          "target": "4 req/s",
+          "httpP95": 29.628041599999992,
+          "send": {
+            "rate": 1,
+            "passes": 360,
+            "fails": 0,
+            "total": 360
+          },
+          "deliveryP95": 0,
+          "connectP95": 0,
+          "opened": {
+            "rate": 0,
+            "passes": 0,
+            "fails": 0,
+            "total": 0
+          },
+          "subscriberDelivery": null,
+          "subscriberReceivedMessages": null
+        },
+        {
+          "stage": 4,
+          "target": "8 req/s",
+          "httpP95": 26.268514,
+          "send": {
+            "rate": 1,
+            "passes": 841,
+            "fails": 0,
+            "total": 841
+          },
+          "deliveryP95": 0,
+          "connectP95": 0,
+          "opened": {
+            "rate": 0,
+            "passes": 0,
+            "fails": 0,
+            "total": 0
+          },
+          "subscriberDelivery": null,
+          "subscriberReceivedMessages": null
+        }
+      ]
+    },
+    {
+      "scenario": "load-fanout",
+      "runId": "chat-delivery-capacity-2026-08-13-repeat2-04-fanout",
+      "startedAt": "2026-08-13T15:26:28Z",
+      "endedAt": "2026-08-13T15:40:12Z",
+      "exit": 2,
+      "runnerExit": 2,
+      "k6Exit": 99,
+      "k6ExitDerivation": "summary .metrics threshold state only; raw console is not parsed",
+      "status": "COMPLETED_WITH_THRESHOLD_VIOLATIONS",
+      "reportDisposition": "included",
+      "summary": "summary-20260813T152706Z.json",
+      "console": "console-20260813T152706Z.log",
+      "summarySha256": "cc965ed29de48f77afe38de1926399fedf4ecafb1e800ce8702578cd05125a61",
+      "consoleSha256": "3b05c9027dd1198d159f9317e68d54116eb7358465768f3dec14406f656815b3",
+      "droppedIterations": 0,
+      "httpReqFailed": {
+        "rate": 0.008801624915368992,
+        "failedRequests": 13,
+        "totalRequests": 1477
+      },
+      "thresholdViolations": [
+        {
+          "metric": "chat_send_expected_status",
+          "threshold": "rate>=0.99"
+        }
+      ],
+      "execution": {
+        "runner": "albam-mate-infra/run.sh loadtest",
+        "k6Version": "1.3.0",
+        "resolvedScenarioEnvironment": {
+          "K6_LOAD_FANOUT_SEND_RATE": 2,
+          "K6_LOAD_FANOUT_SUBSCRIBER_STEPS": "2,4,8,16,24",
+          "K6_LOAD_STEP_DURATION": "2m",
+          "K6_LOAD_WARMUP_DURATION": "30s",
+          "K6_LOGIN_LIMIT": 300
+        }
+      },
+      "websocket": {
+        "opened": {
+          "rate": 1,
+          "passes": 57,
+          "fails": 0,
+          "total": 57
+        },
+        "sessionHealthy": {
+          "rate": 1,
+          "passes": 36,
+          "fails": 0,
+          "total": 36
+        },
+        "deliveryComplete": {
+          "rate": 1,
+          "passes": 36,
+          "fails": 0,
+          "total": 36
+        }
+      },
+      "stages": [
+        {
+          "stage": 1,
+          "target": "2 subscribers",
+          "httpP95": 41.055327299999995,
+          "send": {
+            "rate": 1,
+            "passes": 240,
+            "fails": 0,
+            "total": 240
+          },
+          "deliveryP95": 30,
+          "connectP95": 21.9,
+          "opened": {
+            "rate": 1,
+            "passes": 2,
+            "fails": 0,
+            "total": 2
+          },
+          "subscriberDelivery": {
+            "rate": 1,
+            "passes": 2,
+            "fails": 0,
+            "total": 2
+          },
+          "subscriberReceivedMessages": 476
+        },
+        {
+          "stage": 2,
+          "target": "4 subscribers",
+          "httpP95": 40.0243963,
+          "send": {
+            "rate": 0.9875,
+            "passes": 237,
+            "fails": 3,
+            "total": 240
+          },
+          "deliveryP95": 30,
+          "connectP95": 27.8,
+          "opened": {
+            "rate": 1,
+            "passes": 3,
+            "fails": 0,
+            "total": 3
+          },
+          "subscriberDelivery": {
+            "rate": 1,
+            "passes": 3,
+            "fails": 0,
+            "total": 3
+          },
+          "subscriberReceivedMessages": 708
+        },
+        {
+          "stage": 3,
+          "target": "8 subscribers",
+          "httpP95": 39.5418956,
+          "send": {
+            "rate": 0.9833333333333333,
+            "passes": 236,
+            "fails": 4,
+            "total": 240
+          },
+          "deliveryP95": 59.54999999999994,
+          "connectP95": 29.299999999999997,
+          "opened": {
+            "rate": 1,
+            "passes": 7,
+            "fails": 0,
+            "total": 7
+          },
+          "subscriberDelivery": {
+            "rate": 1,
+            "passes": 7,
+            "fails": 0,
+            "total": 7
+          },
+          "subscriberReceivedMessages": 1642
+        },
+        {
+          "stage": 4,
+          "target": "16 subscribers",
+          "httpP95": 39.0594453,
+          "send": {
+            "rate": 0.9875,
+            "passes": 237,
+            "fails": 3,
+            "total": 240
+          },
+          "deliveryP95": 109.19999999999987,
+          "connectP95": 25.599999999999998,
+          "opened": {
+            "rate": 1,
+            "passes": 15,
+            "fails": 0,
+            "total": 15
+          },
+          "subscriberDelivery": {
+            "rate": 1,
+            "passes": 15,
+            "fails": 0,
+            "total": 15
+          },
+          "subscriberReceivedMessages": 3542
+        },
+        {
+          "stage": 5,
+          "target": "24 subscribers",
+          "httpP95": 41.275742,
+          "send": {
+            "rate": 0.9875518672199171,
+            "passes": 238,
+            "fails": 3,
+            "total": 241
+          },
+          "deliveryP95": 162,
+          "connectP95": 26,
+          "opened": {
+            "rate": 1,
+            "passes": 8,
+            "fails": 0,
+            "total": 8
+          },
+          "subscriberDelivery": {
+            "rate": 1,
+            "passes": 8,
+            "fails": 0,
+            "total": 8
+          },
+          "subscriberReceivedMessages": 1720
+        }
+      ]
+    },
+    {
+      "scenario": "load-rooms",
+      "runId": "chat-delivery-capacity-2026-08-13-repeat2-05-rooms",
+      "startedAt": "2026-08-13T15:40:12Z",
+      "endedAt": "2026-08-13T15:51:58Z",
+      "exit": 2,
+      "runnerExit": 2,
+      "k6Exit": 99,
+      "k6ExitDerivation": "summary .metrics threshold state only; raw console is not parsed",
+      "status": "COMPLETED_WITH_THRESHOLD_VIOLATIONS",
+      "reportDisposition": "included",
+      "summary": "summary-20260813T154051Z.json",
+      "console": "console-20260813T154051Z.log",
+      "summarySha256": "d60488119fb37703af2cf7a0d44b48448099382b96016c6bb4bd04beec58ad30",
+      "consoleSha256": "c6be5de28272c50e807a7d19bb2254d3390b724c2a75d6a302e35067195fb76d",
+      "droppedIterations": 0,
+      "httpReqFailed": {
+        "rate": 0.0005777007510109763,
+        "failedRequests": 1,
+        "totalRequests": 1731
+      },
+      "thresholdViolations": [
+        {
+          "metric": "load_subscriber_delivery_complete",
+          "threshold": "rate==1"
+        },
+        {
+          "metric": "load_subscriber_delivery_complete{stage:1}",
+          "threshold": "rate==1"
+        },
+        {
+          "metric": "load_subscriber_delivery_complete{stage:2}",
+          "threshold": "rate==1"
+        },
+        {
+          "metric": "load_subscriber_delivery_complete{stage:3}",
+          "threshold": "rate==1"
+        }
+      ],
+      "execution": {
+        "runner": "albam-mate-infra/run.sh loadtest",
+        "k6Version": "1.3.0",
+        "resolvedScenarioEnvironment": {
+          "K6_LOAD_ROOM_SEND_RATE": 1,
+          "K6_LOAD_ROOM_STEPS": "1,2,4,8",
+          "K6_LOAD_ROOM_SUBSCRIBERS": 3,
+          "K6_LOAD_STEP_DURATION": "2m",
+          "K6_LOAD_WARMUP_DURATION": "30s",
+          "K6_LOGIN_LIMIT": 300
+        }
+      },
+      "websocket": {
+        "opened": {
+          "rate": 1,
+          "passes": 50,
+          "fails": 0,
+          "total": 50
+        },
+        "sessionHealthy": {
+          "rate": 1,
+          "passes": 28,
+          "fails": 0,
+          "total": 28
+        },
+        "deliveryComplete": {
+          "rate": 0.6785714285714286,
+          "passes": 19,
+          "fails": 9,
+          "total": 28
+        }
+      },
+      "stages": [
+        {
+          "stage": 1,
+          "target": "1 active rooms",
+          "httpP95": 42.695046199999986,
+          "send": {
+            "rate": 1,
+            "passes": 120,
+            "fails": 0,
+            "total": 120
+          },
+          "deliveryP95": 28.099999999999994,
+          "connectP95": 32,
+          "opened": {
+            "rate": 1,
+            "passes": 3,
+            "fails": 0,
+            "total": 3
+          },
+          "subscriberDelivery": {
+            "rate": 0.3333333333333333,
+            "passes": 1,
+            "fails": 2,
+            "total": 3
+          },
+          "subscriberReceivedMessages": 93
+        },
+        {
+          "stage": 2,
+          "target": "2 active rooms",
+          "httpP95": 41.83149085,
+          "send": {
+            "rate": 1,
+            "passes": 180,
+            "fails": 0,
+            "total": 180
+          },
+          "deliveryP95": 27,
+          "connectP95": 25.8,
+          "opened": {
+            "rate": 1,
+            "passes": 5,
+            "fails": 0,
+            "total": 5
+          },
+          "subscriberDelivery": {
+            "rate": 0.2,
+            "passes": 1,
+            "fails": 4,
+            "total": 5
+          },
+          "subscriberReceivedMessages": 89
+        },
+        {
+          "stage": 3,
+          "target": "4 active rooms",
+          "httpP95": 39.2112525,
+          "send": {
+            "rate": 1,
+            "passes": 360,
+            "fails": 0,
+            "total": 360
+          },
+          "deliveryP95": 31,
+          "connectP95": 27.5,
+          "opened": {
+            "rate": 1,
+            "passes": 11,
+            "fails": 0,
+            "total": 11
+          },
+          "subscriberDelivery": {
+            "rate": 0.8181818181818182,
+            "passes": 9,
+            "fails": 2,
+            "total": 11
+          },
+          "subscriberReceivedMessages": 432
+        },
+        {
+          "stage": 4,
+          "target": "8 active rooms",
+          "httpP95": 37.630344,
+          "send": {
+            "rate": 0.9988109393579072,
+            "passes": 840,
+            "fails": 1,
+            "total": 841
+          },
+          "deliveryP95": 39,
+          "connectP95": 27,
+          "opened": {
+            "rate": 1,
+            "passes": 7,
+            "fails": 0,
+            "total": 7
+          },
+          "subscriberDelivery": {
+            "rate": 1,
+            "passes": 7,
+            "fails": 0,
+            "total": 7
+          },
+          "subscriberReceivedMessages": 626
+        }
+      ]
+    },
+    {
+      "scenario": "load-mixed",
+      "runId": "chat-delivery-capacity-2026-08-13-repeat2-06-mixed",
+      "startedAt": "2026-08-13T15:51:58Z",
+      "endedAt": "2026-08-13T16:03:43Z",
+      "exit": 0,
+      "runnerExit": 0,
+      "k6Exit": 0,
+      "k6ExitDerivation": "summary .metrics threshold state only; raw console is not parsed",
+      "status": "COMPLETED",
+      "reportDisposition": "included",
+      "summary": "summary-20260813T155237Z.json",
+      "console": "console-20260813T155237Z.log",
+      "summarySha256": "c41af1f56a1934dd69e5bfb553dd483bbac22fe615cf58387fdd78768639ccc3",
+      "consoleSha256": "0f1e30ab1d8ac7609673e0e3a15dec2e5a79e476b55db9be51c80c280e574622",
+      "droppedIterations": 0,
+      "httpReqFailed": {
+        "rate": 0,
+        "failedRequests": 0,
+        "totalRequests": 3501
+      },
+      "thresholdViolations": [],
+      "execution": {
+        "runner": "albam-mate-infra/run.sh loadtest",
+        "k6Version": "1.3.0",
+        "resolvedScenarioEnvironment": {
+          "K6_LOAD_MIXED_CONNECTIONS": 5,
+          "K6_LOAD_MIXED_HISTORY_RATE": 2,
+          "K6_LOAD_MIXED_SCALES": "1,2,3,4",
+          "K6_LOAD_MIXED_SEND_RATE": 1,
+          "K6_LOAD_STEP_DURATION": "2m",
+          "K6_LOAD_WARMUP_DURATION": "30s",
+          "K6_LOGIN_LIMIT": 300
+        }
+      },
+      "websocket": {
+        "opened": {
+          "rate": 1,
+          "passes": 55,
+          "fails": 0,
+          "total": 55
+        },
+        "sessionHealthy": {
+          "rate": 1,
+          "passes": 37,
+          "fails": 0,
+          "total": 37
+        },
+        "deliveryComplete": {
+          "rate": 1,
+          "passes": 37,
+          "fails": 0,
+          "total": 37
+        }
+      },
+      "stages": [
+        {
+          "stage": 1,
+          "target": "1x scale",
+          "httpP95": 37.559722799999996,
+          "send": {
+            "rate": 1,
+            "passes": 360,
+            "fails": 0,
+            "total": 360
+          },
+          "deliveryP95": 29,
+          "connectP95": 30.599999999999998,
+          "opened": {
+            "rate": 1,
+            "passes": 5,
+            "fails": 0,
+            "total": 5
+          },
+          "subscriberDelivery": {
+            "rate": 1,
+            "passes": 5,
+            "fails": 0,
+            "total": 5
+          },
+          "subscriberReceivedMessages": 91
+        },
+        {
+          "stage": 2,
+          "target": "2x scale",
+          "httpP95": 37.04309425,
+          "send": {
+            "rate": 1,
+            "passes": 540,
+            "fails": 0,
+            "total": 540
+          },
+          "deliveryP95": 39,
+          "connectP95": 25.6,
+          "opened": {
+            "rate": 1,
+            "passes": 9,
+            "fails": 0,
+            "total": 9
+          },
+          "subscriberDelivery": {
+            "rate": 1,
+            "passes": 9,
+            "fails": 0,
+            "total": 9
+          },
+          "subscriberReceivedMessages": 278
+        },
+        {
+          "stage": 3,
+          "target": "3x scale",
+          "httpP95": 36.38447,
+          "send": {
+            "rate": 1,
+            "passes": 900,
+            "fails": 0,
+            "total": 900
+          },
+          "deliveryP95": 40,
+          "connectP95": 24,
+          "opened": {
+            "rate": 1,
+            "passes": 14,
+            "fails": 0,
+            "total": 14
+          },
+          "subscriberDelivery": {
+            "rate": 1,
+            "passes": 14,
+            "fails": 0,
+            "total": 14
+          },
+          "subscriberReceivedMessages": 632
+        },
+        {
+          "stage": 4,
+          "target": "4x scale",
+          "httpP95": 35.685795049999996,
+          "send": {
+            "rate": 1,
+            "passes": 1442,
+            "fails": 0,
+            "total": 1442
+          },
+          "deliveryP95": 40,
+          "connectP95": 32.9,
+          "opened": {
+            "rate": 1,
+            "passes": 5,
+            "fails": 0,
+            "total": 5
+          },
+          "subscriberDelivery": {
+            "rate": 1,
+            "passes": 5,
+            "fails": 0,
+            "total": 5
+          },
+          "subscriberReceivedMessages": 258
+        }
+      ]
+    }
+  ],
+  "observability": [
+    {
+      "file": "01-throughput-during.json",
+      "sha256": "ec3418aa282c060256bb17baf44de9e88da6cc3b2c32f62a6cd5851909b8698d",
+      "label": "01-throughput-during",
+      "capturedAtUtc": "2026-08-13T14:52:07Z",
+      "logWindow": "10m",
+      "nodes": [
+        {
+          "role": "app",
+          "capturedAtUtc": "2026-08-13T14:51:52Z",
+          "logWindow": "10m",
+          "captureStatus": null,
+          "container": {
+            "present": true,
+            "status": "running",
+            "restartCount": null,
+            "oomKilled": null,
+            "startedAtUtc": "2026-08-13T14:45:04.305939173Z"
+          },
+          "actuator": {
+            "up": true,
+            "hikari": {
+              "active": 0,
+              "idle": 8,
+              "pending": 0,
+              "max": 8
+            },
+            "chat": {
+              "websocketActive": 4,
+              "websocketDeliveryFailures": 0,
+              "websocketDeliveryLatencyCount": 136,
+              "websocketRecoveredMessages": 136,
+              "messageDeliveryFailures": 0,
+              "messageDeliveryDurationCount": 51
+            }
+          },
+          "logs": {
+            "hikariAcquisitionTimeoutCount": null,
+            "cannotCreateTransactionCount": null
+          },
+          "pubsub": null
+        },
+        {
+          "role": "app",
+          "capturedAtUtc": "2026-08-13T14:51:58Z",
+          "logWindow": "10m",
+          "captureStatus": null,
+          "container": {
+            "present": true,
+            "status": "running",
+            "restartCount": null,
+            "oomKilled": null,
+            "startedAtUtc": "2026-08-13T14:42:12.318152986Z"
+          },
+          "actuator": {
+            "up": true,
+            "hikari": {
+              "active": 0,
+              "idle": 8,
+              "pending": 0,
+              "max": 8
+            },
+            "chat": {
+              "websocketActive": 4,
+              "websocketDeliveryFailures": 0,
+              "websocketDeliveryLatencyCount": 144,
+              "websocketRecoveredMessages": 144,
+              "messageDeliveryFailures": 0,
+              "messageDeliveryDurationCount": 54
+            }
+          },
+          "logs": {
+            "hikariAcquisitionTimeoutCount": null,
+            "cannotCreateTransactionCount": null
+          },
+          "pubsub": null
+        },
+        {
+          "role": "redis",
+          "capturedAtUtc": "2026-08-13T14:52:04Z",
+          "logWindow": null,
+          "captureStatus": null,
+          "container": {
+            "present": true,
+            "status": "running",
+            "restartCount": null,
+            "oomKilled": null,
+            "startedAtUtc": "2026-08-13T14:41:24.098874757Z"
+          },
+          "actuator": null,
+          "logs": null,
+          "pubsub": {
+            "channel": "albam-mate:production:chat:events",
+            "numsub": null
+          }
+        }
+      ]
+    },
+    {
+      "file": "01-throughput-late.json",
+      "sha256": "109add8cba4af4e41e60c2dba6950ddc829c11496113f904a18244904067c46f",
+      "label": "01-throughput-late",
+      "capturedAtUtc": "2026-08-13T14:55:33Z",
+      "logWindow": "15m",
+      "nodes": [
+        {
+          "role": "app",
+          "capturedAtUtc": "2026-08-13T14:55:23Z",
+          "logWindow": "15m",
+          "captureStatus": null,
+          "container": {
+            "present": true,
+            "status": "running",
+            "restartCount": null,
+            "oomKilled": null,
+            "startedAtUtc": "2026-08-13T14:45:04.305939173Z"
+          },
+          "actuator": {
+            "up": true,
+            "hikari": {
+              "active": 1,
+              "idle": 7,
+              "pending": 0,
+              "max": 8
+            },
+            "chat": {
+              "websocketActive": 4,
+              "websocketDeliveryFailures": 0,
+              "websocketDeliveryLatencyCount": 593,
+              "websocketRecoveredMessages": 593,
+              "messageDeliveryFailures": 0,
+              "messageDeliveryDurationCount": 223
+            }
+          },
+          "logs": {
+            "hikariAcquisitionTimeoutCount": null,
+            "cannotCreateTransactionCount": null
+          },
+          "pubsub": null
+        },
+        {
+          "role": "app",
+          "capturedAtUtc": "2026-08-13T14:55:26Z",
+          "logWindow": "15m",
+          "captureStatus": null,
+          "container": {
+            "present": true,
+            "status": "running",
+            "restartCount": null,
+            "oomKilled": null,
+            "startedAtUtc": "2026-08-13T14:42:12.318152986Z"
+          },
+          "actuator": {
+            "up": true,
+            "hikari": {
+              "active": 0,
+              "idle": 8,
+              "pending": 0,
+              "max": 8
+            },
+            "chat": {
+              "websocketActive": 4,
+              "websocketDeliveryFailures": 0,
+              "websocketDeliveryLatencyCount": 605,
+              "websocketRecoveredMessages": 605,
+              "messageDeliveryFailures": 0,
+              "messageDeliveryDurationCount": 227
+            }
+          },
+          "logs": {
+            "hikariAcquisitionTimeoutCount": null,
+            "cannotCreateTransactionCount": null
+          },
+          "pubsub": null
+        },
+        {
+          "role": "redis",
+          "capturedAtUtc": "2026-08-13T14:55:30Z",
+          "logWindow": null,
+          "captureStatus": null,
+          "container": {
+            "present": true,
+            "status": "running",
+            "restartCount": null,
+            "oomKilled": null,
+            "startedAtUtc": "2026-08-13T14:41:24.098874757Z"
+          },
+          "actuator": null,
+          "logs": null,
+          "pubsub": {
+            "channel": "albam-mate:production:chat:events",
+            "numsub": null
+          }
+        }
+      ]
+    },
+    {
+      "file": "01-throughput-post.json",
+      "sha256": "f2b71c3ba8c713d3f3927f2349f2a9b6e5a83d95e47ae0f6cd3e6ee57bf2dd1d",
+      "label": "01-throughput-post",
+      "capturedAtUtc": "2026-08-13T15:04:34Z",
+      "logWindow": "20m",
+      "nodes": [
+        {
+          "role": "app",
+          "capturedAtUtc": "2026-08-13T15:04:24Z",
+          "logWindow": "20m",
+          "captureStatus": null,
+          "container": {
+            "present": true,
+            "status": "running",
+            "restartCount": 0,
+            "oomKilled": false,
+            "startedAtUtc": "2026-08-13T14:45:04.305939173Z"
+          },
+          "actuator": {
+            "up": true,
+            "hikari": {
+              "active": 0,
+              "idle": 8,
+              "pending": 0,
+              "max": 8
+            },
+            "chat": {
+              "websocketActive": 2,
+              "websocketDeliveryFailures": 0,
+              "websocketDeliveryLatencyCount": 2197,
+              "websocketRecoveredMessages": 2197,
+              "messageDeliveryFailures": 0,
+              "messageDeliveryDurationCount": 824
+            }
+          },
+          "logs": {
+            "hikariAcquisitionTimeoutCount": 5,
+            "cannotCreateTransactionCount": 10
+          },
+          "pubsub": null
+        },
+        {
+          "role": "app",
+          "capturedAtUtc": "2026-08-13T15:04:28Z",
+          "logWindow": "20m",
+          "captureStatus": null,
+          "container": {
+            "present": true,
+            "status": "running",
+            "restartCount": 0,
+            "oomKilled": false,
+            "startedAtUtc": "2026-08-13T14:42:12.318152986Z"
+          },
+          "actuator": {
+            "up": true,
+            "hikari": {
+              "active": 0,
+              "idle": 8,
+              "pending": 0,
+              "max": 8
+            },
+            "chat": {
+              "websocketActive": 3,
+              "websocketDeliveryFailures": 0,
+              "websocketDeliveryLatencyCount": 2197,
+              "websocketRecoveredMessages": 2197,
+              "messageDeliveryFailures": 0,
+              "messageDeliveryDurationCount": 823
+            }
+          },
+          "logs": {
+            "hikariAcquisitionTimeoutCount": 5,
+            "cannotCreateTransactionCount": 10
+          },
+          "pubsub": null
+        },
+        {
+          "role": "redis",
+          "capturedAtUtc": "2026-08-13T15:04:31Z",
+          "logWindow": null,
+          "captureStatus": null,
+          "container": {
+            "present": true,
+            "status": "running",
+            "restartCount": 0,
+            "oomKilled": false,
+            "startedAtUtc": "2026-08-13T14:41:24.098874757Z"
+          },
+          "actuator": null,
+          "logs": null,
+          "pubsub": {
+            "channel": "albam-mate:production:chat:events",
+            "numsub": 2
+          }
+        }
+      ]
+    },
+    {
+      "file": "02-connections-during.json",
+      "sha256": "efc9a9f56a19ffc4538f599041292a0913ee68e66efc1d46b4e4616dbb91b787",
+      "label": "02-connections-during",
+      "capturedAtUtc": "2026-08-13T15:10:24Z",
+      "logWindow": "15m",
+      "nodes": [
+        {
+          "role": "app",
+          "capturedAtUtc": "2026-08-13T15:10:14Z",
+          "logWindow": "15m",
+          "captureStatus": null,
+          "container": {
+            "present": true,
+            "status": "running",
+            "restartCount": 0,
+            "oomKilled": false,
+            "startedAtUtc": "2026-08-13T14:45:04.305939173Z"
+          },
+          "actuator": {
+            "up": true,
+            "hikari": {
+              "active": 0,
+              "idle": 8,
+              "pending": 0,
+              "max": 8
+            },
+            "chat": {
+              "websocketActive": 10,
+              "websocketDeliveryFailures": 0,
+              "websocketDeliveryLatencyCount": 2197,
+              "websocketRecoveredMessages": 2197,
+              "messageDeliveryFailures": 0,
+              "messageDeliveryDurationCount": 824
+            }
+          },
+          "logs": {
+            "hikariAcquisitionTimeoutCount": 0,
+            "cannotCreateTransactionCount": 0
+          },
+          "pubsub": null
+        },
+        {
+          "role": "app",
+          "capturedAtUtc": "2026-08-13T15:10:17Z",
+          "logWindow": "15m",
+          "captureStatus": null,
+          "container": {
+            "present": true,
+            "status": "running",
+            "restartCount": 0,
+            "oomKilled": false,
+            "startedAtUtc": "2026-08-13T14:42:12.318152986Z"
+          },
+          "actuator": {
+            "up": true,
+            "hikari": {
+              "active": 0,
+              "idle": 5,
+              "pending": 0,
+              "max": 8
+            },
+            "chat": {
+              "websocketActive": 11,
+              "websocketDeliveryFailures": 0,
+              "websocketDeliveryLatencyCount": 2197,
+              "websocketRecoveredMessages": 2197,
+              "messageDeliveryFailures": 0,
+              "messageDeliveryDurationCount": 823
+            }
+          },
+          "logs": {
+            "hikariAcquisitionTimeoutCount": 0,
+            "cannotCreateTransactionCount": 0
+          },
+          "pubsub": null
+        },
+        {
+          "role": "redis",
+          "capturedAtUtc": "2026-08-13T15:10:21Z",
+          "logWindow": null,
+          "captureStatus": null,
+          "container": {
+            "present": true,
+            "status": "running",
+            "restartCount": 0,
+            "oomKilled": false,
+            "startedAtUtc": "2026-08-13T14:41:24.098874757Z"
+          },
+          "actuator": null,
+          "logs": null,
+          "pubsub": {
+            "channel": "albam-mate:production:chat:events",
+            "numsub": 2
+          }
+        }
+      ]
+    },
+    {
+      "file": "03-history-during.json",
+      "sha256": "f3a9929068665ef557e70adb8579b243f109b0f0500ad5e432d9d188d0c92be0",
+      "label": "03-history-during",
+      "capturedAtUtc": "2026-08-13T15:23:39Z",
+      "logWindow": "20m",
+      "nodes": [
+        {
+          "role": "app",
+          "capturedAtUtc": "2026-08-13T15:23:29Z",
+          "logWindow": "20m",
+          "captureStatus": null,
+          "container": {
+            "present": true,
+            "status": "running",
+            "restartCount": 0,
+            "oomKilled": false,
+            "startedAtUtc": "2026-08-13T14:45:04.305939173Z"
+          },
+          "actuator": {
+            "up": true,
+            "hikari": {
+              "active": 0,
+              "idle": 3,
+              "pending": 0,
+              "max": 8
+            },
+            "chat": {
+              "websocketActive": 0,
+              "websocketDeliveryFailures": 0,
+              "websocketDeliveryLatencyCount": 2197,
+              "websocketRecoveredMessages": 2197,
+              "messageDeliveryFailures": 0,
+              "messageDeliveryDurationCount": 824
+            }
+          },
+          "logs": {
+            "hikariAcquisitionTimeoutCount": 0,
+            "cannotCreateTransactionCount": 0
+          },
+          "pubsub": null
+        },
+        {
+          "role": "app",
+          "capturedAtUtc": "2026-08-13T15:23:33Z",
+          "logWindow": "20m",
+          "captureStatus": null,
+          "container": {
+            "present": true,
+            "status": "running",
+            "restartCount": 0,
+            "oomKilled": false,
+            "startedAtUtc": "2026-08-13T14:42:12.318152986Z"
+          },
+          "actuator": {
+            "up": true,
+            "hikari": {
+              "active": 0,
+              "idle": 3,
+              "pending": 0,
+              "max": 8
+            },
+            "chat": {
+              "websocketActive": 0,
+              "websocketDeliveryFailures": 0,
+              "websocketDeliveryLatencyCount": 2197,
+              "websocketRecoveredMessages": 2197,
+              "messageDeliveryFailures": 0,
+              "messageDeliveryDurationCount": 823
+            }
+          },
+          "logs": {
+            "hikariAcquisitionTimeoutCount": 0,
+            "cannotCreateTransactionCount": 0
+          },
+          "pubsub": null
+        },
+        {
+          "role": "redis",
+          "capturedAtUtc": "2026-08-13T15:23:36Z",
+          "logWindow": null,
+          "captureStatus": null,
+          "container": {
+            "present": true,
+            "status": "running",
+            "restartCount": 0,
+            "oomKilled": false,
+            "startedAtUtc": "2026-08-13T14:41:24.098874757Z"
+          },
+          "actuator": null,
+          "logs": null,
+          "pubsub": {
+            "channel": "albam-mate:production:chat:events",
+            "numsub": 2
+          }
+        }
+      ]
+    },
+    {
+      "file": "04-fanout-during.json",
+      "sha256": "94a6f7d69c2d79eef8ac9d0e3929a05c02a9657d8be95b13d23b0e135e5bc9ff",
+      "label": "04-fanout-during",
+      "capturedAtUtc": "2026-08-13T15:32:05Z",
+      "logWindow": "15m",
+      "nodes": [
+        {
+          "role": "app",
+          "capturedAtUtc": "2026-08-13T15:31:54Z",
+          "logWindow": "15m",
+          "captureStatus": null,
+          "container": {
+            "present": true,
+            "status": "running",
+            "restartCount": 0,
+            "oomKilled": false,
+            "startedAtUtc": "2026-08-13T14:45:04.305939173Z"
+          },
+          "actuator": {
+            "up": true,
+            "hikari": {
+              "active": 0,
+              "idle": 4,
+              "pending": 0,
+              "max": 8
+            },
+            "chat": {
+              "websocketActive": 2,
+              "websocketDeliveryFailures": 0,
+              "websocketDeliveryLatencyCount": 2991,
+              "websocketRecoveredMessages": 2991,
+              "messageDeliveryFailures": 0,
+              "messageDeliveryDurationCount": 1037
+            }
+          },
+          "logs": {
+            "hikariAcquisitionTimeoutCount": 0,
+            "cannotCreateTransactionCount": 0
+          },
+          "pubsub": null
+        },
+        {
+          "role": "app",
+          "capturedAtUtc": "2026-08-13T15:31:58Z",
+          "logWindow": "15m",
+          "captureStatus": null,
+          "container": {
+            "present": true,
+            "status": "running",
+            "restartCount": 0,
+            "oomKilled": false,
+            "startedAtUtc": "2026-08-13T14:42:12.318152986Z"
+          },
+          "actuator": {
+            "up": true,
+            "hikari": {
+              "active": 1,
+              "idle": 2,
+              "pending": 0,
+              "max": 8
+            },
+            "chat": {
+              "websocketActive": 1,
+              "websocketDeliveryFailures": 0,
+              "websocketDeliveryLatencyCount": 2213,
+              "websocketRecoveredMessages": 2214,
+              "messageDeliveryFailures": 0,
+              "messageDeliveryDurationCount": 1043
+            }
+          },
+          "logs": {
+            "hikariAcquisitionTimeoutCount": 0,
+            "cannotCreateTransactionCount": 0
+          },
+          "pubsub": null
+        },
+        {
+          "role": "redis",
+          "capturedAtUtc": "2026-08-13T15:32:02Z",
+          "logWindow": null,
+          "captureStatus": null,
+          "container": {
+            "present": true,
+            "status": "running",
+            "restartCount": 0,
+            "oomKilled": false,
+            "startedAtUtc": "2026-08-13T14:41:24.098874757Z"
+          },
+          "actuator": null,
+          "logs": null,
+          "pubsub": {
+            "channel": "albam-mate:production:chat:events",
+            "numsub": 2
+          }
+        }
+      ]
+    },
+    {
+      "file": "05-rooms-during.json",
+      "sha256": "371b139e0225802c1c0a7cfe46b4d0661391a44e25d3366b53480fabd47e983b",
+      "label": "05-rooms-during",
+      "capturedAtUtc": "2026-08-13T15:43:15Z",
+      "logWindow": "15m",
+      "nodes": [
+        {
+          "role": "app",
+          "capturedAtUtc": "2026-08-13T15:43:05Z",
+          "logWindow": "15m",
+          "captureStatus": null,
+          "container": {
+            "present": true,
+            "status": "running",
+            "restartCount": 0,
+            "oomKilled": false,
+            "startedAtUtc": "2026-08-13T14:45:04.305939173Z"
+          },
+          "actuator": {
+            "up": true,
+            "hikari": {
+              "active": 0,
+              "idle": 4,
+              "pending": 0,
+              "max": 8
+            },
+            "chat": {
+              "websocketActive": 2,
+              "websocketDeliveryFailures": 0,
+              "websocketDeliveryLatencyCount": 6967,
+              "websocketRecoveredMessages": 6967,
+              "messageDeliveryFailures": 0,
+              "messageDeliveryDurationCount": 1469
+            }
+          },
+          "logs": {
+            "hikariAcquisitionTimeoutCount": 0,
+            "cannotCreateTransactionCount": 0
+          },
+          "pubsub": null
+        },
+        {
+          "role": "app",
+          "capturedAtUtc": "2026-08-13T15:43:09Z",
+          "logWindow": "15m",
+          "captureStatus": null,
+          "container": {
+            "present": true,
+            "status": "running",
+            "restartCount": 0,
+            "oomKilled": false,
+            "startedAtUtc": "2026-08-13T14:42:12.318152986Z"
+          },
+          "actuator": {
+            "up": true,
+            "hikari": {
+              "active": 0,
+              "idle": 6,
+              "pending": 0,
+              "max": 8
+            },
+            "chat": {
+              "websocketActive": 1,
+              "websocketDeliveryFailures": 0,
+              "websocketDeliveryLatencyCount": 7239,
+              "websocketRecoveredMessages": 7240,
+              "messageDeliveryFailures": 0,
+              "messageDeliveryDurationCount": 1472
+            }
+          },
+          "logs": {
+            "hikariAcquisitionTimeoutCount": 0,
+            "cannotCreateTransactionCount": 0
+          },
+          "pubsub": null
+        },
+        {
+          "role": "redis",
+          "capturedAtUtc": "2026-08-13T15:43:12Z",
+          "logWindow": null,
+          "captureStatus": null,
+          "container": {
+            "present": true,
+            "status": "running",
+            "restartCount": 0,
+            "oomKilled": false,
+            "startedAtUtc": "2026-08-13T14:41:24.098874757Z"
+          },
+          "actuator": null,
+          "logs": null,
+          "pubsub": {
+            "channel": "albam-mate:production:chat:events",
+            "numsub": 2
+          }
+        }
+      ]
+    },
+    {
+      "file": "06-mixed-during.json",
+      "sha256": "ec3292fef55a078fc5033f1eabac324db249a9c7102f8fc3aeb2f8b57705239c",
+      "label": "06-mixed-during",
+      "capturedAtUtc": "2026-08-13T15:55:53Z",
+      "logWindow": "15m",
+      "nodes": [
+        {
+          "role": "app",
+          "capturedAtUtc": "2026-08-13T15:55:44Z",
+          "logWindow": "15m",
+          "captureStatus": null,
+          "container": {
+            "present": true,
+            "status": "running",
+            "restartCount": 0,
+            "oomKilled": false,
+            "startedAtUtc": "2026-08-13T14:45:04.305939173Z"
+          },
+          "actuator": {
+            "up": true,
+            "hikari": {
+              "active": 0,
+              "idle": 4,
+              "pending": 0,
+              "max": 8
+            },
+            "chat": {
+              "websocketActive": 3,
+              "websocketDeliveryFailures": 0,
+              "websocketDeliveryLatencyCount": 8183,
+              "websocketRecoveredMessages": 8183,
+              "messageDeliveryFailures": 0,
+              "messageDeliveryDurationCount": 2251
+            }
+          },
+          "logs": {
+            "hikariAcquisitionTimeoutCount": 0,
+            "cannotCreateTransactionCount": 0
+          },
+          "pubsub": null
+        },
+        {
+          "role": "app",
+          "capturedAtUtc": "2026-08-13T15:55:47Z",
+          "logWindow": "15m",
+          "captureStatus": null,
+          "container": {
+            "present": true,
+            "status": "running",
+            "restartCount": 0,
+            "oomKilled": false,
+            "startedAtUtc": "2026-08-13T14:42:12.318152986Z"
+          },
+          "actuator": {
+            "up": true,
+            "hikari": {
+              "active": 0,
+              "idle": 4,
+              "pending": 0,
+              "max": 8
+            },
+            "chat": {
+              "websocketActive": 2,
+              "websocketDeliveryFailures": 0,
+              "websocketDeliveryLatencyCount": 8325,
+              "websocketRecoveredMessages": 8325,
+              "messageDeliveryFailures": 0,
+              "messageDeliveryDurationCount": 2259
+            }
+          },
+          "logs": {
+            "hikariAcquisitionTimeoutCount": 0,
+            "cannotCreateTransactionCount": 0
+          },
+          "pubsub": null
+        },
+        {
+          "role": "redis",
+          "capturedAtUtc": "2026-08-13T15:55:50Z",
+          "logWindow": null,
+          "captureStatus": null,
+          "container": {
+            "present": true,
+            "status": "running",
+            "restartCount": 0,
+            "oomKilled": false,
+            "startedAtUtc": "2026-08-13T14:41:24.098874757Z"
+          },
+          "actuator": null,
+          "logs": null,
+          "pubsub": {
+            "channel": "albam-mate:production:chat:events",
+            "numsub": 2
+          }
+        }
+      ]
+    },
+    {
+      "file": "06-mixed-post.json",
+      "sha256": "ddd316ae6be825bd0d99935e0d80eda2a217e8262f5a0bfa6069b7c18fc78e9c",
+      "label": "06-mixed-post",
+      "capturedAtUtc": "2026-08-13T16:04:10Z",
+      "logWindow": "25m",
+      "nodes": [
+        {
+          "role": "app",
+          "capturedAtUtc": "2026-08-13T16:04:00Z",
+          "logWindow": "25m",
+          "captureStatus": null,
+          "container": {
+            "present": true,
+            "status": "running",
+            "restartCount": 0,
+            "oomKilled": false,
+            "startedAtUtc": "2026-08-13T14:45:04.305939173Z"
+          },
+          "actuator": {
+            "up": true,
+            "hikari": {
+              "active": 0,
+              "idle": 4,
+              "pending": 0,
+              "max": 8
+            },
+            "chat": {
+              "websocketActive": 0,
+              "websocketDeliveryFailures": 0,
+              "websocketDeliveryLatencyCount": 9034,
+              "websocketRecoveredMessages": 9034,
+              "messageDeliveryFailures": 0,
+              "messageDeliveryDurationCount": 2734
+            }
+          },
+          "logs": {
+            "hikariAcquisitionTimeoutCount": 0,
+            "cannotCreateTransactionCount": 0
+          },
+          "pubsub": null
+        },
+        {
+          "role": "app",
+          "capturedAtUtc": "2026-08-13T16:04:03Z",
+          "logWindow": "25m",
+          "captureStatus": null,
+          "container": {
+            "present": true,
+            "status": "running",
+            "restartCount": 0,
+            "oomKilled": false,
+            "startedAtUtc": "2026-08-13T14:42:12.318152986Z"
+          },
+          "actuator": {
+            "up": true,
+            "hikari": {
+              "active": 0,
+              "idle": 5,
+              "pending": 0,
+              "max": 8
+            },
+            "chat": {
+              "websocketActive": 0,
+              "websocketDeliveryFailures": 0,
+              "websocketDeliveryLatencyCount": 9157,
+              "websocketRecoveredMessages": 9157,
+              "messageDeliveryFailures": 0,
+              "messageDeliveryDurationCount": 2770
+            }
+          },
+          "logs": {
+            "hikariAcquisitionTimeoutCount": 0,
+            "cannotCreateTransactionCount": 0
+          },
+          "pubsub": null
+        },
+        {
+          "role": "redis",
+          "capturedAtUtc": "2026-08-13T16:04:07Z",
+          "logWindow": null,
+          "captureStatus": null,
+          "container": {
+            "present": true,
+            "status": "running",
+            "restartCount": 0,
+            "oomKilled": false,
+            "startedAtUtc": "2026-08-13T14:41:24.098874757Z"
+          },
+          "actuator": null,
+          "logs": null,
+          "pubsub": {
+            "channel": "albam-mate:production:chat:events",
+            "numsub": 2
+          }
+        }
+      ]
+    }
+  ]
+}

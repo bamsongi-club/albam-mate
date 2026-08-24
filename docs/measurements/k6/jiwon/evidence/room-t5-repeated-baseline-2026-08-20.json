@@ -1,0 +1,1880 @@
+{
+  "schema": "k6-campaign-manifest-v3",
+  "kind": "room-t5-repeated-baseline",
+  "campaignId": "room-t5-repeated-baseline-2026-08-20",
+  "issueNumber": 779,
+  "campaignStatus": "completed-with-limitations",
+  "documentStatus": "current",
+  "reportStatus": "PASS",
+  "previousCampaignId": "room-t5-repeated-baseline-2026-08-18",
+  "purpose": "Issue #779의 T5 response contract와 역할·ACTIVE 규모별 반복 조회 기준선을 수정된 verifier로 6개 조건별 3회 재실행한다.",
+  "contract": {
+    "source": "Issue #779 승인 최신 T1-T4 댓글",
+    "requiredConditions": 6,
+    "requiredRepeatsPerCondition": 3,
+    "requiredIndependentRuns": 18,
+    "roles": [
+      "public",
+      "host",
+      "participant"
+    ],
+    "scales": [
+      1,
+      10
+    ],
+    "readProfile": {
+      "vus": 10,
+      "durationSeconds": 60,
+      "thinkTimeMilliseconds": 0
+    },
+    "comparison": "같은 runId의 6 fixture를 compare-t5로 검증",
+    "requiredT3Evidence": [
+      "DB query·transaction·lock",
+      "Hikari/connection signal",
+      "T3 metrics/log"
+    ]
+  },
+  "window": {
+    "startedAtUtc": "2026-08-19T19:16:55Z",
+    "endedAtUtc": "2026-08-19T20:28:24Z"
+  },
+  "provenance": {
+    "sourceShaValues": [
+      "17d5dee05bf797ec46160e8cad95b8861473064a"
+    ],
+    "deployedReleaseValues": [
+      "17d5dee05bf797ec46160e8cad95b8861473064a"
+    ],
+    "sameSourceAcrossRuns": true,
+    "sameReleaseAcrossRuns": true,
+    "targetEnvironment": "aws-room-k6",
+    "portableBundle": {
+      "kind": "albam-mate-room-k6-bundle",
+      "schemaVersion": 2,
+      "fixtureSchemaVersion": 2,
+      "cleanSourceRuns": 18,
+      "sourceDirtyRuns": 0
+    },
+    "k6VersionValues": [
+      "1.3.0"
+    ],
+    "executionPath": "portable bundle -> albam-mate-infra run.sh room-k6",
+    "fixCommits": [
+      "17d5dee05bf797ec46160e8cad95b8861473064a"
+    ]
+  },
+  "coverage": [
+    {
+      "role": "public",
+      "scale": 1,
+      "condition": "public / ACTIVE scale 1",
+      "requiredRuns": 3,
+      "actualRuns": 3,
+      "transportPassRuns": 3,
+      "validRuns": 3,
+      "status": "PASS"
+    },
+    {
+      "role": "public",
+      "scale": 10,
+      "condition": "public / ACTIVE scale 10",
+      "requiredRuns": 3,
+      "actualRuns": 3,
+      "transportPassRuns": 3,
+      "validRuns": 3,
+      "status": "PASS"
+    },
+    {
+      "role": "host",
+      "scale": 1,
+      "condition": "host / ACTIVE scale 1",
+      "requiredRuns": 3,
+      "actualRuns": 3,
+      "transportPassRuns": 3,
+      "validRuns": 3,
+      "status": "PASS"
+    },
+    {
+      "role": "host",
+      "scale": 10,
+      "condition": "host / ACTIVE scale 10",
+      "requiredRuns": 3,
+      "actualRuns": 3,
+      "transportPassRuns": 3,
+      "validRuns": 3,
+      "status": "PASS"
+    },
+    {
+      "role": "participant",
+      "scale": 1,
+      "condition": "participant / ACTIVE scale 1",
+      "requiredRuns": 3,
+      "actualRuns": 3,
+      "transportPassRuns": 3,
+      "validRuns": 3,
+      "status": "PASS"
+    },
+    {
+      "role": "participant",
+      "scale": 10,
+      "condition": "participant / ACTIVE scale 10",
+      "requiredRuns": 3,
+      "actualRuns": 3,
+      "transportPassRuns": 3,
+      "validRuns": 3,
+      "status": "PASS"
+    }
+  ],
+  "selection": {
+    "plannedRunCount": 18,
+    "includedRunCount": 18,
+    "excludedRunCount": 0,
+    "comparisonGroups": 3,
+    "method": "6개 role/scale 조건을 조건별 3회씩 독립 실행하고 그룹별 6 fixture compare-t5 PASS 및 T3 gate를 확인"
+  },
+  "comparison": [
+    {
+      "runId": "room-t5-repeated-baseline-20260820-v3-r01",
+      "status": "PASS",
+      "fixtureCount": 6,
+      "comparisonSha256": "015efd66f384e5163765b465102437d699d47efe557227cb3131b244bc50c15e",
+      "t5ReadOptions": {
+        "vus": 10,
+        "durationSeconds": 60,
+        "thinkTimeMilliseconds": 0
+      }
+    },
+    {
+      "runId": "room-t5-repeated-baseline-20260820-v3-r02",
+      "status": "PASS",
+      "fixtureCount": 6,
+      "comparisonSha256": "a9ab2e0da02d189558e84733d3eb2db20514b514373cc005b42e0b9d5a23b9e1",
+      "t5ReadOptions": {
+        "vus": 10,
+        "durationSeconds": 60,
+        "thinkTimeMilliseconds": 0
+      }
+    },
+    {
+      "runId": "room-t5-repeated-baseline-20260820-v3-r03",
+      "status": "PASS",
+      "fixtureCount": 6,
+      "comparisonSha256": "5b1acb3eae3ccba5bd7075916db33f3fef6a2e6928e79ae1b9e328d4b99ef5b6",
+      "t5ReadOptions": {
+        "vus": 10,
+        "durationSeconds": 60,
+        "thinkTimeMilliseconds": 0
+      }
+    }
+  ],
+  "validity": {
+    "transportStatusCounts": {
+      "PASS": 18,
+      "FAIL": 0,
+      "INVALID": 0
+    },
+    "validRunCounts": {
+      "PASS": 18,
+      "FAIL": 0,
+      "INVALID": 0
+    },
+    "readOptions": {
+      "checkedRuns": 18,
+      "matchingRuns": 18,
+      "expected": {
+        "vus": 10,
+        "durationSeconds": 60,
+        "thinkTimeMilliseconds": 0
+      }
+    },
+    "outcomeEquation": {
+      "checkedRuns": 18,
+      "matchingRuns": 18,
+      "mismatchingRuns": 0,
+      "totals": {
+        "requestCount": 465564,
+        "successCount": 465564,
+        "businessFailureCount": 0,
+        "concurrencyFailureCount": 0,
+        "unexpectedCount": 0
+      }
+    },
+    "responseContract": {
+      "checkedRuns": 18,
+      "contractFailureRuns": 0,
+      "contractChecksFailed": 0
+    },
+    "comparison": {
+      "groups": 3,
+      "passGroups": 3,
+      "acceptedFixtures": 18
+    },
+    "startSkew": {
+      "checkedRuns": 18,
+      "gatePassedRuns": 18,
+      "maximumMs": 2
+    },
+    "t3Evidence": {
+      "resourceSignalPassRuns": 18,
+      "rawT3ArtifactSetPresentRuns": 18
+    },
+    "diagnosis": {
+      "beforePassRuns": 18,
+      "afterPassRuns": 18
+    },
+    "summaryHashMatchesManifestRuns": 18
+  },
+  "aggregate": {
+    "requestCount": 465564,
+    "successCount": 465564,
+    "businessFailureCount": 0,
+    "concurrencyFailureCount": 0,
+    "unexpectedCount": 0,
+    "successLatencyMs": {
+      "p50Range": [
+        17.912569,
+        29.251673
+      ],
+      "p95Range": [
+        32.93127424999999,
+        75.35067279999998
+      ],
+      "p99Range": [
+        42.33443879999999,
+        116.22511193999996
+      ],
+      "maxRange": [
+        79.070002,
+        525.179668
+      ]
+    },
+    "rpsRange": [
+      216.43,
+      394.268
+    ],
+    "t3": {
+      "queryCalls": 4182707,
+      "queryTimeMs": 50167.636,
+      "maxLockWaitCount": 0,
+      "maxHikariPendingThreads": 0
+    }
+  },
+  "teardown": {
+    "destroyExitCode": 0,
+    "statusCheck": "run.sh status: 올라온 스택이 없습니다",
+    "confirmedResidualQuery": {
+      "ec2": 0,
+      "ebs": 0,
+      "eip": 0,
+      "cloudwatchAlarms": 0
+    },
+    "sharedResources": "shared ECR/SSM은 삭제하지 않음"
+  },
+  "artifactBoundary": {
+    "rawArtifactRetention": "local-only",
+    "repositoryRelativePathTemplate": "build/k6/room/<run-id>/<fixture-id>/",
+    "retainedInGit": [
+      "campaign metadata",
+      "role/scale coverage",
+      "per-run aggregate metrics",
+      "source/release/read profile",
+      "non-secret artifact SHA-256"
+    ],
+    "prohibitedFromGit": [
+      "password",
+      "token",
+      "CSRF value",
+      "target URL",
+      "fixture/resource ID",
+      "raw SQL",
+      "raw log"
+    ],
+    "independentVerificationLimitation": "raw bundle은 local-only이므로 이 저장소만으로 원자료 내용을 독립 재검증할 수 없음"
+  },
+  "runs": [
+    {
+      "sequence": 1,
+      "group": "room-t5-repeated-baseline-20260820-v3-r01",
+      "role": "public",
+      "scale": 1,
+      "runId": "room-t5-repeated-baseline-20260820-v3-r01",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-19T19:16:55Z",
+        "endedAtUtc": "2026-08-19T19:18:16Z"
+      },
+      "provenance": {
+        "sourceSha": "17d5dee05bf797ec46160e8cad95b8861473064a",
+        "k6Version": "1.3.0",
+        "fixtureSha256": "fcd97d5e99a9e9a9e62e43990c925c1f59539acfe76f1396f86e8619a764d58a",
+        "manifestSha256": "a26571ddaa504c9aa2e0c1b240d4ac48fe062c9753d1610bc5294f109dab7522",
+        "resourceSignalsSha256": "5e2cbb3eb1037fa84106df3cfdd9540c2c021b7c1fb6000b6b8826c3aa50df88",
+        "summarySha256": "7c4f3bd8a72a267036c3607d95a086326e894809b974dc6e36527bcba63aaa4c"
+      },
+      "readProfile": {
+        "vus": 10,
+        "durationSeconds": 60,
+        "thinkTimeMilliseconds": 0
+      },
+      "metrics": {
+        "requestCount": 16362,
+        "rps": 216.429931,
+        "outcomes": {
+          "success": {
+            "count": 16362,
+            "p50": 29.251673,
+            "p95": 75.35067279999998,
+            "p99": 116.22511193999996,
+            "max": 525.179668
+          },
+          "business": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "concurrency": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "unexpected": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          }
+        }
+      },
+      "comparison": {
+        "status": "PASS",
+        "fixtureCount": 6,
+        "comparisonSha256": "015efd66f384e5163765b465102437d699d47efe557227cb3131b244bc50c15e"
+      },
+      "t3": {
+        "resourceSignalsStatus": "PASS",
+        "rawT3ArtifactSetPresent": true,
+        "queryCalls": 131065,
+        "queryTimeMs": 1298.877,
+        "transactionCount": 6,
+        "transactionDurationMs": 21.543,
+        "lockWaitCount": 0,
+        "hikariPendingThreads": 0,
+        "postgresActiveConnections": 25,
+        "postgresCpuPercent": 29.89
+      },
+      "checks": {
+        "runState": "COMPLETED",
+        "completed": true,
+        "k6ExitCode": 0,
+        "summaryHashMatchesManifest": true,
+        "contractFailures": 0,
+        "startSkewMaxMs": 2,
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalStatus": "PASS"
+      }
+    },
+    {
+      "sequence": 2,
+      "group": "room-t5-repeated-baseline-20260820-v3-r01",
+      "role": "host",
+      "scale": 1,
+      "runId": "room-t5-repeated-baseline-20260820-v3-r01",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-19T19:25:12Z",
+        "endedAtUtc": "2026-08-19T19:26:33Z"
+      },
+      "provenance": {
+        "sourceSha": "17d5dee05bf797ec46160e8cad95b8861473064a",
+        "k6Version": "1.3.0",
+        "fixtureSha256": "51a67e793f1e79ba44138c063466f132ef139c08f700f40ef470e012fac48090",
+        "manifestSha256": "0bd33bb259b462f3488f42e25ca73a2290658f404bb85141b8ce2f0e8096ec7e",
+        "resourceSignalsSha256": "526adb3ea658cee901b37fc8576efa125a91493af606c0fdb7176afebd1f1425",
+        "summarySha256": "c4f6ba67651f48ff621dc06f837b8518f9af6fb27109410215b6b81254b3c205"
+      },
+      "readProfile": {
+        "vus": 10,
+        "durationSeconds": 60,
+        "thinkTimeMilliseconds": 0
+      },
+      "metrics": {
+        "requestCount": 24214,
+        "rps": 322.353837,
+        "outcomes": {
+          "success": {
+            "count": 24214,
+            "p50": 20.9929675,
+            "p95": 43.976797349999984,
+            "p99": 58.70611895999999,
+            "max": 455.988829
+          },
+          "business": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "concurrency": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "unexpected": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          }
+        }
+      },
+      "comparison": {
+        "status": "PASS",
+        "fixtureCount": 6,
+        "comparisonSha256": "015efd66f384e5163765b465102437d699d47efe557227cb3131b244bc50c15e"
+      },
+      "t3": {
+        "resourceSignalsStatus": "PASS",
+        "rawT3ArtifactSetPresent": true,
+        "queryCalls": 218056,
+        "queryTimeMs": 2657.244,
+        "transactionCount": 6,
+        "transactionDurationMs": 49.232,
+        "lockWaitCount": 0,
+        "hikariPendingThreads": 0,
+        "postgresActiveConnections": 25,
+        "postgresCpuPercent": 37.26
+      },
+      "checks": {
+        "runState": "COMPLETED",
+        "completed": true,
+        "k6ExitCode": 0,
+        "summaryHashMatchesManifest": true,
+        "contractFailures": 0,
+        "startSkewMaxMs": 1,
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalStatus": "PASS"
+      }
+    },
+    {
+      "sequence": 3,
+      "group": "room-t5-repeated-baseline-20260820-v3-r01",
+      "role": "participant",
+      "scale": 1,
+      "runId": "room-t5-repeated-baseline-20260820-v3-r01",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-19T19:33:30Z",
+        "endedAtUtc": "2026-08-19T19:34:52Z"
+      },
+      "provenance": {
+        "sourceSha": "17d5dee05bf797ec46160e8cad95b8861473064a",
+        "k6Version": "1.3.0",
+        "fixtureSha256": "f811d44b2267b3b231f03ed2e116d57411b046bb227c53e8838d1d33e62c8116",
+        "manifestSha256": "8a732fd2374b51504c963505ee46519a9bc23a3409ea7998ba0e8f27b2c4823d",
+        "resourceSignalsSha256": "bed76b63af43d54d1500a17048572fd629d95c2762c705142f538b24f145fadf",
+        "summarySha256": "e02e8ad5244fcbfa7dc7ecd25aa5b3d861cb1f1a306a510be5241d4769d0e431"
+      },
+      "readProfile": {
+        "vus": 10,
+        "durationSeconds": 60,
+        "thinkTimeMilliseconds": 0
+      },
+      "metrics": {
+        "requestCount": 25445,
+        "rps": 338.733224,
+        "outcomes": {
+          "success": {
+            "count": 25445,
+            "p50": 21.277627,
+            "p95": 38.6964494,
+            "p99": 49.318095359999994,
+            "max": 138.943015
+          },
+          "business": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "concurrency": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "unexpected": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          }
+        }
+      },
+      "comparison": {
+        "status": "PASS",
+        "fixtureCount": 6,
+        "comparisonSha256": "015efd66f384e5163765b465102437d699d47efe557227cb3131b244bc50c15e"
+      },
+      "t3": {
+        "resourceSignalsStatus": "PASS",
+        "rawT3ArtifactSetPresent": true,
+        "queryCalls": 254590,
+        "queryTimeMs": 3128.945,
+        "transactionCount": 6,
+        "transactionDurationMs": 14.67,
+        "lockWaitCount": 0,
+        "hikariPendingThreads": 0,
+        "postgresActiveConnections": 25,
+        "postgresCpuPercent": 42.46
+      },
+      "checks": {
+        "runState": "COMPLETED",
+        "completed": true,
+        "k6ExitCode": 0,
+        "summaryHashMatchesManifest": true,
+        "contractFailures": 0,
+        "startSkewMaxMs": 1,
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalStatus": "PASS"
+      }
+    },
+    {
+      "sequence": 4,
+      "group": "room-t5-repeated-baseline-20260820-v3-r01",
+      "role": "participant",
+      "scale": 10,
+      "runId": "room-t5-repeated-baseline-20260820-v3-r01",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-19T19:37:39Z",
+        "endedAtUtc": "2026-08-19T19:38:59Z"
+      },
+      "provenance": {
+        "sourceSha": "17d5dee05bf797ec46160e8cad95b8861473064a",
+        "k6Version": "1.3.0",
+        "fixtureSha256": "a1496685b4981449ec16e1569a5d81dd95abd163667dd153e217534465d99282",
+        "manifestSha256": "9d4f7f66daf9ed51d5b7f4ca87328332b48ff74a32f659938536b23ead600290",
+        "resourceSignalsSha256": "91fb7203858674b91f8eace79c1ce69ce9310d61fdebc1094f008a7c3482e4b1",
+        "summarySha256": "7fcba747feb0476e16ec57aa651248e4cd9ffae07e38f9192aba7211b7108617"
+      },
+      "readProfile": {
+        "vus": 10,
+        "durationSeconds": 60,
+        "thinkTimeMilliseconds": 0
+      },
+      "metrics": {
+        "requestCount": 25011,
+        "rps": 332.838212,
+        "outcomes": {
+          "success": {
+            "count": 25011,
+            "p50": 21.170699,
+            "p95": 40.65038749999999,
+            "p99": 51.78098329999999,
+            "max": 148.243152
+          },
+          "business": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "concurrency": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "unexpected": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          }
+        }
+      },
+      "comparison": {
+        "status": "PASS",
+        "fixtureCount": 6,
+        "comparisonSha256": "015efd66f384e5163765b465102437d699d47efe557227cb3131b244bc50c15e"
+      },
+      "t3": {
+        "resourceSignalsStatus": "PASS",
+        "rawT3ArtifactSetPresent": true,
+        "queryCalls": 250243,
+        "queryTimeMs": 3515.006,
+        "transactionCount": 5,
+        "transactionDurationMs": 14.2,
+        "lockWaitCount": 0,
+        "hikariPendingThreads": 0,
+        "postgresActiveConnections": 25,
+        "postgresCpuPercent": 43.4
+      },
+      "checks": {
+        "runState": "COMPLETED",
+        "completed": true,
+        "k6ExitCode": 0,
+        "summaryHashMatchesManifest": true,
+        "contractFailures": 0,
+        "startSkewMaxMs": 1,
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalStatus": "PASS"
+      }
+    },
+    {
+      "sequence": 5,
+      "group": "room-t5-repeated-baseline-20260820-v3-r01",
+      "role": "public",
+      "scale": 10,
+      "runId": "room-t5-repeated-baseline-20260820-v3-r01",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-19T19:21:05Z",
+        "endedAtUtc": "2026-08-19T19:22:25Z"
+      },
+      "provenance": {
+        "sourceSha": "17d5dee05bf797ec46160e8cad95b8861473064a",
+        "k6Version": "1.3.0",
+        "fixtureSha256": "8318898c8e91344b2b9664354613dfcb7e2058dac66579c43e8459fd1b33be21",
+        "manifestSha256": "5c391fcecb9c3db8c1b95c10934050ac8d98700b4d6aaf4ebd804bbd43be4fc0",
+        "resourceSignalsSha256": "7183642aa1504d8b4f0332a8701d58cd18ebf5a8839ca39233182afdca7a8d39",
+        "summarySha256": "ecc2b848ff8e3140b032f2403da59cf897aa9d59a77057c06bd451643494ec79"
+      },
+      "readProfile": {
+        "vus": 10,
+        "durationSeconds": 60,
+        "thinkTimeMilliseconds": 0
+      },
+      "metrics": {
+        "requestCount": 27848,
+        "rps": 370.700412,
+        "outcomes": {
+          "success": {
+            "count": 27848,
+            "p50": 18.5229805,
+            "p95": 37.69550564999999,
+            "p99": 52.67669437999995,
+            "max": 182.871458
+          },
+          "business": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "concurrency": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "unexpected": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          }
+        }
+      },
+      "comparison": {
+        "status": "PASS",
+        "fixtureCount": 6,
+        "comparisonSha256": "015efd66f384e5163765b465102437d699d47efe557227cb3131b244bc50c15e"
+      },
+      "t3": {
+        "resourceSignalsStatus": "PASS",
+        "rawT3ArtifactSetPresent": true,
+        "queryCalls": 223002,
+        "queryTimeMs": 2060.185,
+        "transactionCount": 6,
+        "transactionDurationMs": 14.331,
+        "lockWaitCount": 0,
+        "hikariPendingThreads": 0,
+        "postgresActiveConnections": 25,
+        "postgresCpuPercent": 41.09
+      },
+      "checks": {
+        "runState": "COMPLETED",
+        "completed": true,
+        "k6ExitCode": 0,
+        "summaryHashMatchesManifest": true,
+        "contractFailures": 0,
+        "startSkewMaxMs": 1,
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalStatus": "PASS"
+      }
+    },
+    {
+      "sequence": 6,
+      "group": "room-t5-repeated-baseline-20260820-v3-r01",
+      "role": "host",
+      "scale": 10,
+      "runId": "room-t5-repeated-baseline-20260820-v3-r01",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-19T19:29:21Z",
+        "endedAtUtc": "2026-08-19T19:30:41Z"
+      },
+      "provenance": {
+        "sourceSha": "17d5dee05bf797ec46160e8cad95b8861473064a",
+        "k6Version": "1.3.0",
+        "fixtureSha256": "51ae37cdb9210e5a49fce4d65e24fa5517be5085181ae7f2f1f6304e95bc036e",
+        "manifestSha256": "fbab3f04aa74a004ae2ef9921d760d3eeb071be5ccdc3b12359c66b49b866f1a",
+        "resourceSignalsSha256": "008d4185c655ae359d2419c7e59d4832e193f907fcbfbbfc9bb46f6830cc0856",
+        "summarySha256": "e42bdaa9678d006c104174f97c6e8305add8aadbc35c66af2f168f19614fb4dd"
+      },
+      "readProfile": {
+        "vus": 10,
+        "durationSeconds": 60,
+        "thinkTimeMilliseconds": 0
+      },
+      "metrics": {
+        "requestCount": 23323,
+        "rps": 309.319038,
+        "outcomes": {
+          "success": {
+            "count": 23323,
+            "p50": 21.525047,
+            "p95": 46.889819999999986,
+            "p99": 63.409331679999994,
+            "max": 264.914989
+          },
+          "business": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "concurrency": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "unexpected": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          }
+        }
+      },
+      "comparison": {
+        "status": "PASS",
+        "fixtureCount": 6,
+        "comparisonSha256": "015efd66f384e5163765b465102437d699d47efe557227cb3131b244bc50c15e"
+      },
+      "t3": {
+        "resourceSignalsStatus": "PASS",
+        "rawT3ArtifactSetPresent": true,
+        "queryCalls": 210149,
+        "queryTimeMs": 3050.572,
+        "transactionCount": 5,
+        "transactionDurationMs": 17.929,
+        "lockWaitCount": 0,
+        "hikariPendingThreads": 0,
+        "postgresActiveConnections": 25,
+        "postgresCpuPercent": 39.12
+      },
+      "checks": {
+        "runState": "COMPLETED",
+        "completed": true,
+        "k6ExitCode": 0,
+        "summaryHashMatchesManifest": true,
+        "contractFailures": 0,
+        "startSkewMaxMs": 1,
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalStatus": "PASS"
+      }
+    },
+    {
+      "sequence": 7,
+      "group": "room-t5-repeated-baseline-20260820-v3-r02",
+      "role": "participant",
+      "scale": 10,
+      "runId": "room-t5-repeated-baseline-20260820-v3-r02",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-19T20:02:20Z",
+        "endedAtUtc": "2026-08-19T20:03:40Z"
+      },
+      "provenance": {
+        "sourceSha": "17d5dee05bf797ec46160e8cad95b8861473064a",
+        "k6Version": "1.3.0",
+        "fixtureSha256": "714f58c2a4ad525da2c99d3ddaf2b4483364dfc653a9b5fecda0779d0c0d1ee5",
+        "manifestSha256": "dbafe3e9e64dc02a03092dd0e98723709394d34640c50fa7206c4d5b79719c99",
+        "resourceSignalsSha256": "e5f94b6ab0e10c7afe299e281222e8b451cb6d033dbb9d18e9450ab240c5e930",
+        "summarySha256": "1d84f3ec1024de8300e92a9d668b87c7535aea18bf6912f1556c42b8614d5d16"
+      },
+      "readProfile": {
+        "vus": 10,
+        "durationSeconds": 60,
+        "thinkTimeMilliseconds": 0
+      },
+      "metrics": {
+        "requestCount": 24025,
+        "rps": 319.842607,
+        "outcomes": {
+          "success": {
+            "count": 24025,
+            "p50": 21.713315,
+            "p95": 42.7839056,
+            "p99": 54.364123479999996,
+            "max": 460.935349
+          },
+          "business": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "concurrency": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "unexpected": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          }
+        }
+      },
+      "comparison": {
+        "status": "PASS",
+        "fixtureCount": 6,
+        "comparisonSha256": "a9ab2e0da02d189558e84733d3eb2db20514b514373cc005b42e0b9d5a23b9e1"
+      },
+      "t3": {
+        "resourceSignalsStatus": "PASS",
+        "rawT3ArtifactSetPresent": true,
+        "queryCalls": 240386,
+        "queryTimeMs": 3485.585,
+        "transactionCount": 6,
+        "transactionDurationMs": 15.285,
+        "lockWaitCount": 0,
+        "hikariPendingThreads": 0,
+        "postgresActiveConnections": 25,
+        "postgresCpuPercent": 42.73
+      },
+      "checks": {
+        "runState": "COMPLETED",
+        "completed": true,
+        "k6ExitCode": 0,
+        "summaryHashMatchesManifest": true,
+        "contractFailures": 0,
+        "startSkewMaxMs": 1,
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalStatus": "PASS"
+      }
+    },
+    {
+      "sequence": 8,
+      "group": "room-t5-repeated-baseline-20260820-v3-r02",
+      "role": "participant",
+      "scale": 1,
+      "runId": "room-t5-repeated-baseline-20260820-v3-r02",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-19T19:58:13Z",
+        "endedAtUtc": "2026-08-19T19:59:33Z"
+      },
+      "provenance": {
+        "sourceSha": "17d5dee05bf797ec46160e8cad95b8861473064a",
+        "k6Version": "1.3.0",
+        "fixtureSha256": "3d5108d65a3d348205e614939057bf4185f1257dff17347c2f02389a46cf5e6f",
+        "manifestSha256": "2775e8aae6b548380c6130f9d87f4df059bf66b9b11d4e50a7cada920c1e80ad",
+        "resourceSignalsSha256": "9867c86aee22d55dd9ae853672988ae6eb23f6de71496264acc00b02de0f2e4b",
+        "summarySha256": "31ceed03680de757d0e14e1a0ad043f72894e2637d37df045f498a5ad11a0a86"
+      },
+      "readProfile": {
+        "vus": 10,
+        "durationSeconds": 60,
+        "thinkTimeMilliseconds": 0
+      },
+      "metrics": {
+        "requestCount": 26141,
+        "rps": 348.011716,
+        "outcomes": {
+          "success": {
+            "count": 26141,
+            "p50": 20.855483,
+            "p95": 37.643119,
+            "p99": 48.52216619999998,
+            "max": 79.070002
+          },
+          "business": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "concurrency": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "unexpected": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          }
+        }
+      },
+      "comparison": {
+        "status": "PASS",
+        "fixtureCount": 6,
+        "comparisonSha256": "a9ab2e0da02d189558e84733d3eb2db20514b514373cc005b42e0b9d5a23b9e1"
+      },
+      "t3": {
+        "resourceSignalsStatus": "PASS",
+        "rawT3ArtifactSetPresent": true,
+        "queryCalls": 261642,
+        "queryTimeMs": 3199.894,
+        "transactionCount": 5,
+        "transactionDurationMs": 15.519,
+        "lockWaitCount": 0,
+        "hikariPendingThreads": 0,
+        "postgresActiveConnections": 25,
+        "postgresCpuPercent": 42.4
+      },
+      "checks": {
+        "runState": "COMPLETED",
+        "completed": true,
+        "k6ExitCode": 0,
+        "summaryHashMatchesManifest": true,
+        "contractFailures": 0,
+        "startSkewMaxMs": 1,
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalStatus": "PASS"
+      }
+    },
+    {
+      "sequence": 9,
+      "group": "room-t5-repeated-baseline-20260820-v3-r02",
+      "role": "public",
+      "scale": 1,
+      "runId": "room-t5-repeated-baseline-20260820-v3-r02",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-19T19:41:48Z",
+        "endedAtUtc": "2026-08-19T19:43:09Z"
+      },
+      "provenance": {
+        "sourceSha": "17d5dee05bf797ec46160e8cad95b8861473064a",
+        "k6Version": "1.3.0",
+        "fixtureSha256": "83c441b5ca2e853c9589cf6f12722911c423812907ee49d568b254c1a610aefe",
+        "manifestSha256": "9b90562082bf607e871c0b0a19723714e86ae6d7e4037f6180c79bc62a29d822",
+        "resourceSignalsSha256": "153604baefaf88075ed41efe19a6b61f21342cdb82a3d04ccea04828a141605b",
+        "summarySha256": "cbd2e46dcfc8bfab113430c28ae0c7998c6fd527ea6dbdcc38c4d40eb5a46f88"
+      },
+      "readProfile": {
+        "vus": 10,
+        "durationSeconds": 60,
+        "thinkTimeMilliseconds": 0
+      },
+      "metrics": {
+        "requestCount": 29620,
+        "rps": 394.267901,
+        "outcomes": {
+          "success": {
+            "count": 29620,
+            "p50": 17.92945,
+            "p95": 33.202763250000004,
+            "p99": 42.78918991,
+            "max": 153.491982
+          },
+          "business": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "concurrency": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "unexpected": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          }
+        }
+      },
+      "comparison": {
+        "status": "PASS",
+        "fixtureCount": 6,
+        "comparisonSha256": "a9ab2e0da02d189558e84733d3eb2db20514b514373cc005b42e0b9d5a23b9e1"
+      },
+      "t3": {
+        "resourceSignalsStatus": "PASS",
+        "rawT3ArtifactSetPresent": true,
+        "queryCalls": 237214,
+        "queryTimeMs": 2155.054,
+        "transactionCount": 5,
+        "transactionDurationMs": 13.934,
+        "lockWaitCount": 0,
+        "hikariPendingThreads": 0,
+        "postgresActiveConnections": 25,
+        "postgresCpuPercent": 40.78
+      },
+      "checks": {
+        "runState": "COMPLETED",
+        "completed": true,
+        "k6ExitCode": 0,
+        "summaryHashMatchesManifest": true,
+        "contractFailures": 0,
+        "startSkewMaxMs": 1,
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalStatus": "PASS"
+      }
+    },
+    {
+      "sequence": 10,
+      "group": "room-t5-repeated-baseline-20260820-v3-r02",
+      "role": "public",
+      "scale": 10,
+      "runId": "room-t5-repeated-baseline-20260820-v3-r02",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-19T19:45:56Z",
+        "endedAtUtc": "2026-08-19T19:47:16Z"
+      },
+      "provenance": {
+        "sourceSha": "17d5dee05bf797ec46160e8cad95b8861473064a",
+        "k6Version": "1.3.0",
+        "fixtureSha256": "d361b078e36a662773754aa8910fc08d0d5e08786b2413e1e124f75d930a0174",
+        "manifestSha256": "73c5e222911ea81fe5552c487374a5234f1586686788df29c9e3aaaee9cdb306",
+        "resourceSignalsSha256": "33d5535028ee318bf8200d7384d5cfca451613707c3d1ea25dff5ac76ef99634",
+        "summarySha256": "66b0293aa37bd30424748867e143b3b1d065a5e08c482e9d5e1eeea620db79ab"
+      },
+      "readProfile": {
+        "vus": 10,
+        "durationSeconds": 60,
+        "thinkTimeMilliseconds": 0
+      },
+      "metrics": {
+        "requestCount": 28742,
+        "rps": 382.669969,
+        "outcomes": {
+          "success": {
+            "count": 28742,
+            "p50": 17.994647999999998,
+            "p95": 35.79368815,
+            "p99": 48.59899671999998,
+            "max": 143.965729
+          },
+          "business": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "concurrency": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "unexpected": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          }
+        }
+      },
+      "comparison": {
+        "status": "PASS",
+        "fixtureCount": 6,
+        "comparisonSha256": "a9ab2e0da02d189558e84733d3eb2db20514b514373cc005b42e0b9d5a23b9e1"
+      },
+      "t3": {
+        "resourceSignalsStatus": "PASS",
+        "rawT3ArtifactSetPresent": true,
+        "queryCalls": 230097,
+        "queryTimeMs": 2110.249,
+        "transactionCount": 6,
+        "transactionDurationMs": 13.185,
+        "lockWaitCount": 0,
+        "hikariPendingThreads": 0,
+        "postgresActiveConnections": 25,
+        "postgresCpuPercent": 43.6
+      },
+      "checks": {
+        "runState": "COMPLETED",
+        "completed": true,
+        "k6ExitCode": 0,
+        "summaryHashMatchesManifest": true,
+        "contractFailures": 0,
+        "startSkewMaxMs": 1,
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalStatus": "PASS"
+      }
+    },
+    {
+      "sequence": 11,
+      "group": "room-t5-repeated-baseline-20260820-v3-r02",
+      "role": "host",
+      "scale": 10,
+      "runId": "room-t5-repeated-baseline-20260820-v3-r02",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-19T19:54:07Z",
+        "endedAtUtc": "2026-08-19T19:55:28Z"
+      },
+      "provenance": {
+        "sourceSha": "17d5dee05bf797ec46160e8cad95b8861473064a",
+        "k6Version": "1.3.0",
+        "fixtureSha256": "747d3ca5780e0ed292eb728ebd0657a6f713bf95c87977b17db68f62934c0172",
+        "manifestSha256": "cd6e2f2b5f93c1343d512bf6c0035ca0d6ddbc43a46124d8f30d8529fa8d719b",
+        "resourceSignalsSha256": "181538c80e3f344d1bd82b1f883e71fa7a5d157666e4538c81056e1d28e9a234",
+        "summarySha256": "a10bd6b093f241d87d89d780dd6bd1cfb655bbc4aff3d220ecb83445bed5c3ee"
+      },
+      "readProfile": {
+        "vus": 10,
+        "durationSeconds": 60,
+        "thinkTimeMilliseconds": 0
+      },
+      "metrics": {
+        "requestCount": 26140,
+        "rps": 347.894061,
+        "outcomes": {
+          "success": {
+            "count": 26140,
+            "p50": 20.073597499999998,
+            "p95": 38.6628574,
+            "p99": 49.45222380999998,
+            "max": 169.752602
+          },
+          "business": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "concurrency": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "unexpected": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          }
+        }
+      },
+      "comparison": {
+        "status": "PASS",
+        "fixtureCount": 6,
+        "comparisonSha256": "a9ab2e0da02d189558e84733d3eb2db20514b514373cc005b42e0b9d5a23b9e1"
+      },
+      "t3": {
+        "resourceSignalsStatus": "PASS",
+        "rawT3ArtifactSetPresent": true,
+        "queryCalls": 235490,
+        "queryTimeMs": 3323.536,
+        "transactionCount": 5,
+        "transactionDurationMs": 9.356,
+        "lockWaitCount": 0,
+        "hikariPendingThreads": 0,
+        "postgresActiveConnections": 25,
+        "postgresCpuPercent": 42.58
+      },
+      "checks": {
+        "runState": "COMPLETED",
+        "completed": true,
+        "k6ExitCode": 0,
+        "summaryHashMatchesManifest": true,
+        "contractFailures": 0,
+        "startSkewMaxMs": 1,
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalStatus": "PASS"
+      }
+    },
+    {
+      "sequence": 12,
+      "group": "room-t5-repeated-baseline-20260820-v3-r02",
+      "role": "host",
+      "scale": 1,
+      "runId": "room-t5-repeated-baseline-20260820-v3-r02",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-19T19:49:59Z",
+        "endedAtUtc": "2026-08-19T19:51:20Z"
+      },
+      "provenance": {
+        "sourceSha": "17d5dee05bf797ec46160e8cad95b8861473064a",
+        "k6Version": "1.3.0",
+        "fixtureSha256": "c345ba6b971e539debdfe9f2afdf5b4ed3faf7cca933c2cc4ae4b228d5c34d08",
+        "manifestSha256": "1bdca3b39d3b8c8d6ebd1bb8140a3f911bb73e348cbba5cb95de3291636f51f1",
+        "resourceSignalsSha256": "79e0f67f1502e7f123e7657d894cda75994ca8cc7a75b8172251664b2c6c3c93",
+        "summarySha256": "22a0366ba9a6538d324968e993c68988fd1b56586f48c457f55615691262acb9"
+      },
+      "readProfile": {
+        "vus": 10,
+        "durationSeconds": 60,
+        "thinkTimeMilliseconds": 0
+      },
+      "metrics": {
+        "requestCount": 26605,
+        "rps": 354.167176,
+        "outcomes": {
+          "success": {
+            "count": 26605,
+            "p50": 19.915763,
+            "p95": 37.8579322,
+            "p99": 48.52899252,
+            "max": 121.116904
+          },
+          "business": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "concurrency": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "unexpected": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          }
+        }
+      },
+      "comparison": {
+        "status": "PASS",
+        "fixtureCount": 6,
+        "comparisonSha256": "a9ab2e0da02d189558e84733d3eb2db20514b514373cc005b42e0b9d5a23b9e1"
+      },
+      "t3": {
+        "resourceSignalsStatus": "PASS",
+        "rawT3ArtifactSetPresent": true,
+        "queryCalls": 239579,
+        "queryTimeMs": 2904.813,
+        "transactionCount": 4,
+        "transactionDurationMs": 10.834,
+        "lockWaitCount": 0,
+        "hikariPendingThreads": 0,
+        "postgresActiveConnections": 25,
+        "postgresCpuPercent": 44.4
+      },
+      "checks": {
+        "runState": "COMPLETED",
+        "completed": true,
+        "k6ExitCode": 0,
+        "summaryHashMatchesManifest": true,
+        "contractFailures": 0,
+        "startSkewMaxMs": 1,
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalStatus": "PASS"
+      }
+    },
+    {
+      "sequence": 13,
+      "group": "room-t5-repeated-baseline-20260820-v3-r03",
+      "role": "host",
+      "scale": 10,
+      "runId": "room-t5-repeated-baseline-20260820-v3-r03",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-19T20:18:47Z",
+        "endedAtUtc": "2026-08-19T20:20:07Z"
+      },
+      "provenance": {
+        "sourceSha": "17d5dee05bf797ec46160e8cad95b8861473064a",
+        "k6Version": "1.3.0",
+        "fixtureSha256": "5a9bc09313271098216cd013b4d3c05f831ad583e562aa621e07ddca8894dee2",
+        "manifestSha256": "2e3af89a84dfa9cbeca63c7221944b0f5fb49311cecf2ae9485afb8d42d0428e",
+        "resourceSignalsSha256": "e817ad9f6ee823425153531231c2a8874e28dece70791016de8e7fab02f4e458",
+        "summarySha256": "dadedf4c50069c099ffef79c7d60aae266aba6b9bba6156b258533474b7bfe21"
+      },
+      "readProfile": {
+        "vus": 10,
+        "durationSeconds": 60,
+        "thinkTimeMilliseconds": 0
+      },
+      "metrics": {
+        "requestCount": 26000,
+        "rps": 346.119734,
+        "outcomes": {
+          "success": {
+            "count": 26000,
+            "p50": 20.0745535,
+            "p95": 38.96703409999999,
+            "p99": 50.96099476,
+            "max": 200.604465
+          },
+          "business": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "concurrency": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "unexpected": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          }
+        }
+      },
+      "comparison": {
+        "status": "PASS",
+        "fixtureCount": 6,
+        "comparisonSha256": "5b1acb3eae3ccba5bd7075916db33f3fef6a2e6928e79ae1b9e328d4b99ef5b6"
+      },
+      "t3": {
+        "resourceSignalsStatus": "PASS",
+        "rawT3ArtifactSetPresent": true,
+        "queryCalls": 234146,
+        "queryTimeMs": 3320.627,
+        "transactionCount": 5,
+        "transactionDurationMs": 11.589,
+        "lockWaitCount": 0,
+        "hikariPendingThreads": 0,
+        "postgresActiveConnections": 26,
+        "postgresCpuPercent": 42.07
+      },
+      "checks": {
+        "runState": "COMPLETED",
+        "completed": true,
+        "k6ExitCode": 0,
+        "summaryHashMatchesManifest": true,
+        "contractFailures": 0,
+        "startSkewMaxMs": 1,
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalStatus": "PASS"
+      }
+    },
+    {
+      "sequence": 14,
+      "group": "room-t5-repeated-baseline-20260820-v3-r03",
+      "role": "participant",
+      "scale": 10,
+      "runId": "room-t5-repeated-baseline-20260820-v3-r03",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-19T20:27:03Z",
+        "endedAtUtc": "2026-08-19T20:28:24Z"
+      },
+      "provenance": {
+        "sourceSha": "17d5dee05bf797ec46160e8cad95b8861473064a",
+        "k6Version": "1.3.0",
+        "fixtureSha256": "3a008357f94769be782675d97d32722c5a0e5ff8f00c18f22aa028d47c8f6d72",
+        "manifestSha256": "538655e472a13500f3bf3a60124e590413337b16f6530c90d85011930920701f",
+        "resourceSignalsSha256": "98198af90d9f0e518ac2c98168d8cfeeaa46567a90ca0b47dd039f455a8abb71",
+        "summarySha256": "f3eaa64afbf1519c1be5130df39c6cc3b4c99dd720519545de51f5f62001b424"
+      },
+      "readProfile": {
+        "vus": 10,
+        "durationSeconds": 60,
+        "thinkTimeMilliseconds": 0
+      },
+      "metrics": {
+        "requestCount": 24992,
+        "rps": 332.728829,
+        "outcomes": {
+          "success": {
+            "count": 24992,
+            "p50": 21.3504425,
+            "p95": 39.8451211,
+            "p99": 51.58454466999999,
+            "max": 192.115504
+          },
+          "business": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "concurrency": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "unexpected": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          }
+        }
+      },
+      "comparison": {
+        "status": "PASS",
+        "fixtureCount": 6,
+        "comparisonSha256": "5b1acb3eae3ccba5bd7075916db33f3fef6a2e6928e79ae1b9e328d4b99ef5b6"
+      },
+      "t3": {
+        "resourceSignalsStatus": "PASS",
+        "rawT3ArtifactSetPresent": true,
+        "queryCalls": 250055,
+        "queryTimeMs": 3521.963,
+        "transactionCount": 6,
+        "transactionDurationMs": 17.062,
+        "lockWaitCount": 0,
+        "hikariPendingThreads": 0,
+        "postgresActiveConnections": 25,
+        "postgresCpuPercent": 44.59
+      },
+      "checks": {
+        "runState": "COMPLETED",
+        "completed": true,
+        "k6ExitCode": 0,
+        "summaryHashMatchesManifest": true,
+        "contractFailures": 0,
+        "startSkewMaxMs": 1,
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalStatus": "PASS"
+      }
+    },
+    {
+      "sequence": 15,
+      "group": "room-t5-repeated-baseline-20260820-v3-r03",
+      "role": "host",
+      "scale": 1,
+      "runId": "room-t5-repeated-baseline-20260820-v3-r03",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-19T20:14:40Z",
+        "endedAtUtc": "2026-08-19T20:16:00Z"
+      },
+      "provenance": {
+        "sourceSha": "17d5dee05bf797ec46160e8cad95b8861473064a",
+        "k6Version": "1.3.0",
+        "fixtureSha256": "14e8b88e0b0a241d077ef755473918a62dc4e8e9b3d9b4322078ebd822d1c30a",
+        "manifestSha256": "fa5ba0caf20a3ab8126f6061d587c58d611d0f5276407b84c9aea40db2569878",
+        "resourceSignalsSha256": "b3c3c2670db943b29a581045bf12521887b60f0f211c56cee3c693e8a6ad51c1",
+        "summarySha256": "42491213ed93bfa095d4df2e9258309d1bf81dffd27b41703ba7e315033447ad"
+      },
+      "readProfile": {
+        "vus": 10,
+        "durationSeconds": 60,
+        "thinkTimeMilliseconds": 0
+      },
+      "metrics": {
+        "requestCount": 27225,
+        "rps": 362.39552,
+        "outcomes": {
+          "success": {
+            "count": 27225,
+            "p50": 19.692137,
+            "p95": 35.806634,
+            "p99": 46.125867279999994,
+            "max": 337.339062
+          },
+          "business": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "concurrency": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "unexpected": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          }
+        }
+      },
+      "comparison": {
+        "status": "PASS",
+        "fixtureCount": 6,
+        "comparisonSha256": "5b1acb3eae3ccba5bd7075916db33f3fef6a2e6928e79ae1b9e328d4b99ef5b6"
+      },
+      "t3": {
+        "resourceSignalsStatus": "PASS",
+        "rawT3ArtifactSetPresent": true,
+        "queryCalls": 245167,
+        "queryTimeMs": 2990.22,
+        "transactionCount": 5,
+        "transactionDurationMs": 14.154,
+        "lockWaitCount": 0,
+        "hikariPendingThreads": 0,
+        "postgresActiveConnections": 25,
+        "postgresCpuPercent": 43.21
+      },
+      "checks": {
+        "runState": "COMPLETED",
+        "completed": true,
+        "k6ExitCode": 0,
+        "summaryHashMatchesManifest": true,
+        "contractFailures": 0,
+        "startSkewMaxMs": 1,
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalStatus": "PASS"
+      }
+    },
+    {
+      "sequence": 16,
+      "group": "room-t5-repeated-baseline-20260820-v3-r03",
+      "role": "participant",
+      "scale": 1,
+      "runId": "room-t5-repeated-baseline-20260820-v3-r03",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-19T20:22:55Z",
+        "endedAtUtc": "2026-08-19T20:24:15Z"
+      },
+      "provenance": {
+        "sourceSha": "17d5dee05bf797ec46160e8cad95b8861473064a",
+        "k6Version": "1.3.0",
+        "fixtureSha256": "a8ddc396ca9a3e2a5aa7bceec04ccb940590d95492faedabd5c39060881b739b",
+        "manifestSha256": "d8316f491c1089e331a3a493fc0103793cf02266c8ebb2a063578de995276f4f",
+        "resourceSignalsSha256": "6abc839ed4c802275ed824f6b348c8745922f2f3425fa4ff1d6dc69da5460498",
+        "summarySha256": "2c2ec58049d641a54bd427de60266e185c86d578968e1ca9c39390e0d999cff7"
+      },
+      "readProfile": {
+        "vus": 10,
+        "durationSeconds": 60,
+        "thinkTimeMilliseconds": 0
+      },
+      "metrics": {
+        "requestCount": 25162,
+        "rps": 335.002014,
+        "outcomes": {
+          "success": {
+            "count": 25162,
+            "p50": 21.25322,
+            "p95": 39.39707385,
+            "p99": 51.31529446999999,
+            "max": 187.792648
+          },
+          "business": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "concurrency": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "unexpected": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          }
+        }
+      },
+      "comparison": {
+        "status": "PASS",
+        "fixtureCount": 6,
+        "comparisonSha256": "5b1acb3eae3ccba5bd7075916db33f3fef6a2e6928e79ae1b9e328d4b99ef5b6"
+      },
+      "t3": {
+        "resourceSignalsStatus": "PASS",
+        "rawT3ArtifactSetPresent": true,
+        "queryCalls": 251752,
+        "queryTimeMs": 3165.515,
+        "transactionCount": 6,
+        "transactionDurationMs": 38.267,
+        "lockWaitCount": 0,
+        "hikariPendingThreads": 0,
+        "postgresActiveConnections": 25,
+        "postgresCpuPercent": 44.03
+      },
+      "checks": {
+        "runState": "COMPLETED",
+        "completed": true,
+        "k6ExitCode": 0,
+        "summaryHashMatchesManifest": true,
+        "contractFailures": 0,
+        "startSkewMaxMs": 1,
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalStatus": "PASS"
+      }
+    },
+    {
+      "sequence": 17,
+      "group": "room-t5-repeated-baseline-20260820-v3-r03",
+      "role": "public",
+      "scale": 1,
+      "runId": "room-t5-repeated-baseline-20260820-v3-r03",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-19T20:06:26Z",
+        "endedAtUtc": "2026-08-19T20:07:46Z"
+      },
+      "provenance": {
+        "sourceSha": "17d5dee05bf797ec46160e8cad95b8861473064a",
+        "k6Version": "1.3.0",
+        "fixtureSha256": "bd472988b1f36d0561cb37a8f86ab0fcaccc4547db2a2ada27f120e2cc051739",
+        "manifestSha256": "22ca028d95632bcbe0f350b688ce3ffd9fae4bb72a9efd6a82f256f0fd0c684e",
+        "resourceSignalsSha256": "55b8abab02f1ef410350858b6ac680f0faa3d8051f7cce8dbf6eddda57d20686",
+        "summarySha256": "dc08510daf9996c813acdcd46904203f42a43c9712db0a55b487f25addee6828"
+      },
+      "readProfile": {
+        "vus": 10,
+        "durationSeconds": 60,
+        "thinkTimeMilliseconds": 0
+      },
+      "metrics": {
+        "requestCount": 29139,
+        "rps": 387.860814,
+        "outcomes": {
+          "success": {
+            "count": 29139,
+            "p50": 17.912569,
+            "p95": 34.8553401,
+            "p99": 46.136954339999996,
+            "max": 165.592475
+          },
+          "business": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "concurrency": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "unexpected": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          }
+        }
+      },
+      "comparison": {
+        "status": "PASS",
+        "fixtureCount": 6,
+        "comparisonSha256": "5b1acb3eae3ccba5bd7075916db33f3fef6a2e6928e79ae1b9e328d4b99ef5b6"
+      },
+      "t3": {
+        "resourceSignalsStatus": "PASS",
+        "rawT3ArtifactSetPresent": true,
+        "queryCalls": 233271,
+        "queryTimeMs": 2083.837,
+        "transactionCount": 6,
+        "transactionDurationMs": 13.531,
+        "lockWaitCount": 0,
+        "hikariPendingThreads": 0,
+        "postgresActiveConnections": 25,
+        "postgresCpuPercent": 37.2
+      },
+      "checks": {
+        "runState": "COMPLETED",
+        "completed": true,
+        "k6ExitCode": 0,
+        "summaryHashMatchesManifest": true,
+        "contractFailures": 0,
+        "startSkewMaxMs": 1,
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalStatus": "PASS"
+      }
+    },
+    {
+      "sequence": 18,
+      "group": "room-t5-repeated-baseline-20260820-v3-r03",
+      "role": "public",
+      "scale": 10,
+      "runId": "room-t5-repeated-baseline-20260820-v3-r03",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "window": {
+        "startedAtUtc": "2026-08-19T20:10:34Z",
+        "endedAtUtc": "2026-08-19T20:11:54Z"
+      },
+      "provenance": {
+        "sourceSha": "17d5dee05bf797ec46160e8cad95b8861473064a",
+        "k6Version": "1.3.0",
+        "fixtureSha256": "4d2de9a6ed7de7bc6ca4b95bec217c8967fce556835f091dc3ebb8f17da19740",
+        "manifestSha256": "cd53a44b24cd94b133d5502b31f6c927a9d9bf86c8bb88fdf4664226dc7c954f",
+        "resourceSignalsSha256": "5a35cc8d580fd7d8b19e2821f608e8d72ee16e7279506d10a5a22ad8f4d015e0",
+        "summarySha256": "d13303f107feeaeb08be84131d215c758e2d56852f6dd6794e9db0e47c5132c6"
+      },
+      "readProfile": {
+        "vus": 10,
+        "durationSeconds": 60,
+        "thinkTimeMilliseconds": 0
+      },
+      "metrics": {
+        "requestCount": 29570,
+        "rps": 393.659459,
+        "outcomes": {
+          "success": {
+            "count": 29570,
+            "p50": 17.9699615,
+            "p95": 32.93127424999999,
+            "p99": 42.33443879999999,
+            "max": 111.309901
+          },
+          "business": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "concurrency": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "unexpected": {
+            "count": 0,
+            "p50": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          }
+        }
+      },
+      "comparison": {
+        "status": "PASS",
+        "fixtureCount": 6,
+        "comparisonSha256": "5b1acb3eae3ccba5bd7075916db33f3fef6a2e6928e79ae1b9e328d4b99ef5b6"
+      },
+      "t3": {
+        "resourceSignalsStatus": "PASS",
+        "rawT3ArtifactSetPresent": true,
+        "queryCalls": 236803,
+        "queryTimeMs": 2195.513,
+        "transactionCount": 5,
+        "transactionDurationMs": 12.014,
+        "lockWaitCount": 0,
+        "hikariPendingThreads": 0,
+        "postgresActiveConnections": 25,
+        "postgresCpuPercent": 38.79
+      },
+      "checks": {
+        "runState": "COMPLETED",
+        "completed": true,
+        "k6ExitCode": 0,
+        "summaryHashMatchesManifest": true,
+        "contractFailures": 0,
+        "startSkewMaxMs": 1,
+        "beforeDiagnosis": "PASS",
+        "afterDiagnosis": "PASS",
+        "finalStatus": "PASS"
+      }
+    }
+  ]
+}

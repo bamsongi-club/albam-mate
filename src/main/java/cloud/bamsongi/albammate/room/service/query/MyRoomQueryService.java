@@ -1,0 +1,104 @@
+package cloud.bamsongi.albammate.room.service.query;
+
+import java.time.Clock;
+import java.time.Instant;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Service;
+
+import cloud.bamsongi.albammate.chat.contract.ChatRoomPreviewQuery;
+import cloud.bamsongi.albammate.game.contract.GameQuery;
+import cloud.bamsongi.albammate.game.contract.GameSummary;
+import cloud.bamsongi.albammate.global.exception.BusinessException;
+import cloud.bamsongi.albammate.global.exception.ErrorCode;
+import cloud.bamsongi.albammate.global.response.PageResponse;
+import cloud.bamsongi.albammate.room.dto.MyRoomListItem;
+import cloud.bamsongi.albammate.room.entity.Room;
+import cloud.bamsongi.albammate.room.enums.MyRole;
+import cloud.bamsongi.albammate.room.enums.MyRoomRole;
+import cloud.bamsongi.albammate.room.enums.ParticipationStatus;
+import cloud.bamsongi.albammate.room.service.RoomActionAvailability;
+import cloud.bamsongi.albammate.room.service.RoomActionAvailabilityEvaluator;
+import cloud.bamsongi.albammate.room.service.RoomActionAvailabilityFacts;
+import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
+
+/** 고정 요청 시각의 유효 상태로 현재 사용자의 내 모임 목록을 계약 필드로 조립한다. */
+@Service
+@RequiredArgsConstructor
+public class MyRoomQueryService {
+
+	@NonNull private final MyRoomReadService myRoomReadService;
+	@NonNull private final GameQuery gameQuery;
+	@NonNull private final Clock clock;
+	@NonNull private final RoomActionAvailabilityEvaluator roomActionAvailabilityEvaluator;
+	@NonNull private final ChatRoomPreviewQuery chatRoomPreviewQuery;
+
+	/** 역할 필터·중복 제거·고정 정렬이 적용된 내 모임 페이지를 반환한다. */
+	public PageResponse<MyRoomListItem> findPage(
+		Long currentUserId, MyRoomRole role, int page, int size) {
+		Instant requestTime = Instant.now(clock);
+
+		PageRequest pageable = PageRequest.of(
+			page, size, Sort.by(Sort.Order.desc("startAt"), Sort.Order.desc("id")));
+		MyRoomReadService.MyRoomReadResult readResult = myRoomReadService.findMyRoomsAt(
+			currentUserId, role, pageable, requestTime);
+		Page<Room> rooms = readResult.rooms();
+		Map<Long, GameSummary> gameSummaries = findGameSummaries(rooms);
+		Map<Long, ChatRoomPreviewQuery.ChatRoomPreview> previews = findChatPreviews(currentUserId, rooms);
+		return PageResponse.from(
+			rooms.map(
+				room -> {
+					MyRole myRole = room.getHostUserId().equals(currentUserId) ? MyRole.HOST : MyRole.JOINED;
+					RoomActionAvailability availability = roomActionAvailabilityEvaluator.evaluate(
+						new RoomActionAvailabilityFacts(
+							room,
+							readResult.effectiveStatusFor(room),
+							readResult.requestTime(),
+							true,
+							myRole == MyRole.HOST,
+							myRole == MyRole.JOINED,
+							false));
+					ChatRoomPreviewQuery.ChatRoomPreview preview = previews
+						.getOrDefault(room.getId(), ChatRoomPreviewQuery.ChatRoomPreview.EMPTY);
+					return MyRoomListItem.from(
+						room,
+						readResult.effectiveStatusFor(room),
+						getGameSummary(room, gameSummaries),
+						availability,
+						myRole,
+						myRole == MyRole.JOINED ? ParticipationStatus.ACTIVE : null,
+						preview.lastMessagePreview(),
+						preview.lastMessageAt(),
+						preview.unreadCount());
+				}));
+	}
+
+	private Map<Long, ChatRoomPreviewQuery.ChatRoomPreview> findChatPreviews(Long currentUserId, Page<Room> rooms) {
+		Set<Long> roomIds = rooms.stream().map(Room::getId).collect(Collectors.toSet());
+		return roomIds.isEmpty() ? Map.of() : chatRoomPreviewQuery.findPreviews(currentUserId, roomIds);
+	}
+
+	private Map<Long, GameSummary> findGameSummaries(Page<Room> rooms) {
+		Set<Long> gameIds = rooms.stream()
+			.map(Room::getGameId)
+			.filter(Objects::nonNull)
+			.collect(Collectors.toSet());
+		return gameIds.isEmpty() ? Map.of() : gameQuery.findSummariesByIds(gameIds);
+	}
+
+	private GameSummary getGameSummary(Room room, Map<Long, GameSummary> gameSummaries) {
+		if (room.getGameId() == null) {
+			return null;
+		}
+		return Optional.ofNullable(gameSummaries.get(room.getGameId()))
+			.orElseThrow(() -> new BusinessException(ErrorCode.GAME_NOT_FOUND));
+	}
+}

@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "batchId": "2026-07-24-p0-game-catalog",
+  "toolCommit": "1bd04bcbf33218ea2884f7f3eb18c4264d1bb760",
+  "sources": {
+    "games": {
+      "fileName": "games.json",
+      "sha256": "f9adbc203023d1aa20efbfa17b8d52d8db3044ae9525d9c10704255ffcf7e321",
+      "sourceReference": "Albam Mate 팀원이 BGG 데이터를 P0 표시 필드로 가공해 Slack으로 전달한 자료",
+      "acquiredAt": "2026-07-28T02:32:15+09:00",
+      "usageTerms": "정확히 이 체크섬인 입력을 BGG 출처 표시와 비상업적 이용 범위 안에서 P0 적재·검증에 사용하며, 상업적 이용·추가 번역·AI 처리·이미지 재호스팅 승인을 포함하지 않음"
+    },
+    "ranks": {
+      "fileName": "boardgames_ranks07-24.csv",
+      "sha256": "b706d0ae3722e063f6b36b9faaf97f3533fce45605c0dfe01c347a68ea2aa56d",
+      "sourceReference": "BGG boardgames_ranks_2026-07-23.zip의 boardgames_ranks.csv 스냅샷",
+      "acquiredAt": "2026-07-24T17:43:00+09:00",
+      "usageTerms": "BGG 공개 CSV를 기준 목록과 외부 식별자 검증에 사용하며 서비스에 BGG 출처를 표시하고 원 출처 이용 조건을 준수"
+    }
+  },
+  "fieldSources": {
+    "bgg_id": "games.bgg_id; BGG 기준 스냅샷의 ranks.id와 2,000건 모두 일치 검증",
+    "name": "games.name; 팀 가공 표시명으로 한글 포함 833건을 유지하고 나머지 1,167건은 검증된 BGG 영문명을 fallback으로 사용하며 공식 한국어판 명칭임을 보증하지 않음",
+    "english_name": "games.english_name; BGG 기준 스냅샷의 ranks.name과 2,000건 모두 일치 검증",
+    "alias": "games.alias; 팀 가공 검색 보조값으로 한글 표시명이 있으면 영문명을 함께 두고 나머지는 영문명과 동일하게 유지",
+    "image_url": "games.image_url; 팀 가공 입력에 포함된 BGG Geekdo 이미지 URL을 직접 참조하며 다운로드·변환·재호스팅하지 않음",
+    "supported_player_count": "games.supported_player_count; 팀이 BGG 기반 자료를 가공한 게임 규칙상 가능 인원 표시값이며 추천·최적 인원과 구분",
+    "tag": "games.tag; 팀 가공 P0 대표 표시 태그이며 BGG의 공식 분류값으로 주장하지 않음",
+    "estimated_play_time": "games.estimated_play_time; 팀이 BGG 기반 자료를 가공한 P0 예상 시간 표시값",
+    "complexity": "games.complexity; 팀이 BGG 기반 자료를 가공한 값으로 보존하며 Albam Mate 자체 난이도로 재해석하지 않음",
+    "description": "games.description; 팀이 만든 P0 임시 표시 문구이며 BGG 원문 설명의 번역으로 사용하지 않음",
+    "detail_description": "games.detail_description; 팀이 만든 P0 임시 상세 문구이며 게임별 고유 규칙 설명으로 보증하지 않음"
+  },
+  "selectionRules": {
+    "include": "games.json 후보 중 bgg_id가 단일 BGG 기준 스냅샷과 일치하고 필수 필드·출처·품질 검수를 통과한 행만 포함",
+    "exclude": "bgg_id 매핑, 필수 필드 또는 본판·확장·변형 근거가 부족한 후보는 임의로 보정하지 않고 식별자와 사유를 exclusions에 기록한 뒤 제외"
+  },
+  "versionRules": {
+    "baseGame": "BGG 기준 스냅샷에서 본판으로 확인되고 팀 검수가 일치하는 항목만 본판으로 분류",
+    "expansion": "BGG 기준 is_expansion 값이 확장을 가리키면 본판과 분리하고 서비스 포함 여부를 별도 검수",
+    "variant": "동일 표시명이어도 bgg_id가 다르면 별도 판본일 가능성이 있어 각각 유지하고 BGG 상세 데이터 연동 시 판본·출시연도를 기준으로 재검토"
+  },
+  "selection": {
+    "candidateRows": 2000,
+    "includedRows": 2000,
+    "excludedRows": 0,
+    "exclusions": []
+  },
+  "review": {
+    "status": "approved",
+    "reviewedAt": "2026-07-28T22:21:15+09:00",
+    "reviewers": [
+      "beyejin"
+    ],
+    "acceptedWarnings": [
+      "POSSIBLE_VERSION_COLLISION",
+      "LOW_DESCRIPTION_DIVERSITY",
+      "LOW_DETAIL_DESCRIPTION_DIVERSITY"
+    ],
+    "approvalScope": "P0_NONCOMMERCIAL_LOAD_AND_LOCAL_VERIFICATION",
+    "limitations": [
+      "games.json은 팀원이 BGG 데이터를 가공한 자료이며 팀의 독립 원천 데이터로 주장하지 않음",
+      "원 가공 파이프라인과 행별 원문 위치가 없어 이번 승인은 정확한 입력 체크섬과 자동 검증 결과에 한정함",
+      "공개 상업 운영, 추가 번역·AI 처리와 이미지 재호스팅은 별도 이용 근거 확인 전 승인하지 않음"
+    ]
+  }
+}

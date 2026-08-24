@@ -1,0 +1,44 @@
+spring:
+  application:
+    name: albam-mate
+  session:
+    timeout: 30m
+  jackson:
+    time-zone: UTC
+  datasource:
+    url: jdbc:h2:mem:albam-mate-test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+    hikari:
+      connection-init-sql: RUNSCRIPT FROM 'classpath:/h2-init.sql'
+  flyway:
+    locations: classpath:db/migration
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+management:
+  otlp:
+    metrics:
+      export:
+        enabled: false
+app:
+  notification:
+    relay:
+      enabled: false
+  monitoring:
+    dependency-health:
+      enabled: false
+  room:
+    status-correction:
+      lock-name: room-status-correction
+      trigger-delay: 15m
+      trigger-jitter: 3m
+      lock-at-most-for: 2m
+      execution-warning-threshold: 30s
+      candidate-limit: 10
+      max-batches-per-run: 1001

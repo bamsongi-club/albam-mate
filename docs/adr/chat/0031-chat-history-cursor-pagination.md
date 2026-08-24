@@ -1,0 +1,71 @@
+# ADR-0031: 메시지 ID 커서로 채팅 이력과 재연결 구간을 조회
+
+- 상태: 승인됨
+- 작성일: 2026-07-31
+- 결정일: 2026-08-02
+- 관련: [P1 방 채팅 명세](../../archive/p1/chatting.md), [채팅 API](../../API.md#채팅-공통-계약), [채팅 저장 계약](../../ERD.md#chat_messages), [ADR-0032 실시간 전달](0032-http-send-websocket-receive.md), [ADR-0033 메시지 정본과 전달](0033-postgresql-source-after-commit-delivery.md)
+- 대체 대상: 없음
+- 후속 ADR: 없음
+
+## 맥락
+
+채팅 이력을 읽는 동안에도 새 메시지가 계속 저장된다. 페이지 번호와 offset을 사용하면 앞쪽에 새 행이 추가되거나 오래된 메시지가 삭제될 때 같은 메시지를 다시 읽거나 일부를 건너뛸 수 있고, 먼 페이지일수록 데이터베이스가 버려야 하는 행도 늘어난다.
+
+P1은 CHAT_MESSAGES의 BIGINT 식별자를 서버 메시지 순서와 중복 제거 기준으로 사용한다. 이 식별자는 유일하고 증가하지만 트랜잭션 롤백과 보관 삭제로 중간 값이 비어 있을 수 있다. 커서는 존재하는 행의 위치가 아니라 조회 경계로 해석해야 한다.
+
+판단 기준은 다음과 같다.
+
+- 새 메시지가 추가되는 동안 과거 이력을 안정적으로 이어서 읽을 것
+- 이력 조회와 WebSocket 재연결 복구에서 같은 기준을 사용할 것
+- 작은 P1 클라이언트와 PostgreSQL 쿼리를 단순하게 유지할 것
+- 식별자 공백과 메시지 삭제를 오류로 오해하지 않을 것
+
+## 검토한 대안
+
+| 대안 | 장점 | 비용·위험 | 판단 |
+| --- | --- | --- | --- |
+| page와 offset | 임의 페이지 이동과 기존 PageResponse 재사용이 쉽다. | 새 메시지 삽입·오래된 메시지 삭제 중 중복·누락 가능성이 있고, 깊은 offset의 조회 비용이 커진다. | 제외 |
+| createdAt과 messageId 복합 커서 | 같은 시각의 메시지를 ID로 구분할 수 있고 시간 기준 조회를 표현하기 쉽다. | API와 인덱스가 복잡해지고 클라이언트 시각 오해가 생길 수 있다. P1은 메시지 ID 하나로 순서를 고정한다. | 제외 |
+| messageId 단일 커서 | 과거 조회, 재연결 누락 복구와 중복 제거를 하나의 값으로 처리한다. | 메시지 ID의 커밋 가시성 순서를 보장해야 하고 임의 페이지 이동을 제공하지 않는다. | 선택 |
+
+## 결정
+
+채팅 이력과 재연결 복구에 정수 messageId 단일 커서를 사용한다.
+
+- 이력 조회에서 beforeMessageId가 없으면 최신 메시지부터 조회한다.
+- beforeMessageId가 있으면 같은 채팅방에서 id가 해당 값보다 작은 메시지를 id 내림차순으로 조회한다.
+- 기본 size는 50, 최대 size는 100이다.
+- 응답은 최신 메시지에서 과거 메시지 순서이며, 다음 경계 nextBeforeMessageId와 hasNext를 제공한다.
+- 더 이상 메시지가 없으면 200 OK, 빈 messages, null nextBeforeMessageId와 false hasNext를 반환한다.
+- 존재하지 않는 양수 커서는 정상 경계값으로 처리한다. 숫자가 아니거나 0 이하인 값은 VALIDATION_ERROR다.
+- 각 페이지는 독립 조회한다. 과거 페이지를 읽는 동안 도착한 새 메시지를 기존 페이지에 끼워 넣지 않는다.
+- 재연결에서는 afterMessageId보다 큰 메시지를 id 오름차순으로 복구한 뒤 실시간 수신으로 전환한다.
+- 클라이언트는 messageId로 중복 이벤트를 제거하며 ID 공백을 오류로 처리하지 않는다.
+
+afterMessageId 복구가 늦게 커밋된 더 작은 ID를 건너뛰지 않도록, 같은 채팅방의 메시지 ID 할당과 커밋 가시성 순서는 일치해야 한다. [ADR-0033](0033-postgresql-source-after-commit-delivery.md)은 메시지 ID를 할당하기 전에 CHAT_ROOMS 행을 잠가 방별 append를 직렬화한다.
+
+## 결과
+
+- 얻는 것: 새 메시지가 추가되는 채팅에서도 안정적인 과거 조회를 제공하고, 이력·재연결·중복 제거가 같은 messageId 계약을 공유한다.
+- 감수할 비용·위험: 임의 페이지 번호 이동을 제공하지 않는다. 방별 append 순서 보장을 위한 짧은 직렬화 구간이 필요하다.
+- 후속 작업: PostgreSQL keyset 조회, 빈 결과·없는 양수 커서·ID 공백·삭제 경계와 동시 커밋 순서를 테스트한다.
+
+## 보류 및 재검토
+
+- 지금 하지 않는 것: 불투명 Base64 커서, createdAt 복합 커서, 전체 이력 스냅샷
+- 보류 이유: P1 정렬 기준이 messageId 하나이고 공개 정수 커서로 필요한 복구 계약을 충족한다.
+- 다시 검토할 조건: 정렬 기준이 추가되거나 ID 노출을 숨겨야 하거나 방별 append 직렬화가 실제 병목으로 측정될 때
+
+## 참고 자료
+
+- [PostgreSQL LIMIT과 OFFSET](https://www.postgresql.org/docs/current/queries-limit.html)
+- 이 문서의 맥락·대안으로 갈음
+
+## 검증
+
+- 상태: 검증됨
+- 근거:
+    - 구현: [PR #400](https://github.com/bamsongi-club/albam-mate/pull/400)이 `beforeMessageId` 기반 이력 조회, `nextBeforeMessageId`·`hasNext` 응답과 조회 인덱스를 구현했다.
+    - 테스트: `ChatMessageHistoryQueryServiceTest`·`ChatMessageHistoryQueryServiceIntegrationTest`가 빈 결과·없는 양수 커서·크기·정렬을, `ChatMessageHistoryCursorConcurrencyPostgresTest`와 `ChatMessageCommandConcurrencyPostgresTest`가 PostgreSQL keyset 경계와 방별 append 커밋 가시성 순서를 검증한다.
+
+> 상태 값과 번호·대체 규칙은 [README](../README.md)를 따른다.

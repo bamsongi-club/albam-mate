@@ -1,0 +1,4 @@
+interface:
+  display_name: "PR Merger"
+  short_description: "승인·CI·diff 이해도 게이트를 거친 안전한 squash merge"
+  default_prompt: "작성자인 내가 명시한 현재 저장소의 승인된 PR #<번호>를 $pr-merger로 검증하고 squash merge해줘."

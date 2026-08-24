@@ -1,0 +1,538 @@
+const API_BASE_PATH = (import.meta.env.VITE_API_BASE_PATH || '').replace(/\/$/, '');
+
+export class ApiError extends Error {
+  constructor({ status, code, message, retryAfter }) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.code = code;
+    this.retryAfter = retryAfter;
+  }
+}
+
+let csrfToken;
+let csrfTokenRequest;
+let unauthenticatedHandler;
+let authenticationGeneration = 0;
+
+function endpoint(path) {
+  return API_BASE_PATH + path;
+}
+
+async function parsePayload(response) {
+  const contentType = response.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) return null;
+  return response.json();
+}
+
+function staleAuthenticationError() {
+  const error = new Error('인증 상태가 변경되어 이전 응답을 무시합니다.');
+  error.name = 'AbortError';
+  return error;
+}
+
+function failedResponseError(response, payload) {
+  const error = new ApiError({
+    status: response.status,
+    code: payload?.code || 'REQUEST_FAILED',
+    message: payload?.message || '요청을 처리하지 못했어요. 잠시 후 다시 시도해주세요.',
+    retryAfter: response.headers.get('retry-after')
+  });
+  if (response.status === 401) {
+    clearCsrfToken();
+    unauthenticatedHandler?.();
+  }
+  return error;
+}
+
+function invalidResponseError(response) {
+  return new ApiError({
+    status: response.status,
+    code: 'INVALID_API_RESPONSE',
+    message: '서버 응답 형식을 확인하지 못했어요.'
+  });
+}
+
+function abortedRequestError(signal) {
+  if (signal?.reason) return signal.reason;
+  const error = new Error('요청이 취소되었습니다.');
+  error.name = 'AbortError';
+  return error;
+}
+
+function waitForSharedCsrfToken(signal) {
+  const tokenRequest = getCsrfToken();
+  if (!signal) return tokenRequest;
+  if (signal.aborted) return Promise.reject(abortedRequestError(signal));
+
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      signal.removeEventListener('abort', onAbort);
+      reject(abortedRequestError(signal));
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+    tokenRequest.then(
+      (token) => {
+        signal.removeEventListener('abort', onAbort);
+        resolve(token);
+      },
+      (error) => {
+        signal.removeEventListener('abort', onAbort);
+        reject(error);
+      }
+    );
+  });
+}
+
+async function request(path, { method = 'GET', body, headers, signal, allowNoContent = false } = {}) {
+  const requestAuthenticationGeneration = authenticationGeneration;
+  let response;
+  let payload;
+  let noContent = false;
+  try {
+    response = await fetch(endpoint(path), {
+      method,
+      credentials: 'include',
+      signal,
+      headers: {
+        Accept: 'application/json',
+        ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+        ...headers
+      },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) })
+    });
+    noContent = allowNoContent && response.status === 204;
+    if (!noContent) payload = await parsePayload(response);
+  } catch (error) {
+    if (requestAuthenticationGeneration !== authenticationGeneration) {
+      throw staleAuthenticationError();
+    }
+    if (response && !response.ok) {
+      throw failedResponseError(response, payload);
+    }
+    if (response) {
+      throw invalidResponseError(response);
+    }
+    throw error;
+  }
+
+  if (requestAuthenticationGeneration !== authenticationGeneration) {
+    throw staleAuthenticationError();
+  }
+
+  if (noContent) return null;
+
+  if (!response.ok) {
+    throw failedResponseError(response, payload);
+  }
+
+  if (!payload || payload.status !== response.status || !Object.hasOwn(payload, 'data')) {
+    throw invalidResponseError(response);
+  }
+
+  return payload.data;
+}
+
+async function getCsrfToken() {
+  if (csrfToken) return csrfToken;
+  if (!csrfTokenRequest) {
+    csrfTokenRequest = request('/api/auth/csrf')
+      .then((token) => {
+        csrfToken = token;
+        return token;
+      })
+      .finally(() => {
+        csrfTokenRequest = undefined;
+      });
+  }
+  return csrfTokenRequest;
+}
+
+async function mutate(path, options = {}) {
+  const token = await waitForSharedCsrfToken(options.signal);
+  options.onRequestStarted?.();
+  return request(path, {
+    ...options,
+    headers: {
+      ...options.headers,
+      [token.headerName]: token.token
+    }
+  });
+}
+
+/** multipart/form-data 전송용 래퍼. Content-Type을 브라우저에 맡긴다. */
+async function mutateMultipart(path, { method = 'POST', body } = {}) {
+  const token = await getCsrfToken();
+  const requestAuthenticationGeneration = authenticationGeneration;
+  let response;
+  let payload;
+  try {
+    response = await fetch(endpoint(path), {
+      method,
+      credentials: 'include',
+      headers: {
+        Accept: 'application/json',
+        [token.headerName]: token.token
+      },
+      body
+    });
+    payload = await parsePayload(response);
+  } catch (error) {
+    if (requestAuthenticationGeneration !== authenticationGeneration) {
+      throw staleAuthenticationError();
+    }
+    throw error;
+  }
+
+  if (requestAuthenticationGeneration !== authenticationGeneration) {
+    throw staleAuthenticationError();
+  }
+
+  if (!response.ok) {
+    const error = new ApiError({
+      status: response.status,
+      code: payload?.code || 'REQUEST_FAILED',
+      message: payload?.message || '요청을 처리하지 못했어요. 잠시 후 다시 시도해주세요.',
+      retryAfter: response.headers.get('retry-after')
+    });
+    if (response.status === 401) {
+      clearCsrfToken();
+      unauthenticatedHandler?.();
+    }
+    throw error;
+  }
+
+  if (!payload || payload.status !== response.status || !Object.hasOwn(payload, 'data')) {
+    throw new ApiError({
+      status: response.status,
+      code: 'INVALID_API_RESPONSE',
+      message: '서버 응답 형식을 확인하지 못했어요.'
+    });
+  }
+
+  return payload.data;
+}
+
+// 경로의 제공자 값은 SocialProvider의 소문자 표기다.
+function socialProviderPath(provider) {
+  return String(provider).toLowerCase();
+}
+
+export function socialLoginUrl(provider) {
+  return endpoint('/api/auth/social/authorization/' + socialProviderPath(provider));
+}
+
+export function openChatWebSocket(roomId, { afterMessageId } = {}) {
+  const url = new URL(endpoint('/api/rooms/' + roomId + '/chat/ws'), window.location.href);
+  if (afterMessageId !== undefined && afterMessageId !== null) {
+    url.searchParams.set('afterMessageId', String(afterMessageId));
+  }
+  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+  return new WebSocket(url.toString());
+}
+
+export function openChatListWebSocket() {
+  const url = new URL(endpoint('/api/users/me/chat/ws'), window.location.href);
+  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+  return new WebSocket(url.toString());
+}
+
+export function openMatchChatWebSocket(partyId, { afterMessageId } = {}) {
+  const url = new URL(endpoint('/api/matches/parties/' + partyId + '/chat/ws'), window.location.href);
+  if (afterMessageId !== undefined && afterMessageId !== null) {
+    url.searchParams.set('afterMessageId', String(afterMessageId));
+  }
+  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+  return new WebSocket(url.toString());
+}
+
+export function clearCsrfToken() {
+  csrfToken = undefined;
+}
+
+function advanceAuthenticationGeneration() {
+  authenticationGeneration += 1;
+  clearCsrfToken();
+}
+
+export function setUnauthenticatedHandler(handler) {
+  unauthenticatedHandler = handler;
+}
+
+function query(parameters) {
+  const search = new URLSearchParams();
+  const append = (key, value) => {
+    if (value !== undefined && value !== null && value !== '') search.append(key, String(value));
+  };
+  // 배열은 같은 이름을 반복해 전달한다. 빈 배열은 조건 없음과 같아 아무것도 붙이지 않는다.
+  Object.entries(parameters).forEach(([key, value]) => {
+    if (Array.isArray(value)) value.forEach((item) => append(key, item));
+    else append(key, value);
+  });
+  const value = search.toString();
+  return value ? '?' + value : '';
+}
+
+export const api = {
+  getMyProfile: () => request('/api/users/me'),
+  getSocialProviders: (signal) => request('/api/auth/social/providers', { signal }),
+  // 서버는 same-site authorization 경로만 돌려주며 실제 이동은 호출자가 전체 페이지 이동으로 수행한다.
+  startSocialLink: async (provider) => {
+    const { authorizationUri } = await mutate(
+      '/api/users/me/social-accounts/' + socialProviderPath(provider) + '/link',
+      { method: 'POST' }
+    );
+    return endpoint(authorizationUri);
+  },
+  getGame: (gameId, signal) => request('/api/games/' + gameId, { signal }),
+  getGames: (
+    {
+      keyword,
+      upcomingOnly,
+      playerCountMin,
+      playerCountMax,
+      playerCountExact,
+      exclusivePlayerCount,
+      playTime,
+      youngestPlayerAge,
+      complexityMin,
+      complexityMax,
+      mechanism,
+      mechanismMatch,
+      category,
+      theme,
+      themeMatch,
+      recommendedPlayerCount,
+      bestPlayerCount,
+      playedFilter,
+      page = 0,
+      size = 10
+    },
+    signal
+  ) =>
+    request('/api/games' + query({
+      keyword,
+      upcomingOnly,
+      playerCountMin,
+      playerCountMax,
+      playerCountExact,
+      exclusivePlayerCount,
+      playTime,
+      youngestPlayerAge,
+      complexityMin,
+      complexityMax,
+      mechanism,
+      mechanismMatch,
+      category,
+      theme,
+      themeMatch,
+      recommendedPlayerCount,
+      bestPlayerCount,
+      playedFilter,
+      page,
+      size
+    }), { signal }),
+  getGameSearch: (
+    {
+      query: searchQuery,
+      playerCountMin,
+      playerCountMax,
+      playerCountExact,
+      exclusivePlayerCount,
+      playTime,
+      youngestPlayerAge,
+      complexityMin,
+      complexityMax,
+      mechanism,
+      mechanismMatch,
+      category,
+      theme,
+      themeMatch,
+      recommendedPlayerCount,
+      bestPlayerCount,
+      playedFilter,
+      page = 0,
+      size = 10
+    },
+    signal
+  ) =>
+    request('/api/games/search' + query({
+      query: searchQuery,
+      playerCountMin,
+      playerCountMax,
+      playerCountExact,
+      exclusivePlayerCount,
+      playTime,
+      youngestPlayerAge,
+      complexityMin,
+      complexityMax,
+      mechanism,
+      mechanismMatch,
+      category,
+      theme,
+      themeMatch,
+      recommendedPlayerCount,
+      bestPlayerCount,
+      playedFilter,
+      page,
+      size
+    }), { signal }),
+  getGameRankings: (signal) => request('/api/game-rankings', { signal }),
+  getGameMechanisms: (signal) => request('/api/game-mechanisms', { signal }),
+  getGameCategories: (signal) => request('/api/game-categories', { signal }),
+  getGameThemes: (signal) => request('/api/game-themes', { signal }),
+  markGamePlayed: (gameId) => mutate('/api/users/me/played-games/' + gameId, { method: 'PUT' }),
+  unmarkGamePlayed: (gameId) => mutate('/api/users/me/played-games/' + gameId, { method: 'DELETE' }),
+  getRoom: (roomId, signal) => request('/api/rooms/' + roomId, { signal }),
+  getRooms: (
+    { type, status, gameId, keyword, startsAtFrom, startsAtTo, minRemainingSeats, experienceLevels, rulemasterOnly, page = 0, size = 10 },
+    signal
+  ) =>
+    request('/api/rooms' + query({
+      type,
+      status,
+      gameId,
+      keyword,
+      startsAtFrom,
+      startsAtTo,
+      minRemainingSeats,
+      experienceLevels,
+      // 룰마스터 진행 여부는 조건으로 쓸 때만 보낸다. false는 조건 없음과 같다.
+      rulemasterOnly: rulemasterOnly ? 'true' : undefined,
+      page,
+      size
+    }), { signal }),
+  getMyRooms: ({ role, page = 0, size = 10 }, signal) =>
+    request('/api/users/me/rooms' + query({ role, page, size }), { signal }),
+  getChatMessages: (roomId, optionsOrSignal = {}, maybeSignal) => {
+    const signal = optionsOrSignal?.aborted !== undefined ? optionsOrSignal : maybeSignal;
+    const options = signal ? {} : optionsOrSignal;
+    return request('/api/rooms/' + roomId + '/chat/messages' + query(options), { signal });
+  },
+  openChatWebSocket,
+  openChatListWebSocket,
+  sendChatMessage: (roomId, message, signal, onRequestStarted) => mutate(
+    '/api/rooms/' + roomId + '/chat/messages',
+    { method: 'POST', body: message, signal, onRequestStarted }
+  ),
+  markChatRead: (roomId, upToMessageId, signal) => mutate(
+    '/api/rooms/' + roomId + '/chat/read',
+    { method: 'POST', body: { upToMessageId }, signal }
+  ),
+  getUnreadChatSummary: (signal) => request('/api/users/me/chat/unread-summary', { signal }),
+  getNotifications: ({ page = 0, size = 10 } = {}, signal) =>
+    request('/api/users/me/notifications' + query({ page, size }), { signal }),
+  getUnreadNotificationCount: (signal) =>
+    request('/api/users/me/notifications/unread-count', { signal }),
+  markNotificationRead: (notificationId) => mutate(
+    '/api/users/me/notifications/' + notificationId,
+    { method: 'PATCH', body: { read: true } }
+  ),
+  markAllNotificationsRead: () => mutate(
+    '/api/users/me/notifications',
+    { method: 'PATCH', body: { read: true } }
+  ),
+  getAssistantConsent: (signal) => request('/api/assistant/consent', { signal }),
+  changeAssistantConsent: (consent) => mutate(
+    '/api/assistant/consent',
+    { method: 'PUT', body: consent }
+  ),
+  recommendAssistant: (message, conditions) => mutate(
+    '/api/assistant/recommendations',
+    { method: 'POST', body: { message, conditions: conditions ?? null } }
+  ),
+  createAssistantDraft: (draft) => mutate(
+    '/api/assistant/drafts',
+    { method: 'POST', body: draft }
+  ),
+  getActiveAssistantDraft: (signal) => request(
+    '/api/assistant/drafts/active',
+    { signal, allowNoContent: true }
+  ),
+  updateAssistantDraft: (draftId, draft) => mutate(
+    '/api/assistant/drafts/' + draftId,
+    { method: 'PATCH', body: draft }
+  ),
+  discardAssistantDraft: (draftId) => mutate(
+    '/api/assistant/drafts/' + draftId,
+    { method: 'DELETE' }
+  ),
+  confirmAssistantDraft: (draftId, draftVersion, idempotencyKey) => mutate(
+    '/api/assistant/drafts/' + draftId + '/confirm',
+    {
+      method: 'POST',
+      body: { draftVersion },
+      headers: { 'Idempotency-Key': idempotencyKey }
+    }
+  ),
+  signup: async (credentials) => mutate('/api/auth/signup', { method: 'POST', body: credentials }),
+  login: async (credentials) => {
+    const user = await mutate('/api/auth/login', { method: 'POST', body: credentials });
+    advanceAuthenticationGeneration();
+    return user;
+  },
+  logout: async () => {
+    try {
+      const result = await mutate('/api/auth/logout', { method: 'POST' });
+      advanceAuthenticationGeneration();
+      return result;
+    } finally {
+      clearCsrfToken();
+    }
+  },
+  updateMyProfile: (profile) => mutate('/api/users/me', { method: 'PATCH', body: profile }),
+  uploadProfileImage: (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return mutateMultipart('/api/users/me/profile-image', { method: 'POST', body: formData });
+  },
+  deleteProfileImage: () => mutate('/api/users/me/profile-image', { method: 'DELETE' }),
+  createRoom: (room) => mutate('/api/rooms', { method: 'POST', body: room }),
+  updateRoom: (roomId, room) => mutate('/api/rooms/' + roomId, { method: 'PATCH', body: room }),
+  cancelRoom: (roomId) => mutate('/api/rooms/' + roomId, { method: 'DELETE' }),
+  finishRoom: (roomId) => mutate('/api/rooms/' + roomId + '/status', { method: 'PATCH', body: { status: 'FINISHED' } }),
+  participate: (roomId) => mutate('/api/rooms/' + roomId + '/participants', { method: 'POST' }),
+  cancelParticipation: (roomId) => mutate('/api/rooms/' + roomId + '/participants/me', { method: 'DELETE' }),
+  joinWaitlist: (roomId) => mutate('/api/rooms/' + roomId + '/waitlist', { method: 'POST' }),
+  getMyWaitlist: (roomId, signal) => request('/api/rooms/' + roomId + '/waitlist/me', { signal }),
+  cancelWaitlist: (roomId) => mutate('/api/rooms/' + roomId + '/waitlist/me', { method: 'DELETE' }),
+  getCurrentMatch: (signal) => request('/api/matches/current', { signal }),
+  createMatchRequest: (matchRequest, idempotencyKey) => mutate(
+    '/api/matches/requests',
+    { method: 'POST', body: matchRequest, headers: { 'Idempotency-Key': idempotencyKey } }
+  ),
+  cancelMatchRequest: () => mutate('/api/matches/requests/me', { method: 'DELETE' }),
+  respondToMatchProposal: (proposalId, action, idempotencyKey) => mutate(
+    '/api/matches/proposals/' + proposalId + '/responses',
+    { method: 'POST', body: { action }, headers: { 'Idempotency-Key': idempotencyKey } }
+  ),
+  getMatchChatMessages: (partyId, { beforeMessageId, size } = {}, signal) =>
+    request('/api/matches/parties/' + partyId + '/chat/messages' + query({ beforeMessageId, size }), { signal }),
+  openMatchChatWebSocket,
+  sendMatchChatMessage: (partyId, message) => mutate(
+    '/api/matches/parties/' + partyId + '/chat/messages',
+    { method: 'POST', body: message }
+  ),
+  leaveMatchParty: (partyId) => mutate('/api/matches/parties/' + partyId + '/participants/me', { method: 'DELETE' }),
+  getMatchBlocks: ({ page = 0, size = 10 } = {}, signal) =>
+    request('/api/matches/blocks' + query({ page, size }), { signal }),
+  blockMatchParticipant: (partyId, participantRef) => mutate(
+    '/api/matches/parties/' + partyId + '/participants/' + encodeURIComponent(participantRef) + '/block',
+    { method: 'PUT' }
+  ),
+  unblockMatchUser: (blockId) => mutate('/api/matches/blocks/' + blockId, { method: 'DELETE' }),
+  reportMatchParticipant: (partyId, report) => mutate(
+    '/api/matches/parties/' + partyId + '/reports',
+    { method: 'POST', body: report }
+  )
+};
+
+export function messageForError(error, fallback = '요청을 처리하지 못했어요.') {
+  if (error instanceof ApiError) {
+    if (error.code === 'RATE_LIMIT_EXCEEDED' && error.retryAfter) {
+      return error.retryAfter + '초 뒤에 다시 시도해주세요.';
+    }
+    return error.message || fallback;
+  }
+  return fallback;
+}

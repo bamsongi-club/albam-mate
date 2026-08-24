@@ -1,0 +1,145 @@
+{
+  "schemaVersion": 1,
+  "suiteId": "backend-tester-outcome-pilot-v1",
+  "generatedOn": "2026-08-03",
+  "subject": {
+    "pilotIssue": 226,
+    "targetIssue": 263,
+    "approvedTestIds": [
+      "T1",
+      "T2",
+      "T3",
+      "T4",
+      "T5",
+      "T6"
+    ]
+  },
+  "snapshot": {
+    "type": "uncommitted-diff",
+    "baseCommit": "884375b409625f978a1170eef5f007f144325925",
+    "targetCommit": null,
+    "initialImplementationDiffHash": "0e6d4f37032cea4fb478e09fc2bb99e4de4f25878de1d8b725d55c709ce7b9f7",
+    "finalImplementationDiffHash": "ca3c17b850821c1c9f09184c854e095669aaec8b0cd4c393c3c6aedf81294eef",
+    "finalTrackedDiffHash": "aa3aec651d62423f680575f1f53bf11ffa38623b22566f73aed69736e31373d1",
+    "packetHash": "526681ffb1c6f510d72a25aed92422f087bda07071afd8578dadcbe89710449f"
+  },
+  "decision": {
+    "preTesterDecision": "proceed",
+    "outcome": "caught-risk",
+    "rationale": "구현자 proceed 판단 뒤 fresh tester가 격리 실행 결함을 검출해 전달을 차단했고, 수정 snapshot의 fresh tester와 T-ID reviewer가 통과했다."
+  },
+  "runs": [
+    {
+      "sequence": 1,
+      "implementationDiffHash": "0e6d4f37032cea4fb478e09fc2bb99e4de4f25878de1d8b725d55c709ce7b9f7",
+      "verdict": "fail",
+      "testVerdicts": {
+        "T1": "fail",
+        "T2": "fail",
+        "T3": "fail",
+        "T4": "fail",
+        "T5": "fail",
+        "T6": "fail"
+      },
+      "durationMs": 188253,
+      "resultHash": "07062937ccea83a42f946c73be16cbc7fbc9312726b41fbbfd375575e842964a",
+      "classification": "caught-isolated-test-bootstrap-defect",
+      "snapshotMatched": true,
+      "validator": "pass"
+    },
+    {
+      "sequence": 2,
+      "implementationDiffHash": "ca3c17b850821c1c9f09184c854e095669aaec8b0cd4c393c3c6aedf81294eef",
+      "verdict": "fail",
+      "testVerdicts": {
+        "T1": "fail",
+        "T2": "fail",
+        "T3": "fail",
+        "T4": "fail",
+        "T5": "fail",
+        "T6": "fail"
+      },
+      "durationMs": 179479,
+      "resultHash": "cd54cfc0eb31b67a726e40f7e1b88df1e8723465fac0ae558b91ea076e5fda47",
+      "classification": "runner-timeout",
+      "snapshotMatched": true,
+      "validator": "pass"
+    },
+    {
+      "sequence": 3,
+      "implementationDiffHash": "ca3c17b850821c1c9f09184c854e095669aaec8b0cd4c393c3c6aedf81294eef",
+      "verdict": "pass",
+      "testVerdicts": {
+        "T1": "pass",
+        "T2": "pass",
+        "T3": "pass",
+        "T4": "pass",
+        "T5": "pass",
+        "T6": "pass"
+      },
+      "durationMs": 190900,
+      "resultHash": "2b342214556eeee887f8896fa1426661b7b4cfc1bc4efaac5004cb5bd87783d2",
+      "classification": "validated-pass",
+      "snapshotMatched": true,
+      "validator": "pass"
+    }
+  ],
+  "aggregate": {
+    "freshTesterRuns": 3,
+    "testerDurationMs": 558632,
+    "implementationReworkCount": 2,
+    "humanInterventionCount": 1,
+    "forbiddenActionAudit": {
+      "productionSourceModified": false,
+      "testSourceModified": false,
+      "stagePerformed": false,
+      "commitPerformed": false,
+      "pushPerformed": false,
+      "pullRequestCreated": false
+    }
+  },
+  "finalVerification": {
+    "h2Test": "pass",
+    "postgresTest": "pass",
+    "ciEquivalentBuild": "pass",
+    "combinedCoverageGate": "pass",
+    "conventionCheck": "pass",
+    "tidReviewer": {
+      "verdict": "Approve",
+      "passed": 6,
+      "total": 6
+    },
+    "generalRiskReview": {
+      "findingCount": 0,
+      "coverage": "R1-R7"
+    },
+    "testContractHarness": {
+      "targetEvaluationStatus": "not-run",
+      "caseCount": 8,
+      "checkCount": 31,
+      "verdict": "pass"
+    },
+    "documentLinks": "pass",
+    "diffCheck": "pass"
+  },
+  "archive": {
+    "status": "archived",
+    "algorithm": "sha256",
+    "recordedAt": "2026-08-03T03:02:56.5803257Z",
+    "receiptHash": "6c8b0f9f02b0782580967d537ada8a611dc54aec01543137cffa2d1479240737",
+    "coreLinkHash": "b3adf386756d1455fafb9e0736f26ad1194105f7d03f10da76ad16bfda25571a",
+    "inputSetHash": "2ea3df0c0e60308860f0430aec08b4b3019e191739f35c3903edd6968786bd08",
+    "resultSetHash": "43fc9fe3762853b77ea5e87378a54988dce8c6f3605b35cbbfd0dac1232bd202",
+    "artifactCounts": {
+      "inputs": 3,
+      "testerResponses": 3,
+      "sessionArtifacts": 2
+    }
+  },
+  "limitations": [
+    "실제 백엔드 작업 한 건의 단일 관찰 결과이므로 일반적인 모델 성능 향상을 주장하지 않는다.",
+    "두 번째 실행의 fail은 제품 결함이 아니라 실행기 시간 제한이며 위험 검출 성과에 포함하지 않는다.",
+    "평가 snapshot은 commit 생성 전 고정 diff이므로 이후 PR head나 merge commit을 targetCommit으로 소급하지 않는다.",
+    "child agent 내부에서 별도로 남지 않은 로그는 재구성하지 않고 부모 세션에 노출된 plain output과 원본 구조화 결과만 보관한다."
+  ]
+}

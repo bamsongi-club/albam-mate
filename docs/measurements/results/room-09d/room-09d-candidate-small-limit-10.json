@@ -1,0 +1,165 @@
+{
+  "outcome" : "SUCCESS",
+  "measurementStartEnvironment" : {
+    "gitSha" : "73a0e62ebbbe8a2ff196e0a05563693473294653",
+    "candidateImplementationSourceSha" : "8416d3254a3e9e2316bc14745959a2b42dab3c26",
+    "javaVersion" : "21.0.11",
+    "postgresqlVersion" : "18.4 (Debian 18.4-1.pgdg13+1)",
+    "operatingSystem" : "Windows 11",
+    "cpuCount" : 24,
+    "startUsedHeapBytes" : 180927472,
+    "maxHeapBytes" : 536870912,
+    "configuration" : {
+      "candidateLimit" : "10",
+      "notificationCleanupInterval" : "24h",
+      "chatRetentionEnabled" : "false",
+      "notificationRelayEnabled" : "false",
+      "postgresImage" : "postgres:18.4",
+      "issue390.measurement" : "false",
+      "notificationCleanupJitter" : "0s",
+      "roomStatusCorrectionLockAtMostFor" : "2m",
+      "requestTime" : "2026-08-06T00:00:00Z",
+      "roomStatusCorrectionTriggerJitter" : "0s",
+      "fixtureSeed" : "ROOM-09c-baseline-v1",
+      "profile" : "small",
+      "roomStatusCorrectionExecutionWarningThreshold" : "30s",
+      "springTaskSchedulingEnabled" : "false",
+      "fixtureType" : "NO_WAITING",
+      "measurementSystemProperty" : "",
+      "dockerVersion" : "29.4.3",
+      "roomStatusCorrectionTriggerDelay" : "24h",
+      "executionCommand" : ".\\gradlew.bat postgresTest --no-daemon --tests \"cloud.bamsongi.albammate.room.measurement.RoomStatusCorrectionCandidateMeasurementPostgresTest.small_후보는_WAITING_없는_동일_fixture를_warm_up_1회와_실측_5회로_기록한다\" --rerun --fail-fast",
+      "sharedPreloadLibraries" : "pg_stat_statements"
+    }
+  },
+  "fixture" : {
+    "profile" : {
+      "name" : "small",
+      "roomCount" : 100,
+      "dueRoomCount" : 20
+    },
+    "roomCount" : 100,
+    "dueRoomCount" : 20,
+    "nonDueRoomCount" : 80,
+    "nonDueClosedRoomCount" : 10,
+    "waitingPerClosedDueRoom" : 0,
+    "requestTime" : "2026-08-06T00:00:00Z",
+    "seed" : "ROOM-09c-baseline-v1",
+    "dataIdentifier" : "ROOM-09c-baseline-v1:small:100:20"
+  },
+  "candidateLimit" : 10,
+  "warmUpRuns" : [ {
+    "phase" : "warm-up",
+    "iteration" : 1,
+    "candidateCount" : 20,
+    "successCount" : 20,
+    "failureCount" : 0,
+    "callElapsedNanos" : 694611300,
+    "wholeTurnElapsedNanos" : 694611300,
+    "throughputPerSecond" : 28.79308182864287,
+    "databaseCost" : {
+      "calls" : 150,
+      "totalExecutionTimeMs" : 4.571671,
+      "rows" : 96,
+      "sharedBufferHits" : 414,
+      "sharedBufferReads" : 1
+    }
+  } ],
+  "measuredRuns" : [ {
+    "phase" : "measured",
+    "iteration" : 1,
+    "candidateCount" : 20,
+    "successCount" : 20,
+    "failureCount" : 0,
+    "callElapsedNanos" : 409908700,
+    "wholeTurnElapsedNanos" : 409908700,
+    "throughputPerSecond" : 48.79135280612488,
+    "databaseCost" : {
+      "calls" : 149,
+      "totalExecutionTimeMs" : 4.855225,
+      "rows" : 96,
+      "sharedBufferHits" : 393,
+      "sharedBufferReads" : 0
+    }
+  }, {
+    "phase" : "measured",
+    "iteration" : 2,
+    "candidateCount" : 20,
+    "successCount" : 20,
+    "failureCount" : 0,
+    "callElapsedNanos" : 370085700,
+    "wholeTurnElapsedNanos" : 370085700,
+    "throughputPerSecond" : 54.04153686565031,
+    "databaseCost" : {
+      "calls" : 149,
+      "totalExecutionTimeMs" : 4.9469590000000006,
+      "rows" : 96,
+      "sharedBufferHits" : 401,
+      "sharedBufferReads" : 0
+    }
+  }, {
+    "phase" : "measured",
+    "iteration" : 3,
+    "candidateCount" : 20,
+    "successCount" : 20,
+    "failureCount" : 0,
+    "callElapsedNanos" : 279552000,
+    "wholeTurnElapsedNanos" : 279552000,
+    "throughputPerSecond" : 71.54304029304029,
+    "databaseCost" : {
+      "calls" : 149,
+      "totalExecutionTimeMs" : 4.673499000000001,
+      "rows" : 96,
+      "sharedBufferHits" : 415,
+      "sharedBufferReads" : 0
+    }
+  }, {
+    "phase" : "measured",
+    "iteration" : 4,
+    "candidateCount" : 20,
+    "successCount" : 20,
+    "failureCount" : 0,
+    "callElapsedNanos" : 280742300,
+    "wholeTurnElapsedNanos" : 280742300,
+    "throughputPerSecond" : 71.2397098691576,
+    "databaseCost" : {
+      "calls" : 149,
+      "totalExecutionTimeMs" : 4.687333999999999,
+      "rows" : 96,
+      "sharedBufferHits" : 398,
+      "sharedBufferReads" : 0
+    }
+  }, {
+    "phase" : "measured",
+    "iteration" : 5,
+    "candidateCount" : 20,
+    "successCount" : 20,
+    "failureCount" : 0,
+    "callElapsedNanos" : 306212300,
+    "wholeTurnElapsedNanos" : 306212300,
+    "throughputPerSecond" : 65.31416275570903,
+    "databaseCost" : {
+      "calls" : 149,
+      "totalExecutionTimeMs" : 4.594187,
+      "rows" : 96,
+      "sharedBufferHits" : 390,
+      "sharedBufferReads" : 0
+    }
+  } ],
+  "partialRuns" : [ ],
+  "runFailureExceptionType" : null,
+  "summary" : {
+    "minCallElapsedNanos" : 279552000,
+    "medianCallElapsedNanos" : 306212300,
+    "maxCallElapsedNanos" : 409908700,
+    "minWholeTurnElapsedNanos" : 279552000,
+    "medianWholeTurnElapsedNanos" : 306212300,
+    "maxWholeTurnElapsedNanos" : 409908700,
+    "minThroughputPerSecond" : 48.79135280612488,
+    "medianThroughputPerSecond" : 65.31416275570903,
+    "maxThroughputPerSecond" : 71.54304029304029,
+    "minDatabaseExecutionTimeMs" : 4.594187,
+    "medianDatabaseExecutionTimeMs" : 4.687333999999999,
+    "maxDatabaseExecutionTimeMs" : 4.9469590000000006
+  }
+}

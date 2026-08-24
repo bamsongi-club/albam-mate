@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "kind": "search-04-search-candidate-comparison",
+  "status": "pending-human-judgement",
+  "queryCount": 30,
+  "evaluation": {
+    "topK": 20,
+    "candidatePoolSha256": "22cba9cb32fb2e00b5b9c76054fd3a7ecdc767a432b30b3c060674201a47f0ec"
+  },
+  "blockingReasons": [
+    "독립 human qrels가 approved 상태가 아닙니다."
+  ],
+  "hybrid": {
+    "rule": "rrf",
+    "rrfK": 60,
+    "status": "pending-human-judgement"
+  },
+  "selection": {
+    "status": "pending-human-judgement",
+    "selectedMethod": null
+  },
+  "provenance": {
+    "approvalReference": "https://github.com/bamsongi-club/albam-mate/issues/885#issuecomment-5344383511",
+    "candidates": [
+      {
+        "name": "lexical",
+        "sourcePullRequest": 884,
+        "queryFixture": {
+          "path": "search-candidate-comparison/semantic-30-queries.json",
+          "sha256": "84522f97b196d12db33b082fc26529218555b9408a973e6b6da3577587387142"
+        },
+        "results": {
+          "path": "search-candidate-comparison/semantic-30-lexical-results.json",
+          "sha256": "52c3a4c8d8bb834bf12eebe999f76cd5aa7b7a78827500db4626ca4ee920eec8"
+        }
+      },
+      {
+        "name": "sparse",
+        "sourcePullRequest": 884,
+        "queryFixture": {
+          "path": "search-candidate-comparison/semantic-30-queries.json",
+          "sha256": "84522f97b196d12db33b082fc26529218555b9408a973e6b6da3577587387142"
+        },
+        "results": {
+          "path": "search-candidate-comparison/semantic-30-sparse-results.json",
+          "sha256": "839b30f7e845b4a1af8b7750b01c36a7c3b63e4cedf10af0cff4456309eac26f"
+        }
+      },
+      {
+        "name": "dense-bge-m3",
+        "sourcePullRequest": 878,
+        "queryFixture": {
+          "path": "search-candidate-comparison/semantic-30-queries.json",
+          "sha256": "84522f97b196d12db33b082fc26529218555b9408a973e6b6da3577587387142"
+        },
+        "results": {
+          "path": "search-candidate-comparison/semantic-30-dense-results.json",
+          "sha256": "d156b0b9d1982bd383acd8b197502b2867b07f4e671f29b3f3906f98a29f7783"
+        }
+      }
+    ],
+    "inputContract": {
+      "path": "search-candidate-comparison/semantic-30-dense-input-contract.json",
+      "sha256": "6bfa028232c531e80db6f3fdc4d74708c4641d450e724301af684142091c70ca"
+    },
+    "judgementPacket": {
+      "path": "search-candidate-comparison/semantic-30-human-judgement-packet.json",
+      "sha256": "cac1a01307e44a174001ec84a0e8eff2b40cab2ccb61a1e522ac73aa7c2f615f"
+    }
+  }
+}

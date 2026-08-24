@@ -1,0 +1,33 @@
+# Platform ADR
+
+애플리케이션 구조, Java·Spring, 데이터베이스, 시간과 공통 식별자처럼 여러 도메인에 걸치는 백엔드 기반 결정을 찾는 인덱스다. 작성·상태·전역 번호 규칙은 [루트 ADR README](../README.md)를 따른다.
+
+## ADR 목록
+
+| 번호 | 제목 | 상태 | 결정일 | 검증 |
+| --- | --- | --- | --- | --- |
+| [0001](0001-java-21-spring-boot-4-baseline.md) | Java 21과 Spring Boot 4를 백엔드 기준선으로 채택 | 승인됨 | 2026-07-23 | 검증됨 |
+| [0002](0002-postgresql-primary-database.md) | PostgreSQL을 주 데이터베이스로 채택 | 승인됨 | 2026-07-23 | 검증됨 |
+| [0006](0006-p0-bigint-identity-ids.md) | P0 내부 식별자에 BIGINT 자동 증가 키를 사용 | 승인됨 | 2026-07-24 | 검증됨 |
+| [0007](0007-domain-centered-modular-monolith.md) | 도메인 중심 모듈러 모놀리스를 채택 | 승인됨 | 2026-07-24 | 검증됨 |
+| [0008](0008-flyway-database-migrations.md) | Flyway SQL 마이그레이션으로 데이터베이스 스키마를 관리 | 승인됨 | 2026-07-24 | 검증됨 |
+| [0009](0009-utc-time-standard.md) | 시스템 기준 시각을 UTC로 통일 | 승인됨 | 2026-07-24 | 미검증 |
+| [0010](0010-h2-postgresql-test-boundary.md) | H2와 PostgreSQL의 테스트 검증 경계를 분리 | 승인됨 | 2026-07-24 | 검증됨 |
+| [0016](0016-p0-update-api-http-method.md) | P0 수정 API의 HTTP 메서드를 PATCH로 통일 | 대체됨 | 2026-07-27 | 미검증 |
+| [0017](0017-test-coverage-branch-ratchet.md) | 테스트 커버리지를 분기 기준으로 측정하고 회귀 방지선으로 운영 | 승인됨 | 2026-07-28 | 검증됨 |
+| [0021](0021-p0-aws-ec2-rds-deployment-baseline.md) | P0 AWS EC2와 RDS 배포 기준선 | 승인됨 | 2026-07-28 | 미검증 |
+| [0022](0022-p0-update-api-http-method-and-finish-idempotency.md) | P0 수정 API에 PATCH를 유지하고 방 종료 명령을 멱등 처리 | 대체됨 | 2026-07-28 | 검증됨 |
+| [0023](0023-p0-flyway-baseline-reset-player-count-stages.md) | P0 Flyway 기준선을 재생성하고 인원 의미를 단계별 컬럼으로 분리 | 승인됨 | 2026-07-28 | 검증됨 |
+| [0024](0024-naver-java-format-and-project-checkstyle.md) | 네이버 Java 포맷과 프로젝트 Checkstyle로 컨벤션을 자동화 | 승인됨 | 2026-07-31 | 검증됨 |
+| [0038](0038-multi-instance-session-and-scheduler-coordination.md) | 다중 인스턴스의 공용 세션과 스케줄 실행을 공유 인프라로 조정 | 승인됨 | 2026-08-01 | 미검증 |
+| [0047](0047-http-method-and-target-state-idempotency.md) | 수정·관계 설정 API의 HTTP 메서드와 방 종료 멱등성을 확정 | 승인됨 | 2026-08-04 | 검증됨 |
+| [0051](0051-p1-self-managed-aws-infrastructure.md) | P1 저비용 4 EC2 자체 운영 인프라와 Nginx 진입점 | 승인됨 | 2026-08-06 | 미검증 |
+| [0052](0052-local-profile-multi-instance-default.md) | `local` 프로필을 다중 인스턴스 기본 검증 환경으로 통합 | 승인됨 | 2026-08-07 | 검증됨 |
+| [0059](0059-p2-structured-stdout-cloudwatch-logs.md) | P2 구조화 애플리케이션 로그를 CloudWatch Logs에 전송 | 승인됨 | 2026-08-13 | 미검증 |
+| [0071](0071-p2-application-metrics-otlp-host-cloudwatch-agent.md) | P2 애플리케이션 메트릭을 동일 호스트 CloudWatch Agent로 OTLP 전송 | 승인됨 | 2026-08-13 | 미검증 |
+| [0073](0073-profile-image-shared-object-storage.md) | 프로필 이미지 저장소를 다중 인스턴스 공용 객체 스토리지(S3)로 전환 | 제안됨 | 미정 | 미검증 |
+| [0074](0074-p2-ai-provider-consent-and-operation-boundary.md) | P2 AI provider·동의·운영 경계를 단일 port와 fail-closed 정책으로 고정 | 승인됨 | 2026-08-18 | 미검증 |
+| [0084](0084-github-actions-develop-p1-continuous-deployment.md) | develop 기준 P1 GitHub Actions 연속 배포 경계 | 승인됨 | 2026-08-20 | 미검증 |
+| [0085](0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md) | P2 AI 호출 quota·고정 예약 비용과 정확 게임명 직접 조회 | 승인됨 | 2026-08-21 | 미검증 |
+| [0089](0089-p2-ai-openai-default-retention-and-smoke-gate.md) | P2 OpenAI 기본 보존 수용과 실제 smoke gate | 승인됨 | 2026-08-22 | 미검증 |
+| [0090](0090-p2-app-t4g-small-and-1gib-memory.md) | P2 App 계층을 t4g.small로 상향하고 Spring 컨테이너 한도를 1GiB로 설정 | 승인됨 | 2026-08-23 | 검증됨 |

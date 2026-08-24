@@ -1,0 +1,17 @@
+# 프론트엔드 작업 안내
+
+이 파일은 `frontend/**`에만 적용된다. P2 신규·변경 작업의 제품 범위는 [P2 공통 명세](../docs/P2-spec.md)와 해당 [P2 기능 문서](../docs/p2/README.md)를 따른다. [P0·P1 아카이브](../docs/archive/README.md)는 기존 동작의 배경·회귀 확인에만 사용하고 새 구현 범위의 정본으로 사용하지 않는다. 기능의 현재 제공 여부는 [P2 기능 상태](../docs/p2/README.md#기능별-현재-상태), 요청·응답·인증·CSRF는 [API 명세](../docs/API.md)를 따른다.
+
+## API 호출
+
+- 모든 백엔드 호출은 `src/api.js`를 경유한다. 화면과 컴포넌트에서 `fetch`를 직접 호출하지 않는다.
+- 상태 변경은 `src/api.js`의 `mutate`로 `GET /api/auth/csrf` 응답의 `headerName`과 `token`을 전달한다. 로그인·로그아웃 뒤 토큰 무효화·재조회를 우회하지 않는다.
+- 배포는 same-site와 상대 경로 `/api`를 기준으로 한다. cross-origin 호출은 [API 인증·세션·CSRF 계약](../docs/API.md#12-인증세션csrf), [ADR-0003](../docs/adr/auth/0003-p0-server-session-spring-security.md#결정), [ADR-0021](../docs/adr/platform/0021-p0-aws-ec2-rds-deployment-baseline.md#결정)의 변경이 승인되어 정본에 반영되기 전에는 구현하지 않는다.
+- 같은 사이트의 API 경로 접두사는 빌드 환경의 `VITE_API_BASE_PATH`로 지정한다. `/service`이면 `/api`를 `/service/api`로 보낸다.
+
+## 실행과 산출물
+
+- Vite 7이 요구하는 Node.js 20.19 이상 또는 22.12 이상을 사용한다. Node.js 21과 22.0~22.11은 사용하지 않는다.
+- `npm install`과 `npm run dev`, `npm run build`, `npm run preview`를 사용한다. Windows PowerShell에서는 `npm`을 `npm.cmd`로 바꾼다.
+- 개발 서버는 `/api`를 기본적으로 `http://localhost:8080`에 프록시한다. 다른 로컬 백엔드는 추적하지 않는 `.env.local`의 `VITE_API_PROXY_TARGET`으로 지정한다.
+- `dist/`는 생성 산출물이며 추적하지 않는다.

@@ -1,0 +1,139 @@
+# P0 인증·프로필 구현 명세
+
+이 문서는 P0의 CSRF, 회원가입, 로그인·로그아웃, 내 프로필을 독립적으로 구현·검증하기 위한 기준이다. 전체 범위와 공통 규칙은 [P0 명세](P0-spec.md), 통신·저장 세부 계약은 각 기능의 구현 컨텍스트에서 연결한다.
+
+필수 ADR의 현재 승인·검증 상태는 [Auth ADR](../../adr/auth/README.md)과 [Platform ADR](../../adr/platform/README.md) 인덱스에서 확인하고, 구현 근거는 각 개별 ADR의 `검증` 절에서 확인한다.
+
+## AUTH-01 CSRF 토큰 조회
+
+### 구현 컨텍스트
+
+| 구분 | 정본 |
+| --- | --- |
+| API 계약 | [CSRF 토큰 조회](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/API.md#auth-01-csrf-토큰-조회) |
+| 공통 규칙 | [권한과 공개 범위](P0-spec.md#권한과-공개-범위) |
+| 데이터 모델 | 사용자 영속 데이터는 [USERS](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/ERD.md#users)를 따르며 CSRF 토큰과 세션은 ERD 저장 대상이 아니다. |
+| 필수 ADR | [ADR-0003: 서버 세션과 Spring Security 기반 인증](../../adr/auth/0003-p0-server-session-spring-security.md) |
+
+### 기능 규칙
+
+- 비로그인 사용자도 CSRF 토큰을 조회할 수 있다.
+- 상태 변경 요청은 API 명세가 정한 CSRF 쿠키와 헤더를 함께 전달한다.
+- 로그인·로그아웃처럼 인증 상태가 바뀌면 기존 토큰을 재사용하지 않고 새 토큰을 조회한다.
+
+### 완료 기준
+
+- `AUTH-01-AC1` 비로그인 조회가 서버 인증 세션을 생성하지 않고 CSRF 쿠키와 헤더에 사용할 토큰 정보를 반환한다.
+- `AUTH-01-AC2` 유효한 CSRF 토큰이 없는 상태 변경 요청은 [API 오류 계약](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/API.md#9-오류-코드)에 따라 거절된다.
+- `AUTH-01-AC3` 로그인·로그아웃 전의 토큰은 인증 상태가 바뀐 뒤 사용할 수 없다.
+
+### 제외 범위
+
+- CSRF 보호 비활성화
+- 교차 사이트 배포를 위한 별도 쿠키·CORS 정책
+- 클라이언트별로 다른 CSRF 전달 방식
+
+## AUTH-02 회원가입
+
+### 구현 컨텍스트
+
+| 구분 | 정본 |
+| --- | --- |
+| API 계약 | [회원가입](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/API.md#auth-02-회원가입) |
+| 공통 규칙 | [권한과 공개 범위](P0-spec.md#권한과-공개-범위) |
+| 데이터 모델 | [USERS](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/ERD.md#users), [USERS DB 제약](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/ERD.md#db-제약) |
+| 필수 ADR | [ADR-0003: 서버 세션과 Spring Security 기반 인증](../../adr/auth/0003-p0-server-session-spring-security.md), [ADR-0013: 비밀번호 저장과 인증 요청 제한](../../adr/auth/0013-p0-password-storage-auth-request-protection.md) |
+
+### 기능 규칙
+
+- 사용자는 이메일, 비밀번호, 닉네임으로 가입한다.
+- 회원가입은 계정만 생성하며 로그인 상태로 전환하지 않는다.
+- 입력값과 이메일 중복의 판정·오류는 API 명세를 따른다.
+- 이메일은 API 계약에 따라 정규화한 값을 저장·조회하고, 비밀번호 원문은 정규화하거나 잘라내지 않는다.
+- 비밀번호는 [ADR-0013](../../adr/auth/0013-p0-password-storage-auth-request-protection.md)의 저장 계약에 따라 단방향 해시한 값만 저장한다.
+- 회원가입 요청 횟수와 동시 비밀번호 해시 작업은 API의 인증 요청 남용 제한을 따른다.
+
+### 완료 기준
+
+- `AUTH-02-AC1` 유효한 입력으로 가입하면 사용자 계정이 생성되고 공개 가능한 사용자 요약이 반환된다.
+- `AUTH-02-AC2` 중복 이메일과 잘못된 입력은 [회원가입 오류 계약](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/API.md#auth-02-회원가입)에 따라 거절된다.
+- `AUTH-02-AC3` 가입 성공 뒤에도 보호 API는 로그인하기 전까지 사용할 수 없다.
+- `AUTH-02-AC4` 비밀번호와 인증 정보는 응답에 노출되지 않는다.
+- `AUTH-02-AC5` 저장된 비밀번호 값은 원문과 다르고 알고리즘 식별자를 포함하며, 원문 비교가 아니라 해시 검증으로만 인증된다.
+- `AUTH-02-AC6` 같은 비밀번호로 가입한 서로 다른 사용자의 저장 해시는 고유 salt 때문에 서로 달라야 한다.
+- `AUTH-02-AC7` Unicode code point 수 또는 UTF-8 72바이트 한도를 넘는 비밀번호는 입력 오류로 거절하고 자동으로 잘라내지 않는다.
+- `AUTH-02-AC8` 동일 원격 IP의 회원가입 한도나 애플리케이션 인스턴스의 동시 비밀번호 해시 한도를 넘으면 요청을 거절한다. 해시·사용자 생성 없이 `RATE_LIMIT_EXCEEDED`와 `Retry-After`를 반환한다.
+
+### 제외 범위
+
+- 회원가입과 동시에 자동 로그인
+- 외부 소셜 로그인과 외부 신원 연동
+- 이메일 인증과 계정 복구
+
+## AUTH-03 로그인·로그아웃
+
+### 구현 컨텍스트
+
+| 구분 | 정본 |
+| --- | --- |
+| API 계약 | [로그인·로그아웃](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/API.md#auth-03-로그인) |
+| 공통 규칙 | [권한과 공개 범위](P0-spec.md#권한과-공개-범위) |
+| 데이터 모델 | [USERS](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/ERD.md#users) |
+| 필수 ADR | [ADR-0003: 서버 세션과 Spring Security 기반 인증](../../adr/auth/0003-p0-server-session-spring-security.md), [ADR-0013: 비밀번호 저장과 인증 요청 제한](../../adr/auth/0013-p0-password-storage-auth-request-protection.md) |
+| 시간 기준 | [ADR-0009: UTC 저장과 서비스 시간대 변환](../../adr/platform/0009-utc-time-standard.md) |
+
+### 기능 규칙
+
+- 인증은 Bearer Token이 아닌 서버 세션을 사용한다.
+- 로그인 성공 시 세션 식별자를 교체하고 인증 세션을 설정한다.
+- 로그아웃은 서버 세션과 인증 상태를 무효화한다.
+- 로그인·로그아웃 뒤에는 [AUTH-01](#auth-01-csrf-토큰-조회)에 따라 CSRF 토큰을 다시 조회한다.
+- 로그인 요청 횟수와 실패 횟수, 동시 비밀번호 해시 작업은 API의 인증 요청 남용 제한을 따른다.
+
+### 완료 기준
+
+- `AUTH-03-AC1` 올바른 자격증명으로 로그인하면 세션 식별자가 교체되고 보호 API를 사용할 수 있다.
+- `AUTH-03-AC2` 잘못된 자격증명은 [로그인 오류 계약](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/API.md#auth-03-로그인)에 따라 거절된다.
+- `AUTH-03-AC3` 회원가입과 같은 이메일 정규화 뒤 저장된 해시로 비밀번호를 검증한다.
+- `AUTH-03-AC4` 존재하지 않는 이메일도 [ADR-0013](../../adr/auth/0013-p0-password-storage-auth-request-protection.md)에 따라 계정 유무로 빠른 실패 경로를 만들지 않는다.
+- `AUTH-03-AC5` 이전 bcrypt cost의 올바른 비밀번호로 로그인하면 현재 cost로 재저장하고, 저장 해시가 현재 cost이거나 비밀번호가 틀리면 저장값을 변경하지 않는다.
+- `AUTH-03-AC6` 원격 IP와 정규화 이메일·원격 IP 조합의 제한 경계에서 `RATE_LIMIT_EXCEEDED`와 `Retry-After`를 반환한다. 동일 조합의 동시 로그인은 실패 횟수 5회를 초과하지 않으며, 성공한 로그인은 해당 조합의 실패 횟수를 초기화한다.
+- `AUTH-03-AC7` 로그아웃 뒤 기존 세션으로 보호 API를 호출하면 인증되지 않은 요청으로 처리된다.
+- `AUTH-03-AC8` 세션 만료 시각은 UTC 기준으로 저장·비교된다.
+
+### 제외 범위
+
+- JWT·Refresh Token 인증
+- 서버 세션과 JWT의 혼합 인증
+- 다중 인스턴스 세션 공유 방식
+
+## AUTH-04 내 프로필 조회·수정
+
+### 구현 컨텍스트
+
+| 구분 | 정본 |
+| --- | --- |
+| API 계약 | [내 프로필 조회·수정](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/API.md#auth-04-내-프로필-조회) |
+| 공통 규칙 | [권한과 공개 범위](P0-spec.md#권한과-공개-범위) |
+| 데이터 모델 | [USERS](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/ERD.md#users) |
+| 필수 ADR | [ADR-0003: 서버 세션과 Spring Security 기반 인증](../../adr/auth/0003-p0-server-session-spring-security.md), [ADR-0022: 수정 API HTTP 메서드와 종료 멱등성](../../adr/platform/0022-p0-update-api-http-method-and-finish-idempotency.md) |
+
+### 기능 규칙
+
+- 인증된 사용자는 자신의 프로필만 조회·수정한다.
+- P0 프로필의 수정 대상은 닉네임뿐이다.
+- 프로필 응답에는 이메일, 비밀번호, 세션과 인증 정보를 포함하지 않는다.
+
+### 완료 기준
+
+- `AUTH-04-AC1` 로그인한 사용자가 자신의 사용자 요약을 조회할 수 있다.
+- `AUTH-04-AC2` 유효한 닉네임으로 수정하면 이후 조회에 변경값이 반영된다.
+- `AUTH-04-AC3` 닉네임은 API 계약에 따라 앞뒤 공백 제거 뒤 1~50자로 저장된다.
+- `AUTH-04-AC4` 비로그인 요청은 [프로필 조회 오류](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/API.md#auth-04-내-프로필-조회), 잘못된 닉네임은 [프로필 수정 오류](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/API.md#auth-04-내-프로필-수정)에 따라 거절된다.
+- `AUTH-04-AC5` 다른 사용자의 프로필을 조회하거나 수정하는 P0 경로가 노출되지 않는다.
+
+### 제외 범위
+
+- 다른 사용자의 공개 프로필 조회
+- 이메일·비밀번호 변경
+- 프로필 이미지 등록·수정

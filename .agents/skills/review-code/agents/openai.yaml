@@ -1,0 +1,4 @@
+interface:
+  display_name: "Review Code"
+  short_description: "현재 diff·지정 파일·PR을 위험 관점별로 읽기 전용 리뷰합니다"
+  default_prompt: "$review-code로 현재 브랜치의 커밋된 diff를 일반 리뷰해줘."

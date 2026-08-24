@@ -1,0 +1,28 @@
+#!/bin/sh
+
+set -u
+
+repo_root=$(git rev-parse --show-toplevel) || exit 1
+cd "$repo_root" || exit 1
+
+if ! git diff --cached --check; then
+    printf '\nCommit blocked: staged files contain whitespace errors.\n' >&2
+    exit 1
+fi
+
+if [ "${OS:-}" = 'Windows_NT' ]; then
+    gradle_command='./gradlew.bat'
+else
+    case "$(uname -s)" in
+        CYGWIN* | MINGW* | MSYS*) gradle_command='./gradlew.bat' ;;
+        *) gradle_command='./gradlew' ;;
+    esac
+fi
+
+if ! "$gradle_command" conventionCheck --no-daemon; then
+    printf '\nCommit blocked: Java convention check failed.\n' >&2
+    printf 'Apply formatting, review Checkstyle reports, and run the check again:\n' >&2
+    printf '  %s spotlessApply\n' "$gradle_command" >&2
+    printf '  %s conventionCheck\n' "$gradle_command" >&2
+    exit 1
+fi

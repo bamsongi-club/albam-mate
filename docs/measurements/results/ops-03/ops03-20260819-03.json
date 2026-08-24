@@ -1,0 +1,70 @@
+{
+  "campaignId": "ops03-failure-anomaly-20260819",
+  "excludedRuns": [
+    {
+      "reason": "container ownership preflight rejected the official data image before fault injection",
+      "runId": "ops03-20260819-01"
+    },
+    {
+      "reason": "synthetic login probe did not satisfy the CSRF contract; recovery trap restored Redis",
+      "runId": "ops03-20260819-02"
+    }
+  ],
+  "limitations": [
+    "temporary AWS validation, not a persistent production deployment",
+    "timeout was covered by automated verification but not AWS fault injection",
+    "AI provider and Tool Calling were not deployed, so OPS-03-AC4 was not applicable",
+    "raw CloudWatch and teardown artifacts remain access-restricted and local-only"
+  ],
+  "reportDisposition": "included",
+  "run": {
+    "collectedAt": "2026-08-19T07:34:27Z",
+    "finishedAt": "2026-08-19T07:15:04Z",
+    "region": "ap-northeast-2",
+    "runId": "ops03-20260819-03",
+    "startedAt": "2026-08-19T06:57:29Z"
+  },
+  "schemaVersion": 1,
+  "source": {
+    "appMergeSha": "d317b5e60956e2f9a5fdc3e996bdcae9c551f32f",
+    "appPullRequest": 840,
+    "collectorInfraMergeSha": "c4bbea343b4e74b77fddc565679b5ed4a1834159",
+    "issue": 733,
+    "measurementInfraMergeSha": "be0f987134e755eb062591882e7c20dcfc727df5"
+  },
+  "status": "completed",
+  "teardown": {
+    "destroyedAt": "2026-08-19T07:43:19Z",
+    "nonTerminatedInstances": 0,
+    "remainingStackResources": 0,
+    "resourcesDestroyedByTerraform": 123,
+    "stackParametersDeleted": 9,
+    "status": "SUCCESS"
+  },
+  "verification": {
+    "alarm": {
+      "configuredCount": 10,
+      "representativeCycleCount": 5,
+      "requiredCategories": [
+        "http-5xx",
+        "redis-down",
+        "scheduler-failure"
+      ]
+    },
+    "automatedEvidenceArtifactSha256": "a8c3f36995fe1eedb5100965d20835116cd6f2b08c4092344d5327e259f8da18",
+    "automatedEvidencePayloadSha256": "bcb556a4d79044dd3ef3efbea1718cfcd8866be6b335d5fef26d382eef3dfeff",
+    "automatedEvidenceStatus": "VALID_AUTOMATED",
+    "logCounts": {
+      "http5xx": 1,
+      "logRejections": 0,
+      "redisDown": 2,
+      "redisRecovered": 2,
+      "schedulerFailures": 8
+    },
+    "privacy": {
+      "forbiddenFieldsDetected": 0,
+      "rawLogsCommitted": false
+    },
+    "snsWarningAndRecoveryReceived": true
+  }
+}

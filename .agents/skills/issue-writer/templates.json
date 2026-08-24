@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "templates": [
+    {
+      "id": "feature",
+      "enabled": true,
+      "template": ".github/ISSUE_TEMPLATE/feature.yml",
+      "titlePrefix": "[ID]",
+      "intent": "정본 기능 명세의 한 단위 또는 독립적으로 구현·검증 가능한 기능 슬라이스",
+      "signals": ["기능", "구현", "API", "feat", "완료 기준"],
+      "labels": ["feature"]
+    },
+    {
+      "id": "bug",
+      "enabled": true,
+      "template": ".github/ISSUE_TEMPLATE/bug.yml",
+      "titlePrefix": "[BUG]",
+      "intent": "기존 동작이 기대와 다르거나 회귀한 문제의 재현·수정·검증",
+      "signals": ["버그", "오류", "재현", "회귀", "bug"],
+      "labels": ["bug"]
+    },
+    {
+      "id": "refactor",
+      "enabled": true,
+      "template": ".github/ISSUE_TEMPLATE/refactor.yml",
+      "titlePrefix": "[REFACTOR]",
+      "intent": "API·DB·업무 동작을 바꾸지 않는 패키지·구조·가독성·유지보수성 개선",
+      "signals": ["리팩터링", "구조", "패키지", "이동", "정리", "refactor"],
+      "labels": ["refactor"]
+    },
+    {
+      "id": "docs",
+      "enabled": true,
+      "template": ".github/ISSUE_TEMPLATE/docs.yml",
+      "titlePrefix": "[DOCS]",
+      "intent": "정본·가이드·운영 문서의 신규 작성 또는 갱신. 문서의 책임·해석·공개 계약 자체를 새로 결정하지 않는 작업",
+      "signals": ["문서", "문서화", "README", "가이드", "docs"],
+      "labels": ["docs"]
+    },
+    {
+      "id": "decision",
+      "enabled": true,
+      "template": ".github/ISSUE_TEMPLATE/decision.yml",
+      "titlePrefix": "[DECISION]",
+      "intent": "정본 충돌·공개 계약 변경처럼 구현 전에 팀 결정과 정본 반영이 필요한 사항",
+      "signals": ["결정", "정본 충돌", "컨벤션", "공개 계약", "decision"],
+      "labels": ["DECISION_NEEDED"]
+    }
+  ]
+}

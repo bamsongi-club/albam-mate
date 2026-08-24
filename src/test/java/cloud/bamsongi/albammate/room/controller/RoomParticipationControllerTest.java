@@ -1,0 +1,273 @@
+package cloud.bamsongi.albammate.room.controller;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.AuthorityUtils;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
+
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
+import cloud.bamsongi.albammate.global.config.SecurityConfig;
+import cloud.bamsongi.albammate.global.exception.BusinessException;
+import cloud.bamsongi.albammate.global.exception.ErrorCode;
+import cloud.bamsongi.albammate.global.exception.GlobalExceptionHandler;
+import cloud.bamsongi.albammate.global.security.currentuser.CurrentUserPrincipal;
+import cloud.bamsongi.albammate.global.security.currentuser.SecurityContextCurrentUserAccessor;
+import cloud.bamsongi.albammate.global.security.error.ApiAccessDeniedHandler;
+import cloud.bamsongi.albammate.global.security.error.ApiAuthenticationEntryPoint;
+import cloud.bamsongi.albammate.global.security.error.SecurityErrorResponseWriter;
+import cloud.bamsongi.albammate.room.dto.RoomParticipationResponse;
+import cloud.bamsongi.albammate.room.enums.ParticipationStatus;
+import cloud.bamsongi.albammate.room.enums.RoomStatus;
+import cloud.bamsongi.albammate.room.service.command.RoomParticipationCancelService;
+import cloud.bamsongi.albammate.room.service.command.RoomParticipationService;
+
+@WebMvcTest(controllers = RoomParticipationController.class)
+@Import({
+	SecurityConfig.class,
+	ApiAccessDeniedHandler.class,
+	ApiAuthenticationEntryPoint.class,
+	SecurityErrorResponseWriter.class,
+	GlobalExceptionHandler.class,
+	SecurityContextCurrentUserAccessor.class,
+	RoomParticipationControllerTest.TestBeans.class
+})
+class RoomParticipationControllerTest {
+
+	@Autowired
+	private MockMvc mockMvc;
+	@Autowired
+	private RoomParticipationService roomParticipationService;
+	@Autowired
+	private RoomParticipationCancelService roomParticipationCancelService;
+
+	@Test
+	void 인증없는_방_참가는_UNAUTHENTICATED다() throws Exception {
+		clearInvocations(roomParticipationService);
+
+		mockMvc.perform(post("/api/rooms/1/participants"))
+			.andExpect(status().isUnauthorized())
+			.andExpect(jsonPath("$.code").value(ErrorCode.UNAUTHENTICATED.getCode()));
+
+		verifyNoInteractions(roomParticipationService);
+	}
+
+	@Test
+	void 인증만_있는_방_참가는_CSRF_TOKEN_INVALID이다() throws Exception {
+		clearInvocations(roomParticipationService);
+
+		mockMvc.perform(post("/api/rooms/1/participants").with(authenticationFor(42L)))
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.code").value(ErrorCode.CSRF_TOKEN_INVALID.getCode()));
+
+		verifyNoInteractions(roomParticipationService);
+	}
+
+	@Test
+	void 인증과_CSRF가_있는_본문없는_방_참가는_201_응답_봉투를_반환한다() throws Exception {
+		when(roomParticipationService.participate(42L, 1L))
+			.thenReturn(
+				new RoomParticipationResponse(
+					1L, ParticipationStatus.ACTIVE, RoomStatus.CLOSED, 4, 0));
+
+		mockMvc.perform(post("/api/rooms/1/participants").with(csrf()).with(authenticationFor(42L)))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.status").value(201))
+			.andExpect(jsonPath("$.data.roomId").value(1))
+			.andExpect(jsonPath("$.data.participationStatus").value("ACTIVE"))
+			.andExpect(jsonPath("$.data.roomStatus").value("CLOSED"))
+			.andExpect(jsonPath("$.data.participantCount").value(4))
+			.andExpect(jsonPath("$.data.remainingRecruitmentSeats").value(0));
+	}
+
+	@Test
+	void 성공_참가는_민감한_응답_정보없이_INFO_로그를_한번_남긴다() throws Exception {
+		when(roomParticipationService.participate(42L, 1L))
+			.thenReturn(new RoomParticipationResponse(
+				1L, ParticipationStatus.ACTIVE, RoomStatus.CLOSED, 4, 0));
+		ListAppender<ILoggingEvent> appender = attachLogAppender();
+		try {
+			mockMvc.perform(post("/api/rooms/1/participants").with(csrf()).with(authenticationFor(42L)))
+				.andExpect(status().isCreated());
+
+			assertEquals(1, appender.list.size());
+			ILoggingEvent event = appender.list.getFirst();
+			assertEquals(Level.INFO, event.getLevel());
+			assertTrue(event.getFormattedMessage().contains("event=room_participation_created"));
+			assertTrue(event.getFormattedMessage().contains("roomId=1"));
+			assertTrue(event.getFormattedMessage().contains("actorUserId=42"));
+			assertTrue(event.getFormattedMessage().contains("roomStatus=CLOSED"));
+			assertTrue(!event.getFormattedMessage().contains("participationStatus"));
+		} finally {
+			detachLogAppender(appender);
+		}
+	}
+
+	@Test
+	void 인증없는_참가_취소는_UNAUTHENTICATED다() throws Exception {
+		clearInvocations(roomParticipationCancelService);
+
+		mockMvc.perform(delete("/api/rooms/1/participants/me"))
+			.andExpect(status().isUnauthorized())
+			.andExpect(jsonPath("$.code").value(ErrorCode.UNAUTHENTICATED.getCode()));
+
+		verifyNoInteractions(roomParticipationCancelService);
+	}
+
+	@Test
+	void 인증만_있는_참가_취소는_CSRF_TOKEN_INVALID다() throws Exception {
+		clearInvocations(roomParticipationCancelService);
+
+		mockMvc.perform(delete("/api/rooms/1/participants/me").with(authenticationFor(42L)))
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.code").value(ErrorCode.CSRF_TOKEN_INVALID.getCode()));
+
+		verifyNoInteractions(roomParticipationCancelService);
+	}
+
+	@Test
+	void 잘못된_CSRF_토큰_참가_취소는_CSRF_TOKEN_INVALID다() throws Exception {
+		clearInvocations(roomParticipationCancelService);
+
+		mockMvc.perform(
+			delete("/api/rooms/1/participants/me")
+				.with(authenticationFor(42L))
+				.with(csrf().useInvalidToken()))
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.code").value(ErrorCode.CSRF_TOKEN_INVALID.getCode()));
+
+		verifyNoInteractions(roomParticipationCancelService);
+	}
+
+	@Test
+	void 인증과_CSRF가_있는_참가_취소는_200_응답_봉투를_반환한다() throws Exception {
+		when(roomParticipationCancelService.cancelParticipation(42L, 1L))
+			.thenReturn(
+				new RoomParticipationResponse(
+					1L, ParticipationStatus.CANCELED, RoomStatus.RECRUITING, 1, 2));
+
+		mockMvc.perform(
+			delete("/api/rooms/1/participants/me")
+				.with(authenticationFor(42L))
+				.with(csrf()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.status").value(200))
+			.andExpect(jsonPath("$.data.roomId").value(1))
+			.andExpect(jsonPath("$.data.participationStatus").value("CANCELED"))
+			.andExpect(jsonPath("$.data.roomStatus").value("RECRUITING"))
+			.andExpect(jsonPath("$.data.participantCount").value(1))
+			.andExpect(jsonPath("$.data.remainingRecruitmentSeats").value(2));
+
+		verify(roomParticipationCancelService).cancelParticipation(42L, 1L);
+	}
+
+	@Test
+	void 성공_참가_취소는_민감한_응답_정보없이_INFO_로그를_한번_남긴다() throws Exception {
+		when(roomParticipationCancelService.cancelParticipation(42L, 1L))
+			.thenReturn(new RoomParticipationResponse(
+				1L, ParticipationStatus.CANCELED, RoomStatus.RECRUITING, 1, 2));
+		ListAppender<ILoggingEvent> appender = attachLogAppender();
+		try {
+			mockMvc.perform(
+				delete("/api/rooms/1/participants/me")
+					.with(authenticationFor(42L))
+					.with(csrf()))
+				.andExpect(status().isOk());
+
+			assertEquals(1, appender.list.size());
+			ILoggingEvent event = appender.list.getFirst();
+			assertEquals(Level.INFO, event.getLevel());
+			assertTrue(event.getFormattedMessage().contains("event=room_participation_canceled"));
+			assertTrue(event.getFormattedMessage().contains("roomId=1"));
+			assertTrue(event.getFormattedMessage().contains("actorUserId=42"));
+			assertTrue(event.getFormattedMessage().contains("roomStatus=RECRUITING"));
+			assertTrue(!event.getFormattedMessage().contains("participationStatus"));
+		} finally {
+			detachLogAppender(appender);
+		}
+	}
+
+	@Test
+	void 주최자_참가_취소는_FORBIDDEN_응답_봉투를_반환한다() throws Exception {
+		when(roomParticipationCancelService.cancelParticipation(42L, 1L))
+			.thenThrow(new BusinessException(ErrorCode.FORBIDDEN));
+
+		mockMvc.perform(
+			delete("/api/rooms/1/participants/me")
+				.with(authenticationFor(42L))
+				.with(csrf()))
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.status").value(403))
+			.andExpect(jsonPath("$.code").value(ErrorCode.FORBIDDEN.getCode()));
+	}
+
+	@Test
+	void 양수가_아닌_방_ID는_VALIDATION_ERROR이고_서비스를_호출하지_않는다() throws Exception {
+		clearInvocations(roomParticipationCancelService);
+
+		mockMvc.perform(
+			delete("/api/rooms/0/participants/me")
+				.with(authenticationFor(42L))
+				.with(csrf()))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
+
+		verifyNoInteractions(roomParticipationCancelService);
+	}
+
+	private RequestPostProcessor authenticationFor(long userId) {
+		return authentication(
+			new UsernamePasswordAuthenticationToken(
+				new CurrentUserPrincipal(userId), null, AuthorityUtils.NO_AUTHORITIES));
+	}
+
+	private ListAppender<ILoggingEvent> attachLogAppender() {
+		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(RoomParticipationController.class);
+		ListAppender<ILoggingEvent> appender = new ListAppender<>();
+		appender.start();
+		logger.addAppender(appender);
+		return appender;
+	}
+
+	private void detachLogAppender(ListAppender<ILoggingEvent> appender) {
+		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(RoomParticipationController.class);
+		logger.detachAppender(appender);
+		appender.stop();
+	}
+
+	@TestConfiguration(proxyBeanMethods = false)
+	static class TestBeans {
+
+		@Bean
+		RoomParticipationService roomParticipationService() {
+			return Mockito.mock(RoomParticipationService.class);
+		}
+
+		@Bean
+		RoomParticipationCancelService roomParticipationCancelService() {
+			return Mockito.mock(RoomParticipationCancelService.class);
+		}
+	}
+}

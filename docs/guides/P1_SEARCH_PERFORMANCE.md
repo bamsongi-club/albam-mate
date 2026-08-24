@@ -1,0 +1,101 @@
+# P1 검색 성능 측정
+
+> **범위 구분:** 이 문서는 `SearchPerformancePostgresTest`가 유지하는 P1 2,000건 fixture와 `pg_trgm`·방 검색 후보 인덱스의 측정 경계를 기록한다. 현재 170,005건 `GET /api/games`의 Slice 계약·HTTP 기준선은 [게임 목록 #740 기준선](../measurements/game-list-740-baseline.md)을 따른다.
+
+## 고정 환경과 fixture
+
+- PostgreSQL `18.4` Testcontainers, UTC, `ANALYZE` 뒤 `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)`을 사용한다.
+- P1 fixture의 직접 SQL은 warm-up 1회 뒤 content·count 각각 `EXPLAIN` 5회 실행하고 개별값과 중앙값을 기록한다. 이어서 계획 수집용 `EXPLAIN`을 content·count마다 1회 더 실행해 planning/execution time 등 root 수집값을 남긴다. 이 count는 후보 인덱스 비교용이며, 현재 `GET /api/games`는 exact count 없이 size+1 Slice를 반환한다. HTTP 시간은 왕복·응답 조립을 포함하고, DB 시간은 해당 직접 SQL의 `Execution Time`을 별도로 기록한다. 시간에는 성공 상한을 두지 않는다.
+- 이 P1 fixture의 게임은 2,000건으로 고정한다. 플레이어 범위는 `1~1` 1건·`2~2` 1건·`1~10` 200건·`2~4` 1,798건, 최대 시간은 10분 100건·30분 300건·45/60/75/90분 각 400건, 복잡도는 2.00 1,600건·5.00 400건이다.
+- 공개 메커니즘은 189개, 관계는 13,263건이다. 게임별 관계 수는 0개 2건·6개 723건·7개 1,275건이며, 관계가 있는 게임은 1,998건으로 현재 품질 보고서 수치를 재현한다. 한 사용자의 해 본 게임은 500건(2,000건의 25%)이다.
+- 방 1,000건은 승인된 운영 규모가 없는 합성 fixture다. 유형은 `GAME_FOCUSED`·`PERSON_FOCUSED` 각 500건, 상태는 `RECRUITING` 200건·`CLOSED` 200건·`CANCELED` 300건·`FINISHED` 300건이다. 남은 자리 4 이상은 750건, 숙련도는 `BEGINNER_WELCOME` 333건·`ALL_LEVELS` 334건·`EXPERIENCED_PREFERRED` 333건, 룰마스터 진행은 500건이다.
+
+## 비교 방법과 2026-08-05 측정 snapshot
+
+`SearchPerformancePostgresTest`는 후보 인덱스를 제거한 기준선과 같은 fixture·SQL의 적용 후를 비교한다. P1 직접 SQL의 content ID·count와 목록 정렬, 게임 Slice의 `page`·`size`·`hasNext`가 같고 적용 후 자연 계획에 아래 인덱스가 나타날 때만 채택한다. 게임의 direct count는 현재 HTTP 요청 비용이나 응답 필드가 아니다.
+
+| 대표 content·count | 기준선/적용 후 수집 | 결론 |
+| --- | --- | --- |
+| 게임 `max_play_time_minutes <= 10`, `name ASC, id ASC` | planning/execution time, cost, actual rows·loops, rows removed, shared hit/read | 후보 측정 후 보류 |
+| 공개 방 `starts_at >= 2099-01-01T00:10:00Z`, `starts_at ASC, id ASC` | planning/execution time, cost, actual rows·loops, rows removed, shared hit/read | `idx_rooms_public_start_at_id` 채택 |
+
+2026-08-05 00:25 KST에 macOS arm64 Docker Desktop의 PostgreSQL 18.4 Testcontainers에서 재측정했다. 각 phase는 후보 인덱스 제거/재생성 뒤 `ANALYZE`, warm-up 1회, content·count별 timing `EXPLAIN` 5회와 계획 수집용 별도 `EXPLAIN` 1회다. 아래는 `content ms 배열 / 중앙값; count ms 배열 / 중앙값`이다.
+
+| 시나리오 | baseline | candidate-after |
+| --- | --- | --- |
+| game-unfiltered | `[1.246,2.242,1.708,2.413,1.853] / 1.853; [0.652,0.659,0.391,0.438,0.575] / 0.575` | `[1.078,1.395,1.178,1.492,1.043] / 1.178; [0.827,0.586,0.924,0.690,1.069] / 0.827` |
+| game-player | `[2.351,4.104,1.502,1.239,1.320] / 1.502; [0.620,0.756,2.093,0.777,1.022] / 0.777` | `[1.383,2.069,2.461,8.006,3.441] / 2.461; [0.988,1.664,1.172,1.508,0.938] / 1.172` |
+| game-time | `[0.895,0.506,0.924,0.488,0.488] / 0.506; [0.733,0.481,0.532,0.377,0.587] / 0.532` | `[0.433,0.942,11.690,0.270,0.311] / 0.433; [0.210,0.134,0.188,0.660,0.173] / 0.188` |
+| game-complexity | `[0.962,0.837,1.779,0.739,0.801] / 0.837; [0.416,0.533,0.773,0.516,1.251] / 0.533` | `[1.050,0.840,0.655,1.333,0.854] / 0.854; [0.536,0.889,0.874,0.656,1.879] / 0.874` |
+| game-mechanism-one | `[3.106,7.157,3.981,3.733,7.739] / 3.981; [2.313,5.249,4.162,3.538,6.636] / 4.162` | `[4.114,3.400,3.159,5.433,3.729] / 3.729; [3.167,2.908,6.358,2.514,2.428] / 2.908` |
+| game-mechanism-or | `[5.895,11.107,6.814,9.661,9.463] / 9.463; [7.590,5.605,14.098,4.689,4.287] / 5.605` | `[5.822,7.628,6.142,6.678,7.517] / 6.678; [8.395,3.680,11.206,5.696,4.071] / 5.696` |
+| game-played-only | `[1.688,1.140,1.190,1.303,2.635] / 1.303; [1.624,0.960,2.876,1.295,1.491] / 1.491` | `[2.652,2.434,1.283,1.386,1.494] / 1.494; [1.260,1.926,3.358,1.495,1.045] / 1.495` |
+| game-exclude-played | `[8.827,5.885,3.399,4.724,3.284] / 4.724; [5.872,1.147,2.118,1.785,0.951] / 1.785` | `[2.967,4.679,4.319,1.978,1.957] / 2.967; [1.509,2.221,1.437,1.634,2.017] / 1.634` |
+| game-complex | `[1.105,1.302,20.932,13.412,5.056] / 5.056; [0.993,3.570,0.999,3.261,2.163] / 2.163` | `[1.107,0.783,0.765,0.947,1.188] / 0.947; [1.095,0.466,1.823,0.895,0.606] / 0.895` |
+| room-unfiltered | `[6.186,0.514,2.684,5.806,0.475] / 2.684; [0.703,7.669,0.882,0.346,0.514] / 0.703` | `[0.138,0.404,0.078,0.191,0.055] / 0.138; [0.374,0.442,1.142,0.313,0.356] / 0.374` |
+| room-type | `[1.472,8.961,0.680,1.750,17.902] / 1.750; [1.159,0.383,0.524,1.127,4.809] / 1.127` | `[0.124,0.080,0.105,1.284,2.367] / 0.124; [5.602,0.344,1.037,0.423,0.483] / 0.483` |
+| room-p1 | `[13.772,3.139,0.854,0.496,0.813] / 0.854; [6.369,1.201,0.579,3.757,2.857] / 2.857` | `[0.962,0.844,1.407,1.039,1.622] / 1.039; [0.467,0.548,0.390,4.552,44.197] / 0.548` |
+
+후보 계획의 root 수집값은 다음과 같다. 게임 후보는 `game-time` content/count 비용 `66.88/64.26`에서 `48.19/45.56`, 실행 `2.630/1.606ms`에서 `0.627/0.157ms`로 개선했다. 하지만 게임 무필터 count 중앙값은 `0.575ms`에서 `0.827ms`, player content/count는 `1.502/0.777ms`에서 `2.461/1.172ms`, `PLAYED_ONLY` content는 `1.303ms`에서 `1.494ms`로 악화됐다. 게임 후보는 전체 대표 경로에서 일관된 이득을 보장하지 않아 보류한다. `room-unfiltered` content는 비용 `45.85`에서 `4.48`, 실행 `0.911ms`에서 `0.072ms`, rows removed `600`에서 `0`, shared hit `22`에서 `3`으로 변했으며 actual rows·loops는 `25·1`이다. count는 부분 인덱스 선택도가 충분하지 않아 기존 plan을 유지했다.
+
+서비스 호출 5회 값은 baseline 게임 `[217.128,165.143,279.045,234.601,184.656]` 중앙값 `217.128ms`, 방 `[84.155,84.143,72.051,228.352,100.391]` 중앙값 `84.155ms`; 두 후보 적용 후 게임 `[198.405,1233.417,542.291,353.359,230.495]` 중앙값 `353.359ms`, 방 `[367.057,114.254,61.700,107.242,62.886]` 중앙값 `107.242ms`다. 이는 HTTP API 전체 시간이 아니다.
+
+실제 HTTP 왕복·Spring 응답 조립 시간은 RANDOM_PORT Java `HttpClient`로 익명 `GET /api/games?playTime=UP_TO_10&size=25`, `GET /api/rooms?startsAtFrom=2099-01-01T00:10:00Z&size=25`를 warm-up 1회 뒤 5회 측정했다. 두 후보 인덱스가 없는 baseline은 게임 `[87.631,150.896,156.646,67.303,72.273]` 중앙값 `87.631ms`, 방 `[59.942,58.255,61.504,66.542,66.774]` 중앙값 `61.504ms`다. 최종 채택 방 부분 인덱스만 있는 상태는 게임 `[152.840,157.708,764.675,175.009,181.055]` 중앙값 `175.009ms`, 방 `[116.041,200.842,192.343,309.898,119.748]` 중앙값 `192.343ms`다. 이 게임 값은 2026-08-05의 2,000건 Page 응답 snapshot이며 현재 Slice 기준선으로 사용하지 않는다. 순차 실행·JIT·캐시와 호스트 상태의 영향을 분리하지 않았으므로 이 값으로 인과나 제품 목표를 주장하지 않는다.
+
+로컬에서 재현하려면 다음을 실행한다.
+
+```sh
+docker version
+./gradlew postgresTest --tests 'cloud.bamsongi.albammate.search.SearchPerformancePostgresTest' --rerun --fail-fast
+```
+
+## 게임명 부분일치 검색
+
+- PostgreSQL 전용 V26은 `pg_trgm` extension과 `ix_games_name_lower_trgm` GIN 인덱스(`lower(name) gin_trgm_ops`)를 제공한다. 1·2글자는 기존 `lower(name) LIKE '%keyword%'` 부분일치만 적용하고, 3글자 이상은 부분일치 또는 `similarity(lower(name), lower(keyword)) >= 0.3` 오타 유사 결과를 조회한다. fuzzy 조회 직전에 서비스가 현재 PostgreSQL 연결의 `%` 후보 threshold를 `set_limit(0.3::real)`로 고정해 최종 유사도 경계와 일치시킨다.
+- 3글자 이상은 정확 일치·부분 일치를 먼저 두고 유사도 내림차순, `name ASC`, `id ASC`으로 정렬한다. 이 GIN 경로를 사용할 수 있으며, 1·2글자는 trgm 선택도가 낮을 수 있으므로 강제로 인덱스를 사용하지 않고 PostgreSQL planner의 기존 경로를 허용한다.
+- 게임명 데이터가 170,000건 이상으로 늘거나 이름 언어·중복도·검색어 길이 분포가 바뀌면, 같은 PostgreSQL 버전·`ANALYZE` 조건에서 1·2글자 부분일치와 3글자 이상 부분일치·`similarity >= 0.3` 대표 검색어의 P1 직접 SQL content·count `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)`을 재측정한다. 결과·전체 건수와 계획·실행 시간을 함께 비교해 hybrid 경계를 다시 판단한다. 이 count를 현재 게임 목록 API의 비용으로 해석하지 않는다.
+
+## SEARCH-04 sparse 후보 텍스트 인덱스
+
+P2의 `StructuredSparseCandidateSource`는 게임명·영문명·별칭과 설명을 후보 생성에 사용한다. PostgreSQL 전용 V39은 3글자 이상 token용 GIN trigram 인덱스와 1·2글자 substring을 위한 GIN bigram expression 인덱스를 제공하며, 이름 계열 predicate는 token 길이·column별 `UNION`으로 분리해 각 인덱스 경로를 보장한다.
+
+- `ix_games_english_name_lower_trgm` — `lower(english_name) gin_trgm_ops`
+- `ix_games_alias_lower_trgm` — `lower(alias) gin_trgm_ops`
+- `ix_games_description_lower_trgm` — `lower(description) gin_trgm_ops`
+- `ix_games_{name,english_name,alias,description}_lower_bigram` — `game_search_bigrams(column)` expression GIN
+
+승인된 170,005건 artifact에서 migration 전후 `EXPLAIN (ANALYZE, BUFFERS)`를 확인하고, 3글자 이상 대표 query와 2글자 대표 query의 candidate sparse 호출 5회 p50·p95·max가 공통 6초 deadline 안에 있는지 함께 측정한다. 이 artifact 측정은 P1 2,000건 fixture 및 기존 live evidence와 별도이며, 일반 CI에서 대규모 artifact 경로가 없으면 T5를 실행하지 않는다. 로컬 재현은 승인 artifact의 `01-games-full.sql` 경로를 지정한다.
+
+```sh
+ISSUE1053_FIXTURE=/path/to/approved/01-games-full.sql ./gradlew postgresMeasurementTest \
+  --tests 'cloud.bamsongi.albammate.infra.search.StructuredSparseCandidateSourcePostgresTest.T5_승인된_십칠만오건_fixture에서_migration_전후_sparse_실행계획과_육초_deadline을_측정한다' \
+  --rerun --fail-fast
+```
+
+T5는 `@Tag("measurement")`가 붙은 대용량 wall-clock 측정이므로 `postgresMeasurementTest`에서만 실행한다. V39의 일반 `CREATE INDEX` 적용 시간과 쓰기 잠금 경계는 같은 승인 fixture 측정 기록에 남기며, 이 수치는 production 무중단 보장을 의미하지 않는다.
+
+마이그레이션·검색 계약 회귀는 17만 건 성능 측정과 분리해 다음 명령으로 확인한다.
+
+```sh
+docker version
+./gradlew postgresTest \
+  --tests 'cloud.bamsongi.albammate.game.GameNameSearchIndexPostgresTest' \
+  --rerun --fail-fast
+
+./gradlew postgresTest \
+  --tests 'cloud.bamsongi.albammate.infra.search.StructuredSparseCandidateSourcePostgresTest' \
+  --rerun --fail-fast
+```
+
+첫 번째 명령은 기존 V26 게임명 검색 계약을, 두 번째 명령은 V39 sparse 후보의 migration·2글자/3글자 인덱스·점수·정렬·후보 상한·deadline 계약을 확인한다. 승인 artifact를 지정하지 않으면 T5 대규모 측정은 skip된다.
+
+## 보류 후보와 재측정
+
+- `idx_games_max_play_time_name_id`는 시간 단일 조건은 개선했지만 전체 대표 필터에서 안정적인 이득을 보이지 않아 보류한다.
+- player 범위(`min_players`, `max_players`)는 두 방향 범위 조건이라 현재 2,000건 분포에서 단일 B-tree 후보가 대표 조건을 안정적으로 줄이지 못해 보류한다.
+- `complexity` 단일 인덱스는 현재 20% 선택도에서 채택하지 않는다.
+- 메커니즘은 이미 `idx_game_mechanism_relations_mechanism_game`이 존재하므로 중복 인덱스를 만들지 않는다.
+- 해 본 게임은 `uq_user_played_games_user_game (user_id, game_id)`가 `PLAYED_ONLY`·`EXCLUDE_PLAYED` EXISTS 경로를 지원하므로 중복 인덱스를 만들지 않는다.
+- 방의 남은 자리 식과 title 부분 일치는 현재 B-tree 후보 대상이 아니다.
+
+게임이 2,000건을 크게 넘거나 시간·복잡도 선택도가 바뀌는 경우, 메커니즘 관계 밀도·해 본 게임 사용자별 선택도가 바뀌는 경우, 또는 공개 방 비율·날짜 범위·페이지 깊이가 바뀌는 경우 같은 fixture 비율과 SQL로 재측정한다.

@@ -1,0 +1,554 @@
+[
+  {
+    "id": "Q-001",
+    "query": "트릭테이킹 방식의 협력 게임 중 3인 이상 플레이 가능한 게임",
+    "cohorts": [
+      "exact/name variant",
+      "intent/description",
+      "intent+hard filter"
+    ],
+    "anchor": true,
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {
+      "minPlayers": 3
+    },
+    "expectedGameIds": [
+      284083,
+      324856,
+      98778,
+      244992,
+      173090,
+      429293,
+      290357,
+      287607,
+      150145,
+      358669
+    ],
+    "excludedGameIds": [
+      31260,
+      224517
+    ],
+    "expectedReasons": {
+      "98778": "Top 1,000 membership와 공개 catalog 필드를 바탕으로 만든 development seed 후보이며 독립 판정 전입니다.",
+      "150145": "Top 1,000 membership와 공개 catalog 필드를 바탕으로 만든 development seed 후보이며 독립 판정 전입니다.",
+      "173090": "Top 1,000 membership와 공개 catalog 필드를 바탕으로 만든 development seed 후보이며 독립 판정 전입니다.",
+      "244992": "Top 1,000 membership와 공개 catalog 필드를 바탕으로 만든 development seed 후보이며 독립 판정 전입니다.",
+      "284083": "Top 1,000 membership와 공개 catalog 필드를 바탕으로 만든 development seed 후보이며 독립 판정 전입니다.",
+      "287607": "Top 1,000 membership와 공개 catalog 필드를 바탕으로 만든 development seed 후보이며 독립 판정 전입니다.",
+      "290357": "Top 1,000 membership와 공개 catalog 필드를 바탕으로 만든 development seed 후보이며 독립 판정 전입니다.",
+      "324856": "Top 1,000 membership와 공개 catalog 필드를 바탕으로 만든 development seed 후보이며 독립 판정 전입니다.",
+      "358669": "Top 1,000 membership와 공개 catalog 필드를 바탕으로 만든 development seed 후보이며 독립 판정 전입니다.",
+      "429293": "Top 1,000 membership와 공개 catalog 필드를 바탕으로 만든 development seed 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "31260": "Top 1,000 안의 비교 제외 후보이며 독립 판정 전입니다.",
+      "224517": "Top 1,000 안의 비교 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "bgg-catalog-170k-v4-2026-08-19",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/SEARCH_04_CATALOG_DATASET_RELEASE.md",
+      "qualityCorpusReleaseId": "boardlife-quality-top1000-2026-08-19",
+      "qualityCorpusReference": "docs/p2/search-evaluation/quality-corpus.json"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-002",
+    "query": "4명이 모두 초보여도 쉽게 즐길 수 있는 재미있는 파티 게임",
+    "cohorts": [
+      "exact/name variant",
+      "intent/description",
+      "intent+hard filter"
+    ],
+    "anchor": true,
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {
+      "minPlayers": 4,
+      "maxPlayers": 4
+    },
+    "expectedGameIds": [
+      254640,
+      178900,
+      129622,
+      39856,
+      153016,
+      148228,
+      153938,
+      14996,
+      192291,
+      300905
+    ],
+    "excludedGameIds": [
+      31260,
+      224517
+    ],
+    "expectedReasons": {
+      "14996": "Top 1,000 membership와 공개 catalog 필드를 바탕으로 만든 development seed 후보이며 독립 판정 전입니다.",
+      "39856": "Top 1,000 membership와 공개 catalog 필드를 바탕으로 만든 development seed 후보이며 독립 판정 전입니다.",
+      "129622": "Top 1,000 membership와 공개 catalog 필드를 바탕으로 만든 development seed 후보이며 독립 판정 전입니다.",
+      "148228": "Top 1,000 membership와 공개 catalog 필드를 바탕으로 만든 development seed 후보이며 독립 판정 전입니다.",
+      "153016": "Top 1,000 membership와 공개 catalog 필드를 바탕으로 만든 development seed 후보이며 독립 판정 전입니다.",
+      "153938": "Top 1,000 membership와 공개 catalog 필드를 바탕으로 만든 development seed 후보이며 독립 판정 전입니다.",
+      "178900": "Top 1,000 membership와 공개 catalog 필드를 바탕으로 만든 development seed 후보이며 독립 판정 전입니다.",
+      "192291": "Top 1,000 membership와 공개 catalog 필드를 바탕으로 만든 development seed 후보이며 독립 판정 전입니다.",
+      "254640": "Top 1,000 membership와 공개 catalog 필드를 바탕으로 만든 development seed 후보이며 독립 판정 전입니다.",
+      "300905": "Top 1,000 membership와 공개 catalog 필드를 바탕으로 만든 development seed 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "31260": "Top 1,000 안의 비교 제외 후보이며 독립 판정 전입니다.",
+      "224517": "Top 1,000 안의 비교 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "bgg-catalog-170k-v4-2026-08-19",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/SEARCH_04_CATALOG_DATASET_RELEASE.md",
+      "qualityCorpusReleaseId": "boardlife-quality-top1000-2026-08-19",
+      "qualityCorpusReference": "docs/p2/search-evaluation/quality-corpus.json"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-003",
+    "query": "일꾼 놓기 게임 중 4인 플레이가 가능하고 플레이타임이 30분 이하인 게임",
+    "cohorts": [
+      "exact/name variant",
+      "intent/description",
+      "intent+hard filter"
+    ],
+    "anchor": true,
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {
+      "minPlayers": 4,
+      "maxPlayers": 4,
+      "maxPlayTimeMinutes": 30
+    },
+    "expectedGameIds": [
+      36811,
+      36218,
+      40834,
+      148228,
+      178900,
+      129622,
+      39856,
+      153016,
+      153938,
+      192291
+    ],
+    "excludedGameIds": [
+      174430,
+      224517
+    ],
+    "expectedReasons": {
+      "36218": "Top 1,000 membership와 공개 catalog 필드를 바탕으로 만든 development seed 후보이며 독립 판정 전입니다.",
+      "36811": "Top 1,000 membership와 공개 catalog 필드를 바탕으로 만든 development seed 후보이며 독립 판정 전입니다.",
+      "39856": "Top 1,000 membership와 공개 catalog 필드를 바탕으로 만든 development seed 후보이며 독립 판정 전입니다.",
+      "40834": "Top 1,000 membership와 공개 catalog 필드를 바탕으로 만든 development seed 후보이며 독립 판정 전입니다.",
+      "129622": "Top 1,000 membership와 공개 catalog 필드를 바탕으로 만든 development seed 후보이며 독립 판정 전입니다.",
+      "148228": "Top 1,000 membership와 공개 catalog 필드를 바탕으로 만든 development seed 후보이며 독립 판정 전입니다.",
+      "153016": "Top 1,000 membership와 공개 catalog 필드를 바탕으로 만든 development seed 후보이며 독립 판정 전입니다.",
+      "153938": "Top 1,000 membership와 공개 catalog 필드를 바탕으로 만든 development seed 후보이며 독립 판정 전입니다.",
+      "178900": "Top 1,000 membership와 공개 catalog 필드를 바탕으로 만든 development seed 후보이며 독립 판정 전입니다.",
+      "192291": "Top 1,000 membership와 공개 catalog 필드를 바탕으로 만든 development seed 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "174430": "Top 1,000 안의 비교 제외 후보이며 독립 판정 전입니다.",
+      "224517": "Top 1,000 안의 비교 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "bgg-catalog-170k-v4-2026-08-19",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/SEARCH_04_CATALOG_DATASET_RELEASE.md",
+      "qualityCorpusReleaseId": "boardlife-quality-top1000-2026-08-19",
+      "qualityCorpusReference": "docs/p2/search-evaluation/quality-corpus.json"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-004",
+    "query": "스페이스크루",
+    "cohorts": [
+      "exact/name variant"
+    ],
+    "anchor": false,
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {},
+    "expectedGameIds": [
+      284083
+    ],
+    "excludedGameIds": [
+      174430
+    ],
+    "expectedReasons": {
+      "284083": "Top 1,000 membership와 공개 catalog 필드를 바탕으로 만든 development seed 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "174430": "Top 1,000 안의 비교 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "bgg-catalog-170k-v4-2026-08-19",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/SEARCH_04_CATALOG_DATASET_RELEASE.md",
+      "qualityCorpusReleaseId": "boardlife-quality-top1000-2026-08-19",
+      "qualityCorpusReference": "docs/p2/search-evaluation/quality-corpus.json"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-005",
+    "query": "Deep Sea Crew",
+    "cohorts": [
+      "exact/name variant"
+    ],
+    "anchor": false,
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {},
+    "expectedGameIds": [
+      324856
+    ],
+    "excludedGameIds": [
+      174430
+    ],
+    "expectedReasons": {
+      "324856": "Top 1,000 membership와 공개 catalog 필드를 바탕으로 만든 development seed 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "174430": "Top 1,000 안의 비교 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "bgg-catalog-170k-v4-2026-08-19",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/SEARCH_04_CATALOG_DATASET_RELEASE.md",
+      "qualityCorpusReleaseId": "boardlife-quality-top1000-2026-08-19",
+      "qualityCorpusReference": "docs/p2/search-evaluation/quality-corpus.json"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-006",
+    "query": "하나비게임",
+    "cohorts": [
+      "exact/name variant"
+    ],
+    "anchor": false,
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {},
+    "expectedGameIds": [
+      98778
+    ],
+    "excludedGameIds": [
+      174430
+    ],
+    "expectedReasons": {
+      "98778": "Top 1,000 membership와 공개 catalog 필드를 바탕으로 만든 development seed 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "174430": "Top 1,000 안의 비교 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "bgg-catalog-170k-v4-2026-08-19",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/SEARCH_04_CATALOG_DATASET_RELEASE.md",
+      "qualityCorpusReleaseId": "boardlife-quality-top1000-2026-08-19",
+      "qualityCorpusReference": "docs/p2/search-evaluation/quality-corpus.json"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-007",
+    "query": "더마인드",
+    "cohorts": [
+      "exact/name variant"
+    ],
+    "anchor": false,
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {},
+    "expectedGameIds": [
+      244992
+    ],
+    "excludedGameIds": [
+      174430
+    ],
+    "expectedReasons": {
+      "244992": "Top 1,000 membership와 공개 catalog 필드를 바탕으로 만든 development seed 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "174430": "Top 1,000 안의 비교 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "bgg-catalog-170k-v4-2026-08-19",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/SEARCH_04_CATALOG_DATASET_RELEASE.md",
+      "qualityCorpusReleaseId": "boardlife-quality-top1000-2026-08-19",
+      "qualityCorpusReference": "docs/p2/search-evaluation/quality-corpus.json"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-008",
+    "query": "코드네임즈",
+    "cohorts": [
+      "exact/name variant"
+    ],
+    "anchor": false,
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {},
+    "expectedGameIds": [
+      178900
+    ],
+    "excludedGameIds": [
+      174430
+    ],
+    "expectedReasons": {
+      "178900": "Top 1,000 membership와 공개 catalog 필드를 바탕으로 만든 development seed 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "174430": "Top 1,000 안의 비교 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "bgg-catalog-170k-v4-2026-08-19",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/SEARCH_04_CATALOG_DATASET_RELEASE.md",
+      "qualityCorpusReleaseId": "boardlife-quality-top1000-2026-08-19",
+      "qualityCorpusReference": "docs/p2/search-evaluation/quality-corpus.json"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-009",
+    "query": "세븐원더스",
+    "cohorts": [
+      "exact/name variant"
+    ],
+    "anchor": false,
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {},
+    "expectedGameIds": [
+      68448
+    ],
+    "excludedGameIds": [
+      174430
+    ],
+    "expectedReasons": {
+      "68448": "Top 1,000 membership와 공개 catalog 필드를 바탕으로 만든 development seed 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "174430": "Top 1,000 안의 비교 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "bgg-catalog-170k-v4-2026-08-19",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/SEARCH_04_CATALOG_DATASET_RELEASE.md",
+      "qualityCorpusReleaseId": "boardlife-quality-top1000-2026-08-19",
+      "qualityCorpusReference": "docs/p2/search-evaluation/quality-corpus.json"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-010",
+    "query": "협력하면서 트릭을 따는 카드 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "anchor": false,
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {},
+    "expectedGameIds": [
+      284083
+    ],
+    "excludedGameIds": [
+      224517
+    ],
+    "expectedReasons": {
+      "284083": "Top 1,000 membership와 공개 catalog 필드를 바탕으로 만든 development seed 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "224517": "Top 1,000 안의 비교 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "bgg-catalog-170k-v4-2026-08-19",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/SEARCH_04_CATALOG_DATASET_RELEASE.md",
+      "qualityCorpusReleaseId": "boardlife-quality-top1000-2026-08-19",
+      "qualityCorpusReference": "docs/p2/search-evaluation/quality-corpus.json"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-011",
+    "query": "팀으로 규칙을 맞춰 가는 트릭테이킹 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "anchor": false,
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {},
+    "expectedGameIds": [
+      324856
+    ],
+    "excludedGameIds": [
+      224517
+    ],
+    "expectedReasons": {
+      "324856": "Top 1,000 membership와 공개 catalog 필드를 바탕으로 만든 development seed 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "224517": "Top 1,000 안의 비교 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "bgg-catalog-170k-v4-2026-08-19",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/SEARCH_04_CATALOG_DATASET_RELEASE.md",
+      "qualityCorpusReleaseId": "boardlife-quality-top1000-2026-08-19",
+      "qualityCorpusReference": "docs/p2/search-evaluation/quality-corpus.json"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-012",
+    "query": "실수해도 함께 복구할 수 있는 협력 카드 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "anchor": false,
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {},
+    "expectedGameIds": [
+      98778
+    ],
+    "excludedGameIds": [
+      224517
+    ],
+    "expectedReasons": {
+      "98778": "Top 1,000 membership와 공개 catalog 필드를 바탕으로 만든 development seed 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "224517": "Top 1,000 안의 비교 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "bgg-catalog-170k-v4-2026-08-19",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/SEARCH_04_CATALOG_DATASET_RELEASE.md",
+      "qualityCorpusReleaseId": "boardlife-quality-top1000-2026-08-19",
+      "qualityCorpusReference": "docs/p2/search-evaluation/quality-corpus.json"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-013",
+    "query": "넷이서 빠르게 끝낼 수 있는 일꾼 놓기 게임 추천해줘",
+    "cohorts": [
+      "intent+hard filter"
+    ],
+    "anchor": false,
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {
+      "minPlayers": 4,
+      "maxPlayers": 4,
+      "maxPlayTimeMinutes": 30
+    },
+    "expectedGameIds": [
+      36811
+    ],
+    "excludedGameIds": [
+      174430
+    ],
+    "expectedReasons": {
+      "36811": "Top 1,000 membership와 공개 catalog 필드를 바탕으로 만든 development seed 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "174430": "Top 1,000 안의 비교 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "bgg-catalog-170k-v4-2026-08-19",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/SEARCH_04_CATALOG_DATASET_RELEASE.md",
+      "qualityCorpusReleaseId": "boardlife-quality-top1000-2026-08-19",
+      "qualityCorpusReference": "docs/p2/search-evaluation/quality-corpus.json"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-014",
+    "query": "일꾼을 배치하는 방식인데 4인용이고 30분 안에 끝나는 게임 있어?",
+    "cohorts": [
+      "intent+hard filter"
+    ],
+    "anchor": false,
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {
+      "minPlayers": 4,
+      "maxPlayers": 4,
+      "maxPlayTimeMinutes": 30
+    },
+    "expectedGameIds": [
+      36218
+    ],
+    "excludedGameIds": [
+      174430
+    ],
+    "expectedReasons": {
+      "36218": "Top 1,000 membership와 공개 catalog 필드를 바탕으로 만든 development seed 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "174430": "Top 1,000 안의 비교 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "bgg-catalog-170k-v4-2026-08-19",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/SEARCH_04_CATALOG_DATASET_RELEASE.md",
+      "qualityCorpusReleaseId": "boardlife-quality-top1000-2026-08-19",
+      "qualityCorpusReference": "docs/p2/search-evaluation/quality-corpus.json"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-015",
+    "query": "4명이서 짧게 즐기는 워커 플레이스먼트 게임",
+    "cohorts": [
+      "intent+hard filter"
+    ],
+    "anchor": false,
+    "evaluationStatus": "development",
+    "labelStatus": "provisional",
+    "hardFilters": {
+      "minPlayers": 4,
+      "maxPlayers": 4,
+      "maxPlayTimeMinutes": 30
+    },
+    "expectedGameIds": [
+      40834
+    ],
+    "excludedGameIds": [
+      174430
+    ],
+    "expectedReasons": {
+      "40834": "Top 1,000 membership와 공개 catalog 필드를 바탕으로 만든 development seed 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "174430": "Top 1,000 안의 비교 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "bgg-catalog-170k-v4-2026-08-19",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/SEARCH_04_CATALOG_DATASET_RELEASE.md",
+      "qualityCorpusReleaseId": "boardlife-quality-top1000-2026-08-19",
+      "qualityCorpusReference": "docs/p2/search-evaluation/quality-corpus.json"
+    },
+    "judgements": []
+  }
+]

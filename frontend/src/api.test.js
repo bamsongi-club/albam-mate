@@ -1,0 +1,644 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { api, clearCsrfToken, setUnauthenticatedHandler } from './api';
+
+function successfulResponse(data) {
+  return new Response(JSON.stringify({ status: 200, data }), {
+    status: 200,
+    headers: { 'content-type': 'application/json' }
+  });
+}
+
+afterEach(() => {
+  clearCsrfToken();
+  setUnauthenticatedHandler(undefined);
+  vi.unstubAllGlobals();
+});
+
+describe('알림 조회 API', () => {
+  it('목록 첫 페이지를 계약된 query parameter로 조회한다', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(successfulResponse({ content: [] }));
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await api.getNotifications({ page: 0, size: 10 }, controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/users/me/notifications?page=0&size=10',
+      expect.objectContaining({ method: 'GET', credentials: 'include', signal: controller.signal })
+    );
+  });
+
+  it('미확인 개수를 별도 GET 경로로 조회한다', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(successfulResponse({ unreadCount: 3 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await api.getUnreadNotificationCount();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/users/me/notifications/unread-count',
+      expect.objectContaining({ method: 'GET', credentials: 'include' })
+    );
+  });
+
+  it('#272 T9 단건·일괄 읽음은 mutate 경계에서 현재 CSRF 토큰을 전송한다', async () => {
+    const updatedNotification = { id: 7, readAt: '2026-08-04T09:00:00+09:00' };
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(successfulResponse({
+        headerName: 'X-CSRF-TOKEN',
+        token: 'current-csrf-token'
+      }))
+      .mockResolvedValueOnce(successfulResponse(updatedNotification))
+      .mockResolvedValueOnce(successfulResponse({
+        updatedCount: 2,
+        boundaryNotificationId: 9
+      }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(api.markNotificationRead(7)).resolves.toEqual(updatedNotification);
+    await api.markAllNotificationsRead();
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/users/me/notifications/7',
+      expect.objectContaining({
+        method: 'PATCH',
+        credentials: 'include',
+        headers: expect.objectContaining({ 'X-CSRF-TOKEN': 'current-csrf-token' }),
+        body: JSON.stringify({ read: true })
+      })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      '/api/users/me/notifications',
+      expect.objectContaining({
+        method: 'PATCH',
+        credentials: 'include',
+        headers: expect.objectContaining({ 'X-CSRF-TOKEN': 'current-csrf-token' }),
+        body: JSON.stringify({ read: true })
+      })
+    );
+  });
+
+  it('현재 인증 세대의 모든 401을 공통 세션 만료 흐름으로 보낸다', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      status: 401,
+      code: 'REQUEST_FAILED',
+      message: '로그인이 필요합니다.'
+    }), {
+      status: 401,
+      headers: { 'content-type': 'application/json' }
+    }));
+    const unauthenticatedHandler = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    setUnauthenticatedHandler(unauthenticatedHandler);
+
+    await expect(api.getUnreadNotificationCount()).rejects.toMatchObject({ status: 401 });
+
+    expect(unauthenticatedHandler).toHaveBeenCalledOnce();
+  });
+
+  it('로그인으로 인증 세대가 바뀌면 이전 사용자의 늦은 성공 응답을 폐기한다', async () => {
+    let resolvePreviousProfile;
+    const previousProfileResponse = new Promise((resolve) => {
+      resolvePreviousProfile = resolve;
+    });
+    const fetchMock = vi.fn()
+      .mockImplementationOnce(() => previousProfileResponse)
+      .mockResolvedValueOnce(successfulResponse({ headerName: 'X-CSRF-TOKEN', token: 'csrf-token' }))
+      .mockResolvedValueOnce(successfulResponse({ id: 2, nickname: '새 사용자' }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const previousProfileRequest = api.getMyProfile();
+    await api.login({ email: 'new@example.com', password: 'password' });
+    resolvePreviousProfile(successfulResponse({ id: 1, nickname: '이전 사용자' }));
+
+    await expect(previousProfileRequest).rejects.toMatchObject({ name: 'AbortError' });
+  });
+
+  it('인증 세대가 바뀐 뒤 이전 요청의 네트워크 실패를 AbortError로 정규화한다', async () => {
+    let rejectPreviousProfile;
+    const previousProfileResponse = new Promise((resolve, reject) => {
+      rejectPreviousProfile = reject;
+    });
+    const fetchMock = vi.fn()
+      .mockImplementationOnce(() => previousProfileResponse)
+      .mockResolvedValueOnce(successfulResponse({ headerName: 'X-CSRF-TOKEN', token: 'csrf-token' }))
+      .mockResolvedValueOnce(successfulResponse({ id: 2, nickname: '새 사용자' }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const previousProfileRequest = api.getMyProfile();
+    await api.login({ email: 'new@example.com', password: 'password' });
+    rejectPreviousProfile(new TypeError('network failure'));
+
+    await expect(previousProfileRequest).rejects.toMatchObject({ name: 'AbortError' });
+  });
+
+  it('인증 세대가 바뀐 뒤 이전 요청의 JSON 파싱 실패를 AbortError로 정규화한다', async () => {
+    let resolvePreviousProfile;
+    const previousProfileResponse = new Promise((resolve) => {
+      resolvePreviousProfile = resolve;
+    });
+    const fetchMock = vi.fn()
+      .mockImplementationOnce(() => previousProfileResponse)
+      .mockResolvedValueOnce(successfulResponse({ headerName: 'X-CSRF-TOKEN', token: 'csrf-token' }))
+      .mockResolvedValueOnce(successfulResponse({ id: 2, nickname: '새 사용자' }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const previousProfileRequest = api.getMyProfile();
+    await api.login({ email: 'new@example.com', password: 'password' });
+    resolvePreviousProfile(new Response('{invalid-json', {
+      status: 200,
+      headers: { 'content-type': 'application/json' }
+    }));
+
+    await expect(previousProfileRequest).rejects.toMatchObject({ name: 'AbortError' });
+  });
+});
+
+describe('AI 모임 도우미 API', () => {
+  it('활성 초안 조회는 200 초안을 반환하고 204는 새 흐름으로 구분한다', async () => {
+    const activeDraft = { draftId: 7, draftVersion: 2, status: 'ACTIVE', input: {}, result: null };
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(successfulResponse(activeDraft))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(api.getActiveAssistantDraft()).resolves.toEqual(activeDraft);
+    await expect(api.getActiveAssistantDraft()).resolves.toBeNull();
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      '/api/assistant/drafts/active',
+      expect.objectContaining({ method: 'GET', credentials: 'include' })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/assistant/drafts/active',
+      expect.objectContaining({ method: 'GET', credentials: 'include' })
+    );
+  });
+
+  it('동의·추천·초안 확인은 공통 CSRF 경계와 고정 멱등 키를 사용한다', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(successfulResponse({ headerName: 'X-CSRF-TOKEN', token: 'assistant-csrf-token' }))
+      .mockResolvedValueOnce(successfulResponse({ status: 'GRANTED' }))
+      .mockResolvedValueOnce(successfulResponse({ state: 'RECOMMENDED', conditions: {}, missingFields: [], candidates: [] }))
+      .mockResolvedValueOnce(successfulResponse({ roomId: 42, chatRoomId: 43 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await api.changeAssistantConsent({ decision: 'GRANT', consentVersion: 'AI-01-CONSENT-V1' });
+    await api.recommendAssistant('초보 환영 모임을 찾아줘', null);
+    await api.confirmAssistantDraft(7, 2, 'assistant-confirm-key');
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/assistant/consent',
+      expect.objectContaining({
+        method: 'PUT',
+        headers: expect.objectContaining({ 'X-CSRF-TOKEN': 'assistant-csrf-token' }),
+        body: JSON.stringify({ decision: 'GRANT', consentVersion: 'AI-01-CONSENT-V1' })
+      })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      '/api/assistant/recommendations',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({ 'X-CSRF-TOKEN': 'assistant-csrf-token' }),
+        body: JSON.stringify({ message: '초보 환영 모임을 찾아줘', conditions: null })
+      })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      4,
+      '/api/assistant/drafts/7/confirm',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'X-CSRF-TOKEN': 'assistant-csrf-token',
+          'Idempotency-Key': 'assistant-confirm-key'
+        }),
+        body: JSON.stringify({ draftVersion: 2 })
+      })
+    );
+  });
+
+  it('초안 생성·수정·폐기는 계약된 경로와 CSRF 경계를 사용한다', async () => {
+    const input = {
+      roomType: 'GAME_FOCUSED',
+      title: '주말 협력 게임 모임',
+      description: null,
+      gameId: 101,
+      experienceLevel: 'BEGINNER_WELCOME',
+      isRulemasterLed: false,
+      startsAt: '2026-08-23T19:00:00+09:00',
+      region: '홍대',
+      place: null,
+      recruitmentCapacity: 3
+    };
+    const update = { draftVersion: 2, region: '강남', place: '강남 보드게임 카페' };
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(successfulResponse({ headerName: 'X-CSRF-TOKEN', token: 'assistant-csrf-token' }))
+      .mockResolvedValueOnce(successfulResponse({ draftId: 7 }))
+      .mockResolvedValueOnce(successfulResponse({ draftId: 7, draftVersion: 3 }))
+      .mockResolvedValueOnce(successfulResponse({ discarded: true }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await api.createAssistantDraft(input);
+    await api.updateAssistantDraft(7, update);
+    await api.discardAssistantDraft(7);
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/assistant/drafts',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({ 'X-CSRF-TOKEN': 'assistant-csrf-token' }),
+        body: JSON.stringify(input)
+      })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      '/api/assistant/drafts/7',
+      expect.objectContaining({
+        method: 'PATCH',
+        headers: expect.objectContaining({ 'X-CSRF-TOKEN': 'assistant-csrf-token' }),
+        body: JSON.stringify(update)
+      })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      4,
+      '/api/assistant/drafts/7',
+      expect.objectContaining({
+        method: 'DELETE',
+        headers: expect.objectContaining({ 'X-CSRF-TOKEN': 'assistant-csrf-token' })
+      })
+    );
+  });
+});
+
+function stubFetch() {
+  const fetchMock = vi.fn().mockResolvedValue(successfulResponse({ content: [] }));
+  vi.stubGlobal('fetch', fetchMock);
+  return fetchMock;
+}
+
+function requestedUrl(fetchMock) {
+  return fetchMock.mock.calls[0][0];
+}
+
+describe('게임 목록 검색 API', () => {
+  it('인원 범위·시간·최연소 참여자 나이·복잡도 필터를 계약된 이름과 값으로 전달한다', async () => {
+    const fetchMock = stubFetch();
+
+    await api.getGames({
+      keyword: '루미',
+      upcomingOnly: true,
+      playerCountMin: '2',
+      playerCountMax: '4',
+      playerCountExact: true,
+      exclusivePlayerCount: [],
+      playTime: ['UP_TO_10', 'AT_LEAST_90'],
+      youngestPlayerAge: '10',
+      complexityMin: '2',
+      complexityMax: '4',
+      page: 0,
+      size: 24
+    });
+
+    expect(requestedUrl(fetchMock)).toBe(
+      '/api/games?keyword=%EB%A3%A8%EB%AF%B8&upcomingOnly=true&playerCountMin=2&playerCountMax=4'
+        + '&playerCountExact=true&playTime=UP_TO_10&playTime=AT_LEAST_90'
+        + '&youngestPlayerAge=10&complexityMin=2&complexityMax=4&page=0&size=24'
+    );
+  });
+
+  it('전용 인원은 같은 이름을 반복해 전달한다', async () => {
+    const fetchMock = stubFetch();
+
+    await api.getGames({ exclusivePlayerCount: ['1', '2'], playTime: [], page: 0, size: 24 });
+
+    expect(requestedUrl(fetchMock)).toBe(
+      '/api/games?exclusivePlayerCount=1&exclusivePlayerCount=2&page=0&size=24'
+    );
+  });
+
+  it('선택하지 않은 필터를 생략해 필터 없는 목록 요청과 같은 요청을 보낸다', async () => {
+    const fetchMock = stubFetch();
+
+    await api.getGames({
+      keyword: '',
+      upcomingOnly: false,
+      playerCountMin: '',
+      playerCountMax: '',
+      playerCountExact: false,
+      exclusivePlayerCount: [],
+      playTime: [],
+      complexityMin: '',
+      complexityMax: '',
+      page: 0,
+      size: 24
+    });
+
+    expect(requestedUrl(fetchMock)).toBe('/api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24');
+  });
+
+  it('메커니즘은 같은 이름을 반복해 전달한다', async () => {
+    const fetchMock = stubFetch();
+
+    await api.getGames({ exclusivePlayerCount: [], playTime: [], mechanism: ['HAND_MANAGEMENT', 'DICE_ROLLING'], page: 0, size: 24 });
+
+    expect(requestedUrl(fetchMock)).toBe(
+      '/api/games?mechanism=HAND_MANAGEMENT&mechanism=DICE_ROLLING&page=0&size=24'
+    );
+  });
+
+  it('테마와 메커니즘 포함 방식을 독립된 단일 파라미터로 전달한다', async () => {
+    const fetchMock = stubFetch();
+
+    await api.getGames({
+      exclusivePlayerCount: [],
+      playTime: [],
+      themeMatch: 'ALL',
+      mechanismMatch: 'ANY',
+      page: 0,
+      size: 24
+    });
+
+    expect(requestedUrl(fetchMock)).toBe('/api/games?mechanismMatch=ANY&themeMatch=ALL&page=0&size=24');
+  });
+});
+
+describe('해 본 게임 API', () => {
+  it('관계 필터는 단일 값으로 전달하고 선택하지 않으면 생략한다', async () => {
+    const fetchMock = stubFetch();
+
+    await api.getGames({ exclusivePlayerCount: [], playTime: [], mechanism: [], playedFilter: 'PLAYED_ONLY', page: 0, size: 24 });
+
+    expect(requestedUrl(fetchMock)).toBe('/api/games?playedFilter=PLAYED_ONLY&page=0&size=24');
+  });
+
+  it('표시·취소는 mutate 경계에서 현재 CSRF 토큰을 전송한다', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(successfulResponse({ headerName: 'X-CSRF-TOKEN', token: 'current-csrf-token' }))
+      .mockResolvedValueOnce(successfulResponse({ gameId: 7, playedByMe: true }))
+      .mockResolvedValueOnce(successfulResponse({ gameId: 7, playedByMe: false }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(api.markGamePlayed(7)).resolves.toEqual({ gameId: 7, playedByMe: true });
+    await expect(api.unmarkGamePlayed(7)).resolves.toEqual({ gameId: 7, playedByMe: false });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/users/me/played-games/7',
+      expect.objectContaining({ method: 'PUT', credentials: 'include', headers: expect.objectContaining({ 'X-CSRF-TOKEN': 'current-csrf-token' }) })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      '/api/users/me/played-games/7',
+      expect.objectContaining({ method: 'DELETE', credentials: 'include', headers: expect.objectContaining({ 'X-CSRF-TOKEN': 'current-csrf-token' }) })
+    );
+  });
+});
+
+describe('게임 메커니즘 선택지 API', () => {
+  it('공개 선택지를 조건 없는 GET 경로로 조회한다', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(successfulResponse([]));
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await api.getGameMechanisms(controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/game-mechanisms',
+      expect.objectContaining({ method: 'GET', credentials: 'include', signal: controller.signal })
+    );
+  });
+});
+
+describe('방 목록 검색 API', () => {
+  it('날짜 범위·남은 자리·룰마스터 필터를 계약된 이름과 값으로 전달한다', async () => {
+    const fetchMock = stubFetch();
+
+    await api.getRooms({
+      startsAtFrom: '2026-08-10T00:00:00+09:00',
+      startsAtTo: '2026-08-12T00:00:00+09:00',
+      minRemainingSeats: '3',
+      rulemasterOnly: true,
+      page: 0,
+      size: 12
+    });
+
+    expect(requestedUrl(fetchMock)).toBe(
+      '/api/rooms?startsAtFrom=2026-08-10T00%3A00%3A00%2B09%3A00&startsAtTo=2026-08-12T00%3A00%3A00%2B09%3A00'
+        + '&minRemainingSeats=3&rulemasterOnly=true&page=0&size=12'
+    );
+  });
+
+  it('경험 수준 다중 선택을 같은 이름의 반복 parameter로 전달한다', async () => {
+    const fetchMock = stubFetch();
+
+    await api.getRooms({ experienceLevels: ['BEGINNER_WELCOME', 'ALL_LEVELS'], page: 0, size: 12 });
+
+    expect(requestedUrl(fetchMock)).toBe(
+      '/api/rooms?experienceLevels=BEGINNER_WELCOME&experienceLevels=ALL_LEVELS&page=0&size=12'
+    );
+  });
+
+  it('룰마스터 진행 조건을 선택하지 않으면 rulemasterOnly를 보내지 않는다', async () => {
+    const fetchMock = stubFetch();
+
+    await api.getRooms({ rulemasterOnly: false, page: 0, size: 12 });
+
+    expect(requestedUrl(fetchMock)).toBe('/api/rooms?page=0&size=12');
+  });
+
+  it('선택하지 않은 필터를 생략해 필터 없는 목록 요청과 같은 요청을 보낸다', async () => {
+    const fetchMock = stubFetch();
+
+    await api.getRooms({
+      type: '',
+      keyword: '',
+      startsAtFrom: undefined,
+      startsAtTo: undefined,
+      minRemainingSeats: '',
+      experienceLevels: [],
+      rulemasterOnly: false,
+      page: 0,
+      size: 12
+    });
+
+    expect(requestedUrl(fetchMock)).toBe('/api/rooms?page=0&size=12');
+  });
+});
+
+describe('채팅 API', () => {
+  it('메시지 이력 커서와 크기를 query parameter로 전달한다', async () => {
+    const fetchMock = stubFetch();
+
+    await api.getChatMessages('7', { beforeMessageId: 42, size: 20 });
+
+    expect(requestedUrl(fetchMock)).toBe('/api/rooms/7/chat/messages?beforeMessageId=42&size=20');
+  });
+
+  it('메시지 전송은 CSRF 토큰과 clientMessageId를 함께 보낸다', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(successfulResponse({ headerName: 'X-CSRF-TOKEN', token: 'csrf-token' }))
+      .mockResolvedValueOnce(successfulResponse({ messageId: 8 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await api.sendChatMessage('7', { clientMessageId: 'retry-key', content: '안녕하세요' }, controller.signal);
+
+    expect(fetchMock).toHaveBeenNthCalledWith(1, '/api/auth/csrf', expect.objectContaining({ signal: undefined }));
+    expect(fetchMock).toHaveBeenNthCalledWith(2, '/api/rooms/7/chat/messages', expect.objectContaining({
+      method: 'POST',
+      headers: expect.objectContaining({ 'X-CSRF-TOKEN': 'csrf-token' }),
+      body: JSON.stringify({ clientMessageId: 'retry-key', content: '안녕하세요' }),
+      signal: controller.signal
+    }));
+  });
+
+  it('공유 CSRF 대기 중 채팅 취소가 다른 mutation을 취소하지 않는다', async () => {
+    let resolveCsrf;
+    const pendingCsrf = new Promise((resolve) => {
+      resolveCsrf = resolve;
+    });
+    const fetchMock = vi.fn()
+      .mockImplementationOnce(() => pendingCsrf)
+      .mockImplementation((_path, options) => {
+        if (options.signal?.aborted) return Promise.reject(options.signal.reason);
+        return Promise.resolve(successfulResponse({}));
+      });
+    vi.stubGlobal('fetch', fetchMock);
+    const chatController = new AbortController();
+
+    const chatSend = api.sendChatMessage('7', { clientMessageId: 'chat-key', content: '안녕하세요' }, chatController.signal);
+    const otherMutation = api.markGamePlayed(42);
+    const settled = Promise.allSettled([chatSend, otherMutation]);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    chatController.abort();
+    resolveCsrf(successfulResponse({ headerName: 'X-CSRF-TOKEN', token: 'shared-csrf-token' }));
+
+    const [chatResult, otherMutationResult] = await settled;
+    expect(chatResult).toMatchObject({ status: 'rejected', reason: { name: 'AbortError' } });
+    expect(otherMutationResult).toMatchObject({ status: 'fulfilled', value: {} });
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      '/api/auth/csrf',
+      expect.objectContaining({ signal: undefined })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/users/me/played-games/42',
+      expect.objectContaining({ method: 'PUT', signal: undefined })
+    );
+  });
+
+  it.each([503, 429])('HTTP %i 오류 응답의 본문 파싱이 deadline으로 중단돼도 ApiError를 유지한다', async (status) => {
+    let rejectBodyParsing;
+    let notifyBodyParsingStarted;
+    const bodyParsingStarted = new Promise((resolve) => {
+      notifyBodyParsingStarted = resolve;
+    });
+    const errorResponse = {
+      ok: false,
+      status,
+      headers: new Headers({ 'content-type': 'application/json', 'retry-after': '2' }),
+      json: vi.fn(() => {
+        notifyBodyParsingStarted();
+        return new Promise((_resolve, reject) => {
+          rejectBodyParsing = reject;
+        });
+      })
+    };
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(successfulResponse({ headerName: 'X-CSRF-TOKEN', token: 'csrf-token' }))
+      .mockResolvedValueOnce(errorResponse);
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+    const send = api.sendChatMessage('7', { clientMessageId: 'retry-key', content: '안녕하세요' }, controller.signal);
+
+    await bodyParsingStarted;
+    controller.abort();
+    const aborted = new Error('response body aborted');
+    aborted.name = 'AbortError';
+    rejectBodyParsing(aborted);
+
+    await expect(send).rejects.toMatchObject({
+      name: 'ApiError',
+      status,
+      code: 'REQUEST_FAILED',
+      retryAfter: '2'
+    });
+  });
+
+  it('HTTP 200 응답을 받은 뒤 본문 파싱이 deadline으로 중단되면 ApiError로 정규화한다', async () => {
+    let rejectBodyParsing;
+    let notifyBodyParsingStarted;
+    const bodyParsingStarted = new Promise((resolve) => {
+      notifyBodyParsingStarted = resolve;
+    });
+    const successfulResponseWithPendingBody = {
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      json: vi.fn(() => {
+        notifyBodyParsingStarted();
+        return new Promise((_resolve, reject) => {
+          rejectBodyParsing = reject;
+        });
+      })
+    };
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(successfulResponse({ headerName: 'X-CSRF-TOKEN', token: 'csrf-token' }))
+      .mockResolvedValueOnce(successfulResponseWithPendingBody);
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+    const send = api.sendChatMessage('7', { clientMessageId: 'retry-key', content: '안녕하세요' }, controller.signal);
+
+    await bodyParsingStarted;
+    controller.abort();
+    const aborted = new Error('response body aborted');
+    aborted.name = 'AbortError';
+    rejectBodyParsing(aborted);
+
+    await expect(send).rejects.toMatchObject({
+      name: 'ApiError',
+      status: 200,
+      code: 'INVALID_API_RESPONSE'
+    });
+  });
+
+  it('HTTP 200 응답의 잘못된 JSON도 ApiError로 정규화한다', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(successfulResponse({ headerName: 'X-CSRF-TOKEN', token: 'csrf-token' }))
+      .mockResolvedValueOnce(new Response('{invalid-json', {
+        status: 200,
+        headers: { 'content-type': 'application/json' }
+      }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(api.sendChatMessage('7', { clientMessageId: 'retry-key', content: '안녕하세요' })).rejects.toMatchObject({
+      name: 'ApiError',
+      status: 200,
+      code: 'INVALID_API_RESPONSE'
+    });
+  });
+
+  it('HTTP 200 응답의 계약에 맞지 않는 payload도 ApiError로 유지한다', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(successfulResponse({ headerName: 'X-CSRF-TOKEN', token: 'csrf-token' }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: 200 }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' }
+      }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(api.sendChatMessage('7', { clientMessageId: 'retry-key', content: '안녕하세요' })).rejects.toMatchObject({
+      name: 'ApiError',
+      status: 200,
+      code: 'INVALID_API_RESPONSE'
+    });
+  });
+});

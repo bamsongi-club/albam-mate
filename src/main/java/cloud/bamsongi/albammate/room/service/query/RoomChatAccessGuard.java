@@ -1,0 +1,93 @@
+package cloud.bamsongi.albammate.room.service.query;
+
+import java.time.Clock;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Supplier;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import cloud.bamsongi.albammate.global.exception.BusinessException;
+import cloud.bamsongi.albammate.global.exception.ErrorCode;
+import cloud.bamsongi.albammate.room.contract.ChatAccessGuard;
+import cloud.bamsongi.albammate.room.contract.ChatRoomParticipantsQuery;
+import cloud.bamsongi.albammate.room.contract.ChatWebSocketAccessChecker;
+import cloud.bamsongi.albammate.room.entity.Room;
+import cloud.bamsongi.albammate.room.enums.ParticipationStatus;
+import cloud.bamsongi.albammate.room.repository.ParticipationRepository;
+import cloud.bamsongi.albammate.room.repository.RoomRepository;
+import cloud.bamsongi.albammate.room.statuscorrection.RoomStatusCorrectionCoordinator;
+import lombok.RequiredArgsConstructor;
+
+/** 채팅 모듈이 현재 ROOM 관계를 확인할 때 사용하는 room 쪽 공개 계약 구현이다. */
+@Service
+@RequiredArgsConstructor
+public class RoomChatAccessGuard implements ChatAccessGuard, ChatWebSocketAccessChecker, ChatRoomParticipantsQuery {
+
+	private final RoomRepository roomRepository;
+	private final ParticipationRepository participationRepository;
+	private final RoomStatusCorrectionCoordinator statusCorrectionCoordinator;
+	private final Clock clock;
+
+	@Override
+	@Transactional
+	public <T> T executeWithAccess(long currentUserId, long roomId, Supplier<T> chatOperation) {
+		Objects.requireNonNull(chatOperation, "chatOperation");
+		Instant requestTime = Instant.now(clock);
+		statusCorrectionCoordinator.correctRoom(roomId, requestTime);
+		Room room = roomRepository
+			.findByIdForChatAccess(roomId)
+			.orElseThrow(() -> new BusinessException(ErrorCode.ROOM_NOT_FOUND));
+		if (!room.getStatus().isChatAvailable()) {
+			throw new BusinessException(ErrorCode.FORBIDDEN);
+		}
+		if (room.getHostUserId() != currentUserId && !isActiveParticipant(roomId, currentUserId)) {
+			throw new BusinessException(ErrorCode.FORBIDDEN);
+		}
+		return chatOperation.get();
+	}
+
+	@Override
+	public void correctRoomState(long roomId) {
+		statusCorrectionCoordinator.correctRoom(roomId, Instant.now(clock));
+	}
+
+	@Override
+	@Transactional
+	public void verifyCurrentAccess(long currentUserId, long roomId) {
+		Room room = roomRepository
+			.findByIdForChatAccess(roomId)
+			.orElseThrow(() -> new BusinessException(ErrorCode.ROOM_NOT_FOUND));
+		if (!room.getStatus().isChatAvailable()) {
+			throw new BusinessException(ErrorCode.FORBIDDEN);
+		}
+		if (room.getHostUserId() != currentUserId && !isActiveParticipant(roomId, currentUserId)) {
+			throw new BusinessException(ErrorCode.FORBIDDEN);
+		}
+	}
+
+	/** 방이 없으면 빈 목록을 반환하고, 있으면 주최자와 {@code ACTIVE} 참가자 user id를 함께 반환한다. */
+	@Override
+	@Transactional(readOnly = true)
+	public List<Long> findCurrentParticipantUserIds(long roomId) {
+		return roomRepository.findById(roomId).map(room -> {
+			List<Long> participantUserIds = new ArrayList<>();
+			participantUserIds.add(room.getHostUserId());
+			participantUserIds.addAll(
+				participationRepository.findUserIdsByRoomIdAndStatusOrderByJoinedAtAscIdAsc(
+					roomId, ParticipationStatus.ACTIVE));
+			return List.copyOf(participantUserIds);
+		}).orElseGet(List::of);
+	}
+
+	private boolean isActiveParticipant(long roomId, long currentUserId) {
+		return participationRepository
+			.findByRoomIdAndUserId(roomId, currentUserId)
+			.map(participation -> participation.getStatus() == ParticipationStatus.ACTIVE)
+			.orElse(false);
+	}
+
+}

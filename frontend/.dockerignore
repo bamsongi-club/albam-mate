@@ -1,0 +1,11 @@
+.env
+.env.*
+*.env
+*.jks
+*.key
+*.p12
+*.pem
+*.secret
+dist
+node_modules
+npm-debug.log*

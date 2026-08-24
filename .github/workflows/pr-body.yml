@@ -1,0 +1,66 @@
+name: PR body
+
+on:
+  pull_request:
+    branches: [develop, main]
+    types:
+      - opened
+      - edited
+      - reopened
+      - synchronize
+      - ready_for_review
+
+permissions: {}
+
+jobs:
+  check-template:
+    name: Check PR template
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Validate required PR sections
+        shell: pwsh
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          $body = $env:PR_BODY
+          if ([string]::IsNullOrWhiteSpace($body)) {
+            Write-Host "::error title=PR body template::PR 본문이 비어 있습니다. .github/PULL_REQUEST_TEMPLATE.md 구조를 채워 주세요."
+            exit 1
+          }
+
+          $requiredHeadings = @(
+            "## 작업 내용",
+            "## 변경 이유",
+            "## 주요 변경 사항",
+            "## 테스트 및 확인",
+            "## AI 활용 내용",
+            "## 리뷰 포인트",
+            "## 연결 이슈"
+          )
+
+          $hasError = $false
+          foreach ($heading in $requiredHeadings) {
+            $pattern = "(?m)^$([regex]::Escape($heading))\s*$"
+            if ($body -notmatch $pattern) {
+              Write-Host "::error title=PR body template::$heading 섹션이 필요합니다."
+              $hasError = $true
+            }
+          }
+
+          $testSectionPattern = '(?ms)^## 테스트 및 확인\s*\r?\n\s*<details>\s*<summary>\s*상세 내용\s*</summary>.*?</details>'
+          if ($body -notmatch $testSectionPattern) {
+            Write-Host "::error title=PR body template::테스트 및 확인 아래에 '상세 내용' details 영역이 필요합니다."
+            $hasError = $true
+          }
+
+          $issuePattern = "(?m)^((?:Closes|Refs) #[0-9]+|관련 이슈 없음: 확인된 이슈 번호 없음)\s*$"
+          if ($body -notmatch $issuePattern) {
+            Write-Host "::error title=PR body template::연결 이슈에는 'Closes #N', 'Refs #N' 또는 '관련 이슈 없음: 확인된 이슈 번호 없음'을 적어야 합니다."
+            $hasError = $true
+          }
+
+          if ($hasError) {
+            exit 1
+          }

@@ -1,0 +1,124 @@
+package cloud.bamsongi.albammate.game.service;
+
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+
+import java.util.List;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.SliceImpl;
+
+import cloud.bamsongi.albammate.game.contract.AssistantGameCandidateQuery;
+import cloud.bamsongi.albammate.game.contract.AssistantRecommendationCandidate;
+import cloud.bamsongi.albammate.game.contract.GameRankingQuery;
+import cloud.bamsongi.albammate.game.repository.GameCategoryRepository;
+import cloud.bamsongi.albammate.game.repository.GameMechanismRepository;
+import cloud.bamsongi.albammate.game.repository.GameRepository;
+import cloud.bamsongi.albammate.game.repository.GameThemeRepository;
+import cloud.bamsongi.albammate.global.exception.BusinessException;
+
+class AssistantGameCandidateQueryServiceTest {
+
+	@Test
+	void T4_후보DTO도_AND_RANK_01_동점ID순서와_상위10개를_유지한다() {
+		GameRepository gameRepository = org.mockito.Mockito.mock(GameRepository.class);
+		GameRankingQuery gameRankingQuery = org.mockito.Mockito.mock(GameRankingQuery.class);
+		var first = candidate(11L, "첫 후보");
+		var second = candidate(12L, "둘째 후보");
+		var third = candidate(13L, "셋째 후보");
+		when(gameRepository.findAssistantRecommendationCandidates(any(), any()))
+			.thenReturn(new SliceImpl<>(List.of(third, first, second), PageRequest.of(0, 500), false));
+		when(gameRankingQuery.findOverallRankingForGameIds(List.of(13L, 11L, 12L)))
+			.thenReturn(List.of(new GameRankingQuery.GameRoomCount(12L, 2),
+				new GameRankingQuery.GameRoomCount(11L, 2)));
+
+		var result = service(gameRepository, gameRankingQuery)
+			.findCandidates(new AssistantGameCandidateQuery.Criteria(List.of("STRATEGY")));
+
+		assertEquals(List.of(11L, 12L, 13L), result.stream().map(candidate -> candidate.id()).toList());
+		assertEquals("공개 설명", result.getFirst().description());
+	}
+
+	@Test
+	void T5_후보_집합에만_RANK_01을_적용하고_집계없는_게임은_0건과_ID_오름차순으로_보완한다() {
+		GameRepository gameRepository = org.mockito.Mockito.mock(GameRepository.class);
+		GameRankingQuery gameRankingQuery = org.mockito.Mockito.mock(GameRankingQuery.class);
+		var first = candidate(11L, "첫 후보");
+		var second = candidate(12L, "둘째 후보");
+		var third = candidate(13L, "셋째 후보");
+		when(gameRepository.findAssistantRecommendationCandidates(any(), any()))
+			.thenReturn(new SliceImpl<>(List.of(third, first, second), PageRequest.of(0, 500), false));
+		when(gameRankingQuery.findOverallRankingForGameIds(List.of(13L, 11L, 12L)))
+			.thenReturn(List.of(
+				new GameRankingQuery.GameRoomCount(12L, 2),
+				new GameRankingQuery.GameRoomCount(11L, 2)));
+
+		var result = service(gameRepository, gameRankingQuery)
+			.findCandidates(new AssistantGameCandidateQuery.Criteria(List.of("STRATEGY")));
+
+		assertEquals(List.of(11L, 12L, 13L), result.stream().map(candidate -> candidate.id()).toList());
+	}
+
+	@Test
+	void T5_플레이시간과_특정_게임_조건의_빈_후보는_랭킹_조회없이_종료한다() {
+		GameRepository gameRepository = org.mockito.Mockito.mock(GameRepository.class);
+		GameRankingQuery gameRankingQuery = org.mockito.Mockito.mock(GameRankingQuery.class);
+		when(gameRepository.findAssistantRecommendationCandidates(any(), any()))
+			.thenReturn(new SliceImpl<>(List.of(), PageRequest.of(0, 500), false));
+
+		var result = service(gameRepository, gameRankingQuery)
+			.findCandidates(new AssistantGameCandidateQuery.Criteria(
+				List.of("STRATEGY"), List.of(), List.of(), null, "UP_TO_10", 1001L, null));
+
+		assertEquals(List.of(), result);
+		verifyNoInteractions(gameRankingQuery);
+	}
+
+	@Test
+	void T5_카탈로그_조건과_gameId_검증은_유효_무효_경로를_구분한다() {
+		GameRepository gameRepository = org.mockito.Mockito.mock(GameRepository.class);
+		GameRankingQuery gameRankingQuery = org.mockito.Mockito.mock(GameRankingQuery.class);
+		GameCategoryRepository categoryRepository = org.mockito.Mockito.mock(GameCategoryRepository.class);
+		GameMechanismRepository mechanismRepository = org.mockito.Mockito.mock(GameMechanismRepository.class);
+		GameThemeRepository themeRepository = org.mockito.Mockito.mock(GameThemeRepository.class);
+		when(categoryRepository.countByCodeIn(List.of("STRATEGY"))).thenReturn(1L);
+		when(mechanismRepository.countByCodeInAndIsPublicTrue(List.of("WORKER_PLACEMENT"))).thenReturn(1L);
+		when(themeRepository.countByCodeIn(List.of("FANTASY"))).thenReturn(1L);
+		when(gameRepository.existsById(42L)).thenReturn(true, false);
+
+		var service = new AssistantGameCandidateQueryService(
+			gameRepository,
+			gameRankingQuery,
+			new GameFilterValidator(mechanismRepository, categoryRepository, themeRepository));
+
+		var criteriaWithGameId = new AssistantGameCandidateQuery.Criteria(
+			List.of("STRATEGY"), List.of("WORKER_PLACEMENT"), List.of("FANTASY"),
+			null, null, 42L, null);
+		assertDoesNotThrow(() -> service.validateCriteria(criteriaWithGameId));
+		assertThrows(BusinessException.class, () -> service.validateCriteria(criteriaWithGameId));
+		assertDoesNotThrow(() -> service.validateCriteria(new AssistantGameCandidateQuery.Criteria(
+			List.of("STRATEGY"), List.of("WORKER_PLACEMENT"), List.of("FANTASY"),
+			null, null, null, null)));
+	}
+
+	private AssistantGameCandidateQueryService service(
+		GameRepository gameRepository,
+		GameRankingQuery gameRankingQuery) {
+		return new AssistantGameCandidateQueryService(
+			gameRepository,
+			gameRankingQuery,
+			new GameFilterValidator(
+				org.mockito.Mockito.mock(GameMechanismRepository.class),
+				org.mockito.Mockito.mock(GameCategoryRepository.class),
+				org.mockito.Mockito.mock(GameThemeRepository.class)));
+	}
+
+	private AssistantRecommendationCandidate candidate(long id, String name) {
+		return new AssistantRecommendationCandidate(id, name, null, "공개 설명");
+	}
+}

@@ -1,0 +1,143 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg18
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${ALBAM_MATE_LOCAL_DB_NAME:?ALBAM_MATE_LOCAL_DB_NAME must be set}
+      POSTGRES_USER: ${ALBAM_MATE_LOCAL_DB_USER:?ALBAM_MATE_LOCAL_DB_USER must be set}
+      POSTGRES_PASSWORD: ${ALBAM_MATE_LOCAL_DB_PASSWORD:?ALBAM_MATE_LOCAL_DB_PASSWORD must be set}
+      TZ: UTC
+      PGTZ: UTC
+    command: ["postgres", "-c", "timezone=UTC", "-c", "log_line_prefix=%m [%p] %a "]
+    ports:
+      - "127.0.0.1:${ALBAM_MATE_LOCAL_DB_PORT:?ALBAM_MATE_LOCAL_DB_PORT must be set}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    volumes:
+      - albam_mate_postgres_data:/var/lib/postgresql
+
+  redis:
+    image: redis:8.4-alpine
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${ALBAM_MATE_LOCAL_REDIS_PORT:-6380}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  spring-1:
+    image: albam-mate-spring:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        ALBAM_MATE_REVISION: ${ALBAM_MATE_REVISION:-unknown}
+    restart: unless-stopped
+    environment: &spring_environment
+      SPRING_PROFILES_ACTIVE: local
+      ALBAM_MATE_LOCAL_DB_HOST: postgres
+      ALBAM_MATE_LOCAL_DB_PORT: 5432
+      ALBAM_MATE_LOCAL_DB_NAME: ${ALBAM_MATE_LOCAL_DB_NAME:?ALBAM_MATE_LOCAL_DB_NAME must be set}
+      ALBAM_MATE_LOCAL_DB_USER: ${ALBAM_MATE_LOCAL_DB_USER:?ALBAM_MATE_LOCAL_DB_USER must be set}
+      ALBAM_MATE_LOCAL_DB_PASSWORD: ${ALBAM_MATE_LOCAL_DB_PASSWORD:?ALBAM_MATE_LOCAL_DB_PASSWORD must be set}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${ALBAM_MATE_LOCAL_DB_NAME:?ALBAM_MATE_LOCAL_DB_NAME must be set}?ApplicationName=app1
+      ALBAM_MATE_LOCAL_REDIS_HOST: redis
+      ALBAM_MATE_LOCAL_REDIS_PORT: 6379
+      ALBAM_MATE_CHAT_WEBSOCKET_ALLOWED_ORIGIN: ${ALBAM_MATE_CHAT_WEBSOCKET_ALLOWED_ORIGIN:-http://localhost:5173}
+      ALBAM_MATE_LOGIN_LIMIT: ${ALBAM_MATE_LOGIN_LIMIT:-30}
+      # 소셜 제공자는 ID와 secret이 모두 있을 때만 활성화된다. 비우면 그 제공자만 숨겨지고 기동은 막지 않는다.
+      ALBAM_MATE_GOOGLE_OAUTH_CLIENT_ID: ${ALBAM_MATE_GOOGLE_OAUTH_CLIENT_ID:-}
+      ALBAM_MATE_GOOGLE_OAUTH_CLIENT_SECRET: ${ALBAM_MATE_GOOGLE_OAUTH_CLIENT_SECRET:-}
+      ALBAM_MATE_NAVER_OAUTH_CLIENT_ID: ${ALBAM_MATE_NAVER_OAUTH_CLIENT_ID:-}
+      ALBAM_MATE_NAVER_OAUTH_CLIENT_SECRET: ${ALBAM_MATE_NAVER_OAUTH_CLIENT_SECRET:-}
+      ALBAM_MATE_KAKAO_OAUTH_CLIENT_ID: ${ALBAM_MATE_KAKAO_OAUTH_CLIENT_ID:-}
+      ALBAM_MATE_KAKAO_OAUTH_CLIENT_SECRET: ${ALBAM_MATE_KAKAO_OAUTH_CLIENT_SECRET:-}
+      ALBAM_MATE_ASSISTANT_ENABLED: ${ALBAM_MATE_ASSISTANT_ENABLED:-true}
+      ALBAM_MATE_ASSISTANT_PROVIDER: ${ALBAM_MATE_ASSISTANT_PROVIDER:-fake}
+      ALBAM_MATE_ASSISTANT_PROVIDER_CONFIGURED: ${ALBAM_MATE_ASSISTANT_PROVIDER_CONFIGURED:-true}
+      ALBAM_MATE_ASSISTANT_NO_RETENTION_VERIFIED: ${ALBAM_MATE_ASSISTANT_NO_RETENTION_VERIFIED:-false}
+      ALBAM_MATE_ASSISTANT_NO_TRAINING_VERIFIED: ${ALBAM_MATE_ASSISTANT_NO_TRAINING_VERIFIED:-false}
+      ALBAM_MATE_ASSISTANT_RETENTION_MODE: ${ALBAM_MATE_ASSISTANT_RETENTION_MODE:-unverified}
+      ALBAM_MATE_ASSISTANT_POLICY_VERSION: ${ALBAM_MATE_ASSISTANT_POLICY_VERSION:-}
+      ALBAM_MATE_ASSISTANT_POLICY_URL: ${ALBAM_MATE_ASSISTANT_POLICY_URL:-}
+      ALBAM_MATE_ASSISTANT_PRICING_SNAPSHOT: ${ALBAM_MATE_ASSISTANT_PRICING_SNAPSHOT:-}
+      ALBAM_MATE_ASSISTANT_INPUT_TOKEN_PRICE_USD_PER_MILLION: ${ALBAM_MATE_ASSISTANT_INPUT_TOKEN_PRICE_USD_PER_MILLION:-0}
+      ALBAM_MATE_ASSISTANT_OUTPUT_TOKEN_PRICE_USD_PER_MILLION: ${ALBAM_MATE_ASSISTANT_OUTPUT_TOKEN_PRICE_USD_PER_MILLION:-0}
+      ALBAM_MATE_OPENAI_API_KEY: ${ALBAM_MATE_OPENAI_API_KEY:-}
+      ALBAM_MATE_SEARCH_CLOUDFLARE_ENABLED: ${ALBAM_MATE_SEARCH_CLOUDFLARE_ENABLED:-true}
+      CLOUDFLARE_ACCOUNT_ID: ${CLOUDFLARE_ACCOUNT_ID:-}
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
+      ALBAM_MATE_SEARCH_RELEASE_ID: ${ALBAM_MATE_SEARCH_RELEASE_ID:-}
+      ALBAM_MATE_SEARCH_FIELD_VERSION: ${ALBAM_MATE_SEARCH_FIELD_VERSION:-}
+      ALBAM_MATE_SEARCH_MANIFEST_SHA256: ${ALBAM_MATE_SEARCH_MANIFEST_SHA256:-}
+      ALBAM_MATE_SEARCH_TEXT_CHECKSUM: ${ALBAM_MATE_SEARCH_TEXT_CHECKSUM:-}
+      TZ: UTC
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      default:
+        aliases:
+          - spring
+    healthcheck: &spring_healthcheck
+      test: ["CMD", "wget", "--quiet", "--output-document=/dev/null", "http://127.0.0.1:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 180s
+    volumes: &spring_volumes
+      - albam_mate_profile_images:/app/uploads/profile
+
+  spring-2:
+    image: albam-mate-spring:local
+    restart: unless-stopped
+    environment:
+      <<: *spring_environment
+      ALBAM_MATE_ROLE: app2
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${ALBAM_MATE_LOCAL_DB_NAME:?ALBAM_MATE_LOCAL_DB_NAME must be set}?ApplicationName=app2
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      default:
+        aliases:
+          - spring
+    healthcheck: *spring_healthcheck
+    volumes: *spring_volumes
+
+  proxy:
+    image: albam-mate-vite:local
+    build:
+      context: frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      spring-1:
+        condition: service_healthy
+      spring-2:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${ALBAM_MATE_LOCAL_PROXY_PORT:-5173}:80"
+    volumes:
+      - ./frontend/nginx.local.conf:/etc/nginx/conf.d/default.conf:ro
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--output-document=/dev/null", "http://127.0.0.1/"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 5s
+
+volumes:
+  albam_mate_postgres_data:
+  albam_mate_profile_images:

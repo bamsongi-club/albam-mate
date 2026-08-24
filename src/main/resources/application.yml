@@ -1,0 +1,128 @@
+spring:
+  application:
+    name: albam-mate
+  jackson:
+    time-zone: UTC
+  datasource:
+    hikari:
+      connection-init-sql: SET TIME ZONE 'UTC'
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  servlet:
+    multipart:
+      # 업로드 파일 자체의 상한은 컨트롤러가 5MiB(5*1024*1024바이트)로 강제한다. 여기 max-file-size는 그보다
+      # 커야 하는데, multipart 요청은 파일 바이트 외에 헤더·boundary 오버헤드가 붙어서 파일이 정확히 5MiB일 때
+      # 요청 전체 크기가 5MB 한도를 넘어 Spring이 컨트롤러에 도달하기 전에 거절해버리기 때문이다.
+      max-file-size: 6MB
+      max-request-size: 6MB
+app:
+
+  search:
+    cloudflare:
+      enabled: ${ALBAM_MATE_SEARCH_CLOUDFLARE_ENABLED:true}
+      account-id: ${CLOUDFLARE_ACCOUNT_ID:}
+      api-token: ${CLOUDFLARE_API_TOKEN:}
+      timeout: 5s
+      release-id: ${ALBAM_MATE_SEARCH_RELEASE_ID:}
+      field-version: ${ALBAM_MATE_SEARCH_FIELD_VERSION:}
+      manifest-sha256: ${ALBAM_MATE_SEARCH_MANIFEST_SHA256:}
+      search-text-checksum: ${ALBAM_MATE_SEARCH_TEXT_CHECKSUM:}
+
+  assistant:
+    enabled: true
+    provider: fake
+    provider-configured: ${ALBAM_MATE_ASSISTANT_PROVIDER_CONFIGURED:true}
+    model: gpt-5.6-luna
+    no-retention-verified: false
+    no-training-verified: false
+    store: false
+    policy-version: ${ALBAM_MATE_ASSISTANT_POLICY_VERSION:}
+    policy-url: ${ALBAM_MATE_ASSISTANT_POLICY_URL:}
+    retention-mode: unverified
+    pricing-snapshot: ${ALBAM_MATE_ASSISTANT_PRICING_SNAPSHOT:}
+    input-token-price-usd-per-million: ${ALBAM_MATE_ASSISTANT_INPUT_TOKEN_PRICE_USD_PER_MILLION:0}
+    output-token-price-usd-per-million: ${ALBAM_MATE_ASSISTANT_OUTPUT_TOKEN_PRICE_USD_PER_MILLION:0}
+    max-input-tokens: ${ALBAM_MATE_ASSISTANT_MAX_INPUT_TOKENS:4096}
+    max-output-tokens: ${ALBAM_MATE_ASSISTANT_MAX_OUTPUT_TOKENS:256}
+    reservation-cost-usd: 0.10
+    timeout: 10s
+    retry-count: 0
+  profile-image:
+    upload-dir: ${ALBAM_MATE_PROFILE_IMAGE_DIR:./uploads/profile}
+  room:
+    status-correction:
+      lock-name: room-status-correction
+      trigger-delay: 15m
+      trigger-jitter: 3m
+      # 아래 세 값은 ROOM-09d 후보 측정 결과로 제안하고 사용자 승인으로 확정했다.
+      # 측정 근거와 승인 기록은 docs/measurements/room-09-bounded-processing-baseline.md에 있다.
+      # candidate-limit: 제한 ID 값은 규모별 우열을 뒤집지 못해 성능 근거로 삼지 않았다.
+      # 배치 하나가 DB 호출 3회를 쓰므로 총 호출은 1/limit로 준다. 대형에서 10 -> 100이 2,700회를 줄이고
+      # 100 -> 1000은 270회만 더 줄여, 100이 선별 오버헤드가 사실상 사라지는 지점이다.
+      # 실패 파급 범위는 ROOM마다 독립 트랜잭션이고 커서도 ROOM마다 전진해 이 값과 무관하다.
+      candidate-limit: 100
+      # max-batches-per-run: 한 실행은 최대 100 batch만 처리해 candidate-limit과 합쳐 최대 10,000 ROOM을 시도한다.
+      # 상한 뒤에도 같은 turn cutoff의 후보가 남으면 cursor를 보존해 다음 실행에서 재개하고 ROOM 전용 WARN을 남긴다.
+      max-batches-per-run: 100
+      # execution-warning-threshold: candidate-limit 100의 관찰 최대 실행시간은 대형 108.1초다.
+      # 쓰지 않는 제한 ID까지 포함한 관찰 최대 151.8초를 기준으로 보수적으로 잡는다.
+      execution-warning-threshold: 180s
+      # lock-at-most-for: 경고 기준과 고정 비율로 묶지 않는다. 잠금 보유 인스턴스가 죽었을 때 다른 인스턴스가
+      # 이어받기까지 감수할 복구 지연으로 정하며, trigger-delay 15m 한 주기 안에 든다.
+      # 한 실행의 최장 시간을 보장하는 값은 아니다. 다만 위 반복 상한으로 한 실행의 시도량은 제한한다.
+      lock-at-most-for: 10m
+  chat:
+    retention:
+      enabled: true
+      cron: "0 0 3 * * *"
+      max-rooms-per-run: 50
+      max-messages-per-run: 5000
+      message-chunk-size: 100
+      lock-at-most-for: 2m
+      lock-at-least-for: 5s
+      execution-warning-threshold: 30s
+      max-run-duration: 1m
+      query-timeout: 10s
+      max-lock-sections-per-run: 30
+
+  social:
+    # Client ID와 Client Secret 두 값이 모두 있는 제공자만 활성화한다. 실제 값은 저장소에 두지 않고
+    # 환경 변수로 주입하며, 주입하지 않은 제공자는 빈 값으로 남아 로그인 진입점에 노출되지 않는다.
+    providers:
+      google:
+        client-id: ${ALBAM_MATE_GOOGLE_OAUTH_CLIENT_ID:}
+        client-secret: ${ALBAM_MATE_GOOGLE_OAUTH_CLIENT_SECRET:}
+      naver:
+        client-id: ${ALBAM_MATE_NAVER_OAUTH_CLIENT_ID:}
+        client-secret: ${ALBAM_MATE_NAVER_OAUTH_CLIENT_SECRET:}
+      kakao:
+        client-id: ${ALBAM_MATE_KAKAO_OAUTH_CLIENT_ID:}
+        client-secret: ${ALBAM_MATE_KAKAO_OAUTH_CLIENT_SECRET:}
+  notification:
+    cleanup:
+      interval: 1h
+      jitter: 5m
+      batch-size: 500
+      max-batches-per-target: 5
+    relay:
+      enabled: true
+      poll-interval: 5s
+      max-events-per-run: 50
+  security:
+    password:
+      bcrypt-cost: 10
+    auth-request:
+      window: 10m
+      signup-limit: 5
+      login-limit: 30
+      login-failure-limit: 5
+      # signup·login 물리 bucket을 합친 원격 IP 논리 주체의 최대 등록 수
+      max-ip-keys: 10000
+      # 실패 bucket과 로그인 gate를 합친 이메일·원격 IP 논리 주체의 최대 등록 수
+      max-failure-keys: 10000
+      hash-slots: 4
