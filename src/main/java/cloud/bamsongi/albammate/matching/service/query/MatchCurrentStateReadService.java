@@ -20,6 +20,7 @@ import cloud.bamsongi.albammate.matching.MatchRequestStatus;
 import cloud.bamsongi.albammate.matching.contract.MatchChatSystemMessagePort;
 import cloud.bamsongi.albammate.matching.dto.CurrentMatchStateResponse;
 import cloud.bamsongi.albammate.matching.dto.MatchPartyMember;
+import cloud.bamsongi.albammate.matching.dto.MatchPreparingMember;
 import cloud.bamsongi.albammate.matching.dto.MatchProposalMemberPreview;
 import cloud.bamsongi.albammate.matching.dto.MatchProposalSummary;
 import cloud.bamsongi.albammate.matching.entity.MatchParty;
@@ -92,13 +93,16 @@ public class MatchCurrentStateReadService {
 	}
 
 	private CurrentMatchStateResponse partyState(Instant operationTime, MatchParty party, long currentUserId) {
-		if (party.getStatus() == MatchPartyStatus.PREPARING) {
-			return CurrentMatchStateResponse.preparing(operationTime, party);
-		}
 		List<MatchPartyParticipant> participants = participantRepository
 			.findAllByIdPartyIdAndLeftAtIsNullOrderByCreatedAtAsc(party.getId());
 		Map<Long, UserPublicProfile> profiles = userQuery.findPublicProfilesByIds(
 			participants.stream().map(participant -> participant.getId().getUserId()).toList());
+		if (party.getStatus() == MatchPartyStatus.PREPARING) {
+			List<MatchPreparingMember> members = participants.stream()
+				.map(participant -> toPreparingMember(participant, profiles, currentUserId))
+				.toList();
+			return CurrentMatchStateResponse.preparing(operationTime, party, members);
+		}
 		List<MatchPartyMember> members = participants.stream()
 			.map(participant -> toPartyMember(participant, profiles, currentUserId))
 			.toList();
@@ -117,6 +121,15 @@ public class MatchCurrentStateReadService {
 			&& !matchChatSystemMessagePort.hasPersistedEvent(party.getId(), "CLOSES_IN_ONE_HOUR")) {
 			throw notStable();
 		}
+	}
+
+	private MatchPreparingMember toPreparingMember(
+		MatchPartyParticipant participant, Map<Long, UserPublicProfile> profiles, long currentUserId) {
+		UserPublicProfile profile = profiles.get(participant.getId().getUserId());
+		return new MatchPreparingMember(
+			profile == null ? "" : profile.nickname(),
+			profile == null ? null : profile.profileImageUrl(),
+			participant.getId().getUserId() == currentUserId);
 	}
 
 	private MatchPartyMember toPartyMember(

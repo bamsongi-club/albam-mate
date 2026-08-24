@@ -1,235 +1,823 @@
-import React, { useState } from 'react';
-import { api } from '../api';
-import { normalizeGameSummary } from '../game';
-import { useRequest } from '../shared/async';
-import { playerColor, playerTextColor } from '../shared/players';
-import { ArrowIcon, Cover, ErrorBox, SendIcon, StateBlock, TopBar } from '../shared/ui';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import mascotCut from '../../assets/mascot-cut.png';
+import { ApiError, api, messageForError } from '../api';
+import { usePaginatedRequest } from '../shared/async';
+import { playerColor } from '../shared/players';
+import { Avatar, BackIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon, ErrorBox, InfoIcon, Pagination, PersonSilhouetteIcon, SendIcon, StateBlock, TopBar, UsersIcon } from '../shared/ui';
 
 /**
- * P2 시안. 담당자 명세와 매칭 서버 API가 아직 없다.
- *
- * 화면 배치를 확인할 수 있게 레이아웃은 모두 그리되, 서버가 해야 할 일은 실행하지 않고
- * 준비 중임을 알린다. 화면 이동만 실제로 동작한다. 매칭 방은 오프라인 ROOM과 별개이며
- * 내 모임에 쌓이지 않고 RoomStatus와도 섞지 않는다.
+ * MATCH-01 실시간 파티 매칭. 서버가 현재 상태의 정본이라 화면은 주소가 아니라
+ * `GET /api/matches/current`가 돌려주는 state로만 갈린다. 진행 단계는 폴링으로 따라간다.
  */
 
-export const P2_NOTICE = '아직 준비 중인 기능이에요.';
+const MATCH_POLL_INTERVAL_MS = 3500;
+const MATCH_POLLING_STATES = ['WAITING', 'PROPOSED', 'PAUSED', 'PREPARING'];
 
-export const MATCH_PHASES = ['idle', 'searching', 'matched', 'failed'];
-
-const MATCH_CAPACITIES = [2, 3, 4];
-const CANDIDATE_SIZE = 4;
-const MEMBER_NAMES = ['나', '지현', '현수', '민경'];
-
-const PREVIEW_MESSAGES = [
-  { system: true, text: '온라인 방이 열렸어요. 무엇을 할지 정해보세요.' },
-  { name: '지현', text: '가벼운 걸로 한 판 하시죠' },
-  { me: true, text: '좋아요, 저는 아무거나 괜찮아요' }
-];
-
-function useCandidates(dataVersion) {
-  const { data, loading, error, retry } = useRequest(
-    (signal) => api.getGames({ page: 0, size: CANDIDATE_SIZE }, signal),
-    [dataVersion]
-  );
-  return { games: (data?.content || []).map(normalizeGameSummary), loading, error, retry };
+function createIdempotencyKey() {
+  return globalThis.crypto?.randomUUID?.() || 'match-' + Date.now() + '-' + Math.random().toString(36).slice(2);
 }
 
-function membersOf(capacity) {
-  return Array.from({ length: capacity }, (_, index) => {
-    const name = MEMBER_NAMES[index % MEMBER_NAMES.length];
-    const color = playerColor(index);
-    return { name, initial: [...name][0], color, textColor: playerTextColor(color) };
-  });
+function partySizeLabel(minPlayers, maxPlayers) {
+  return minPlayers === maxPlayers ? minPlayers + '인' : minPlayers + '~' + maxPlayers + '인';
 }
 
-/** 내 표 1과 나머지 인원의 표를 나눠 표 합계를 항상 참가자 수와 같게 유지한다. */
-function tally(candidates, capacity, myVote) {
-  const others = Math.max(0, capacity - 1);
-  const counts = candidates.map(() => 0);
-  for (let index = 0; index < others; index += 1) counts[index % candidates.length] += 1;
-  return candidates.map((game, index) => ({
-    ...game,
-    votes: counts[index] + (myVote === game.id ? 1 : 0),
-    mine: myVote === game.id
-  }));
+const KOREAN_COUNT = { 1: '한', 2: '두', 3: '세', 4: '네', 5: '다섯', 6: '여섯', 7: '일곱', 8: '여덟' };
+function partyCountLabel(count) {
+  return (KOREAN_COUNT[count] || count) + ' 명';
 }
 
-function Members({ members, filled, pulsing }) {
+function useElapsed(sinceIso) {
+  const compute = () => Math.max(0, Date.now() - new Date(sinceIso));
+  const [elapsedMs, setElapsedMs] = useState(compute);
+  useEffect(() => {
+    setElapsedMs(compute());
+    const timer = setInterval(() => setElapsedMs(compute()), 1000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sinceIso]);
+  return elapsedMs;
+}
+
+function formatElapsed(elapsedMs) {
+  const totalSeconds = Math.floor(elapsedMs / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return minutes > 0 ? minutes + '분 ' + seconds + '초' : seconds + '초';
+}
+
+function useCurrentMatch() {
+  const [snapshot, setSnapshot] = useState({ data: null, loading: true, error: '' });
+
+  const load = useCallback((signal) => api.getCurrentMatch(signal)
+    .then((data) => setSnapshot({ data, loading: false, error: '' }))
+    .catch((error) => {
+      if (error?.name === 'AbortError') return;
+      setSnapshot((current) => ({
+        data: current.data,
+        loading: false,
+        error: messageForError(error)
+      }));
+    }), []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    load(controller.signal);
+    return () => controller.abort();
+  }, [load]);
+
+  const state = snapshot.data?.state || null;
+  // 실시간 이벤트가 없으므로 전이 가능한 상태에서만 짧은 간격으로 다시 물어본다.
+  useEffect(() => {
+    if (!MATCH_POLLING_STATES.includes(state)) return undefined;
+    const timer = setInterval(() => load(new AbortController().signal), MATCH_POLL_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [state, load]);
+
+  return { data: snapshot.data, loading: snapshot.loading, error: snapshot.error, reload: load };
+}
+
+const PARTY_SIZE_OPTIONS = [2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+function MatchCountSelect({ label, value, onChange }) {
+  const [open, setOpen] = useState(false);
   return (
-    <div className={'match-seats' + (pulsing ? ' searching' : '')} aria-hidden="true">
-      {members.map((member, index) => (
-        <span className="match-seat" key={index} style={index < filled ? { color: member.color } : undefined}>
-          <i /><b />
-        </span>
-      ))}
+    <div className="match-select-col">
+      <span>{label}</span>
+      <button type="button" className={'match-select-trigger' + (open ? ' on' : '')} onClick={() => setOpen(!open)}>
+        <b>{value}명</b>
+        {open ? <ChevronUpIcon size={18} /> : <ChevronDownIcon size={18} />}
+      </button>
+      {open && (
+        <div className="match-select-list">
+          <p className="match-select-list-label">{label} 인원</p>
+          {PARTY_SIZE_OPTIONS.map((count) => (
+            <button
+              key={count}
+              type="button"
+              className={'match-select-option' + (count === value ? ' on' : '')}
+              onClick={() => { onChange(count); setOpen(false); }}
+            >
+              {count}명
+              {count === value && <CheckIcon size={17} width={2.6} />}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
-function Avatars({ members, small }) {
+function MatchRequestForm({ onSubmitted, onToast }) {
+  const [min, setMin] = useState(2);
+  const [max, setMax] = useState(4);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const changeMin = (value) => {
+    setMin(value);
+    if (value > max) setMax(value);
+  };
+  const changeMax = (value) => {
+    setMax(value);
+    if (value < min) setMin(value);
+  };
+
+  const submit = async () => {
+    setSubmitting(true);
+    setError('');
+    try {
+      await api.createMatchRequest({ minPlayers: min, maxPlayers: max }, createIdempotencyKey());
+      onSubmitted();
+    } catch (cause) {
+      if (cause instanceof ApiError && cause.code === 'MATCH_REQUEST_ALREADY_ACTIVE') {
+        onSubmitted();
+        onToast('이미 진행 중인 매칭이 있어요.', 'err');
+      } else {
+        setError(messageForError(cause));
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
-    <div className="match-avatars">
-      {members.map((member, index) => (
-        <span className={'avatar' + (small ? ' sm' : '')} key={index} style={{ background: member.color, color: member.textColor }} aria-hidden="true">
-          {member.initial}
-        </span>
-      ))}
-    </div>
+    <>
+      <div className="match-scroll">
+        <p className="section-label" style={{ marginTop: 26 }}>몇 명이서 할까요</p>
+        <div className="match-select-row">
+          <MatchCountSelect label="최소" value={min} onChange={changeMin} />
+          <span className="match-select-sep">–</span>
+          <MatchCountSelect label="최대" value={max} onChange={changeMax} />
+        </div>
+        <div className="match-hint">
+          <InfoIcon size={17} />
+          <p>나와 원하는 인원대가 겹치는 사람끼리 묶여요. 범위를 넓게 잡으면 더 빨리 만나요.</p>
+        </div>
+        {error && <div style={{ marginTop: 16 }}><ErrorBox message={error} onRetry={submit} /></div>}
+        <p className="screen-note">오프라인 모임과는 별개라 내 모임에 쌓이지 않아요.</p>
+      </div>
+      <div className="match-footer">
+        <button className="btn cta" type="button" disabled={submitting} onClick={submit}>
+          {submitting ? '요청하는 중…' : '매칭 시작하기'}
+        </button>
+      </div>
+    </>
   );
 }
 
-export function MatchView({ phase, dataVersion, onBack, onNavigate, onToast }) {
-  const [capacity, setCapacity] = useState(4);
-  const [gameId, setGameId] = useState('');
-  const candidates = useCandidates(dataVersion);
-  const step = MATCH_PHASES.includes(phase) ? phase : 'idle';
-  const members = membersOf(capacity);
-  const selected = candidates.games.find((game) => game.id === gameId);
-  const gameLabel = selected ? selected.title : '게임 미정';
+function MatchWaiting({ request, onChanged, onToast }) {
+  const [canceling, setCanceling] = useState(false);
+  const elapsed = useElapsed(request.queuedAt);
+  const cancel = async () => {
+    setCanceling(true);
+    try {
+      await api.cancelMatchRequest();
+      onChanged();
+    } catch (cause) {
+      onToast(messageForError(cause), 'err');
+    } finally {
+      setCanceling(false);
+    }
+  };
+  return (
+    <>
+      <div className="match-center">
+        <h2 className="match-headline">{partySizeLabel(request.minPlayers, request.maxPlayers)}로<br />사람을 찾고 있어요</h2>
+        <p className="match-status-dot"><i />원하는 인원대가 겹치는 사람을 찾는 중</p>
+        <p className="match-elapsed">기다린 시간 {formatElapsed(elapsed)}</p>
+        <div className="match-hint">
+          <img src={mascotCut} alt="" />
+          <p>기다리는 시간에 제한은 없어요. 사람이 모이면 채팅방이 열리고, 할 게임은 거기서 정해요.</p>
+        </div>
+      </div>
+      <div className="match-footer plain">
+        <button className="btn fill" type="button" disabled={canceling} onClick={cancel}>
+          {canceling ? '취소하는 중…' : '매칭 취소'}
+        </button>
+        <p className="screen-note" style={{ margin: 0, textAlign: 'center' }}>화면을 닫아도 매칭은 계속돼요. 모이면 알림으로 알려드려요.</p>
+      </div>
+    </>
+  );
+}
+
+function MatchPaused({ request, onChanged, onToast }) {
+  const [pending, setPending] = useState('');
+
+  const retry = async () => {
+    setPending('retry');
+    try {
+      await api.cancelMatchRequest();
+      await api.createMatchRequest({ minPlayers: request.minPlayers, maxPlayers: request.maxPlayers }, createIdempotencyKey());
+      onChanged();
+    } catch (cause) {
+      onToast(messageForError(cause), 'err');
+    } finally {
+      setPending('');
+    }
+  };
+
+  const cancel = async () => {
+    setPending('cancel');
+    try {
+      await api.cancelMatchRequest();
+      onChanged();
+    } catch (cause) {
+      onToast(messageForError(cause), 'err');
+    } finally {
+      setPending('');
+    }
+  };
+
+  return (
+    <section className="match-card">
+      <p className="match-lead">잠시 멈췄어요</p>
+      <h2>응답 시간이 지났어요</h2>
+      <p className="screen-note">다시 찾기를 누르면 새로 대기를 시작해요.</p>
+      <div className="btn-row" style={{ marginTop: 22 }}>
+        <button className="btn fill" type="button" disabled={Boolean(pending)} onClick={cancel}>
+          {pending === 'cancel' ? '취소하는 중…' : '매칭 취소'}
+        </button>
+        <button className="btn" type="button" disabled={Boolean(pending)} onClick={retry}>
+          {pending === 'retry' ? '다시 찾는 중…' : '다시 찾기'}
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function useCountdown(deadlineIso) {
+  const compute = () => Math.max(0, new Date(deadlineIso) - Date.now());
+  const [remainingMs, setRemainingMs] = useState(compute);
+  useEffect(() => {
+    setRemainingMs(compute());
+    const timer = setInterval(() => setRemainingMs(compute()), 1000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deadlineIso]);
+  return remainingMs;
+}
+
+const PROPOSAL_RESPOND_WINDOW_MS = 30000;
+
+function MatchProposed({ proposal, onChanged, onToast }) {
+  const remainingMs = useCountdown(proposal.respondBy);
+  const remainingSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
+  const progress = Math.max(0, Math.min(100, (remainingMs / PROPOSAL_RESPOND_WINDOW_MS) * 100));
+  const [pending, setPending] = useState('');
+  const accepted = proposal.myResponse === 'ACCEPTED';
+  const disabled = accepted || Boolean(pending);
+
+  const respond = async (action) => {
+    setPending(action);
+    try {
+      await api.respondToMatchProposal(proposal.proposalId, action, createIdempotencyKey());
+      onChanged();
+    } catch (cause) {
+      onToast(messageForError(cause), 'err');
+    } finally {
+      setPending('');
+    }
+  };
+
+  return (
+    <>
+      <div className="match-center">
+        <div className="match-countdown"><b>{remainingSeconds}</b><span>초 안에 답해 주세요</span></div>
+        <div className="match-progress"><i style={{ width: progress + '%' }} /></div>
+        <h2 className="match-headline">{partyCountLabel(proposal.partySize)} 모였어요<br />같이 하실래요?</h2>
+        <p className="screen-note">모두 수락하면 채팅방이 열리고 서로 닉네임이 보여요.</p>
+        {/* 전원 수락 전에는 닉네임·사진을 보여주지 않는다. 익명 인원 수만 표시한다. */}
+        <div className="match-anon-avatars" aria-hidden="true">
+          {proposal.members.map((member, index) => (
+            <span className="match-anon-avatar" key={index}><PersonSilhouetteIcon size={26} /></span>
+          ))}
+        </div>
+        {accepted && <p className="screen-note" style={{ marginTop: 18 }}>다른 인원을 기다리는 중이에요.</p>}
+      </div>
+      <div className="match-footer plain">
+        <button className="btn cta" type="button" disabled={disabled} onClick={() => respond('ACCEPT')}>
+          {accepted ? '수락함' : pending === 'ACCEPT' ? '수락하는 중…' : '수락'}
+        </button>
+        <button className="btn fill" type="button" disabled={disabled} onClick={() => respond('REQUEUE')}>
+          {pending === 'REQUEUE' ? '처리 중…' : '건너뛰고 다시 기다리기'}
+        </button>
+        <button className="btn-text-link" type="button" disabled={disabled} onClick={() => respond('CANCEL')}>
+          {pending === 'CANCEL' ? '처리 중…' : '매칭 취소'}
+        </button>
+      </div>
+    </>
+  );
+}
+
+function MatchPreparing({ preparing }) {
+  const members = preparing.members;
+  return (
+    <>
+      <div className="match-center">
+        <div className="match-accepted-label">
+          <span className="match-check" aria-hidden="true"><CheckIcon size={18} width={3} /></span>
+          {partyCountLabel(members.length)} 모두 수락했어요
+        </div>
+        <div className="match-progress done"><i style={{ width: '100%' }} /></div>
+        <h2 className="match-headline">채팅방을 열고 있어요</h2>
+        <p className="screen-note">이제 서로 닉네임이 보여요.</p>
+        <div className="match-roster">
+          {members.map((member, index) => (
+            <div className="match-roster-col" key={index}>
+              <Avatar name={member.nickname} imageUrl={member.profileImageUrl} index={index} />
+              <strong>{member.nickname}</strong>
+              {member.isMine && <span>나</span>}
+            </div>
+          ))}
+        </div>
+        <div className="match-hint">
+          <InfoIcon size={17} />
+          <p>채팅방은 24시간 뒤 문을 닫아요. 할 게임은 채팅에서 정하고 보드게임아레나에서 같이 해요.</p>
+        </div>
+      </div>
+      <div className="match-footer plain">
+        <div className="match-status-pill">
+          <i />
+          <b>준비되면 자동으로 들어가요</b>
+          <span>보통 10초</span>
+        </div>
+      </div>
+    </>
+  );
+}
+
+export function MatchView({ onBack, onNavigate, onToast }) {
+  const { data, loading, error, reload } = useCurrentMatch();
+  const state = data?.state || null;
+
+  useEffect(() => {
+    if (state === 'ACTIVE') onNavigate('/match-chat', { replace: true });
+    // onNavigate(useHashRoute의 navigate)는 App이 다시 그려질 때마다 새로 만들어진다.
+    // 매번 새 참조로 이 effect가 다시 돌면 관련 없는 재렌더링마다 이동을 반복 시도하므로 state에만 반응한다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
+
+  const hasTopBar = !['PROPOSED', 'PREPARING'].includes(state);
+  const flexBody = !state || ['WAITING', 'PROPOSED', 'PREPARING'].includes(state);
 
   return (
     <div className="screen sub">
-      <TopBar onBack={onBack} title="실시간 온라인 매칭" />
-      <div className="screen-body pad-bottom">
-        <p className="screen-lead">사람이 모이면 보드게임아레나 방으로 연결해요. 집에서 바로 하는 한 판이에요.</p>
+      {hasTopBar && (
+        state === 'WAITING'
+          ? <TopBar onBack={onBack} closeIcon />
+          : <TopBar onBack={onBack} title="온라인 매칭" />
+      )}
+      <div className={'screen-body pad-bottom' + (hasTopBar ? '' : ' pad-top') + (flexBody ? ' match-flex' : '')}>
+        {!state && !loading && (
+          <p className="screen-lead" style={{ flex: 'none' }}>사람이 모이면 채팅방이 열려요. 할 게임을 정하고 보드게임아레나에서 같이 해요.</p>
+        )}
+        {error && !data && <div style={{ marginTop: 16 }}><ErrorBox message={error} onRetry={() => reload()} /></div>}
+        {error && data && <p className="screen-note" role="status">잠시 연결이 불안정해 이전 상태를 보여드리며 다시 확인하고 있어요.</p>}
+        {!error && loading && !data && <p className="screen-note">불러오는 중…</p>}
+        {!error && !loading && !state && <MatchRequestForm onSubmitted={() => reload()} onToast={onToast} />}
+        {data && state === 'WAITING' && <MatchWaiting request={data.request} onChanged={() => reload()} onToast={onToast} />}
+        {data && state === 'PAUSED' && <MatchPaused request={data.request} onChanged={() => reload()} onToast={onToast} />}
+        {data && state === 'PROPOSED' && <MatchProposed proposal={data.proposal} onChanged={() => reload()} onToast={onToast} />}
+        {data && state === 'PREPARING' && <MatchPreparing preparing={data.preparing} />}
+      </div>
+    </div>
+  );
+}
 
-        {step === 'idle' && (
-          <>
-            <p className="section-label" style={{ marginTop: 26 }}>하고 싶은 게임 <span className="section-label-note">· 지금 정하지 않아도 되어요</span></p>
-            {candidates.error
-              ? <div style={{ marginTop: 12 }}><ErrorBox title="게임을 불러오지 못했어요" message={candidates.error} onRetry={candidates.retry} /></div>
-              : (
-                <div className="chiprow">
-                  {candidates.games.map((game) => (
+// ---- MATCH 채팅 ----
+
+const MATCH_CHAT_RECONNECT_LIMIT = 3;
+const MS_PER_HOUR = 60 * 60 * 1000;
+const MS_PER_MINUTE = 60 * 1000;
+
+function formatRemainingClose(closesAtIso) {
+  const remainingMs = new Date(closesAtIso) - Date.now();
+  if (remainingMs <= 0) return '곧 문을 닫아요';
+  const hours = Math.floor(remainingMs / MS_PER_HOUR);
+  if (hours > 0) return hours + '시간 뒤 문을 닫아요';
+  const minutes = Math.max(1, Math.floor(remainingMs / MS_PER_MINUTE));
+  return minutes + '분 뒤 문을 닫아요';
+}
+
+function matchChatStreamMessage(payload, partyId) {
+  if (!payload || payload.type !== 'MESSAGE_CREATED' || !payload.message) return null;
+  if (String(payload.message.partyId) !== String(partyId) || payload.message.messageId === undefined) return null;
+  if (Number(payload.eventId) !== Number(payload.message.messageId)) return null;
+  return payload.message;
+}
+
+function mergeMatchChatMessages(current, incoming) {
+  const byId = new Map(current.map((message) => [String(message.messageId), message]));
+  incoming.forEach((message) => byId.set(String(message.messageId), message));
+  return [...byId.values()].sort((left, right) => Number(left.messageId) - Number(right.messageId));
+}
+
+const REPORT_REASONS = [
+  { value: 'ABUSE_OR_HARASSMENT', label: '학대/괴롭힘' },
+  { value: 'HATE_OR_DISCRIMINATION', label: '혐오/차별' },
+  { value: 'SEXUAL_CONTENT', label: '성적 콘텐츠' },
+  { value: 'SPAM_OR_SCAM', label: '스팸/사기' },
+  { value: 'OTHER_RULE_VIOLATION', label: '그 밖의 위반' }
+];
+
+function MatchRosterSheet({ partyId, members, onClose, onToast, onLeave }) {
+  const [reportTarget, setReportTarget] = useState(null);
+  const [busyRef, setBusyRef] = useState('');
+
+  const block = async (participantRef) => {
+    setBusyRef(participantRef);
+    try {
+      await api.blockMatchParticipant(partyId, participantRef);
+      onToast('차단했어요.');
+    } catch (cause) {
+      onToast(messageForError(cause), 'err');
+    } finally {
+      setBusyRef('');
+    }
+  };
+
+  const report = async (participantRef, reason) => {
+    setBusyRef(participantRef);
+    try {
+      await api.reportMatchParticipant(partyId, { participantRef, reason });
+      onToast('신고를 접수했어요.');
+      setReportTarget(null);
+    } catch (cause) {
+      onToast(messageForError(cause), 'err');
+    } finally {
+      setBusyRef('');
+    }
+  };
+
+  return (
+    <div className="sheet-backdrop" role="presentation" onMouseDown={onClose}>
+      <section className="sheet" role="dialog" aria-modal="true" aria-label="참가자" onMouseDown={(event) => event.stopPropagation()}>
+        <div className="sheet-head">
+          <h2>참가자</h2>
+          <button type="button" className="sheet-close" aria-label="닫기" onClick={onClose}>✕</button>
+        </div>
+        <div className="menu-list" style={{ padding: '0 var(--pad) 22px' }}>
+          {members.filter((member) => !member.isMine).map((member) => (
+            <div className="menu-row" key={member.participantRef} style={{ flexWrap: 'wrap' }}>
+              <Avatar imageUrl={member.profileImageUrl} name={member.nickname} />
+              <span className="menu-row-label">{member.nickname}</span>
+              <button type="button" className="btn fill sm" disabled={busyRef === member.participantRef} onClick={() => block(member.participantRef)}>차단</button>
+              <button
+                type="button"
+                className="btn fill sm"
+                disabled={busyRef === member.participantRef}
+                onClick={() => setReportTarget(reportTarget === member.participantRef ? null : member.participantRef)}
+              >
+                신고
+              </button>
+              {reportTarget === member.participantRef && (
+                <div className="chiprow" style={{ width: '100%', marginTop: 10 }}>
+                  {REPORT_REASONS.map((reason) => (
                     <button
-                      className={'chip' + (gameId === game.id ? ' on' : '')}
+                      key={reason.value}
                       type="button"
-                      key={game.id}
-                      aria-pressed={gameId === game.id}
-                      onClick={() => setGameId(gameId === game.id ? '' : game.id)}
+                      className="chip"
+                      disabled={busyRef === member.participantRef}
+                      onClick={() => report(member.participantRef, reason.value)}
                     >
-                      {game.title}
+                      {reason.label}
                     </button>
                   ))}
                 </div>
               )}
-            <p className="section-label" style={{ marginTop: 24 }}>인원</p>
-            <div className="chiprow">
-              {MATCH_CAPACITIES.map((count) => (
-                <button
-                  className={'chip' + (capacity === count ? ' on' : '')}
-                  type="button"
-                  key={count}
-                  aria-pressed={capacity === count}
-                  onClick={() => setCapacity(count)}
-                >
-                  {count}인
-                </button>
-              ))}
             </div>
-            {/* 매칭은 서버가 사람을 모아야 하므로 실행하지 않고 준비 중임을 알린다. */}
-            <button className="btn cta" type="button" style={{ marginTop: 26 }} onClick={() => onToast(P2_NOTICE)}>매칭 시작하기</button>
-            <p className="screen-note">사람이 모이면 온라인 방이 열리고, 그 방에서 할 게임을 정해요. 오프라인 모임과는 별개라 내 모임에 쌓이지 않아요.</p>
-          </>
-        )}
-
-        {step === 'searching' && (
-          <section className="match-card">
-            <p className="match-lead">사람을 찾는 중</p>
-            <h2>{gameLabel} {capacity}인</h2>
-            <Members members={members} filled={2} pulsing />
-            <button className="btn white" type="button" style={{ marginTop: 22 }} onClick={() => onNavigate('/match')}>매칭 취소</button>
-          </section>
-        )}
-
-        {step === 'matched' && (
-          <>
-            <section className="match-card done">
-              <p className="match-lead">모집 완료</p>
-              <h2>{gameLabel} {capacity}인 모였어요</h2>
-              <Avatars members={members} />
-            </section>
-            <button className="btn cta" type="button" style={{ marginTop: 14 }} onClick={() => onNavigate('/online-room')}>
-              온라인 방 들어가기<ArrowIcon size={16} />
-            </button>
-            <p className="screen-note">방에서 무엇을 할지 같이 정하고, 정해지면 보드게임아레나로 넘어가요.</p>
-            <button className="btn fill" type="button" style={{ marginTop: 14 }} onClick={() => onNavigate('/match')}>나가기</button>
-          </>
-        )}
-
-        {step === 'failed' && (
-          <StateBlock
-            title={<>{'지금은 사람이 '}<br />{'모이지 않았어요'}</>}
-            description="인원을 줄이거나 다른 게임으로 다시 보시면 더 빨리 맞아요."
-          >
-            <div className="btn-row">
-              <button className="btn" type="button" onClick={() => onToast(P2_NOTICE)}>다시 시도</button>
-              <button className="btn fill" type="button" onClick={() => onNavigate('/find')}>오프라인 모임 보기</button>
-            </div>
-          </StateBlock>
-        )}
-      </div>
+          ))}
+        </div>
+        <div style={{ padding: '0 var(--pad) 22px' }}>
+          <button type="button" className="btn fill" onClick={onLeave}>채팅방 나가기</button>
+        </div>
+      </section>
     </div>
   );
 }
 
-export function OnlineRoomView({ dataVersion, onBack, onToast }) {
-  const [draft, setDraft] = useState('');
-  const capacity = 4;
-  const members = membersOf(capacity);
-  const { games, error, retry } = useCandidates(dataVersion);
-  // 방에 들어온 사람은 언제나 표가 하나 있다. 고른 게임이 없으면 첫 후보에 둔다.
-  const candidates = tally(games, capacity, games[0]?.id || '');
-  const lead = candidates.slice().sort((left, right) => right.votes - left.votes)[0] || null;
+export function MatchChatView({ onBack, onNavigate, onToast }) {
+  const [handoff, setHandoff] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const partyId = handoff?.partyId;
+
+  useEffect(() => {
+    let active = true;
+    const controller = new AbortController();
+    api.getCurrentMatch(controller.signal)
+      .then((data) => {
+        if (!active) return;
+        if (data?.state === 'ACTIVE' && data.chat) {
+          setHandoff(data.chat);
+          setLoading(false);
+        } else {
+          // 채팅에 접근할 수 없는 최신 상태면 매칭 화면이 실제 상태를 다시 보여준다.
+          onNavigate('/match', { replace: true });
+        }
+      })
+      .catch((cause) => {
+        if (!active || cause?.name === 'AbortError') return;
+        setError(messageForError(cause));
+        setLoading(false);
+      });
+    return () => { active = false; controller.abort(); };
+    // onNavigate는 App 재렌더링마다 새로 만들어진다. 여기 넣으면 매칭과 무관한 재렌더링마다
+    // 조회를 반복해 늦게 도착한 응답이 먼저 도착한 ACTIVE 결과를 덮어쓸 수 있어 최초 1회만 조회한다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const [messages, setMessages] = useState([]);
+  const [nextBeforeMessageId, setNextBeforeMessageId] = useState(null);
+  const [hasNext, setHasNext] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [content, setContent] = useState('');
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState('');
+  const [rosterOpen, setRosterOpen] = useState(false);
+  const [chatClosed, setChatClosed] = useState(false);
+  const [socketGeneration, setSocketGeneration] = useState(0);
+  const lastEventIdRef = useRef(null);
+  const connectedPartyRef = useRef(null);
+  const reconnectAttemptsRef = useRef(0);
+  const checkingChatRef = useRef(false);
+  const navigateRef = useRef(onNavigate);
+  const chatLogRef = useRef(null);
+  navigateRef.current = onNavigate;
+
+  const refreshCurrentMatch = useCallback(async ({ reconnect = false } = {}) => {
+    if (checkingChatRef.current) return null;
+    checkingChatRef.current = true;
+    setChatClosed(true);
+    try {
+      const data = await api.getCurrentMatch();
+      if (data?.state === 'ACTIVE' && data.chat) {
+        setHandoff(data.chat);
+        setError('');
+        if (reconnect) {
+          setChatClosed(false);
+          setSocketGeneration((current) => current + 1);
+        } else {
+          setError('채팅 연결이 끊겼어요. 다시 시도해 주세요.');
+        }
+        return data;
+      }
+      navigateRef.current('/match', { replace: true });
+      return null;
+    } catch (cause) {
+      if (cause?.name !== 'AbortError') setError(messageForError(cause));
+      return null;
+    } finally {
+      checkingChatRef.current = false;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!handoff?.closesAt || !partyId) return undefined;
+    const remainingMs = new Date(handoff.closesAt).getTime() - Date.now();
+    if (remainingMs <= 0) {
+      refreshCurrentMatch({ reconnect: true });
+      return undefined;
+    }
+    const timer = setTimeout(() => refreshCurrentMatch({ reconnect: true }), remainingMs);
+    return () => clearTimeout(timer);
+  }, [handoff?.closesAt, partyId, refreshCurrentMatch]);
+
+  useEffect(() => {
+    if (!partyId || chatClosed) return undefined;
+    let active = true;
+    let socket;
+    if (connectedPartyRef.current !== partyId) {
+      connectedPartyRef.current = partyId;
+      lastEventIdRef.current = null;
+      reconnectAttemptsRef.current = 0;
+    }
+
+    const connect = () => {
+      if (!active) return;
+      let currentSocket;
+      try {
+        currentSocket = api.openMatchChatWebSocket(partyId, { afterMessageId: lastEventIdRef.current });
+        socket = currentSocket;
+      } catch {
+        return;
+      }
+      currentSocket.onopen = () => { reconnectAttemptsRef.current = 0; };
+      currentSocket.onmessage = (event) => {
+        if (!active) return;
+        let payload;
+        try {
+          payload = JSON.parse(event.data);
+        } catch {
+          return;
+        }
+        const message = matchChatStreamMessage(payload, partyId);
+        if (!message) return;
+        lastEventIdRef.current = Math.max(lastEventIdRef.current || 0, Number(payload.eventId));
+        setMessages((current) => mergeMatchChatMessages(current, [message]));
+      };
+      currentSocket.onclose = () => {
+        if (!active) return;
+        const reconnect = reconnectAttemptsRef.current < MATCH_CHAT_RECONNECT_LIMIT;
+        if (reconnect) reconnectAttemptsRef.current += 1;
+        refreshCurrentMatch({ reconnect });
+      };
+    };
+
+    api.getMatchChatMessages(partyId)
+      .then((page) => {
+        if (!active) return;
+        const latest = (page.messages || []).reduce((max, message) => Math.max(max, Number(message.messageId) || 0), 0);
+        if (latest > 0) lastEventIdRef.current = Math.max(lastEventIdRef.current || 0, latest);
+        setMessages((current) => mergeMatchChatMessages(current, page.messages || []));
+        setNextBeforeMessageId(page.nextBeforeMessageId ?? null);
+        setHasNext(Boolean(page.hasNext));
+        connect();
+      })
+      .catch((cause) => {
+        if (!active) return;
+        setError(messageForError(cause));
+        connect();
+      });
+    return () => {
+      active = false;
+      socket?.close();
+    };
+  }, [chatClosed, partyId, refreshCurrentMatch, socketGeneration]);
+
+  useEffect(() => {
+    const log = chatLogRef.current;
+    if (log) log.scrollTop = log.scrollHeight;
+  }, [messages.length]);
+
+  const loadPrevious = async () => {
+    if (!hasNext || loadingMore || nextBeforeMessageId === null) return;
+    setLoadingMore(true);
+    try {
+      const page = await api.getMatchChatMessages(partyId, { beforeMessageId: nextBeforeMessageId, size: 50 });
+      setMessages((current) => mergeMatchChatMessages(current, page.messages || []));
+      setNextBeforeMessageId(page.nextBeforeMessageId ?? null);
+      setHasNext(Boolean(page.hasNext));
+    } catch (cause) {
+      setSendError(messageForError(cause, '이전 메시지를 불러오지 못했어요.'));
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  const submit = async (event) => {
+    event.preventDefault();
+    if (chatClosed) return;
+    const trimmed = content.trim();
+    if (!trimmed) return;
+    setSending(true);
+    setSendError('');
+    try {
+      const saved = await api.sendMatchChatMessage(partyId, { clientMessageId: createIdempotencyKey(), content: trimmed });
+      setMessages((current) => mergeMatchChatMessages(current, [saved]));
+      setContent('');
+    } catch (cause) {
+      setSendError(messageForError(cause, '메시지를 보내지 못했어요.'));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const leave = async () => {
+    if (!window.confirm('채팅방에서 나갈까요? 나가면 다시 들어올 수 없어요.')) return;
+    try {
+      await api.leaveMatchParty(partyId);
+      onNavigate('/match', { replace: true });
+    } catch (cause) {
+      onToast(messageForError(cause), 'err');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="screen sub">
+        <TopBar onBack={onBack} title="온라인 매칭" />
+        <div className="screen-body pad-bottom"><p className="screen-note">불러오는 중…</p></div>
+      </div>
+    );
+  }
+  if (error || !handoff) {
+    return (
+      <div className="screen sub">
+        <TopBar onBack={onBack} title="온라인 매칭" />
+        <div className="screen-body pad-bottom"><ErrorBox message={error || '채팅을 열 수 없어요.'} /></div>
+      </div>
+    );
+  }
+
+  const memberByRef = new Map(handoff.members.map((member, index) => [member.participantRef, { ...member, index }]));
+
+  return (
+    <div className="chat-screen">
+      <div className="chat-topbar">
+        <button type="button" className="icon-btn" aria-label="뒤로 가기" onClick={onBack}><BackIcon /></button>
+        <div className="chat-topbar-copy">
+          <strong>온라인 매칭 · {handoff.members.length}명</strong>
+          <span>{formatRemainingClose(handoff.closesAt)}</span>
+        </div>
+        <button type="button" className="icon-btn" aria-label="참가자" onClick={() => setRosterOpen(true)}><UsersIcon /></button>
+      </div>
+
+      <div className="chat-log" ref={chatLogRef}>
+        {hasNext && (
+          <button type="button" className="more-btn" disabled={loadingMore} onClick={loadPrevious}>
+            {loadingMore ? '불러오는 중…' : '이전 메시지 더 보기'}
+          </button>
+        )}
+        {!messages.length && <p className="chat-empty">아직 메시지가 없어요.</p>}
+        {messages.map((message) => {
+          if (message.type === 'SYSTEM') return <p className="chat-system" key={message.messageId}>{message.content}</p>;
+          const member = memberByRef.get(message.sender?.participantRef);
+          const tone = playerColor(member?.index ?? 0);
+          return (
+            <div className={'chat-message ' + (message.isMine ? 'mine' : 'theirs')} key={message.messageId}>
+              {!message.isMine && (
+                <span className="chat-sender">
+                  <Avatar name={message.sender?.nickname} imageUrl={member?.profileImageUrl} color={tone} />
+                  <b style={{ color: tone }}>{message.sender?.nickname}</b>
+                </span>
+              )}
+              <span className="chat-line">
+                <span className="chat-content">{message.content}</span>
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      <form className="chat-compose" onSubmit={submit}>
+        <label className="sr-only" htmlFor="match-chat-message">메시지</label>
+        <input id="match-chat-message" value={content} onChange={(event) => setContent(event.target.value)} disabled={chatClosed || sending} placeholder="메시지 입력" />
+        <button className="chat-send" type="submit" disabled={chatClosed || sending || !content.trim()} aria-label="보내기"><SendIcon /></button>
+      </form>
+      {chatClosed && !error && <p className="chat-fail" role="status" style={{ margin: '0 18px 14px' }}>채팅방 상태를 확인하고 있어요.</p>}
+      {sendError && <div className="chat-fail" style={{ margin: '0 18px 14px' }} role="alert"><span>{sendError}</span></div>}
+
+      {rosterOpen && (
+        <MatchRosterSheet
+          partyId={partyId}
+          members={handoff.members}
+          onClose={() => setRosterOpen(false)}
+          onToast={onToast}
+          onLeave={leave}
+        />
+      )}
+    </div>
+  );
+}
+
+// ---- 차단 목록 ----
+
+export function MatchBlockListView({ onBack, onToast }) {
+  const { data, loading, error, setPage, retry } = usePaginatedRequest(
+    (page, signal) => api.getMatchBlocks({ page, size: 10 }, signal),
+    []
+  );
+  const [unblockingId, setUnblockingId] = useState(null);
+  const list = data?.content || [];
+
+  const unblock = async (blockId) => {
+    setUnblockingId(blockId);
+    try {
+      await api.unblockMatchUser(blockId);
+      retry();
+    } catch (cause) {
+      onToast(messageForError(cause), 'err');
+    } finally {
+      setUnblockingId(null);
+    }
+  };
 
   return (
     <div className="screen sub">
-      <TopBar onBack={onBack} backLabel="온라인 방 나가기" action={(
-        <span className="bot-title">
-          <strong>온라인 방</strong>
-          <span>참가자 {capacity}인 · 보드게임아레나</span>
-        </span>
-      )} />
-      <div className="oroom-head">
-        <Avatars members={members} small />
-        {error && <div style={{ marginTop: 16 }}><ErrorBox title="게임을 불러오지 못했어요" message={error} onRetry={retry} /></div>}
-        {!error && !!candidates.length && (
-          <>
-            <div className="oroom-votelead">
-              <span className="section-label">무엇을 할지 골라주세요</span>
-              <span className="caption">지금 1위 · {lead?.title}</span>
-            </div>
-            {/* 표는 방 참가자 모두에게 공유돼야 하므로 옮기는 것도 서버 몫이다. */}
-            <div className="home-starters nos">
-              {candidates.map((game) => (
-                <button className={'home-starter oroom-cand' + (game.mine ? ' mine' : '')} type="button" key={game.id} aria-pressed={game.mine} onClick={() => onToast(P2_NOTICE)}>
-                  <span className="home-starter-tile"><Cover src={game.imageUrl} /></span>
-                  <span className="home-starter-name">{game.title}</span>
-                  <span className="home-starter-meta">{game.votes}표</span>
-                </button>
-              ))}
-            </div>
-            <button className="btn fill sm" type="button" style={{ marginTop: 12 }} onClick={() => onToast(P2_NOTICE)}>{lead?.title}으로 정하기</button>
-          </>
+      <TopBar onBack={onBack} title="차단 목록" />
+      <div className="screen-body pad-bottom">
+        {error && <div style={{ marginTop: 16 }}><ErrorBox message={error} onRetry={retry} /></div>}
+        {!error && loading && !list.length && <p className="screen-note">불러오는 중…</p>}
+        {!error && !loading && !list.length && (
+          <div style={{ marginTop: 22 }}>
+            <StateBlock title="차단한 사용자가 없어요" description="매칭 채팅에서 참가자를 차단하면 여기에 나타나요." />
+          </div>
         )}
-      </div>
-      <div className="chat-log">
-        {PREVIEW_MESSAGES.map((message, index) => (
-          message.system
-            ? <p className="oroom-system" key={index}>{message.text}</p>
-            : <p className={'bot-msg' + (message.me ? ' me' : '')} key={index}>{message.text}</p>
-        ))}
-      </div>
-      <div className="oroom-foot">
-        <form className="oroom-compose" onSubmit={(event) => { event.preventDefault(); onToast(P2_NOTICE); }}>
-          <label className="sr-only" htmlFor="oroom-message">보낼 말</label>
-          <input id="oroom-message" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="보낼 말" />
-          <button className="chat-send" type="submit" disabled={!draft.trim()} aria-label="보내기"><SendIcon /></button>
-        </form>
-        <button className="btn off" type="button" onClick={() => onToast(P2_NOTICE)}>
-          {lead ? lead.title + ' · 보드게임아레나에서 열기' : '보드게임아레나에서 열기'}
-        </button>
+        {!!list.length && (
+          <div className="menu-list" style={{ marginTop: 12 }}>
+            {list.map((item) => (
+              <div className="menu-row" key={item.blockId}>
+                <Avatar imageUrl={item.blockedUser.profileImageUrl} name={item.blockedUser.nickname} />
+                <span className="menu-row-label">{item.blockedUser.nickname}</span>
+                <button type="button" className="btn fill sm" disabled={unblockingId === item.blockId} onClick={() => unblock(item.blockId)}>
+                  {unblockingId === item.blockId ? '해제하는 중…' : '차단 해제'}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        <Pagination page={data?.page ?? 0} totalPages={data?.totalPages} loading={loading} onChange={setPage} />
       </div>
     </div>
   );

@@ -35,9 +35,11 @@ public record CurrentMatchStateResponse(
 			MatchRequestSummary.from(request), proposal, null, null);
 	}
 
-	public static CurrentMatchStateResponse preparing(Instant operationTime, MatchParty party) {
+	public static CurrentMatchStateResponse preparing(
+		Instant operationTime, MatchParty party, List<MatchPreparingMember> members) {
 		return new CurrentMatchStateResponse(operationTime, MatchCurrentState.PREPARING, null, null,
-			new MatchPreparingSummary(party.getPreparingStartedAt(), party.getPreparingStartedAt().plusSeconds(300)),
+			new MatchPreparingSummary(
+				party.getPreparingStartedAt(), party.getPreparingStartedAt().plusSeconds(300), members),
 			null);
 	}
 

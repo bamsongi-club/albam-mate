@@ -911,6 +911,15 @@ PostgreSQL에 커밋된 매칭 요청·제안·성공 파티·채팅 접근 관�
 |---|---|:---:|:---:|---|
 | `preparingStartedAt` | string(date-time) | Y | N | 전원 수락으로 성공 파티를 확정한 시각 |
 | `prepareUntil` | string(date-time) | Y | N | 채팅 생성·복구를 시도하는 제품 기한. 계산 규칙은 [MATCH-01 성공 파티 채팅](p2/matching.md#성공-파티-채팅)을 따름 |
+| `members` | `MatchPreparingMember[]` | Y | N | 전원 수락으로 확정된 파티 참가자의 현재 공개 프로필. `ACTIVE`의 `MatchChatHandoff.members`와 같은 순서 규칙을 따름 |
+
+`MatchPreparingMember`는 다음 필드만 제공한다. 사용자 ID·이메일·매칭 조건은 포함하지 않는다.
+
+| 필드 | 타입 | 필수 | nullable | 설명 |
+|---|---|:---:|:---:|---|
+| `nickname` | string | Y | N | 현재 공개 닉네임 |
+| `profileImageUrl` | string | Y | Y | 현재 공개 프로필 이미지 URL. 없으면 `null` |
+| `isMine` | boolean | Y | N | 요청자 본인의 항목이면 `true` |
 
 ### 4.27 MatchChatHandoff
 
