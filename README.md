@@ -31,7 +31,7 @@
 | 게임 의미로 찾기 | 자연어와 오타를 포함한 검색 → 하이브리드 후보 → 게임 상세 → 해당 게임의 방 |
 | 지금 바로 매칭 | 희망 인원 범위 등록 → 후보 파티 제안 → 30초 안에 응답 → 전원 수락 시 전용 채팅 |
 
-뒤의 세 흐름은 아직 개발 중입니다. 각각 [AI 기능군](docs/p2/assistant.md), [의미 기반 검색](docs/p2/search.md#search-04), [실시간 파티 매칭](docs/p2/matching.md#match-01-실시간-파티-매칭)이 소유합니다.
+뒤의 세 흐름은 아직 서비스에 배포하지 않았습니다. [의미 기반 검색](docs/p2/search.md#search-04)은 구현과 자동 검증을 마쳤고, [AI 기능군](docs/p2/assistant.md)은 대화와 추천, 초안까지 구현했으며 운영 배포 범위가 남았습니다. [실시간 파티 매칭](docs/p2/matching.md#match-01-실시간-파티-매칭)은 구현과 검증이 진행 중입니다.
 
 ## 시스템 구성
 
@@ -50,26 +50,29 @@ flowchart LR
     app1 -.->|"OTLP"| cw["CloudWatch<br/>지표 · 로그 · 경보"]
 ```
 
-모듈 책임과 허용된 의존 방향, 요청과 복구 흐름은 [아키텍처](docs/ARCHITECTURE.md)가 소유합니다. 그 구조가 실제로 지켜지는지는 `ModuleArchitectureTest`가 검사합니다.
+모듈 책임과 허용된 의존 방향, 요청과 복구 흐름은 [아키텍처](docs/ARCHITECTURE.md)가 소유합니다.
 
 ## 설계에서 지키는 핵심 불변식
 
-- **요청 경계에서 다시 확인한다.** 화면에서 감춘 기능이라도 서버가 인증과 인가, CSRF, 현재 참가 관계를 다시 검사합니다. 클라이언트 상태를 신뢰하면 URL을 직접 호출한 비참가자가 남의 모임 데이터를 읽을 수 있습니다. [API 계약](docs/API.md), [ADR-0003](docs/adr/auth/0003-p0-server-session-spring-security.md)
-- **정원과 상태 전이는 DB가 최종 판정한다.** 정원, 중복 참가, 대기열 전이를 애플리케이션 검사만이 아니라 트랜잭션과 PostgreSQL 제약으로 함께 막습니다. 조회 후 검사만 두면 동시 참가 요청이 같은 자리를 통과해 정원을 넘겨 확정됩니다. [ERD](docs/ERD.md), [ADR-0005](docs/adr/participation/0005-room-participation-optimistic-locking.md)
-- **알림은 업무 변경과 같은 트랜잭션에 묶는다.** 모임 변경과 같은 트랜잭션에서 Outbox 이벤트를 기록하고 commit 이후 relay가 전달합니다. 전송을 트랜잭션 안에서 직접 호출하면 롤백된 변경의 알림이 나가거나, 커밋된 변경의 알림이 유실됩니다. [아키텍처](docs/ARCHITECTURE.md#알림-relay복구정리), [ADR-0029](docs/adr/notification/0029-room-integration-event-transactional-outbox.md)
-- **시각과 스키마는 되돌리지 않는다.** 저장하고 비교하는 시각은 모두 UTC로 통일하고, 스키마 변경은 전진 Flyway 마이그레이션과 PostgreSQL 검증을 함께 둡니다. 인스턴스별 로컬 시각과 되돌리는 마이그레이션은 모임 마감 시각과 배포 이력을 인스턴스마다 다르게 만듭니다. [ADR-0008](docs/adr/platform/0008-flyway-database-migrations.md), [ADR-0009](docs/adr/platform/0009-utc-time-standard.md)
+아래는 코드가 어떻게 바뀌어도 깨지면 안 되는 명제입니다.
+
+- **정원을 넘긴 참가는 커밋되지 않는다.** 조회한 뒤 애플리케이션에서만 검사하면 동시 참가 요청이 같은 자리를 함께 통과합니다. 정원과 중복 참가, 대기열 전이를 트랜잭션과 PostgreSQL 제약으로 함께 막습니다. [ERD](docs/ERD.md), [ADR-0005](docs/adr/participation/0005-room-participation-optimistic-locking.md)
+- **한 요청은 동시에 두 제안에 속하지 않는다.** matcher가 여러 개여도 같은 대기 요청을 두 파티에 밀어 넣지 않고, 참가자 일부만 전이된 제안도 남기지 않습니다. [아래 실측](#경합에서-정합성이-깨지지-않는지-확인했습니다)에서 1,000회 경합 중 0건을 확인했습니다. [ADR-0061](docs/adr/matching/0061-postgresql-candidate-reservation-idempotency.md)
+- **서버가 거부한 요청은 클라이언트가 무엇을 보내도 통과하지 못한다.** 화면에서 감춘 기능이라도 인증과 인가, CSRF, 현재 참가 관계를 요청 경계에서 다시 검사합니다. 클라이언트 상태를 신뢰하면 URL을 직접 호출한 비참가자가 남의 모임 데이터를 읽습니다. [API 계약](docs/API.md), [ADR-0003](docs/adr/auth/0003-p0-server-session-spring-security.md)
+- **커밋된 모임 변경에는 알림 이벤트가 정확히 하나 남는다.** 모임 변경과 같은 트랜잭션에서 Outbox에 기록하고 commit 이후 relay가 전달합니다. 전송을 트랜잭션 안에서 직접 호출하면 롤백된 변경의 알림이 나가거나, 커밋된 변경의 알림이 유실됩니다. [아키텍처](docs/ARCHITECTURE.md#알림-relay복구정리), [ADR-0029](docs/adr/notification/0029-room-integration-event-transactional-outbox.md)
+- **같은 시각 비교는 어느 인스턴스에서든 같은 결과를 낸다.** 저장하고 비교하는 시각을 모두 UTC로 통일합니다. 인스턴스별 로컬 시각을 쓰면 같은 모임의 마감 판정이 인스턴스마다 갈립니다. [ADR-0009](docs/adr/platform/0009-utc-time-standard.md)
 
 ## 기술적 선택
 
 | 문제 | 선택 | 검증 방식 |
 | --- | --- | --- |
 | 코드 구조 | Java 21, Spring Boot 4.1 기반 도메인 중심 모듈러 모놀리스 | 모듈 책임과 의존 방향을 [아키텍처](docs/ARCHITECTURE.md)에 고정하고 `ModuleArchitectureTest`로 검사합니다. |
-| 업무 데이터 | PostgreSQL 18, Spring Data JPA, Flyway | H2 빠른 테스트와 PostgreSQL 18 Testcontainers 검증의 책임을 분리합니다. |
+| 업무 데이터 | PostgreSQL 18, Spring Data JPA, 되돌리지 않는 [전진 Flyway 마이그레이션](docs/adr/platform/0008-flyway-database-migrations.md) | H2 빠른 테스트와 PostgreSQL 18 Testcontainers 검증의 책임을 분리합니다. |
 | 인증 | Spring Security 서버 세션 | 세션 쿠키와 CSRF, 로그아웃, 다중 인스턴스 공유 경계를 HTTP와 로컬 통합 테스트로 검증합니다. |
 | 실시간과 비동기 전달 | WebSocket, Redis Pub/Sub, Transactional Outbox | 영속 이력을 정본으로 두고 전달 실패와 재연결, relay 복구 경계를 따로 검증합니다. |
 | AI 대화와 추천 | provider port와 fake, OpenAI adapter, Redis 일 quota와 호출당 고정 예약 비용 | payload allowlist와 quota, 비용, usage 경계를 H2와 Redis 계약 테스트로 검증합니다. |
 | 의미 기반 검색 | Cloudflare Workers AI `@cf/baai/bge-m3`와 pgvector, sparse 후보 병렬 생성과 RRF 결합 | 승인 corpus와 release, active index를 고정한 재현 가능한 evidence로 비교합니다. |
-| 실시간 매칭 경합 | PostgreSQL claim 기반 제한 FIFO와 원자적 확정 | 다중 matcher 경합에서 중복 제안과 부분 claim이 0건임을 동시성 테스트와 기준선 측정으로 확인합니다. |
+| 실시간 매칭 경합 | PostgreSQL claim 기반 제한 FIFO와 원자적 확정 | 다중 matcher 경합을 동시성 테스트와 고정 fixture 기준선 측정으로 확인합니다. |
 | 운영 관측 | OpenTelemetry 5분 export와 CloudWatch alarm, dashboard | 저카디널리티 metric allowlist와 alarm query, 복구 전이를 계약 테스트와 고정 SHA 실측으로 검증합니다. |
 
 전체 선택 근거와 상태는 [ADR 인덱스](docs/adr/README.md)를 따릅니다.
@@ -193,6 +196,6 @@ java --version
 
 문서 저장소 내부의 전체 분류는 [문서 지도](docs/README.md)에서 찾을 수 있습니다.
 
-1차와 2차 MVP 구현 기록은 [문서 아카이브](docs/archive/README.md)에 동결했습니다. 새 구현 작업은 [AGENTS.md](AGENTS.md)의 라우팅과 현재 3차 MVP 정본에서 시작합니다.
+새 구현 작업은 [AGENTS.md](AGENTS.md)의 라우팅과 현재 3차 MVP 정본에서 시작합니다.
 
 > 문서 관리: 소유자 `밤송이클럽` · 최종 검증일 `2026-08-24` · 폐기 조건 `저장소가 아카이브되거나 별도 공개 제품 페이지가 대표 진입점으로 대체될 때`
