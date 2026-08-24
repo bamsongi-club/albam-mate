@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -47,6 +47,31 @@ function commitArtifacts(repository) {
   execFileSync("git", ["-C", repository, "commit", "--quiet", "-m", "gate fixtures"]);
 }
 
+function writeDeferredGateEvidence(repository) {
+  const adrPath = path.join(repository, "docs/adr/matching/0091-match-t10-aws-measurement-deferral.md");
+  const invalidEvidencePath = path.join(
+    repository,
+    "docs/measurements/results/match-01/candidate-claim/match-01-t10-aws-invalid-2026-08-24.md",
+  );
+  mkdirSync(path.dirname(adrPath), { recursive: true });
+  mkdirSync(path.dirname(invalidEvidencePath), { recursive: true });
+  writeFileSync(adrPath, "# ADR-0091\n");
+  writeFileSync(invalidEvidencePath, "# MATCH-01 T10 AWS 측정 중단 보고서\n\nINVALID\n");
+}
+
+function documentProvenance(repository, relativePath) {
+  const contents = readFileSync(path.join(repository, relativePath));
+  const blobId = execFileSync("git", ["-C", repository, "rev-parse", `HEAD:${relativePath}`], {
+    encoding: "utf8",
+  }).trim();
+  const blobContents = execFileSync("git", ["-C", repository, "cat-file", "blob", blobId]);
+  return {
+    path: relativePath,
+    gitCanonicalBlobSha256: sha256(blobContents),
+    artifactSha256: sha256(contents),
+  };
+}
+
 function evidence(id, writtenArtifact) {
   return {
     id,
@@ -59,6 +84,7 @@ function evidence(id, writtenArtifact) {
 function completeGate(repository) {
   const gateSha = currentCommit(repository);
   const separateEvidenceSha = previousCommit(repository);
+  writeDeferredGateEvidence(repository);
   const candidate = writeArtifact(repository, "docs/measurements/results/match-01/candidate-claim/result.json", {
     measuredGitCommitSha: gateSha,
     decision: { outcome: "BASELINE_ACCEPTED" },
@@ -89,7 +115,29 @@ function completeGate(repository) {
   });
   commitArtifacts(repository);
 
+  const adrProvenance = documentProvenance(repository, "docs/adr/matching/0091-match-t10-aws-measurement-deferral.md");
+  const invalidEvidenceProvenance = documentProvenance(
+    repository,
+    "docs/measurements/results/match-01/candidate-claim/match-01-t10-aws-invalid-2026-08-24.md",
+  );
+
   return {
+    gateDecision: {
+      result: "MATCH_01_FUNCTIONAL_GATE_ACCEPTED_WITH_T10_DEFERRED",
+      performanceStatus: "UNVERIFIED",
+      deferredTests: [
+        {
+          testId: "MATCH-01-T10",
+          status: "DEFERRED_BY_ADR_0091",
+          adrPath: adrProvenance.path,
+          adrGitCanonicalBlobSha256: adrProvenance.gitCanonicalBlobSha256,
+          adrArtifactSha256: adrProvenance.artifactSha256,
+          invalidEvidencePath: invalidEvidenceProvenance.path,
+          invalidEvidenceGitCanonicalBlobSha256: invalidEvidenceProvenance.gitCanonicalBlobSha256,
+          invalidEvidenceArtifactSha256: invalidEvidenceProvenance.artifactSha256,
+        },
+      ],
+    },
     measuredGitCommitSha: gateSha,
     candidateClaim: evidence("MATCH-01-CANDIDATE-CLAIM", candidate),
     integrationEvidence: [
@@ -109,7 +157,12 @@ test("정상 동일 SHA candidate 입력과 분리된 response·T12 consumer만 
 
   const result = evaluateIntegrationGate(repository, gate);
 
-  assert.deepEqual(result, { outcome: "ACCEPTED" });
+  assert.deepEqual(result, {
+    outcome: "ACCEPTED",
+    result: "MATCH_01_FUNCTIONAL_GATE_ACCEPTED_WITH_T10_DEFERRED",
+    performanceStatus: "UNVERIFIED",
+    deferredTestIds: ["MATCH-01-T10"],
+  });
   assert.equal(gate.integrationEvidence.some((entry) => entry.id === "MATCH-01-T12"), false);
   assert.equal(gate.integrationEvidence.some((entry) => entry.id === "MATCH-01-RESPONSE-COMPLETION"), false);
 });
@@ -145,7 +198,12 @@ test("측정 이후 문서 전용 변경은 evidence provenance를 무효화하�
   execFileSync("git", ["-C", repository, "add", "."]);
   execFileSync("git", ["-C", repository, "commit", "--quiet", "-m", "change docs"]);
 
-  assert.deepEqual(evaluateIntegrationGate(repository, gate), { outcome: "ACCEPTED" });
+  assert.deepEqual(evaluateIntegrationGate(repository, gate), {
+    outcome: "ACCEPTED",
+    result: "MATCH_01_FUNCTIONAL_GATE_ACCEPTED_WITH_T10_DEFERRED",
+    performanceStatus: "UNVERIFIED",
+    deferredTestIds: ["MATCH-01-T10"],
+  });
 });
 
 test("필수 evidence 누락·중복 ID·상대 경로 이탈·commit/blob/digest 불일치는 INVALID다", () => {
@@ -191,6 +249,39 @@ test("artifact의 실행 SHA 불일치와 INVALID·FAILED 결과는 통과로 �
   assert.equal(evaluateIntegrationGate(failedRepository, failedGate).outcome, "FAILED");
 });
 
+test("ADR-0091 유예 판정이 없거나 T10 INVALID evidence 연결이 바뀌면 INVALID다", () => {
+  const repository = createRepository();
+  const gate = completeGate(repository);
+  const cases = [
+    (value) => { delete value.gateDecision; },
+    (value) => { value.gateDecision.result = "ACCEPTED"; },
+    (value) => { value.gateDecision.performanceStatus = "ACCEPTED"; },
+    (value) => { value.gateDecision.deferredTests[0].status = "ACCEPTED"; },
+    (value) => { value.gateDecision.deferredTests[0].invalidEvidencePath = "docs/other.md"; },
+    (value) => { value.gateDecision.deferredTests[0].adrArtifactSha256 = "0".repeat(64); },
+    (value) => { value.gateDecision.deferredTests[0].invalidEvidenceGitCanonicalBlobSha256 = "0".repeat(64); },
+  ];
+
+  for (const mutate of cases) {
+    const invalidGate = structuredClone(gate);
+    mutate(invalidGate);
+    const result = evaluateIntegrationGate(repository, invalidGate);
+    assert.equal(result.outcome, "INVALID");
+  }
+});
+
+test("ADR-0091 또는 T10 INVALID evidence 내용이 바뀌면 provenance 불일치로 INVALID다", () => {
+  const repository = createRepository();
+  const gate = completeGate(repository);
+  const adrPath = path.join(repository, gate.gateDecision.deferredTests[0].adrPath);
+  writeFileSync(adrPath, "# ADR-0091 changed\n");
+
+  const result = evaluateIntegrationGate(repository, gate);
+
+  assert.equal(result.outcome, "INVALID");
+  assert.match(result.reason, /ADR-0091 artifact SHA-256/u);
+});
+
 test("response completion 결과는 candidate와 다른 SHA의 별도 consumer로 허용하되 candidate 입력에 섞이면 INVALID다", () => {
   const repository = createRepository();
   const gate = completeGate(repository);
@@ -220,5 +311,10 @@ test("1MB를 초과하는 candidate artifact도 Git blob과 digest를 검증한�
   gate.candidateClaim.gitCanonicalBlobSha256 = sha256(contents);
   gate.candidateClaim.artifactSha256 = sha256(contents);
 
-  assert.deepEqual(evaluateIntegrationGate(repository, gate), { outcome: "ACCEPTED" });
+  assert.deepEqual(evaluateIntegrationGate(repository, gate), {
+    outcome: "ACCEPTED",
+    result: "MATCH_01_FUNCTIONAL_GATE_ACCEPTED_WITH_T10_DEFERRED",
+    performanceStatus: "UNVERIFIED",
+    deferredTestIds: ["MATCH-01-T10"],
+  });
 });
