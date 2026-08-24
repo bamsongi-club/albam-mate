@@ -43,10 +43,46 @@ class AssistantIntentExtractorTest {
 		AssistantIntentExtraction second = extractor.extract(request);
 
 		assertEquals(AssistantIntentStatus.SUCCESS, first.status());
+		assertEquals("RECOMMEND", first.proposal().action());
+		assertEquals(List.of("STRATEGY"), first.proposal().categories());
+		assertEquals(List.of(), first.proposal().mechanisms());
+		assertEquals(List.of(), first.proposal().themes());
+		assertEquals(3, first.proposal().playerCount());
 		assertEquals(first.proposal(), second.proposal());
 		assertEquals(first.usage(), second.usage());
 		assertEquals(2, usageEvents.events().size());
 		assertTrue(usageEvents.events().stream().allMatch(event -> event.provider().equals("fake")));
+	}
+
+	@Test
+	void T3_fake_provider는_총_인원_표현을_명과_인으로_구조화한다() {
+		DeterministicFakeAssistantProvider provider = new DeterministicFakeAssistantProvider();
+
+		assertEquals(4, provider.propose(payload("전략 게임 4명 추천해줘")).playerCount());
+		assertEquals(4, provider.propose(payload("전략 게임 4인 추천해줘")).playerCount());
+	}
+
+	@Test
+	void T1_fake_provider는_조건별_세부값과_지원불가_입력을_결정적으로_구조화한다() {
+		DeterministicFakeAssistantProvider provider = new DeterministicFakeAssistantProvider();
+
+		AiProviderResponse easy = provider.propose(payload("쉬운 전략 일꾼 배치 공포 10분 2명"));
+		assertEquals("RECOMMEND", easy.action());
+		assertEquals(List.of("STRATEGY"), easy.categories());
+		assertEquals(List.of("WORKER_PLACEMENT"), easy.mechanisms());
+		assertEquals(List.of("HORROR"), easy.themes());
+		assertEquals(new BigDecimal("2.00"), easy.complexityMax());
+		assertEquals("UP_TO_10", easy.playTimeMax());
+		assertEquals(2, easy.playerCount());
+
+		AiProviderResponse hard = provider.propose(payload("hard strategy worker placement horror 20분 11명"));
+		assertEquals(new BigDecimal("4.00"), hard.complexityMax());
+		assertEquals("OVER_10_TO_20", hard.playTimeMax());
+		assertEquals(11, hard.playerCount());
+		assertEquals("OVER_20_TO_30", provider.propose(payload("horror 30분")).playTimeMax());
+		assertEquals("OVER_30_TO_60", provider.propose(payload("strategy 60분")).playTimeMax());
+		assertEquals("UNSUPPORTED", provider.propose(payload("지원하지 않는 요청")).action());
+		assertEquals("NEEDS_INPUT", provider.propose(payload("게임 추천")).action());
 	}
 
 	@Test
@@ -169,11 +205,13 @@ class AssistantIntentExtractorTest {
 	}
 
 	@Test
-	void T2_외부_provider_응답유형과_응답비용에_관계없이_고정_USD_0_10으로_completion한다() {
+	void T4_구조화_provider_결과도_기존_고정_USD_0_10_quota_completion을_유지한다() {
 		RecordingQuotaLedger quotaLedger = new RecordingQuotaLedger();
 		for (ProviderResponseFixture fixture : List.of(
 			new ProviderResponseFixture(
-				AiProviderResponse.success("RECOMMEND", List.of("STRATEGY"), 10, 5, new BigDecimal("0.01")),
+				AiProviderResponse.success("RECOMMEND", List.of("STRATEGY"), List.of("WORKER_PLACEMENT"),
+					List.of("HORROR"), new BigDecimal("3.00"), "OVER_20_TO_30", 4, 10, 5,
+					new BigDecimal("0.01")),
 				AssistantIntentStatus.SUCCESS),
 			new ProviderResponseFixture(AiProviderResponse.failure(AiProviderFailure.TIMEOUT),
 				AssistantIntentStatus.PROVIDER_TIMEOUT),
@@ -184,6 +222,10 @@ class AssistantIntentExtractorTest {
 			AssistantIntentExtraction result = new AiProviderIntentExtractor(request -> fixture.response(), quotaLedger,
 				new RecordingUsageEventSink(), externalProviderSettings(), CLOCK).extract(request());
 			assertEquals(fixture.expectedStatus(), result.status());
+			if (fixture.expectedStatus() == AssistantIntentStatus.SUCCESS) {
+				assertEquals(List.of("HORROR"), result.proposal().themes());
+				assertEquals(4, result.proposal().playerCount());
+			}
 		}
 		assertEquals(List.of(new BigDecimal("0.10"), new BigDecimal("0.10"), new BigDecimal("0.10"),
 			new BigDecimal("0.10")), quotaLedger.completedCosts());
@@ -246,6 +288,12 @@ class AssistantIntentExtractorTest {
 
 	private AssistantIntentRequest request() {
 		return AssistantIntentRequest.forUser("quota-subject-b", "주말 보드게임 추천", List.of());
+	}
+
+	private AiProviderPayload payload(String sentence) {
+		return new AiProviderPayload(
+			"AI-02-INSTRUCTION-V1", "propose_game_room_intent", "AI-02-SCHEMA-V1", "Asia/Seoul", sentence,
+			List.of());
 	}
 
 	private AiProviderSettings externalProviderSettings() {

@@ -6,6 +6,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,18 +34,18 @@ final class OpenAiAssistantProvider implements AiProviderClient {
 	private static final Logger log = LoggerFactory.getLogger(OpenAiAssistantProvider.class);
 	private static final String TOOL_NAME = "propose_game_room_intent";
 	private static final Set<String> ALLOWED_ACTIONS = Set.of("RECOMMEND", "NEEDS_INPUT", "UNSUPPORTED");
-	private static final Set<String> ALLOWED_GAME_STYLES = Set.of(
-		"STRATEGY", "ABSTRACT_STRATEGY", "COLLECTIBLE", "FAMILY",
-		"CHILDREN", "THEMATIC", "PARTY", "WARGAME");
+	private static final Set<String> PLAY_TIME_MAX_VALUES = Set.of(
+		"UP_TO_10", "OVER_10_TO_20", "OVER_20_TO_30", "OVER_30_TO_60", "OVER_60_UNDER_90", "AT_LEAST_90");
+	private static final Pattern CODE = Pattern.compile("[A-Z][A-Z0-9_]*");
 	private static final String V1_INSTRUCTION = """
 		You extract a board-game room intent from exactly one current user sentence.
 		Call propose_game_room_intent exactly once and return only arguments matching its schema.
-		Use RECOMMEND when a game style is present, NEEDS_INPUT when a required style is absent,
+		Use RECOMMEND when a category, mechanism, or theme is present, NEEDS_INPUT when no search condition is present,
 		and UNSUPPORTED when the request is not a board-game recommendation.
 		Never call any other tool, search for games, create rooms, execute SQL, or infer identifiers.
 		Use only the current user sentence, the server-provided missing field names, and Asia/Seoul as reference zone.
 		""";
-	// action·gameStyles 개수 관계(RECOMMEND면 1개 이상, 아니면 0개)는 OpenAI가 top-level에서 금지하는
+	// action·조건 배열 개수 관계(RECOMMEND면 하나 이상, 아니면 모두 비어 있음)는 OpenAI가 top-level에서 금지하는
 	// oneOf로 못 표현해 스키마에서는 빼고, isValidOutput()에서 응답을 받은 뒤 검증한다.
 	// uniqueItems도 OpenAI function schema에서 지원하지 않으므로 중복 검증은 isValidOutput()에서 수행한다.
 	private static final String TOOL_SCHEMA = """
@@ -53,17 +54,29 @@ final class OpenAiAssistantProvider implements AiProviderClient {
 		  "additionalProperties":false,
 		  "properties":{
 		    "action":{"type":"string","enum":["RECOMMEND","NEEDS_INPUT","UNSUPPORTED"]},
-		    "gameStyles":{
-		      "type":"array",
-		      "minItems":0,
-		      "maxItems":8,
-		      "items":{
-		        "type":"string",
-		        "enum":["STRATEGY","ABSTRACT_STRATEGY","COLLECTIBLE","FAMILY","CHILDREN","THEMATIC","PARTY","WARGAME"]
-		      }
-		    }
+			"categories":{
+			  "type":"array",
+			  "minItems":0,
+			  "maxItems":8,
+			  "items":{"type":"string","pattern":"^[A-Z][A-Z0-9_]*$"}
+			},
+			"mechanisms":{
+			  "type":"array",
+			  "minItems":0,
+			  "maxItems":8,
+			  "items":{"type":"string","pattern":"^[A-Z][A-Z0-9_]*$"}
+			},
+			"themes":{
+			  "type":"array",
+			  "minItems":0,
+			  "maxItems":8,
+			  "items":{"type":"string","pattern":"^[A-Z][A-Z0-9_]*$"}
+			},
+			"complexityMax":{"type":["number","null"],"minimum":1.0,"maximum":5.0},
+			"playTimeMax":{"type":["string","null"],"enum":["UP_TO_10","OVER_10_TO_20","OVER_20_TO_30","OVER_30_TO_60","OVER_60_UNDER_90","AT_LEAST_90",null]},
+			"playerCount":{"type":["integer","null"],"minimum":2,"maximum":11}
 		  },
-		  "required":["action","gameStyles"]
+		  "required":["action","categories","mechanisms","themes","complexityMax","playTimeMax","playerCount"]
 		}
 		""";
 	private static final ToolCallback INTENT_TOOL = new ToolCallback() {
@@ -114,7 +127,12 @@ final class OpenAiAssistantProvider implements AiProviderClient {
 			}
 			return AiProviderResponse.success(
 				output.get("action").asText(),
-				styles(output.get("gameStyles")),
+				codes(output.get("categories")),
+				codes(output.get("mechanisms")),
+				codes(output.get("themes")),
+				decimalOrNull(output.get("complexityMax")),
+				textOrNull(output.get("playTimeMax")),
+				integerOrNull(output.get("playerCount")),
 				inputTokens,
 				outputTokens,
 				costEstimate(inputTokens, outputTokens));
@@ -171,37 +189,81 @@ final class OpenAiAssistantProvider implements AiProviderClient {
 	}
 
 	private boolean isValidOutput(JsonNode output) {
-		if (output == null || !output.isObject() || output.size() != 2) {
+		if (output == null || !output.isObject() || output.size() != 7) {
 			return false;
 		}
 		JsonNode action = output.get("action");
-		JsonNode gameStyles = output.get("gameStyles");
-		if (action == null || !action.isTextual() || gameStyles == null || !gameStyles.isArray()) {
+		JsonNode categories = output.get("categories");
+		JsonNode mechanisms = output.get("mechanisms");
+		JsonNode themes = output.get("themes");
+		JsonNode complexityMax = output.get("complexityMax");
+		JsonNode playTimeMax = output.get("playTimeMax");
+		JsonNode playerCount = output.get("playerCount");
+		if (action == null || !action.isTextual()
+			|| !isValidCodes(categories) || !isValidCodes(mechanisms) || !isValidCodes(themes)
+			|| !isValidComplexity(complexityMax) || !isValidPlayTime(playTimeMax) || !isValidPlayerCount(playerCount)) {
 			return false;
 		}
 		String actionValue = action.asText();
+		boolean hasSearchCondition = !categories.isEmpty() || !mechanisms.isEmpty() || !themes.isEmpty();
+		boolean hasRefinement = !complexityMax.isNull() || !playTimeMax.isNull() || !playerCount.isNull();
 		if (!ALLOWED_ACTIONS.contains(actionValue)
-			|| ("RECOMMEND".equals(actionValue) && (gameStyles.size() < 1 || gameStyles.size() > 8))
-			|| (!"RECOMMEND".equals(actionValue) && !gameStyles.isEmpty())) {
+			|| ("RECOMMEND".equals(actionValue) && !hasSearchCondition)
+			|| (!"RECOMMEND".equals(actionValue) && hasSearchCondition)
+			|| ("UNSUPPORTED".equals(actionValue) && hasRefinement)) {
 			return false;
 		}
-		Set<String> seenGameStyles = new HashSet<>();
-		for (JsonNode gameStyle : gameStyles) {
-			if (!gameStyle.isTextual()
-				|| !ALLOWED_GAME_STYLES.contains(gameStyle.asText())
-				|| !seenGameStyles.add(gameStyle.asText())) {
+		return true;
+	}
+
+	private boolean isValidCodes(JsonNode codes) {
+		if (codes == null || !codes.isArray() || codes.size() > 8) {
+			return false;
+		}
+		Set<String> seenCodes = new HashSet<>();
+		for (JsonNode code : codes) {
+			if (!code.isTextual() || !CODE.matcher(code.asText()).matches() || !seenCodes.add(code.asText())) {
 				return false;
 			}
 		}
 		return true;
 	}
 
-	private List<String> styles(JsonNode gameStyles) {
-		List<String> styles = new ArrayList<>();
-		for (JsonNode gameStyle : gameStyles) {
-			styles.add(gameStyle.asText());
+	private boolean isValidComplexity(JsonNode complexityMax) {
+		return complexityMax != null && (complexityMax.isNull()
+			|| (complexityMax.isNumber() && complexityMax.decimalValue().compareTo(new BigDecimal("1.00")) >= 0
+				&& complexityMax.decimalValue().compareTo(new BigDecimal("5.00")) <= 0));
+	}
+
+	private boolean isValidPlayTime(JsonNode playTimeMax) {
+		return playTimeMax != null && (playTimeMax.isNull()
+			|| (playTimeMax.isTextual() && PLAY_TIME_MAX_VALUES.contains(playTimeMax.asText())));
+	}
+
+	private boolean isValidPlayerCount(JsonNode playerCount) {
+		return playerCount != null && (playerCount.isNull()
+			|| (playerCount.isIntegralNumber() && playerCount.canConvertToInt()
+				&& playerCount.intValue() >= 2 && playerCount.intValue() <= 11));
+	}
+
+	private List<String> codes(JsonNode codes) {
+		List<String> values = new ArrayList<>();
+		for (JsonNode code : codes) {
+			values.add(code.asText());
 		}
-		return styles;
+		return values;
+	}
+
+	private BigDecimal decimalOrNull(JsonNode value) {
+		return value.isNull() ? null : value.decimalValue();
+	}
+
+	private String textOrNull(JsonNode value) {
+		return value.isNull() ? null : value.asText();
+	}
+
+	private Integer integerOrNull(JsonNode value) {
+		return value.isNull() ? null : value.intValue();
 	}
 
 	private int tokenCount(Integer tokens) {

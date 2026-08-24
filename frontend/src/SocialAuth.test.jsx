@@ -87,7 +87,7 @@ describe('#334 T1 로그인 화면의 제공자 표시와 authorization 경로',
     render(<AuthView onLogin={vi.fn()} socialProviders={[]} onSocialLogin={vi.fn()} />);
 
     expect(screen.queryByRole('button', { name: /로 계속하기$/ })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: '이메일로 로그인' }));
+    expect(screen.getByRole('button', { name: '이메일로 로그인' })).toBeTruthy();
     expect(screen.getByLabelText('이메일')).toBeTruthy();
   });
 

@@ -12,7 +12,7 @@
 | [0034](0034-chat-message-retention-and-deletion.md) | 최종 상태 채팅 메시지를 30일 보관한 뒤 일괄 삭제 | 대체됨 | 2026-08-01 | 미검증 |
 | [0045](0045-chat-room-schema-and-backfill-boundary.md) | 채팅방 스키마 생성과 기존 ROOM backfill 실행 경계 분리 | 승인됨 | 2026-08-04 | 미검증 |
 | [0049](0049-chat-message-retention-lock-section-boundary.md) | 최종 상태 채팅 메시지 보관·삭제와 잠금 구간 실행 경계 | 승인됨 | 2026-08-04 | 검증됨 |
-| [0078](0078-chat-system-message-storage-and-read-time-composition.md) | 입장·퇴장 시스템 메시지를 CHAT_MESSAGES 확장에 저장하고 문구는 읽기 시점에 조립 | 승인됨 | 2026-08-19 | 미검증 |
+| [0078](0078-chat-system-message-storage-and-read-time-composition.md) | 입장·퇴장 시스템 메시지를 CHAT_MESSAGES 확장에 저장하고 문구는 읽기 시점에 조립 | 승인됨 | 2026-08-19 | 검증됨 |
 | [0079](0079-chat-room-read-cursor-and-derived-unread-count.md) | 방별 읽음 커서를 저장하고 미읽음 개수는 조회 시점에 파생 계산 | 승인됨 | 2026-08-19 | 미검증 |
 | [0082](0082-chat-list-per-user-realtime-channel.md) | 채팅 목록 갱신을 위한 사용자 단위 실시간 채널 신설 | 승인됨 | 2026-08-20 | 미검증 |
 

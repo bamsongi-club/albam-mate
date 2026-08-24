@@ -51,18 +51,16 @@ docker version
 
 ## 게임명 부분일치 검색
 
-- PostgreSQL 전용 V26은 `pg_trgm` extension과 `ix_games_name_lower_trgm` GIN 인덱스(`lower(name) gin_trgm_ops`)를 추가한다. 기존 `lower(name) LIKE '%keyword%'` 의미와 HTTP 계약, 최소 검색어 길이는 유지한다.
-- 3글자 이상 부분일치는 이 GIN 경로를 사용할 수 있다. 1·2글자는 trgm 선택도가 낮을 수 있으므로 강제로 인덱스를 사용하지 않고 PostgreSQL planner의 기존 경로를 허용한다.
-- 게임명 데이터가 170,000건 이상으로 늘거나 이름 언어·중복도·검색어 길이 분포가 바뀌면, 같은 PostgreSQL 버전·`ANALYZE` 조건에서 1·2글자와 3글자 이상 대표 검색어의 P1 직접 SQL content·count `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)`을 재측정한다. 결과·전체 건수와 계획·실행 시간을 함께 비교해 hybrid 경계를 다시 판단한다. 이 count를 현재 게임 목록 API의 비용으로 해석하지 않는다.
+- PostgreSQL 전용 V26은 `pg_trgm` extension과 `ix_games_name_lower_trgm` GIN 인덱스(`lower(name) gin_trgm_ops`)를 제공한다. 1·2글자는 기존 `lower(name) LIKE '%keyword%'` 부분일치만 적용하고, 3글자 이상은 부분일치 또는 `similarity(lower(name), lower(keyword)) >= 0.3` 오타 유사 결과를 조회한다. fuzzy 조회 직전에 서비스가 현재 PostgreSQL 연결의 `%` 후보 threshold를 `set_limit(0.3::real)`로 고정해 최종 유사도 경계와 일치시킨다.
+- 3글자 이상은 정확 일치·부분 일치를 먼저 두고 유사도 내림차순, `name ASC`, `id ASC`으로 정렬한다. 이 GIN 경로를 사용할 수 있으며, 1·2글자는 trgm 선택도가 낮을 수 있으므로 강제로 인덱스를 사용하지 않고 PostgreSQL planner의 기존 경로를 허용한다.
+- 게임명 데이터가 170,000건 이상으로 늘거나 이름 언어·중복도·검색어 길이 분포가 바뀌면, 같은 PostgreSQL 버전·`ANALYZE` 조건에서 1·2글자 부분일치와 3글자 이상 부분일치·`similarity >= 0.3` 대표 검색어의 P1 직접 SQL content·count `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)`을 재측정한다. 결과·전체 건수와 계획·실행 시간을 함께 비교해 hybrid 경계를 다시 판단한다. 이 count를 현재 게임 목록 API의 비용으로 해석하지 않는다.
 
 마이그레이션·검색 계약 회귀는 17만 건 성능 측정과 분리해 다음 명령으로 확인한다.
 
 ```sh
 docker version
 ./gradlew postgresTest \
-  --tests 'cloud.bamsongi.albammate.game.GameNameSearchIndexPostgresTest.PostgreSQL_Flyway가_pg_trgm_GIN_인덱스를_생성한다' \
-  --tests 'cloud.bamsongi.albammate.game.GameNameSearchIndexPostgresTest.한글자_검색_결과와_세글자_부분일치_GIN_경로를_보존한다' \
-  --tests 'cloud.bamsongi.albammate.game.GameNameSearchIndexPostgresTest.ERD와_운영문서가_하이브리드_경계와_재측정_조건을_기록한다' \
+  --tests 'cloud.bamsongi.albammate.game.GameNameSearchIndexPostgresTest' \
   --rerun --fail-fast
 ```
 

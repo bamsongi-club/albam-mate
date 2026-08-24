@@ -58,9 +58,10 @@ OpenAI API의 기본 운영 정책에서 입력·출력은 모델 학습에 사�
 ## 검증
 
 - 상태: 미검증
-- 확인할 것:
-  - 앱의 default-30d provider 선택·동의 저장·retentionMode 응답 테스트
-  - infra gate에서 account/egress=false와 no-retention=false가 통과하는지, key 부재와 invalid mode가 fail-closed인지
+- 근거:
+  - 구현: retention-mode 설정, 동의 저장·fail-closed 선택, OpenAI runtime configuration gate가 구현돼 있다.
+  - 테스트: `AssistantConsentHttpIntegrationTest`, `AssistantConsentPostgresTest`, `AiProviderRuntimeConfigurationTest`, `ProductionProfileConfigurationTest`가 mode·동의·runtime 설정 경계를 검증한다.
+- 미검증:
   - 실제 배포 환경에서 `./run.sh assistant-smoke` 성공 여부
   - 배포 후 사용자 동의·추천 요청의 token·latency·error·cost와 보존 고지 증거
 

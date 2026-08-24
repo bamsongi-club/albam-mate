@@ -3,7 +3,7 @@
 - 상태: 승인됨
 - 작성일: 2026-08-19
 - 결정일: 2026-08-19
-- 관련: [CHAT-07 문서 이슈 #810](https://github.com/bamsongi-club/albam-mate/issues/810), [CHAT-07 명세](../../p2/chat.md#chat-07-채팅-목록-마지막-메시지방별-미읽음-상태), [API 명세](../../API.md#chat-07-채팅-목록-마지막-메시지방별-미읽음-상태-계약), [ERD](../../ERD.md#chat-07-읽음-커서-저장-계약), [아키텍처](../../ARCHITECTURE.md#p2-chat-07-채팅-목록-미읽음-집계-흐름-계획미구현), [ADR-0031](0031-chat-history-cursor-pagination.md), [ADR-0033](0033-postgresql-source-after-commit-delivery.md), [ADR-0078](0078-chat-system-message-storage-and-read-time-composition.md)
+- 관련: [CHAT-07 문서 이슈 #810](https://github.com/bamsongi-club/albam-mate/issues/810), [CHAT-07 명세](../../p2/chat.md#chat-07-채팅-목록-마지막-메시지방별-미읽음-상태), [API 명세](../../API.md#chat-07-채팅-목록-마지막-메시지방별-미읽음-상태-계약), [ERD](../../ERD.md#chat-07-읽음-커서-저장-계약), [아키텍처](../../ARCHITECTURE.md#p2-chat-07-채팅-목록-미읽음-집계-흐름), [ADR-0031](0031-chat-history-cursor-pagination.md), [ADR-0033](0033-postgresql-source-after-commit-delivery.md), [ADR-0078](0078-chat-system-message-storage-and-read-time-composition.md)
 - 대체 대상: 없음
 - 후속 ADR: 없음
 
@@ -64,8 +64,11 @@
 ## 검증
 
 - 상태: 미검증
-- 근거: 없음
+- 근거:
+    - 구현: `CHAT_ROOM_READ_STATES` migration, 읽음 cursor 전진, 채팅 목록 preview·unread batch 조회와 읽음 처리 API가 구현돼 있다.
+    - H2 테스트: `ChatRoomPreviewQueryServiceIntegrationTest`, `ChatRoomReadServiceIntegrationTest`, `ChatRoomReadControllerTest`가 통과했다.
+    - PostgreSQL 테스트: `ChatRoomPreviewHttpPostgresTest`, `ChatRoomPreviewQueryServicePostgresTest`, `ChatRoomReadStatePostgresTest`가 통과했다.
 - 미검증:
-    - 전진 migration, `chat`·`room` 구현, 배치 조회 성능과 PostgreSQL 통합 검증
+    - 실제 방·메시지 규모에서의 배치 조회 성능 측정과 운영 비용 기준선
 
 > 상태 값과 번호·대체 규칙은 [README](../README.md)를 따른다.

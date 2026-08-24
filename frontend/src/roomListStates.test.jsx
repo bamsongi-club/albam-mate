@@ -99,31 +99,33 @@ describe('모임 찾기 예외 화면', () => {
     expect(screen.getByRole('status', { name: '모임 목록을 불러오는 중' })).toBeTruthy();
   });
 
-  it('남은 건수를 알리는 더 보기로 목록을 이어 붙인다', async () => {
+  it('번호형 페이지네이션으로 다음 페이지를 조회한다', async () => {
     getRooms.mockImplementation(({ page }) => Promise.resolve(
       page === 0
-        ? roomPage([1, 2], { page: 0, total: 3, hasNext: true })
-        : roomPage([3], { page: 1, total: 3, hasNext: false })
+        ? roomPage([1, 2], { page: 0, total: 3 })
+        : roomPage([3], { page: 1, total: 3 })
     ));
     renderFindRooms();
     await act(async () => {});
 
-    expect(screen.getByRole('button', { name: '1개 더 보기' })).toBeTruthy();
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: '1개 더 보기' })); });
-
-    // 다음 페이지로 갈아치우지 않고 앞 페이지 아래에 이어 붙인다.
     expect(screen.getByText('모임 1')).toBeTruthy();
+    expect(screen.getByRole('button', { name: '이전 페이지' }).disabled).toBe(true);
+
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: '다음 페이지' })); });
+
+    // 앞 페이지 아래에 이어 붙이지 않고 다음 페이지로 갈아치운다.
+    expect(screen.queryByText('모임 1')).toBeNull();
     expect(screen.getByText('모임 3')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: /더 보기$/ })).toBeNull();
+    expect(getRooms).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1 }), expect.anything());
   });
 
-  it('조건이 바뀌면 쌓아 둔 목록을 처음부터 다시 채운다', async () => {
-    getRooms.mockResolvedValue(roomPage([1, 2], { total: 5, hasNext: true }));
+  it('조건이 바뀌면 첫 페이지부터 다시 조회한다', async () => {
+    getRooms.mockResolvedValue(roomPage([1, 2], { total: 5 }));
     const view = renderFindRooms();
     await act(async () => {});
-    expect(screen.getByRole('button', { name: '3개 더 보기' })).toBeTruthy();
+    expect(screen.getByText('모임 1')).toBeTruthy();
 
-    getRooms.mockResolvedValue(roomPage([9], { total: 1, hasNext: false }));
+    getRooms.mockResolvedValue(roomPage([9], { total: 1 }));
     view.rerender(
       <FindRoomsView
         roomType="GAME_FOCUSED"

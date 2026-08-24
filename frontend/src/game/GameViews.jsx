@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../api';
 import poweredByBgg from '../../assets/powered-by-bgg.svg';
-import { BggAttribution, CheckIcon, Cover, ErrorBox, PlusIcon, Pagination, RoomSkeletons, ScreenTitle, SearchIcon, StateBlock, TopBar } from '../shared/ui';
+import { ArrowIcon, BackIcon, BggAttribution, CheckIcon, Cover, ErrorBox, PlusIcon, Pagination, RoomSkeletons, ScreenTitle, SearchIcon, StateBlock, TopBar } from '../shared/ui';
 import { usePaginatedRequest, useRequest } from '../shared/async';
-import { GAME_LIST_PAGE_SIZE, ROOM_LIST_PAGE_SIZE, EMPTY_GAME_FILTERS, PLAYED_FILTER_OPTIONS, DEFAULT_GAME_COVER_URL } from './constants';
+import { GAME_LIST_PAGE_SIZE, ROOM_LIST_PAGE_SIZE, EMPTY_GAME_FILTERS, EMPTY_GAME_FILTER_KEY, PLAYED_FILTER_OPTIONS, DEFAULT_GAME_COVER_URL } from './constants';
 import { gameFilterParameters } from './filterLogic';
 import { gameMeta, normalizeGameSummary, normalizeRoom } from './data';
 import { GameFilters } from './GameFilters';
@@ -70,10 +70,10 @@ function GameCard({ game, played, pending, onTogglePlayed }) {
 function GameSlicePagination({ page, hasNext, loading, onChange }) {
   if (page <= 0 && !hasNext) return null;
   return (
-    <nav className="pagination" aria-label="페이지 이동">
-      <button className="page-btn" type="button" disabled={loading || page <= 0} onClick={() => onChange(page - 1)} aria-label="이전 페이지">이전</button>
-      <span className="page-btn on" aria-current="page">{page + 1}페이지</span>
-      <button className="page-btn" type="button" disabled={loading || !hasNext} onClick={() => onChange(page + 1)} aria-label="다음 페이지">다음</button>
+    <nav className="pagination tab-fab-clear" aria-label="페이지 이동">
+      <button className="page-btn round" type="button" disabled={loading || page <= 0} onClick={() => onChange(page - 1)} aria-label="이전 페이지"><BackIcon size={18} /></button>
+      <span className="page-btn on" aria-current="page">{page + 1}</span>
+      <button className="page-btn round" type="button" disabled={loading || !hasNext} onClick={() => onChange(page + 1)} aria-label="다음 페이지"><ArrowIcon size={18} /></button>
     </nav>
   );
 }
@@ -93,13 +93,16 @@ export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, on
       // 검색어가 없으면 기존 인기순 목록(GAME-01)을 그대로 보여주고, 검색어가 있으면 의미 검색으로 넘긴다.
       // 탭 없이 한 검색창에서 이름·문장 검색을 모두 받기 위한 분기다.
       if (!query) return api.getGames({ ...parameters, page, size: GAME_LIST_PAGE_SIZE }, signal);
-      return api.getGamesSemanticSearch({ query, ...parameters, page, size: GAME_LIST_PAGE_SIZE }, signal);
+      return api.getGameSearch({ query, ...parameters, page, size: GAME_LIST_PAGE_SIZE }, signal);
     },
     [query, filterKey, dataVersion, playedRefreshKey]
   );
   const games = (data?.content || []).map(normalizeGameSummary);
   const isSearching = Boolean(query);
-  const isFallback = isSearching && data?.searchMode === 'LEXICAL_FALLBACK';
+  // 필터를 고르면 debounce·조회가 끝나기 전에도 이전 filterless 응답의 total을 바로 감춘다.
+  // raw filters를 기준으로 판정해야 사용자가 지금 보고 있는 화면과 어긋나지 않는다(#1057 리뷰).
+  const isFilterless = !query && JSON.stringify(filters) === EMPTY_GAME_FILTER_KEY;
+  const showTotals = isFilterless && Number.isFinite(data?.totalPages);
   useEffect(() => setInput(gameQuery), [gameQuery]);
 
   const playedChips = (
@@ -140,13 +143,17 @@ export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, on
           maxLength={200}
         />
       </form>
-      <GameFilters filters={filters} onChange={setFilters} quickSlot={playedChips} />
-      {isFallback && !error && (
-        <div style={{ marginTop: 18 }}>
-          <StateBlock title="키워드 검색 결과로 대신 보여드려요" description="의미 검색을 잠시 사용할 수 없어 이름·조건 기반 결과로 대체했어요." />
-        </div>
+      <GameFilters
+        filters={filters}
+        onChange={setFilters}
+        quickSlot={playedChips}
+        resultCount={showTotals ? data.totalElements : undefined}
+      />
+      {!error && (
+        <p className="section-label" style={{ marginTop: 18 }}>
+          {loading ? (isSearching ? '검색하는 중' : '불러오는 중') : '게임 목록'}
+        </p>
       )}
-      {!error && <p className="section-label" style={{ marginTop: 18 }}>{loading && !data ? '불러오는 중' : '게임 목록'}</p>}
       {error && (
         <div style={{ marginTop: 26 }}>
           {unauthenticated
@@ -156,7 +163,7 @@ export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, on
       )}
       {!error && loading && !data && <div style={{ marginTop: 22 }}><RoomSkeletons count={3} /></div>}
       {!error && !!games.length && (
-        <div className="gamegrid" style={{ marginTop: 18 }}>
+        <div className="gamegrid" style={{ marginTop: 18, opacity: loading ? 0.5 : 1, transition: 'opacity 0.15s ease' }}>
           {games.map((game) => (
             <GameCard
               key={game.id}
@@ -170,11 +177,16 @@ export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, on
       )}
       {!error && !loading && !games.length && (
         <div style={{ marginTop: 26 }}>
-          <StateBlock title="검색 결과가 없어요" description={isSearching ? '다른 표현이나 조건으로 다시 시도해보세요.' : '게임 이름의 일부만 넣어보세요.'} />
+          <StateBlock
+            title="검색 결과가 없어요"
+            description={isSearching ? '다른 표현이나 조건으로 다시 시도해보세요.' : '게임 이름의 일부만 넣어보세요.'}
+          />
         </div>
       )}
       {!error && data && (
-        <GameSlicePagination page={data.page ?? 0} hasNext={Boolean(data.hasNext)} loading={loading} onChange={setPage} />
+        showTotals
+          ? <Pagination page={data.page ?? 0} totalPages={data.totalPages} loading={loading} onChange={setPage} className="tab-fab-clear" />
+          : <GameSlicePagination page={data.page ?? 0} hasNext={Boolean(data.hasNext)} loading={loading} onChange={setPage} />
       )}
       </div>
     </>

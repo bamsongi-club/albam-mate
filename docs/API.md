@@ -201,7 +201,7 @@ P0와 P1은 서버 세션 인증을 사용한다. Bearer access token과 refresh
 | `totalPages` | integer | Y | N | 전체 페이지 수 |
 | `hasNext` | boolean | Y | N | 다음 페이지 존재 여부 |
 
-- `GET /api/games`도 같은 `page`·`size` 요청 파라미터를 사용하지만, 전체 건수 없이 다음 항목 존재 여부만 반환하는 `GameListSliceResponse<T>`를 사용한다. 응답에는 `content`, `page`, `size`, `hasNext`만 포함하며 `totalElements`와 `totalPages`는 없다. 상세 계약은 [GAME-01](#game-01-게임-목록검색)을 따른다.
+- `GET /api/games`도 같은 `page`·`size` 요청 파라미터를 사용하지만, 다음 항목 존재 여부를 담은 `GameListSliceResponse<T>`를 사용한다. 응답에는 `content`, `page`, `size`, `hasNext`가 항상 있다. 필터·검색어가 전혀 없는 요청에서만 `totalElements`·`totalPages`를 함께 포함하며, 그 외에는 없다. 상세 계약은 [GAME-01](#game-01-게임-목록검색)을 따른다.
 - 클라이언트 지정 `sort`와 응답 필드 `first`, `last`는 지원하지 않는다.
 - 목록 API는 아래 고정 정렬을 적용한다. 모든 정렬은 마지막에 내부 `id`를 고유 tie-breaker로 사용해 같은 DB 상태에서 페이지 이동 중 순서가 임의로 바뀌지 않게 한다.
 
@@ -231,7 +231,7 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 | 6.1 | P1 | [AUTH-04](#auth-04-프로필-이미지-업로드) · [정본](archive/p1/social-login.md) | POST | `/api/users/me/profile-image` | Y | Y | 200 |
 | 6.2 | P1 | [AUTH-04](#auth-04-프로필-이미지-삭제) · [정본](archive/p1/social-login.md) | DELETE | `/api/users/me/profile-image` | Y | Y | 200 |
 | 7 | P0·P1·P2 | [GAME-01](#game-01-게임-목록검색) · [RANK-02 정본](p2/game-popularity.md#rank-02) · [P0 완료 기록](archive/p0/game-catalog.md#game-01-게임-목록검색) · [SEARCH-01 정본](archive/p1/search.md#search-01-게임-조건-검색) · [SEARCH-03 정본](archive/p1/search.md#search-03-사용자별-해-본-게임) | GET | `/api/games` | 선택 | N | 200 |
-| 7.1 | P2 | [SEARCH-04](#search-04-게임-의미-기반-검색) · [정본](p2/search.md#search-04) | GET | `/api/games/semantic-search` | 선택 | N | 200 |
+| 7.1 | P2 | [SEARCH-04](#search-04-게임-의미-기반-검색) · [정본](p2/search.md#search-04) | GET | `/api/games/search` | 선택 | N | 200 |
 | 8 | P0·P1 | [GAME-02](#game-02-게임-상세-조회) · [P0 완료 기록](archive/p0/game-catalog.md#game-02-게임-상세-조회) · [SEARCH-01 정본](archive/p1/search.md#search-01-게임-조건-검색) · [SEARCH-03 정본](archive/p1/search.md#search-03-사용자별-해-본-게임) | GET | `/api/games/{gameId}` | 선택 | N | 200 |
 | 9 | P0 | [ROOM-03](#room-03-방-생성) · [P0 완료 기록](archive/p0/room.md#room-03-방-생성) | POST | `/api/rooms` | Y | Y | 201 |
 | 10 | P0·P1 | [ROOM-01](#room-01-방-목록-조회) · [P0 완료 기록](archive/p0/room.md#room-01-방-탐색) · [SEARCH-02 정본](archive/p1/search.md#search-02-방-조건-검색) · [ROOM-08 정본](archive/p1/room.md#room-08-방-상태와-직접-참가대기-가능-여부-분리) | GET | `/api/rooms` | 선택 | N | 200 |
@@ -283,7 +283,7 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 | 48 | P2 | [MATCH-01](#match-01-신고-접수) · [정본](p2/matching.md#match-01-실시간-파티-매칭) · API 계약 준비 완료·구현 예정 | POST | `/api/matches/parties/{partyId}/reports` | Y | Y | 201·200 |
 | 49 | P2 | [MATCH-01](#match-01-성공-파티-나가기) · [정본](p2/matching.md#match-01-실시간-파티-매칭) · API 계약 준비 완료·구현 예정 | DELETE | `/api/matches/parties/{partyId}/participants/me` | Y | Y | 200 |
 | 50 | P2 | [CHAT-07](#chat-07-채팅방-읽음-처리) · [정본](p2/chat.md#chat-07-채팅-목록-마지막-메시지방별-미읽음-상태) · API 계약 준비 완료·제공 | POST | `/api/rooms/{roomId}/chat/read` | Y | Y | 200 |
-| 51 | P2 | [CHAT-07](#chat-07-내-미읽음-채팅방-요약) · [정본](p2/chat.md#chat-07-채팅-목록-마지막-메시지방별-미읽음-상태) · API 계약 준비 완료·구현 예정 | GET | `/api/users/me/chat/unread-summary` | Y | N | 200 |
+| 51 | P2 | [CHAT-07](#chat-07-내-미읽음-채팅방-요약) · [정본](p2/chat.md#chat-07-채팅-목록-마지막-메시지방별-미읽음-상태) · API 계약 준비 완료·제공 | GET | `/api/users/me/chat/unread-summary` | Y | N | 200 |
 
 `GET /api/games`, `GET /api/games/{gameId}`, `GET /api/rooms`, `GET /api/rooms/{roomId}`와 `GET /api/auth/social/providers`의 인증은 "선택"이다. 비로그인도 호출할 수 있고, 유효한 세션이 있으면 요청자 기준 값을 계산한다. 단, `GET /api/games`의 유효한 `playedFilter`는 로그인을 요구한다.
 
@@ -474,7 +474,7 @@ AI-03 초안 요청에서 `region`을 생략하면 호환 기간 동안 `홍대`
 
 ### ChatMessageType
 
-> **도입 단계: P2** · **기능: CHAT-06** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+> **도입 단계: P2** · **기능: CHAT-06** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 제공**
 
 | 값 | 의미 |
 |---|---|
@@ -485,7 +485,7 @@ AI-03 초안 요청에서 `region`을 생략하면 호환 기간 동안 `홍대`
 
 ### ChatSystemEventKey
 
-> **도입 단계: P2** · **기능: CHAT-06** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+> **도입 단계: P2** · **기능: CHAT-06** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 제공**
 
 | 값 | 의미 |
 |---|---|
@@ -775,16 +775,16 @@ P0 프로필은 닉네임만 제공·수정한다. P1부터 프로필 이미지 
 |---|---|:---:|:---:|:---:|:---:|---|
 | `messageId` | integer | Y | N | P1 | 제공 | 서버가 저장 순서에 사용하는 메시지 ID |
 | `roomId` | integer | Y | N | P1 | 제공 | 채팅 대상 방 ID |
-| `messageType` | ChatMessageType | Y | N | P2 `CHAT-06` | 구현 예정 | 사용자 메시지와 입장·퇴장 안내를 구분하는 종류 |
+| `messageType` | ChatMessageType | Y | N | P2 `CHAT-06` | 제공 | 사용자 메시지와 입장·퇴장 안내를 구분하는 종류 |
 | `clientMessageId` | string | Y | Y | P1 | 제공 | 클라이언트가 재시도 멱등성에 사용하는 1~100자 식별자. `messageType = SYSTEM`이면 `null` |
 | `sender` | NicknameSummary | Y | Y | P1 | 제공 | 작성자 표시명. `messageType = SYSTEM`이면 `null` |
 | `isMine` | boolean | Y | N | P1 | 제공 | 서버가 현재 요청자와 발신자가 같은지 계산한 값. 사용자 ID는 노출하지 않으며 `messageType = SYSTEM`이면 항상 `false` |
-| `systemEvent` | ChatSystemEventKey | Y | Y | P2 `CHAT-06` | 구현 예정 | 안내를 만든 사건. `messageType = USER`이면 `null` |
-| `subject` | NicknameSummary | Y | Y | P2 `CHAT-06` | 구현 예정 | 안내 대상 사용자의 현재 표시명. `messageType = USER`이면 `null` |
+| `systemEvent` | ChatSystemEventKey | Y | Y | P2 `CHAT-06` | 제공 | 안내를 만든 사건. `messageType = USER`이면 `null` |
+| `subject` | NicknameSummary | Y | Y | P2 `CHAT-06` | 제공 | 안내 대상 사용자의 현재 표시명. `messageType = USER`이면 `null` |
 | `content` | string | Y | N | P1 | 제공 | `USER`는 앞뒤 공백 제거 후 1~500자의 일반 텍스트, `SYSTEM`은 서버가 읽기 시점에 조립한 안내 문장 |
 | `createdAt` | string(date-time) | Y | N | P1 | 제공 | 서버가 저장한 시각 |
 
-`messageType`·`systemEvent`·`subject`는 `CHAT-06`의 목표 계약이며 현재 제공 필드가 아니다. `clientMessageId`·`sender`의 `null` 허용도 `SYSTEM` 메시지에만 해당하므로, `CHAT-06` 구현 전까지 모든 메시지는 `USER`이고 두 필드는 `null`이 되지 않는다. `SYSTEM` 메시지의 `content`는 저장된 값이 아니라 서버가 사건 키와 대상 사용자의 현재 공개 닉네임으로 조립한 문장이며, 문구와 대체 표시명의 정본은 [입장·퇴장 시스템 메시지 계약](#chat-06-입장퇴장-시스템-메시지-계약)이다. 저장 계층에는 완성 문장과 닉네임 사본을 두지 않는다([ADR-0078](adr/chat/0078-chat-system-message-storage-and-read-time-composition.md)).
+`messageType`·`systemEvent`·`subject`는 `CHAT-06`이 제공하는 필드다. `clientMessageId`·`sender`의 `null` 허용은 `SYSTEM` 메시지에만 해당한다. `SYSTEM` 메시지의 `content`는 저장된 값이 아니라 서버가 사건 키와 대상 사용자의 현재 공개 닉네임으로 조립한 문장이며, 문구와 대체 표시명의 정본은 [입장·퇴장 시스템 메시지 계약](#chat-06-입장퇴장-시스템-메시지-계약)이다. 저장 계층에는 완성 문장과 닉네임 사본을 두지 않는다([ADR-0078](adr/chat/0078-chat-system-message-storage-and-read-time-composition.md)).
 
 ### 4.16 ChatMessagePage
 
@@ -1122,7 +1122,7 @@ PostgreSQL에 커밋된 매칭 요청·제안·성공 파티·채팅 접근 관�
 
 ### 4.40 ChatRoomUpdatedEvent
 
-> **도입 단계: P2** · **기능: CHAT-08** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 백엔드 제공(`#918`), 프런트엔드 소비 구현 중(`#919`)**
+> **도입 단계: P2** · **기능: CHAT-08** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 백엔드 제공(`#918`), 프런트엔드 소비 구현 완료(`#919`)**
 
 `GET /api/users/me/chat/ws`로 Upgrade한 사용자 단위 WebSocket이 보내는 서버 발신 텍스트 이벤트다. [ChatMessageEvent](#417-chatmessageevent)와 달리 메시지 본문이나 시스템 메시지 조립 결과를 담지 않는 최소 신호다.
 
@@ -1434,7 +1434,7 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 
 | 이름 | 타입 | 필수 | 기본값 | 도입 단계 | 제공 상태 | 의미 |
 |---|---|:---:|---|:---:|:---:|---|
-| `keyword` | string | N | 검색 없음 | P0 | 제공 | 게임명 부분 일치 |
+| `keyword` | string | N | 검색 없음 | P0 | 제공 | 게임명 검색. 1·2글자는 부분 일치, 3글자 이상은 부분 일치와 `similarity >= 0.3` 오타 유사 결과를 함께 반환 |
 | `upcomingOnly` | boolean | N | `false` | P0 | 제공 | `true`이면 예정 모임이 한 개 이상인 게임만 반환 |
 | `playerCount` | integer | N | 검색 없음 | P1 | 제공 | `1`~`9`는 해당 인원을 포함하는 게임, `10`은 최대 가능 인원이 10 이상인 게임 |
 | `playerCountMin` | integer | N | 검색 없음 | P1 | 제공 | 1 이상, 찾는 인원 범위의 최소값 |
@@ -1491,7 +1491,9 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 - `recommendedPlayerCount`와 `bestPlayerCount`는 각각 BGG 투표에서 정규화한 양의 인원을 반복 전달하며 같은 목록 안에서 OR다. 가능 인원과 다른 의미이며 `4+` 결과는 해당 게임의 검증된 최대 가능 인원까지 확장된 관계로 판정한다.
 - `themeMatch`와 `mechanismMatch`는 각각 생략하면 `ANY`이고 대응하는 선택 코드 없이 보내도 유효하다. 두 모드는 독립적이며 테마·메커니즘 그룹과 다른 필터 종류 사이는 `AND`로 결합한다. 중복되거나 잘못된 match 값, 존재하지 않는 category/theme code, 0 이하 인원은 일부 유효 값이 함께 있어도 전체 요청을 `VALIDATION_ERROR`로 거절한다.
 - 인원·시간·최연소 참여자 나이·복잡도·카테고리·테마·추천/베스트·메커니즘 필터를 적용하면 해당 조건을 판정할 검증값이나 관계가 없는 게임은 제외한다. 필터를 생략하면 누락값이나 관계 부재만으로 제외하지 않는다.
-- 모든 필터를 적용한 뒤 `popularity_score DESC, name ASC, id ASC` 고정 정렬과 페이지를 계산한다. 다음 항목 존재 여부는 size+1 Slice 조회의 `hasNext`로 반환하며 전체 건수는 계산하거나 노출하지 않는다. `popularity_score`는 응답에 노출하지 않는 저장 파생값이다.
+- 3글자 이상 `keyword`는 정확 일치, 부분 일치, `similarity >= 0.3` 유사 결과 순으로 정렬하고, 유사도 내림차순 뒤 `name ASC, id ASC`로 동률을 결정한다. 1·2글자 `keyword`와 keyword 없는 요청은 모든 필터를 적용한 뒤 기존 `popularity_score DESC, name ASC, id ASC` 고정 정렬과 페이지를 계산한다. 다음 항목 존재 여부는 size+1 Slice 조회의 `hasNext`로 반환한다.
+- `keyword`, `upcomingOnly`, 인원·플레이시간·연령·복잡도·`playedFilter`·메커니즘·카테고리·테마·추천/베스트 인원 등 조건 파라미터가 하나도 없는 요청만 전체 건수를 함께 계산해 `totalElements`·`totalPages`를 응답에 포함한다(`page`·`size`는 조건이 아니다). 하나라도 있으면 이전과 같은 count 없는 Slice 조회를 유지한다. 검색 없는 필터 없는 요청은 `games_pkey` index-only scan을 타 count 비용이 낮지만, 검색·필터가 있는 요청은 WHERE 조건 때문에 count 비용이 커질 수 있어 분리했다(`#1055`·`#1056` 결정).
+- `popularity_score`는 응답에 노출하지 않는 저장 파생값이다.
 
 #### GameListSliceResponse
 
@@ -1501,8 +1503,10 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 | `page` | integer | 0부터 시작하는 현재 페이지 번호 |
 | `size` | integer | 적용된 페이지 크기 |
 | `hasNext` | boolean | 다음 페이지 존재 여부 |
+| `totalElements` | integer | 필터·검색어가 전혀 없는 요청에서만 포함하는 전체 항목 수 |
+| `totalPages` | integer | 필터·검색어가 전혀 없는 요청에서만 포함하는 전체 페이지 수 |
 
-`totalElements`와 `totalPages`는 게임 목록 응답에 포함하지 않는다. 이 게임 전용 계약은 공통 `PageResponse`와 비게임 목록 API를 변경하지 않는다.
+`totalElements`와 `totalPages`는 필터·검색어가 있는 게임 목록 응답에는 포함하지 않는다. 이 게임 전용 계약은 공통 `PageResponse`와 비게임 목록 API를 변경하지 않는다.
 
 `tag` 필터와 클라이언트 지정 `sort`는 지원하지 않는다.
 
@@ -1519,11 +1523,11 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 
 | 항목 | 값 |
 |---|---|
-| Method / Path | `GET /api/games/semantic-search` |
+| Method / Path | `GET /api/games/search` |
 | 인증 / CSRF | 선택 / 불필요. 유효한 `playedFilter` 사용 시 인증 필요 |
-| 성공 | `200 OK`, `data`: `SemanticGameSearchResponse` |
+| 성공 | `200 OK`, `data`: `GameSearchResponse` |
 
-기능 동작·완료 기준의 정본은 [SEARCH-04](p2/search.md#search-04)다. 이 절은 HTTP 요청·응답·오류 계약만 소유하며, [GAME-01](#game-01-게임-목록검색)의 `keyword` 의미와 응답 계약은 이 계약으로 바꾸지 않는다.
+기능 동작·완료 기준의 정본은 [SEARCH-04](p2/search.md#search-04)다. 이 절은 HTTP 요청·응답·오류 계약만 소유하며, [GAME-01](#game-01-게임-목록검색)의 `keyword` 의미와 응답 계약은 이 계약으로 바꾸지 않는다. 검색 구현 방식(Dense/Sparse/Lexical)은 서버 내부에서 처리하며 공개 응답에 노출하지 않는다.
 
 #### Query Parameters
 
@@ -1538,15 +1542,14 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 - `playedFilter`를 비로그인으로 사용하면 `401 UNAUTHENTICATED`다. `query`만 있는 비로그인 검색은 허용한다.
 - 모든 hard filter를 적용한 결과가 없으면 조건을 자동 완화하지 않고 `200 OK` 빈 페이지를 반환한다.
 
-#### SemanticGameSearchResponse
+#### GameSearchResponse
 
 | 필드 | 타입 | 설명 |
 |---|---|---|
-| `content` | GameListItem[] | 현재 페이지 항목. [GAME-01의 GameListItem](#game-01-게임-목록검색) 필드를 그대로 사용하며 relevance 점수·embedding·검색어는 포함하지 않는다 |
+| `content` | GameListItem[] | 현재 페이지 항목. [GAME-01의 GameListItem](#game-01-게임-목록검색) 필드를 그대로 사용하며 relevance 점수·embedding·검색어·구현 방식은 포함하지 않는다 |
 | `page` | integer | 0부터 시작하는 현재 페이지 번호 |
 | `size` | integer | 적용된 페이지 크기 |
 | `hasNext` | boolean | 다음 페이지 존재 여부 |
-| `searchMode` | string | `SEMANTIC` 또는 `LEXICAL_FALLBACK`. 의미 검색 index·provider 장애로 키워드 검색으로 대체됐으면 `LEXICAL_FALLBACK`이다 |
 
 `content`는 hard filter를 모두 만족한 결과를 `relevance DESC, name ASC, id ASC` 순으로 담는다. `totalElements`, `totalPages`는 포함하지 않는다.
 
@@ -2548,9 +2551,9 @@ Path variable·query parameter·body는 없다. `unreadCount`는 미확인 개�
 
 ### CHAT-06 입장·퇴장 시스템 메시지 계약
 
-> **도입 단계: P2** · **기능: CHAT-06** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+> **도입 단계: P2** · **기능: CHAT-06** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 제공**
 >
-> 이 절의 필드·enum·문구는 승인된 목표 계약이며 현재 제공 기능이 아니다. 제품 상태는 [P2 기능 상태의 `CHAT-06`](p2/README.md#기능별-현재-상태)에서만 판정한다.
+> 이 절의 필드·enum·문구는 현재 제공 계약이다. 제품 상태는 [P2 기능 상태의 `CHAT-06`](p2/README.md#기능별-현재-상태)에서만 판정한다.
 
 `CHAT-06`은 새 엔드포인트를 추가하지 않는다. 기존 이력 조회와 실시간 구독이 사용자 메시지와 함께 입장·퇴장 안내를 반환하도록 [ChatMessage](#415-chatmessage)와 [ChatMessageEvent](#417-chatmessageevent)를 확장한다. 안내를 남기는 사건 경계와 소급 생성 제외는 [CHAT-06 명세](p2/chat.md#chat-06-입장퇴장-시스템-메시지), 저장 모델·문구 소유의 선택 이유는 [ADR-0078](adr/chat/0078-chat-system-message-storage-and-read-time-composition.md)을 따른다.
 
@@ -2575,9 +2578,9 @@ Path variable·query parameter·body는 없다. `unreadCount`는 미확인 개�
 
 ### CHAT-07 채팅 목록 마지막 메시지·방별 미읽음 상태 계약
 
-> **도입 단계: P2** · **기능: CHAT-07** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+> **도입 단계: P2** · **기능: CHAT-07** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 제공**
 >
-> 이 절의 필드·엔드포인트는 승인된 목표 계약이며 현재 제공 기능이 아니다. 제품 상태는 [P2 기능 상태의 `CHAT-07`](p2/README.md#기능별-현재-상태)에서만 판정한다.
+> 이 절의 필드·엔드포인트는 현재 제공 계약이다. 제품 상태는 [P2 기능 상태의 `CHAT-07`](p2/README.md#기능별-현재-상태)에서만 판정한다.
 
 제품 규칙은 [CHAT-07 명세](p2/chat.md#chat-07-채팅-목록-마지막-메시지방별-미읽음-상태), 저장·집계 방식의 선택 이유는 [ADR-0079](adr/chat/0079-chat-room-read-cursor-and-derived-unread-count.md)를 따른다.
 
@@ -2760,7 +2763,7 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 
 ### CHAT-07 내 미읽음 채팅방 요약
 
-> **도입 단계: P2** · **기능: CHAT-07** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+> **도입 단계: P2** · **기능: CHAT-07** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 제공**
 
 | 항목 | 값 |
 |---|---|
@@ -2785,9 +2788,9 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 
 ### CHAT-08 채팅 목록 실시간 갱신 계약
 
-> **도입 단계: P2** · **기능: CHAT-08** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 백엔드 제공(`#918`), 프런트엔드 소비 구현 중(`#919`)**
+> **도입 단계: P2** · **기능: CHAT-08** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 백엔드 제공(`#918`), 프런트엔드 소비 구현 완료(`#919`)**
 >
-> 백엔드 엔드포인트·이벤트는 구현·자동 검증을 완료했다(`#918`). 프런트엔드 구독·재조회는 아직 구현 중이다(`#919`). 제품 상태는 [P2 기능 상태의 `CHAT-08`](p2/README.md#기능별-현재-상태)에서만 판정한다.
+> 백엔드 엔드포인트·이벤트와 프런트엔드 구독·재조회는 구현·자동 검증을 완료했다(`#918`, `#919`). 제품 상태는 [P2 기능 상태의 `CHAT-08`](p2/README.md#기능별-현재-상태)에서만 판정한다.
 
 제품 규칙은 [CHAT-08 명세](p2/chat.md#chat-08-채팅-목록-실시간-갱신), 채널 구조 선택 이유는 [ADR-0082](adr/chat/0082-chat-list-per-user-realtime-channel.md)를 따른다. 이 계약은 기존 방별 WebSocket([CHAT-03](#chat-03-실시간-메시지-구독))을 대체하지 않고 병렬로 추가한다.
 

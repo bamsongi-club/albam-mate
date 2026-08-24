@@ -86,6 +86,10 @@ test('T3·T5·T6·T7 workflow는 custom SSM document만 호출하고 LKG 기반 
     assert.match(contents, /aws ssm get-parameter/);
     assert.match(contents, /aws ssm send-command/);
     assert.match(contents, /--document-name \"\$SSM_DOCUMENT\"/);
+    assert.match(contents, /runtimeSecretPrefix/);
+    assert.match(contents, /RUNTIME_SECRET_PREFIX/);
+    assert.match(contents, /require_runtime_secret_prefix/);
+    assert.match(contents, /--parameters \"operation=\$\{operation\}[\s\S]*runtimeSecretPrefix=\$\{runtime_secret_prefix\}/);
     assert.match(contents, /preflight-app2-current/);
     assert.match(contents, /migrate-app2-candidate/);
     assert.match(contents, /deploy-app2-candidate/);

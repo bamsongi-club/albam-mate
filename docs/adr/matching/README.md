@@ -16,3 +16,4 @@
 | [0067](0067-match-shared-contract-boundary.md) | MATCH 공통 모듈 공개 계약 경계와 chat 접근 오류 매핑 | 승인됨 | 2026-08-18 | 미검증 |
 | [0077](0077-match-no-game-player-range.md) | MATCH 게임·플랫폼 없는 인원 범위 매칭 | 승인됨 | 2026-08-18 | 미검증 |
 | [0080](0080-match-chat-p1-technical-reuse-boundary.md) | MATCH 채팅 실시간 전달의 P1 채팅 기술 기반 재사용 경계 | 승인됨 | 2026-08-19 | 미검증 |
+| [0091](0091-match-t10-aws-measurement-deferral.md) | MATCH-01 T10 AWS 성능 측정 유예와 기능 gate 분리 | 승인됨 | 2026-08-24 | 미검증 |

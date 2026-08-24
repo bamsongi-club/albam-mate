@@ -5,6 +5,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+import org.hibernate.dialect.PostgreSQLDialect;
+import org.hibernate.query.criteria.HibernateCriteriaBuilder;
+import org.hibernate.query.sqm.internal.SqmCriteriaNodeBuilder;
 import org.springframework.data.jpa.domain.Specification;
 
 import cloud.bamsongi.albammate.game.dto.GamePlayTimeFilter;
@@ -26,19 +29,21 @@ import jakarta.persistence.criteria.Root;
 public final class GameListSpecification {
 
 	private static final int PLAYER_COUNT_TEN_OR_MORE = 10;
+	private static final int SIMILARITY_KEYWORD_MINIMUM_LENGTH = 3;
+	private static final double SIMILARITY_THRESHOLD = 0.3d;
 
 	private GameListSpecification() {}
 
 	public static Specification<Game> from(GameListSearchCriteria criteria) {
+		return from(criteria, false);
+	}
+
+	public static Specification<Game> from(GameListSearchCriteria criteria, boolean similaritySearchEnabled) {
 		return (root, query, criteriaBuilder) -> {
 			List<Predicate> predicates = new ArrayList<>();
 			String keyword = criteria.getKeyword();
 			if (keyword != null) {
-				predicates.add(
-					criteriaBuilder.like(
-						criteriaBuilder.lower(root.get("name")),
-						"%" + escapeLikePattern(keyword.toLowerCase(Locale.ROOT)) + "%",
-						'\\'));
+				addKeywordPredicateAndOrder(root, query, criteriaBuilder, predicates, keyword, similaritySearchEnabled);
 			}
 			if (criteria.isUpcomingOnly()) {
 				predicates.add(root.get("id").in(criteria.getUpcomingGameIds()));
@@ -78,6 +83,45 @@ public final class GameListSpecification {
 				criteria.getCurrentUserId());
 			return criteriaBuilder.and(predicates.toArray(Predicate[]::new));
 		};
+	}
+
+	public static boolean usesSimilaritySearch(String keyword) {
+		return keyword != null && keyword.codePointCount(0, keyword.length()) >= SIMILARITY_KEYWORD_MINIMUM_LENGTH;
+	}
+
+	private static void addKeywordPredicateAndOrder(
+		Root<Game> root,
+		jakarta.persistence.criteria.CriteriaQuery<?> query,
+		CriteriaBuilder criteriaBuilder,
+		List<Predicate> predicates,
+		String keyword,
+		boolean similaritySearchEnabled) {
+		String normalizedKeyword = keyword.toLowerCase(Locale.ROOT);
+		var lowerName = criteriaBuilder.lower(root.get("name"));
+		Predicate partialMatch = criteriaBuilder.like(lowerName, "%" + escapeLikePattern(normalizedKeyword) + "%",
+			'\\');
+		if (!similaritySearchEnabled || !usesSimilaritySearch(keyword)) {
+			predicates.add(partialMatch);
+			return;
+		}
+
+		var similarity = criteriaBuilder.function("similarity", Double.class, lowerName,
+			criteriaBuilder.literal(normalizedKeyword));
+		Predicate exactMatch = criteriaBuilder.equal(lowerName, normalizedKeyword);
+		Predicate similarMatch = criteriaBuilder.greaterThanOrEqualTo(similarity, SIMILARITY_THRESHOLD);
+		if (criteriaBuilder instanceof HibernateCriteriaBuilder hibernateCriteriaBuilder
+			&& hibernateCriteriaBuilder instanceof SqmCriteriaNodeBuilder sqmCriteriaNodeBuilder
+			&& sqmCriteriaNodeBuilder.getQueryEngine().getDialect() instanceof PostgreSQLDialect) {
+			var trigramCandidate = hibernateCriteriaBuilder.sql(
+				"? % ?", Boolean.class, lowerName, criteriaBuilder.literal(normalizedKeyword));
+			similarMatch = criteriaBuilder.and(criteriaBuilder.isTrue(trigramCandidate), similarMatch);
+		}
+		predicates.add(criteriaBuilder.or(partialMatch, similarMatch));
+		query.orderBy(
+			criteriaBuilder.asc(criteriaBuilder.selectCase().when(exactMatch, 0).when(partialMatch, 1).otherwise(2)),
+			criteriaBuilder.desc(similarity),
+			criteriaBuilder.asc(root.get("name")),
+			criteriaBuilder.asc(root.get("id")));
 	}
 
 	private static void addAnyThemeAndMechanismPredicate(

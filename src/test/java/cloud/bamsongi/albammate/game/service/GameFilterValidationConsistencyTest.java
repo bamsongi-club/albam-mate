@@ -10,6 +10,7 @@ import java.time.Clock;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import cloud.bamsongi.albammate.game.contract.AssistantGameCandidateQuery;
 import cloud.bamsongi.albammate.game.contract.GameRankingQuery;
@@ -48,7 +49,8 @@ class GameFilterValidationConsistencyTest {
 			Clock.systemUTC(),
 			mock(UpcomingRoomCountQuery.class),
 			mock(UserPlayedGameRepository.class),
-			gameFilterValidator);
+			gameFilterValidator,
+			mock(JdbcTemplate.class));
 		SemanticGameSearchQueryService semanticGameSearchQueryService = new SemanticGameSearchQueryService(
 			semanticGameSearch,
 			gameRepository,

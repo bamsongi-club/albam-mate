@@ -2,9 +2,23 @@
 
 ## 목적과 범위
 
-이 문서는 [ADR-0063](../adr/matching/0063-match-baseline-measurement-gate.md)와 그 candidate claim 범위 해석을 정한 [ADR-0065](../adr/matching/0065-match-candidate-claim-baseline-scope.md)의 PostgreSQL 우선 baseline을 재현할 fixture, 실행 round, 원자료와 결과 채택 기준을 하나로 고정한다. 결과는 운영 SLO나 Redis business lock 도입 결론이 아니다. 구현 전 계약이므로 runner·테스트 클래스·결과 파일은 아직 없다.
+이 문서는 [ADR-0063](../adr/matching/0063-match-baseline-measurement-gate.md)와 그 candidate claim 범위 해석을 정한 [ADR-0065](../adr/matching/0065-match-candidate-claim-baseline-scope.md)의 PostgreSQL 우선 baseline을 재현할 fixture, 실행 round, 원자료와 결과 채택 기준을 하나로 고정한다. 결과는 운영 SLO나 Redis business lock 도입 결론이 아니다. local Testcontainers 경로와 전용 외부 PostgreSQL runner가 이 계약을 실행하며, 결과 파일은 실행 시 생성한다.
 
-이 baseline은 PostgreSQL에서 `prioritySince ASC, requestId ASC` 순으로 `FOR UPDATE SKIP LOCKED` 후보를 선점하고, 같은 트랜잭션에서 `WAITING → PROPOSED`와 제안 생성을 확정하는 **candidate claim transaction** 경로만 측정한다. 최종 `ACCEPT`·Party 확정·현재 상태 snapshot 복구는 이 baseline latency의 범위가 아니며, 별도 통합 검증에서 정합성을 확인한다. 제품 조건과 정합성 불변식은 [MATCH-01 명세](../p2/matching.md), 저장·잠금 조건은 [ERD](../ERD.md), 실행 흐름은 [아키텍처](../ARCHITECTURE.md)가 정본이다.
+이 baseline은 PostgreSQL에서 `prioritySince ASC, requestId ASC` 순으로 `FOR UPDATE SKIP LOCKED` 후보를 선점하고, 같은 트랜잭션에서 `WAITING → PROPOSED`와 제안 생성을 확정하는 **candidate claim transaction** 경로만 측정한다. 최종 `ACCEPT`·Party 확정·현재 상태 snapshot 복구는 이 baseline latency의 범위가 아니며, 별도 통합 검증에서 정합성을 확인한다. 제품 조건과 정합성 불변식은 [MATCH-01 명세](../p2/matching.md), 저장·잠금 조건은 [ERD](../ERD.md), 실행 흐름은 [아키텍처](../ARCHITECTURE.md)가 정본이다. 기존 Testcontainers local 경로와 별도로 `matchCandidateExternalMeasurement`는 전용 외부 PostgreSQL target을 사용하며, 비밀번호는 `ISSUE775_JDBC_PASSWORD` 환경변수로만 전달한다.
+
+## 외부 PostgreSQL runner 안전 경계
+
+`matchCandidateExternalMeasurement`는 외부 target에 접속하기 전에 다음을 모두 확인한다.
+
+1. `issue775.measurement=true`와 `match01.external.allow-mutation=true`가 명시되었는지 확인한다.
+2. `match01.external.jdbc-url`·사용자·raw 출력 경로·환경 profile 파일·40자 `measuredGitSha`를 확인하고, 비밀번호는 `ISSUE775_JDBC_PASSWORD`에서만 읽는다. JDBC URL·시스템 속성·JSON·로그에 비밀번호를 둘 수 없다.
+3. 환경 profile이 `stackId`, `region`, `accountAlias`, `databaseRole`, `runner`, `ephemeral`, `releaseSha` allowlist의 scalar JSON이고 `ephemeral=true`인지 확인한다. 현재 runner checkout이 clean이며 HEAD도 지정한 `measuredGitSha`와 같아야 한다.
+4. target provisioner가 `match01_control.match01_external_target_metadata`를 만들고, login 불가 전용 provisioner role을 schema/table owner로 둔 뒤 해당 metadata schema/table에는 runner role의 `USAGE`와 `SELECT`만 부여해야 한다. row의 `schema_version`, `stack_id`, database·role·user, 실제 server address/port와 동일한 JDBC endpoint, runner ID, `ephemeral`, release SHA를 provisioner가 기록한다. 또한 PostgreSQL 서버에 `shared_preload_libraries=pg_stat_statements`를 설정하고 measurement database에 `CREATE EXTENSION pg_stat_statements`를 실행한 뒤, runner role에 `GRANT EXECUTE ON FUNCTION public.pg_stat_statements_reset(oid, oid, bigint, boolean)`을 부여해야 한다. runner는 이 table이 없거나 owner가 login 가능하거나 metadata에 대한 DML/TRUNCATE 권한이 있거나 통계 reset 권한이 없으면 중단한다.
+5. runner는 같은 PostgreSQL connection에서 `current_database()`, `current_user`, `inet_server_addr()`, `inet_server_port()`를 읽어 provisioned metadata와 JDBC URL의 database·endpoint를 모두 대조하고 `pg_stat_statements` view와 reset 함수 EXECUTE 권한도 확인한다. JDBC URL은 실제 server address와 port를 직접 사용해야 하므로 DNS alias·failover/load-balancing endpoint는 거절한다. profile의 stack·role·runner·release SHA·`ephemeral=true`와 측정 SHA도 row와 일치해야 하며, 이 preflight가 끝나기 전에는 measurement table mutation에 도달하지 않는다. preflight에 성공한 물리 connection은 Java `JdbcTemplate`의 측정·mutation 전체에 고정해 재사용하고, 독립 matcher worker의 connection-init 단계에서도 같은 identity·metadata·read-only 권한을 검증한다.
+6. 외부 target은 PostgreSQL인지 `select 1`로 확인한 뒤, baseline 부하 전에 혼합 범위 correctness smoke를 실행한다. smoke가 `R1·R3` proposal 한 건과 `partySize=2`를 증명하지 못하면 baseline을 시작하지 않는다.
+7. smoke 뒤 각 round마다 MATCH measurement 테이블을 초기화하고 동일 fixture·2 matcher·matcher당 500회 계약을 실행한다. 운영 데이터가 있는 DB에는 실행하지 않는다.
+
+raw 입력은 allowlist로 검증한 `environmentProfile`, 혼합 범위 smoke의 canonical materialized manifest 원자료와 input/manifest hash, 각 round의 measured SHA·topology configuration hash·lock wait·correctness를 보존한다. 외부 실행은 Java runner가 Node report를 `--external`로 호출하는 명시적 경계이며, report는 외부 provenance가 없거나 runner·target·profile shape가 바뀐 입력을 local report로 강등하지 않는다. 외부 report에서는 smoke와 raw digest를 항상 검증하고, 정렬된 canonical raw observation의 SHA-256을 raw 입력과 report에 기록해 판정 시 다시 대조한다. Java runner가 저장한 raw 입력 뒤 `match01-candidate-baseline-report.mjs`를 실행해 `.report.json` 판정을 만들며, 이 결과가 `BASELINE_ACCEPTED`가 아니거나 raw digest가 어긋나면 before/after 수치나 P2 상태표에 채택하지 않는다.
 
 ADR-0063의 baseline gate는 하나의 latency 수치로 모든 MATCH 흐름을 대신하지 않는다. 이 문서는 candidate claim transaction의 부하·lock wait·retry와 `WAITING → PROPOSED` 정합성을 담당하고, 최종 `ACCEPT`·Party/접근 확정은 `MATCH-01-T5` 통합 검증, `PREPARING`·재접속·현재 상태 snapshot 복구는 `MATCH-01-T6`·`MATCH-01-T7` 통합 검증에서 별도 증거로 닫는다. 따라서 이 fixture에 `PREPARING`·`ACTIVE` Party나 열린 제안을 섞어 candidate claim p95의 원인을 바꾸지 않는다.
 

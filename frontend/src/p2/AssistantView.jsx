@@ -1,6 +1,7 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { ApiError, api } from '../api';
-import { Cover, ErrorBox, SendIcon, TopBar } from '../shared/ui';
+import mascotCut from '../../assets/mascot-cut.png';
+import { BackIcon, Cover, ErrorBox, SendIcon, TopBar } from '../shared/ui';
 
 const REGIONS = ['홍대', '강남', '건대', '잠실'];
 const EXPERIENCE_LABELS = {
@@ -9,9 +10,13 @@ const EXPERIENCE_LABELS = {
   EXPERIENCED_PREFERRED: '경험자 위주'
 };
 const MISSING_FIELD_LABELS = {
-  GAME_STYLE: '어떤 분위기나 게임 스타일을 원하는지 알려주세요.'
+  GAME_STYLE: '어떤 분위기나 게임 스타일을 원하는지 알려주세요.',
+  GAME: '어떤 게임으로 모임을 만들지 알려주세요.',
+  PLAYER_COUNT: '총 몇 명이 함께할지 알려주세요.',
+  STARTS_AT: '언제 시작할지 알려주세요.',
+  REGION: '어느 지역에서 모일지 알려주세요.'
 };
-const QUICK_PROMPTS = ['초보 환영 모임 찾아줘', '오늘 저녁 4인 가볍게 할 게임 추천해줘', '윙스팬 모임 만들어줘'];
+const QUICK_PROMPTS = ['전략 게임 추천해줘', '오늘 저녁 4인 가볍게 할 게임 추천해줘', '윙스팬 모임 만들어줘'];
 
 function botReplyText(result) {
   if (!result) return '';
@@ -74,6 +79,12 @@ function candidateName(candidate) {
 function isFutureInstant(value) {
   const instant = Date.parse(value);
   return Number.isFinite(instant) && instant > Date.now();
+}
+
+function requestsRoomCreation(message) {
+  const normalized = message.toLocaleLowerCase('ko-KR').replace(/\s+/g, '');
+  return /(모임|방)(을|를)?(만들|생성|열|모집)/.test(normalized)
+    || /(만들|생성|열|모집)(어줘|고싶어|고싶다)?(모임|방)/.test(normalized);
 }
 
 function automaticDraftInput(candidate, conditions) {
@@ -521,6 +532,7 @@ function AssistantStart({ initialMemory, onMemoryChange, onCreateDraft, onConsen
   const [message, setMessage] = useState('');
   const [history, setHistory] = useState([]);
   const [result, setResult] = useState(initialMemory?.result || null);
+  const [conversationConditions, setConversationConditions] = useState(initialMemory?.result?.conditions || null);
   const [selectedCandidate, setSelectedCandidate] = useState(initialMemory?.selectedCandidate || null);
   const [editState, setEditState] = useState(initialMemory?.editState || null);
   const [modalCandidate, setModalCandidate] = useState(null);
@@ -556,21 +568,39 @@ function AssistantStart({ initialMemory, onMemoryChange, onCreateDraft, onConsen
   const send = async (text) => {
     const currentMessage = text.trim();
     if (!currentMessage || pending) return;
+    const previousConditions = conversationConditions;
     setHistory((entries) => [...entries, { role: 'mine', text: currentMessage }]);
     setMessage('');
+    setResult(null);
+    setSelectedCandidate(null);
+    setEditState(null);
+    setModalCandidate(null);
     setPending(true);
     setError('');
+    onMemoryChange(null);
     try {
-      const next = await api.recommendAssistant(currentMessage, result?.conditions || null);
+      const next = await api.recommendAssistant(currentMessage, previousConditions);
+      const automaticCandidate = requestsRoomCreation(currentMessage)
+        && next?.state === 'RECOMMENDED'
+        && next.candidates?.length === 1
+        ? next.candidates[0]
+        : null;
       setResult(next);
-      setSelectedCandidate(null);
+      setConversationConditions(next?.conditions || null);
+      setSelectedCandidate(automaticCandidate);
       setEditState(null);
-      setModalCandidate(null);
-      setManualCandidate(null);
-      storeMemory(next, null, null);
+      setModalCandidate(automaticCandidate);
+      storeMemory(next, automaticCandidate, null);
       const reply = botReplyText(next);
       if (reply) setHistory((entries) => [...entries, { role: 'theirs', text: reply }]);
     } catch (requestError) {
+      setHistory((entries) => {
+        const lastEntry = entries.at(-1);
+        return lastEntry?.role === 'mine' && lastEntry.text === currentMessage
+          ? entries.slice(0, -1)
+          : entries;
+      });
+      setMessage(currentMessage);
       if (isConsentRequiredError(requestError)) onConsentRequired();
       else setError(assistantErrorMessage(requestError));
     } finally {
@@ -581,6 +611,25 @@ function AssistantStart({ initialMemory, onMemoryChange, onCreateDraft, onConsen
   const submit = (event) => {
     event.preventDefault();
     send(message);
+  };
+
+  const resetConversation = () => {
+    if (pending) return;
+    setMessage('');
+    setHistory([]);
+    setResult(null);
+    setConversationConditions(null);
+    setSelectedCandidate(null);
+    setEditState(null);
+    setModalCandidate(null);
+    setError('');
+    onMemoryChange(null);
+  };
+
+  const handleMessageKeyDown = (event) => {
+    if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent?.isComposing) return;
+    event.preventDefault();
+    event.currentTarget.form?.requestSubmit();
   };
 
   const openCandidateModal = (candidate, trigger) => {
@@ -610,6 +659,9 @@ function AssistantStart({ initialMemory, onMemoryChange, onCreateDraft, onConsen
 
   return (
     <>
+      <div className="assistant-session-actions">
+        <button className="assistant-reset" type="button" disabled={pending} onClick={resetConversation}>새 대화</button>
+      </div>
       <div className="chat-log assistant-log" ref={logRef}>
         <div className="chat-message theirs">
           <span className="chat-line"><span className="chat-content">같이 할 게임을 찾아볼까요? 인원, 시간, 게임 분위기 중 아는 것부터 편하게 알려주세요.</span></span>
@@ -626,15 +678,15 @@ function AssistantStart({ initialMemory, onMemoryChange, onCreateDraft, onConsen
         )}
         <RecommendationResult result={result} selectedCandidate={selectedCandidate} onSelectCandidate={openCandidateModal} onGameDetailOpen={onGameDetailOpen} />
         {error && <p className="assistant-error" role="alert">{error}</p>}
-      </div>
-      <div className="chiprow assistant-suggestions">
-        {QUICK_PROMPTS.map((prompt) => (
-          <button className="chip" type="button" key={prompt} disabled={pending} onClick={() => send(prompt)}>{prompt}</button>
-        ))}
+        <div className="chiprow assistant-suggestions">
+          {QUICK_PROMPTS.map((prompt) => (
+            <button className="chip" type="button" key={prompt} disabled={pending} onClick={() => send(prompt)}>{prompt}</button>
+          ))}
+        </div>
       </div>
       <form className="chat-compose" onSubmit={submit}>
         <label className="sr-only" htmlFor="assistant-message">알밤봇에게 묻기</label>
-        <textarea id="assistant-message" value={message} maxLength="2000" placeholder="예) 초보자와 주말 저녁에 할 협력 게임을 추천해줘" disabled={pending} onChange={(event) => setMessage(event.target.value)} />
+        <textarea id="assistant-message" value={message} maxLength="2000" placeholder="예) 초보자와 주말 저녁에 할 협력 게임을 추천해줘" disabled={pending} onChange={(event) => setMessage(event.target.value)} onKeyDown={handleMessageKeyDown} />
         <button className="chat-send" type="submit" disabled={!message.trim() || pending} aria-label={pending ? '전송 중…' : '전송'}>
           <SendIcon />
         </button>
@@ -806,7 +858,14 @@ export function AssistantView({ onBack, onNavigate, assistantMemory = null, onAs
 
   return (
     <div className="screen sub assistant-screen">
-      <TopBar onBack={onBack} title="알밤봇" />
+      <div className="topbar bot-topbar">
+        <button type="button" className="icon-btn" aria-label="뒤로 가기" onClick={onBack}><BackIcon /></button>
+        <img className="bot-topbar-mascot" src={mascotCut} alt="" />
+        <span className="bot-title">
+          <strong className="wordmark">알밤봇</strong>
+          <span>물어보면 모임·게임을 찾아드려요</span>
+        </span>
+      </div>
       <div className={'screen-body' + (chatMode ? ' chat-mode' : ' pad-bottom')}>{content}</div>
     </div>
   );

@@ -17,7 +17,7 @@ import org.yaml.snakeyaml.Yaml;
 class HttpServerRequestMetricsConfigurationTest {
 
 	@Test
-	void T3_production_OTLP는_정본_inventory의_exact_meter만_export한다() {
+	void T3_production_OTLP는_지원되는_Counter와_Timer만_export하고_assistant_latency_Summary는_제외한다() {
 		Map<String, Object> metrics = metrics();
 		Map<String, Object> enabled = map(metrics.get("enable"));
 		Map<String, Object> distribution = map(metrics.get("distribution"));
@@ -34,8 +34,9 @@ class HttpServerRequestMetricsConfigurationTest {
 			"assistant.usage.events", "assistant.usage.tokens", "assistant.usage.latency",
 			"assistant.cost.warning.events"),
 			enabled.keySet().stream().filter(key -> !key.equals("all")).collect(java.util.stream.Collectors.toSet()));
+		assertEquals(false, enabled.get("assistant.usage.latency"));
 		assertTrue(enabled.entrySet().stream()
-			.filter(entry -> !entry.getKey().equals("all"))
+			.filter(entry -> !entry.getKey().equals("all") && !entry.getKey().equals("assistant.usage.latency"))
 			.allMatch(entry -> Boolean.TRUE.equals(entry.getValue())));
 		assertFalse(metrics.containsKey("tags"));
 		assertEquals(List.of(0.5, 0.95, 0.99), percentiles.get("http.server.requests"));

@@ -76,6 +76,146 @@ beforeEach(() => {
 });
 
 describe('AI 모임 도우미 화면', () => {
+  it('빠른 문구는 게임 추천과 모임 만들기만 제공한다', async () => {
+    render(<AssistantView onBack={vi.fn()} onNavigate={vi.fn()} />);
+
+    expect(await screen.findByRole('button', { name: '전략 게임 추천해줘' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '오늘 저녁 4인 가볍게 할 게임 추천해줘' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '윙스팬 모임 만들어줘' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: '초보 환영 모임 찾아줘' })).toBeNull();
+  });
+
+  it('Enter는 메시지를 전송하고 사용자 메시지를 채팅 로그에 표시한다', async () => {
+    const recommend = vi.spyOn(api, 'recommendAssistant').mockResolvedValue({
+      state: 'NEEDS_INPUT',
+      conditions: { categories: [], mechanisms: [], themes: [] },
+      missingFields: ['GAME_STYLE'],
+      candidates: []
+    });
+
+    render(<AssistantView onBack={vi.fn()} onNavigate={vi.fn()} />);
+
+    const message = await screen.findByLabelText('알밤봇에게 묻기');
+    fireEvent.change(message, { target: { value: '공포 테마 추천해줘' } });
+    await act(async () => { fireEvent.keyDown(message, { key: 'Enter', code: 'Enter' }); });
+
+    await waitFor(() => expect(recommend).toHaveBeenCalledWith('공포 테마 추천해줘', null));
+    expect(screen.getByText('공포 테마 추천해줘')).toBeTruthy();
+  });
+
+  it('유일한 게임명이 포함된 모임 생성 문장은 확인 모달을 바로 연다', async () => {
+    const recommend = vi.spyOn(api, 'recommendAssistant').mockResolvedValue(recommendation());
+    render(<AssistantView onBack={vi.fn()} onNavigate={vi.fn()} />);
+
+    const message = await screen.findByLabelText('알밤봇에게 묻기');
+    fireEvent.change(message, { target: { value: '카탄 모임 만들어줘' } });
+    await act(async () => { screen.getByRole('button', { name: '전송' }).click(); });
+
+    await waitFor(() => expect(recommend).toHaveBeenCalledWith('카탄 모임 만들어줘', null));
+    expect(screen.getByRole('dialog', { name: '이 게임으로 모임 만들기' })).toBeTruthy();
+  });
+
+  it('Shift+Enter는 전송하지 않고 입력을 유지한다', async () => {
+    const recommend = vi.spyOn(api, 'recommendAssistant').mockResolvedValue(recommendation());
+    render(<AssistantView onBack={vi.fn()} onNavigate={vi.fn()} />);
+
+    const message = await screen.findByLabelText('알밤봇에게 묻기');
+    fireEvent.change(message, { target: { value: '첫 줄' } });
+    await act(async () => { fireEvent.keyDown(message, { key: 'Enter', code: 'Enter', shiftKey: true }); });
+
+    expect(recommend).not.toHaveBeenCalled();
+    expect(message.value).toBe('첫 줄');
+  });
+
+  it('새 대화는 이전 메시지·후보·누적 조건을 모두 초기화한다', async () => {
+    vi.spyOn(api, 'recommendAssistant').mockResolvedValue(recommendation());
+    const onMemoryChange = vi.fn();
+    render(<AssistantView onBack={vi.fn()} onNavigate={vi.fn()} onAssistantMemoryChange={onMemoryChange} />);
+
+    await requestRecommendation();
+    expect(screen.getByText('주말 협력 게임 추천해줘')).toBeTruthy();
+
+    await act(async () => { screen.getByRole('button', { name: '새 대화' }).click(); });
+
+    expect(screen.queryByRole('link', { name: '카탄 상세 보기' })).toBeNull();
+    expect(screen.queryByText('주말 협력 게임 추천해줘')).toBeNull();
+    expect(onMemoryChange).toHaveBeenLastCalledWith(null);
+  });
+
+  it('후속 추천은 기존 조건을 유지하고 새 대화에서만 조건을 초기화한다', async () => {
+    const first = recommendation();
+    const second = recommendation({ candidates: [{ id: 202, name: '호러 게임', imageUrl: null, description: '공포 테마' }] });
+    const recommend = vi.spyOn(api, 'recommendAssistant')
+      .mockResolvedValueOnce(first)
+      .mockResolvedValueOnce(second);
+    render(<AssistantView onBack={vi.fn()} onNavigate={vi.fn()} />);
+
+    await requestRecommendation();
+    const message = screen.getByLabelText('알밤봇에게 묻기');
+    fireEvent.change(message, { target: { value: '공포 테마로 다시 추천해줘' } });
+    await act(async () => { screen.getByRole('button', { name: '전송' }).click(); });
+
+    await waitFor(() => expect(recommend).toHaveBeenCalledTimes(2));
+    expect(recommend.mock.calls[1]).toEqual(['공포 테마로 다시 추천해줘', first.conditions]);
+    await act(async () => { screen.getByRole('button', { name: '새 대화' }).click(); });
+    fireEvent.change(screen.getByLabelText('알밤봇에게 묻기'), { target: { value: '새 추천' } });
+    await act(async () => { screen.getByRole('button', { name: '전송' }).click(); });
+
+    await waitFor(() => expect(recommend).toHaveBeenCalledTimes(3));
+    expect(recommend.mock.calls[2]).toEqual(['새 추천', null]);
+  });
+
+  it('새 추천 요청이 실패하면 이전 후보를 지우고 실패한 입력을 재시도할 수 있다', async () => {
+    const first = recommendation();
+    const second = recommendation({ candidates: [{ id: 202, name: '호러 게임', imageUrl: null, description: '공포 테마' }] });
+    const onMemoryChange = vi.fn();
+    const recommend = vi.spyOn(api, 'recommendAssistant')
+      .mockResolvedValueOnce(first)
+      .mockRejectedValueOnce(new Error('network'))
+      .mockResolvedValueOnce(second);
+    render(<AssistantView onBack={vi.fn()} onNavigate={vi.fn()} onAssistantMemoryChange={onMemoryChange} />);
+
+    await requestRecommendation();
+    const message = screen.getByLabelText('알밤봇에게 묻기');
+    fireEvent.change(message, { target: { value: '공포 테마 추천해줘' } });
+    await act(async () => { screen.getByRole('button', { name: '전송' }).click(); });
+
+    await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+    expect(screen.queryByRole('link', { name: '카탄 상세 보기' })).toBeNull();
+    expect(screen.queryByText('공포 테마 추천해줘', { selector: '.chat-content' })).toBeNull();
+    expect(message.value).toBe('공포 테마 추천해줘');
+    expect(recommend.mock.calls[1]).toEqual(['공포 테마 추천해줘', first.conditions]);
+    expect(onMemoryChange).toHaveBeenLastCalledWith(null);
+    expect(recommend).toHaveBeenCalledTimes(2);
+
+    await act(async () => { screen.getByRole('button', { name: '전송' }).click(); });
+    await waitFor(() => expect(recommend).toHaveBeenCalledTimes(3));
+    expect(screen.getAllByText('공포 테마 추천해줘', { selector: '.chat-content' })).toHaveLength(1);
+  });
+
+  it('실패한 추천은 persisted memory를 비우고 재진입 때 이전 후보를 복원하지 않는다', async () => {
+    const first = recommendation();
+    let persistedMemory = null;
+    const onMemoryChange = vi.fn((value) => { persistedMemory = value; });
+    vi.spyOn(api, 'recommendAssistant')
+      .mockResolvedValueOnce(first)
+      .mockRejectedValueOnce(new Error('network'));
+    const view = render(<AssistantView onBack={vi.fn()} onNavigate={vi.fn()} onAssistantMemoryChange={onMemoryChange} />);
+
+    await requestRecommendation();
+    const message = screen.getByLabelText('알밤봇에게 묻기');
+    fireEvent.change(message, { target: { value: '공포 테마 추천해줘' } });
+    await act(async () => { screen.getByRole('button', { name: '전송' }).click(); });
+
+    await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+    expect(persistedMemory).toBeNull();
+    view.unmount();
+
+    render(<AssistantView onBack={vi.fn()} onNavigate={vi.fn()} assistantMemory={persistedMemory} onAssistantMemoryChange={onMemoryChange} />);
+    await waitFor(() => expect(screen.getByLabelText('알밤봇에게 묻기')).toBeTruthy());
+    expect(screen.queryByRole('link', { name: '카탄 상세 보기' })).toBeNull();
+  });
+
   it('첫 사용은 별도 동의 후에만 자연어 추천 입력을 연다', async () => {
     vi.spyOn(api, 'getAssistantConsent').mockResolvedValue(NOT_GRANTED);
     vi.spyOn(api, 'changeAssistantConsent').mockResolvedValue(GRANTED);
