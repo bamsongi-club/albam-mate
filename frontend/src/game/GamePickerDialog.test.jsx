@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import React from 'react';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -12,6 +15,7 @@ vi.mock('../api', () => ({
 }));
 
 const { GamePickerDialog } = await import('./GamePickerDialog.jsx');
+const stylesCss = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'styles.css'), 'utf8');
 
 const GAME_A_FIRST_PAGE = {
   content: [{ id: 1, name: 'A 첫 번째 게임' }],
@@ -50,6 +54,26 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+});
+
+it('게임 선택 시트 컨트롤은 전역 알약 스타일과 분리된 역할 클래스를 가진다', () => {
+  render(<GamePickerDialog isOpen selectedGameId="" allowClear onSelect={vi.fn()} onClear={vi.fn()} onClose={vi.fn()} />);
+
+  expect(document.querySelector('.game-picker-sheet')).toBeTruthy();
+  expect(document.querySelector('.game-picker-sheet .sheet-reset')).toBeTruthy();
+  expect(document.querySelector('.game-picker-sheet .game-picker-search')).toBeTruthy();
+  expect(document.querySelector('.game-picker-sheet .game-picker-clear')).toBeTruthy();
+});
+
+it('게임 선택 시트의 조작 요소는 짧은 곡률을 사용한다', () => {
+  expect(stylesCss).toMatch(/\.game-picker-sheet \.sheet-reset\s*\{[^}]*border-radius:\s*12px;/s);
+  expect(stylesCss).toMatch(/\.game-picker-sheet \.game-picker-search\s*\{[^}]*border-radius:\s*14px;/s);
+  expect(stylesCss).toMatch(/\.game-picker-sheet \.game-picker-clear\s*\{[^}]*border-radius:\s*14px;[^}]*width:\s*auto;/s);
+  expect(stylesCss).toMatch(/\.game-picker-sheet \.more-btn\s*\{[^}]*border-radius:\s*14px;/s);
+});
+
+it('게임 선택 시트 본문은 헤더와 같은 좌우 여백을 사용한다', () => {
+  expect(stylesCss).toMatch(/\.game-picker-sheet > \.game-picker-search,\s*\.game-picker-sheet > \.game-picker-clear,\s*\.game-picker-sheet > \.picker-list\s*\{[^}]*margin-left:\s*var\(--pad\);[^}]*margin-right:\s*var\(--pad\);/s);
 });
 
 it('#770 exact 결과 수 없이 hasNext 더 보기만 표시한다', async () => {

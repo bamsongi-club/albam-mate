@@ -15,6 +15,7 @@ import {
   CameraIcon,
   ChatIcon,
   CheckIcon,
+  ChevronDownIcon,
   CloseIcon,
   Cover,
   EditIcon,
@@ -359,12 +360,35 @@ function parseRoute() {
 
 function useHashRoute() {
   const [location, setLocation] = useState(parseRoute);
+  const routeIndexRef = useRef(0);
 
   useEffect(() => {
-    const updateLocation = () => setLocation(parseRoute());
-    if (!window.location.hash) window.location.hash = '#/home';
+    const routeState = window.history.state || {};
+    if (!window.location.hash) {
+      window.history.replaceState({ ...routeState, albamMateRoute: true, albamMateIndex: 0 }, '', window.location.pathname + window.location.search + '#/home');
+    } else if (routeState.albamMateRoute) {
+      routeIndexRef.current = routeState.albamMateIndex || 0;
+    } else {
+      window.history.replaceState({ ...routeState, albamMateRoute: true, albamMateIndex: 0 }, '', window.location.href);
+    }
+
+    const updateLocation = () => {
+      const currentState = window.history.state || {};
+      if (currentState.albamMateRoute) {
+        routeIndexRef.current = currentState.albamMateIndex || 0;
+      } else {
+        const nextIndex = routeIndexRef.current + 1;
+        window.history.replaceState({ ...currentState, albamMateRoute: true, albamMateIndex: nextIndex }, '', window.location.href);
+        routeIndexRef.current = nextIndex;
+      }
+      setLocation(parseRoute());
+    };
     window.addEventListener('hashchange', updateLocation);
-    return () => window.removeEventListener('hashchange', updateLocation);
+    window.addEventListener('popstate', updateLocation);
+    return () => {
+      window.removeEventListener('hashchange', updateLocation);
+      window.removeEventListener('popstate', updateLocation);
+    };
   }, []);
 
   // 기본은 히스토리에 쌓는 이동이다. 이미 끝나 다시 돌아갈 이유가 없는 화면은 replace로 현재 항목을 대체해
@@ -464,6 +488,68 @@ function validateRoomForm(form, roomType, includesRegion = false) {
   if (!Number.isInteger(room.recruitmentCapacity) || room.recruitmentCapacity < 1 || room.recruitmentCapacity > MAX_CAPACITY) return { error: '모집 정원은 본인 제외 1~10명이어야 해요.' };
   if (includesRegion) room.region = form.region;
   return { room };
+}
+
+const ROOM_REGIONS = ['홍대', '강남', '건대', '잠실'];
+
+function RegionPicker({ value, onChange }) {
+  const [open, setOpen] = useState(false);
+  const pickerRef = useRef(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    const closeOnOutsidePointer = (event) => {
+      if (!pickerRef.current?.contains(event.target)) setOpen(false);
+    };
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('pointerdown', closeOnOutsidePointer);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsidePointer);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [open]);
+
+  const selectRegion = (region) => {
+    onChange(region);
+    setOpen(false);
+  };
+
+  return (
+    <div className={'region-picker' + (open ? ' open' : '')} ref={pickerRef}>
+      <button
+        type="button"
+        id="room-region"
+        className="region-trigger"
+        aria-label={'지역, ' + (value || '선택 안 됨')}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls="room-region-options"
+        onClick={() => setOpen((current) => !current)}
+      >
+        <span className={value ? '' : 'placeholder'}>{value || '지역을 선택해주세요'}</span>
+        <ChevronDownIcon />
+      </button>
+      {open && (
+        <div className="region-options" id="room-region-options" role="listbox" aria-label="지역">
+          {ROOM_REGIONS.map((region) => (
+            <button
+              type="button"
+              role="option"
+              key={region}
+              aria-selected={value === region}
+              className="region-option"
+              onClick={() => selectRegion(region)}
+            >
+              <span>{region}</span>
+              {value === region && <CheckIcon />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 /** 홈·게임 찾기 타이틀 줄 오른쪽에 붙는 알림·채팅 진입. */
@@ -1029,6 +1115,16 @@ function RoomFormFields({ form, onChange, roomType, onOpenGamePicker, today, sho
         <input id="room-title" className="field-input" maxLength="100" value={form.title} onChange={(event) => update('title', event.target.value)} placeholder="예) 윙스팬 같이 하실 분" />
       </div>
 
+      {showsRegion && <div className="field">
+        <label className="field-label" htmlFor="room-region">지역</label>
+        <RegionPicker value={form.region} onChange={(value) => update('region', value)} />
+      </div>}
+
+      <div className="field">
+        <label className="field-label" htmlFor="room-place">장소</label>
+        <input id="room-place" className="field-input" maxLength="100" value={form.place} onChange={(event) => update('place', event.target.value)} placeholder="예) 주사위섬 합정점" />
+      </div>
+
       <div className="field field-row">
         <div>
           <label className="field-label" htmlFor="room-date">날짜</label>
@@ -1039,22 +1135,6 @@ function RoomFormFields({ form, onChange, roomType, onOpenGamePicker, today, sho
           <input id="room-time" className="field-input" type="time" step="600" value={form.time} onChange={(event) => update('time', event.target.value)} />
         </div>
       </div>
-
-      <div className="field">
-        <label className="field-label" htmlFor="room-place">장소</label>
-        <input id="room-place" className="field-input" maxLength="100" value={form.place} onChange={(event) => update('place', event.target.value)} placeholder="예) 주사위섬 합정점" />
-      </div>
-
-      {showsRegion && <div className="field">
-        <label className="field-label" htmlFor="room-region">지역</label>
-        <select id="room-region" className="field-input" value={form.region} onChange={(event) => update('region', event.target.value)}>
-          <option value="">지역을 선택해주세요</option>
-          <option value="홍대">홍대</option>
-          <option value="강남">강남</option>
-          <option value="건대">건대</option>
-          <option value="잠실">잠실</option>
-        </select>
-      </div>}
 
       <div className="field">
         <span className="field-label" id="room-capacity-label">모집 인원 (본인 제외)</span>
@@ -1130,15 +1210,17 @@ function CreateView({ createMode, onCreateModeChange, initialGame, onCreate, onB
   };
 
   return (
-    <form className="screen sub" onSubmit={submit}>
+    <form className="screen sub create-screen" onSubmit={submit}>
       <div className="topbar">
         <button type="button" className="icon-btn" aria-label="닫기" onClick={onBack}>
           <CloseIcon />
         </button>
       </div>
       <div className="screen-body" style={{ paddingBottom: 28 }}>
-        <ScreenTitle>모임 만들기</ScreenTitle>
-        <div className="field" style={{ marginTop: 28 }}>
+        <div className="create-heading">
+          <ScreenTitle>모임 만들기</ScreenTitle>
+        </div>
+        <div className="field create-mode-field">
           <span className="field-label">모임 성격</span>
           <div className="modecards">
             <button type="button" className={'modecard' + (gameFocused ? ' on' : '')} aria-pressed={gameFocused} onClick={() => onCreateModeChange('GAME_FOCUSED')}>
@@ -2274,8 +2356,9 @@ export function App() {
 
   const refreshData = () => setDataVersion((version) => version + 1);
   const goBack = () => {
-    if (window.history.length > 1) window.history.back();
-    else navigate('/home');
+    const state = window.history.state;
+    if (state?.albamMateRoute && Number(state.albamMateIndex) > 0) window.history.back();
+    else navigate('/home', { replace: true });
   };
 
   useEffect(() => () => window.clearTimeout(toastTimer.current), []);

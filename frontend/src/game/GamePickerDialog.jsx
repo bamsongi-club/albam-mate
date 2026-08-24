@@ -139,18 +139,18 @@ export function GamePickerDialog({ isOpen, selectedGameId, allowClear, onSelect,
 
   return (
     <div className="sheet-backdrop" role="presentation" onMouseDown={handleClose}>
-      <section className="sheet tall" role="dialog" aria-modal="true" aria-labelledby="game-picker-title" style={sheetStyle} onMouseDown={(event) => event.stopPropagation()}>
+      <section className="sheet tall game-picker-sheet" role="dialog" aria-modal="true" aria-labelledby="game-picker-title" style={sheetStyle} onMouseDown={(event) => event.stopPropagation()}>
         <span className="sheet-grip" aria-hidden="true" {...gripProps}><span className="sheet-handle" /></span>
         <div className="sheet-head">
           <h2 id="game-picker-title">게임 선택</h2>
           <button type="button" className="sheet-reset" aria-label="게임 검색 닫기" onClick={handleClose}>닫기</button>
         </div>
-        <div className="searchbox" style={{ flex: 'none', marginTop: 14 }}>
+        <div className="searchbox game-picker-search" style={{ flex: 'none', marginTop: 14 }}>
           <SearchIcon />
           <input ref={searchInputRef} value={query} onChange={handleQueryChange} placeholder="게임 이름으로 검색" aria-label="게임 이름 검색" />
         </div>
         {allowClear && (
-          <button type="button" className="btn fill sm" style={{ flex: 'none', marginTop: 10 }} onClick={() => { onClear(); handleClose(); }}>게임 선택 안 함</button>
+          <button type="button" className="btn fill sm game-picker-clear" style={{ flex: 'none', marginTop: 10 }} onClick={() => { onClear(); handleClose(); }}>게임 선택 안 함</button>
         )}
         <div className="picker-list nos">
           {!hasQuery && <p className="picker-state">게임 이름을 입력하면 검색 결과를 불러와요.</p>}

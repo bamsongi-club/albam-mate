@@ -499,6 +499,43 @@ textarea.field-input { height: 112px; line-height: 1.6; padding: 14px 16px; resi
 
 /* ── 모임 만들기 ────────────────────────────────────────── */
 
+.create-screen {
+  --create-surface: var(--fill);
+  --create-radius-card: 18px;
+  --create-radius-control: 14px;
+}
+.create-screen .create-heading { margin: 10px 0 30px; }
+.create-screen .create-heading .screen-title { font-size: 30px; }
+.create-screen .create-mode-field { margin-top: 0; }
+.create-screen .field-label { color: var(--sub); font-weight: 800; }
+.create-screen .modecards { gap: 10px; }
+.create-screen .modecard { background: var(--create-surface); border-radius: var(--create-radius-card); min-height: 92px; padding: 14px; }
+.create-screen .modecard.on { background: var(--brand-deep); box-shadow: 0 10px 22px rgba(45, 30, 23, 0.14); }
+.create-screen .modecard span { line-height: 1.35; margin-top: 4px; }
+.create-screen .pickrow { background: var(--create-surface); border-radius: var(--create-radius-card); padding: 10px 12px; }
+.create-screen .pickrow .cover { border-radius: 14px; }
+.create-screen .field-input { background: var(--create-surface); border-radius: var(--create-radius-control); height: 54px; }
+.create-screen textarea.field-input { border-radius: var(--create-radius-card); height: 148px; }
+.create-screen .field-row { gap: 10px; }
+.create-screen .region-picker { position: relative; }
+.create-screen .region-trigger { align-items: center; background: var(--create-surface); border-radius: var(--create-radius-control); display: flex; height: 54px; justify-content: space-between; padding: 0 16px; text-align: left; width: 100%; }
+.create-screen .region-trigger .placeholder { color: var(--muted); }
+.create-screen .region-picker.open .region-trigger { background: #fff; box-shadow: 0 0 0 2px var(--brand-deep); }
+.create-screen .region-trigger svg { color: var(--sub); flex: none; }
+.create-screen .region-options { background: #fff; border-radius: 16px; box-shadow: 0 12px 28px rgba(45, 30, 23, 0.16); display: flex; flex-direction: column; gap: 4px; left: 0; padding: 8px; position: absolute; right: 0; top: calc(100% + 8px); z-index: 10; }
+.create-screen .region-option { align-items: center; border-radius: 10px; display: flex; justify-content: space-between; min-height: 44px; padding: 0 12px; text-align: left; width: 100%; }
+.create-screen .region-option[aria-selected="true"] { background: #f4ede4; color: var(--brand-deep); font-weight: 800; }
+.create-screen .region-option svg { color: var(--brand-deep); }
+.create-screen .stepper { background: var(--create-surface); border-radius: var(--create-radius-card); min-height: 74px; padding: 10px 12px; }
+.create-screen .stepper-btn { background: #fff; border-radius: 50%; box-shadow: var(--shadow-thumb); height: 44px; width: 44px; }
+.create-screen .stepper-caption { margin-top: 10px; }
+.create-screen .optionlist { flex-direction: row; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
+.create-screen .optionrow { background: var(--create-surface); border-radius: var(--radius-pill); flex: 1; min-height: 48px; padding: 12px 15px; text-align: center; white-space: nowrap; }
+.create-screen .optionrow.on { background: var(--brand-deep); color: #fff; font-weight: 700; }
+.create-screen .switch-row { background: var(--create-surface); border-radius: var(--create-radius-card); margin-top: 24px; padding: 16px; }
+.create-screen > .stickybar { padding-left: 24px; padding-right: 24px; }
+.create-screen .btn.cta { background: var(--brand-deep); border-radius: 16px; min-height: 56px; }
+.create-screen .btn.cta.off { background: var(--fill); color: var(--sub); }
 .modecards { display: flex; gap: 8px; }
 .modecard { background: var(--fill); border-radius: var(--radius-pill); flex: 1; padding: 15px; text-align: left; }
 .modecard strong { display: block; font-size: 15px; font-weight: 800; letter-spacing: -0.04em; }
@@ -684,6 +721,13 @@ textarea.field-input { height: 112px; line-height: 1.6; padding: 14px 16px; resi
 
 /* ── 게임 선택 시트 ─────────────────────────────────────── */
 
+.game-picker-sheet .sheet-reset { border-radius: 12px; }
+.game-picker-sheet .game-picker-search { border-radius: 14px; }
+.game-picker-sheet .game-picker-clear { border-radius: 14px; width: auto; }
+.game-picker-sheet .more-btn { border-radius: 14px; }
+.game-picker-sheet > .game-picker-search,
+.game-picker-sheet > .game-picker-clear,
+.game-picker-sheet > .picker-list { margin-left: var(--pad); margin-right: var(--pad); }
 .picker-list { display: flex; flex: 1; flex-direction: column; gap: 18px; margin-top: 16px; overflow-y: auto; }
 .picker-row { align-items: center; display: flex; gap: 13px; text-align: left; width: 100%; }
 .picker-row .cover { height: 48px; width: 48px; }
