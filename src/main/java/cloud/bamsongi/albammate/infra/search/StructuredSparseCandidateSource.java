@@ -24,7 +24,7 @@ import cloud.bamsongi.albammate.game.contract.SparseCandidateSource;
 
 /**
  * mechanism/category/theme/name/alias/description 계열의 기존 catalog 테이블을 직접 조회해
- * 구조화된 sparse 후보를 만든다. Dense와 달리 외부 embedding provider 없이, 새 컬럼·인덱스 없이 동작한다.
+ * 구조화된 sparse 후보를 만든다. Dense와 달리 외부 embedding provider 없이, 기존 검색 인덱스 계약으로 동작한다.
  *
  * candidate 개수 상한과 field 가중치는 실험값이며, 근거는
  * docs/measurements/search-04e-hybrid-rrf-regression.md를 따른다.
@@ -133,19 +133,53 @@ final class StructuredSparseCandidateSource implements SparseCandidateSource.Dea
 			with tokens(token) as (
 				values %s
 			),
+			short_tokens as (
+				select token from tokens where char_length(token) = 2
+			),
+			long_tokens as (
+				select token from tokens where char_length(token) >= 3
+			),
 			name_matches as (
-				select g.id as game_id, count(distinct t.token) * %s as weight
-				from games g
-				join tokens t on (lower(g.name) like '%%' || t.token || '%%'
-					or lower(g.english_name) like '%%' || t.token || '%%'
-					or lower(coalesce(g.alias, '')) like '%%' || t.token || '%%')
-				group by g.id
+				select matched.game_id, count(distinct matched.token) * %s as weight
+				from (
+					select g.id as game_id, t.token
+					from games g
+					join short_tokens t on game_search_bigrams(g.name) @> array[t.token]::text[]
+					union
+					select g.id as game_id, t.token
+					from games g
+					join long_tokens t on lower(g.name) like '%%' || t.token || '%%'
+					union
+					select g.id as game_id, t.token
+					from games g
+					join short_tokens t on game_search_bigrams(g.english_name) @> array[t.token]::text[]
+					union
+					select g.id as game_id, t.token
+					from games g
+					join long_tokens t on lower(g.english_name) like '%%' || t.token || '%%'
+					union
+					select g.id as game_id, t.token
+					from games g
+					join short_tokens t on game_search_bigrams(g.alias) @> array[t.token]::text[]
+					union
+					select g.id as game_id, t.token
+					from games g
+					join long_tokens t on lower(g.alias) like '%%' || t.token || '%%'
+				) matched
+				group by matched.game_id
 			),
 			description_matches as (
-				select g.id as game_id, count(distinct t.token) * %s as weight
-				from games g
-				join tokens t on lower(g.description) like '%%' || t.token || '%%'
-				group by g.id
+				select matched.game_id, count(distinct matched.token) * %s as weight
+				from (
+					select g.id as game_id, t.token
+					from games g
+					join short_tokens t on game_search_bigrams(g.description) @> array[t.token]::text[]
+					union
+					select g.id as game_id, t.token
+					from games g
+					join long_tokens t on lower(g.description) like '%%' || t.token || '%%'
+				) matched
+				group by matched.game_id
 			),
 			mechanism_matches as (
 				select r.game_id as game_id, count(distinct t.token) * %s as weight

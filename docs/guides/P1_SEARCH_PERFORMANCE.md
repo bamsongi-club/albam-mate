@@ -55,6 +55,25 @@ docker version
 - 3글자 이상은 정확 일치·부분 일치를 먼저 두고 유사도 내림차순, `name ASC`, `id ASC`으로 정렬한다. 이 GIN 경로를 사용할 수 있으며, 1·2글자는 trgm 선택도가 낮을 수 있으므로 강제로 인덱스를 사용하지 않고 PostgreSQL planner의 기존 경로를 허용한다.
 - 게임명 데이터가 170,000건 이상으로 늘거나 이름 언어·중복도·검색어 길이 분포가 바뀌면, 같은 PostgreSQL 버전·`ANALYZE` 조건에서 1·2글자 부분일치와 3글자 이상 부분일치·`similarity >= 0.3` 대표 검색어의 P1 직접 SQL content·count `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)`을 재측정한다. 결과·전체 건수와 계획·실행 시간을 함께 비교해 hybrid 경계를 다시 판단한다. 이 count를 현재 게임 목록 API의 비용으로 해석하지 않는다.
 
+## SEARCH-04 sparse 후보 텍스트 인덱스
+
+P2의 `StructuredSparseCandidateSource`는 게임명·영문명·별칭과 설명을 후보 생성에 사용한다. PostgreSQL 전용 V39은 3글자 이상 token용 GIN trigram 인덱스와 1·2글자 substring을 위한 GIN bigram expression 인덱스를 제공하며, 이름 계열 predicate는 token 길이·column별 `UNION`으로 분리해 각 인덱스 경로를 보장한다.
+
+- `ix_games_english_name_lower_trgm` — `lower(english_name) gin_trgm_ops`
+- `ix_games_alias_lower_trgm` — `lower(alias) gin_trgm_ops`
+- `ix_games_description_lower_trgm` — `lower(description) gin_trgm_ops`
+- `ix_games_{name,english_name,alias,description}_lower_bigram` — `game_search_bigrams(column)` expression GIN
+
+승인된 170,005건 artifact에서 migration 전후 `EXPLAIN (ANALYZE, BUFFERS)`를 확인하고, 3글자 이상 대표 query와 2글자 대표 query의 candidate sparse 호출 5회 p50·p95·max가 공통 6초 deadline 안에 있는지 함께 측정한다. 이 artifact 측정은 P1 2,000건 fixture 및 기존 live evidence와 별도이며, 일반 CI에서 대규모 artifact 경로가 없으면 T5를 실행하지 않는다. 로컬 재현은 승인 artifact의 `01-games-full.sql` 경로를 지정한다.
+
+```sh
+ISSUE1053_FIXTURE=/path/to/approved/01-games-full.sql ./gradlew postgresMeasurementTest \
+  --tests 'cloud.bamsongi.albammate.infra.search.StructuredSparseCandidateSourcePostgresTest.T5_승인된_십칠만오건_fixture에서_migration_전후_sparse_실행계획과_육초_deadline을_측정한다' \
+  --rerun --fail-fast
+```
+
+T5는 `@Tag("measurement")`가 붙은 대용량 wall-clock 측정이므로 `postgresMeasurementTest`에서만 실행한다. V39의 일반 `CREATE INDEX` 적용 시간과 쓰기 잠금 경계는 같은 승인 fixture 측정 기록에 남기며, 이 수치는 production 무중단 보장을 의미하지 않는다.
+
 마이그레이션·검색 계약 회귀는 17만 건 성능 측정과 분리해 다음 명령으로 확인한다.
 
 ```sh
@@ -62,7 +81,13 @@ docker version
 ./gradlew postgresTest \
   --tests 'cloud.bamsongi.albammate.game.GameNameSearchIndexPostgresTest' \
   --rerun --fail-fast
+
+./gradlew postgresTest \
+  --tests 'cloud.bamsongi.albammate.infra.search.StructuredSparseCandidateSourcePostgresTest' \
+  --rerun --fail-fast
 ```
+
+첫 번째 명령은 기존 V26 게임명 검색 계약을, 두 번째 명령은 V39 sparse 후보의 migration·2글자/3글자 인덱스·점수·정렬·후보 상한·deadline 계약을 확인한다. 승인 artifact를 지정하지 않으면 T5 대규모 측정은 skip된다.
 
 ## 보류 후보와 재측정
 

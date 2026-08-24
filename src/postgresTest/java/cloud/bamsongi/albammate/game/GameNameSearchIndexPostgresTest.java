@@ -133,6 +133,8 @@ class GameNameSearchIndexPostgresTest extends SharedPostgresIntegrationSupport {
 		assertEquals(List.of(501L, 502L), searchedIds("Ticket to Ride", 10, 0));
 		assertEquals(0.3d, jdbc.queryForObject("select show_limit()", Double.class), 0.000001d);
 
+		// 비용 기반 플래너 선택은 실행기 자원에 따라 달라질 수 있으므로, 인덱스 경로의 유효성만 고정해 검증한다.
+		jdbc.execute("set local enable_seqscan = off");
 		String fuzzyPlan = String.join(
 			"\n",
 			jdbc.queryForList(

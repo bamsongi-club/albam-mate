@@ -200,22 +200,42 @@ export function verifyChangedH2Coverage({ buildFileText, reportXml, changedPacka
             }
         }
     }
+    // PostgreSQL 전용 테스트가 담당하는 변경하지 않은 패키지의 H2 비율은 변경 게이트와 무관하다.
+    // 개별 branch 래칫이 있는 패키지는 branch를, 나머지는 전역 line 최소선을 패키지 단위로 확인한다.
+    const lineMinimum = rules.globalMinimums.get('LINE');
 
     for (const packageName of [...new Set(changedPackages)].sort()) {
-        const minimum = rules.packageMinimums.get(packageName);
-        if (minimum === undefined) {
-            continue;
-        }
         const packageCoverage = coverage.packages.get(packageName);
-        if (!packageCoverage?.branch) {
+        if (!packageCoverage) {
             problems.push(`변경 패키지가 JaCoCo 리포트에 없습니다: ${packageName}`);
             continue;
         }
-        const actual = ratio(packageCoverage.branch);
-        checkedPackages.push({ packageName, actual, minimum });
-        if (actual < minimum) {
+
+        const branchMinimum = rules.packageMinimums.get(packageName);
+        if (branchMinimum !== undefined) {
+            if (!packageCoverage.branch) {
+                problems.push(`변경 패키지에 BRANCH counter가 없습니다: ${packageName}`);
+                continue;
+            }
+            const actual = ratio(packageCoverage.branch);
+            checkedPackages.push({ packageName, counter: 'BRANCH', actual, minimum: branchMinimum });
+            if (actual < branchMinimum) {
+                problems.push(
+                    `${packageName} BRANCH 커버리지가 ${percentage(actual)}로 최소선 ${percentage(branchMinimum)}보다 낮습니다.`,
+                );
+            }
+            continue;
+        }
+
+        if (!packageCoverage.line) {
+            problems.push(`변경 패키지에 LINE counter가 없습니다: ${packageName}`);
+            continue;
+        }
+        const actual = ratio(packageCoverage.line);
+        checkedPackages.push({ packageName, counter: 'LINE', actual, minimum: lineMinimum });
+        if (actual < lineMinimum) {
             problems.push(
-                `${packageName} BRANCH 커버리지가 ${percentage(actual)}로 최소선 ${percentage(minimum)}보다 낮습니다.`,
+                `${packageName} LINE 커버리지가 ${percentage(actual)}로 최소선 ${percentage(lineMinimum)}보다 낮습니다.`,
             );
         }
     }
@@ -265,13 +285,13 @@ function runCli() {
             return;
         }
 
-        const checked = result.checkedPackages.map((entry) => entry.packageName).join(', ');
+        const checked = result.checkedPackages.map((entry) => `${entry.packageName} ${entry.counter}`).join(', ');
         if (changedPackages.length === 0) {
             console.log('변경된 프로덕션 Java 패키지가 없어 H2 전체 및 패키지 래칫 검증을 건너뛰었다.');
         } else if (checked === '') {
-            console.log('H2 전체 최소선을 통과했고 변경 패키지에 개별 BRANCH 규칙이 없다.');
+            console.log('변경 패키지에 적용할 H2 커버리지 규칙이 없어 검증을 건너뛰었다.');
         } else {
-            console.log(`H2 전체 최소선과 변경 패키지 BRANCH 최소선을 통과했다: ${checked}`);
+            console.log(`변경 패키지 H2 커버리지 최소선을 통과했다: ${checked}`);
         }
     } catch (error) {
         console.error(`변경 패키지 H2 커버리지 검증 실패: ${error.message}`);

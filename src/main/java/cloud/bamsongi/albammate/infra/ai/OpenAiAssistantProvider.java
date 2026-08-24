@@ -40,8 +40,9 @@ final class OpenAiAssistantProvider implements AiProviderClient {
 	private static final String V1_INSTRUCTION = """
 		You extract a board-game room intent from exactly one current user sentence.
 		Call propose_game_room_intent exactly once and return only arguments matching its schema.
-		Use RECOMMEND when a category, mechanism, or theme is present, NEEDS_INPUT when no search condition is present,
-		and UNSUPPORTED when the request is not a board-game recommendation.
+		Use RECOMMEND only when at least one of category, mechanism, or theme is present. If none is present, use
+		NEEDS_INPUT even when playerCount or other refinements are present; do not turn vague words such as "가볍게"
+		into a numeric complexity value, and use UNSUPPORTED when the request is not a board-game recommendation.
 		Never call any other tool, search for games, create rooms, execute SQL, or infer identifiers.
 		Use only the current user sentence, the server-provided missing field names, and Asia/Seoul as reference zone.
 		""";
@@ -122,11 +123,18 @@ final class OpenAiAssistantProvider implements AiProviderClient {
 				return AiProviderResponse.failure(AiProviderFailure.INVALID_SCHEMA);
 			}
 			JsonNode output = objectMapper.readTree(arguments);
+			String action;
 			if (!isValidOutput(output)) {
-				return AiProviderResponse.failure(AiProviderFailure.INVALID_SCHEMA);
+				if (!isSearchConditionFreeRecommendation(output)) {
+					return AiProviderResponse.failure(AiProviderFailure.INVALID_SCHEMA);
+				}
+				// 검색 조건이 없는데 RECOMMEND를 선택한 모델 응답은 후보 조회를 허용하지 않고 되묻기로 정규화한다.
+				action = "NEEDS_INPUT";
+			} else {
+				action = output.get("action").asText();
 			}
 			return AiProviderResponse.success(
-				output.get("action").asText(),
+				action,
 				codes(output.get("categories")),
 				codes(output.get("mechanisms")),
 				codes(output.get("themes")),
@@ -189,7 +197,7 @@ final class OpenAiAssistantProvider implements AiProviderClient {
 	}
 
 	private boolean isValidOutput(JsonNode output) {
-		if (output == null || !output.isObject() || output.size() != 7) {
+		if (!isValidOutputShape(output)) {
 			return false;
 		}
 		JsonNode action = output.get("action");
@@ -214,6 +222,31 @@ final class OpenAiAssistantProvider implements AiProviderClient {
 			return false;
 		}
 		return true;
+	}
+
+	private boolean isSearchConditionFreeRecommendation(JsonNode output) {
+		return isValidOutputShape(output)
+			&& "RECOMMEND".equals(output.get("action").asText())
+			&& output.get("categories").isEmpty()
+			&& output.get("mechanisms").isEmpty()
+			&& output.get("themes").isEmpty();
+	}
+
+	private boolean isValidOutputShape(JsonNode output) {
+		if (output == null || !output.isObject() || output.size() != 7) {
+			return false;
+		}
+		JsonNode action = output.get("action");
+		JsonNode categories = output.get("categories");
+		JsonNode mechanisms = output.get("mechanisms");
+		JsonNode themes = output.get("themes");
+		JsonNode complexityMax = output.get("complexityMax");
+		JsonNode playTimeMax = output.get("playTimeMax");
+		JsonNode playerCount = output.get("playerCount");
+		return action != null && action.isTextual()
+			&& isValidCodes(categories) && isValidCodes(mechanisms) && isValidCodes(themes)
+			&& isValidComplexity(complexityMax) && isValidPlayTime(playTimeMax)
+			&& isValidPlayerCount(playerCount);
 	}
 
 	private boolean isValidCodes(JsonNode codes) {

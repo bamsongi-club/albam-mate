@@ -54,6 +54,7 @@ class OpenAiAssistantProviderTest {
 		assertTrue(String.valueOf(options.getToolChoice()).contains("propose_game_room_intent"));
 		assertTrue(prompt.getInstructions().getFirst() instanceof SystemMessage);
 		assertTrue(prompt.getSystemMessage().getText().contains("exactly once"));
+		assertTrue(prompt.getSystemMessage().getText().contains("at least one of category, mechanism, or theme"));
 		assertTrue(prompt.getUserMessage().getText().contains("전략 게임 추천"));
 		assertFalse(prompt.getSystemMessage().getText().contains("전략 게임 추천"));
 		assertEquals("openai", provider.providerName());
@@ -106,8 +107,10 @@ class OpenAiAssistantProviderTest {
 		assertEquals(AiProviderFailure.INVALID_SCHEMA,
 			responseFor("{\"action\":\"RECOMMEND\",\"categories\":[\"invalid\"],\"mechanisms\":[],\"themes\":[],"
 				+ "\"complexityMax\":null,\"playTimeMax\":null,\"playerCount\":null}").failure());
-		assertEquals(AiProviderFailure.INVALID_SCHEMA,
-			responseFor("{\"action\":\"RECOMMEND\"," + emptyConditions + "}").failure());
+		AiProviderResponse recommendWithoutSearchCondition = responseFor(
+			"{\"action\":\"RECOMMEND\"," + emptyConditions + "}");
+		assertTrue(recommendWithoutSearchCondition.succeeded());
+		assertEquals("NEEDS_INPUT", recommendWithoutSearchCondition.action());
 		assertEquals(AiProviderFailure.INVALID_SCHEMA,
 			responseFor("{\"action\":\"RECOMMEND\",\"categories\":[\"STRATEGY\"],\"mechanisms\":[],\"themes\":[],"
 				+ "\"complexityMax\":5.1,\"playTimeMax\":null,\"playerCount\":null}").failure());

@@ -63,6 +63,29 @@ class AssistantIntentExtractorTest {
 	}
 
 	@Test
+	void T1_fake_provider는_조건별_세부값과_지원불가_입력을_결정적으로_구조화한다() {
+		DeterministicFakeAssistantProvider provider = new DeterministicFakeAssistantProvider();
+
+		AiProviderResponse easy = provider.propose(payload("쉬운 전략 일꾼 배치 공포 10분 2명"));
+		assertEquals("RECOMMEND", easy.action());
+		assertEquals(List.of("STRATEGY"), easy.categories());
+		assertEquals(List.of("WORKER_PLACEMENT"), easy.mechanisms());
+		assertEquals(List.of("HORROR"), easy.themes());
+		assertEquals(new BigDecimal("2.00"), easy.complexityMax());
+		assertEquals("UP_TO_10", easy.playTimeMax());
+		assertEquals(2, easy.playerCount());
+
+		AiProviderResponse hard = provider.propose(payload("hard strategy worker placement horror 20분 11명"));
+		assertEquals(new BigDecimal("4.00"), hard.complexityMax());
+		assertEquals("OVER_10_TO_20", hard.playTimeMax());
+		assertEquals(11, hard.playerCount());
+		assertEquals("OVER_20_TO_30", provider.propose(payload("horror 30분")).playTimeMax());
+		assertEquals("OVER_30_TO_60", provider.propose(payload("strategy 60분")).playTimeMax());
+		assertEquals("UNSUPPORTED", provider.propose(payload("지원하지 않는 요청")).action());
+		assertEquals("NEEDS_INPUT", provider.propose(payload("게임 추천")).action());
+	}
+
+	@Test
 	void T2_provider_payload은_allowlist만_포함하고_tool_권한과_원문_식별자를_전달하지_않는다() {
 		CapturingAssistantProvider provider = new CapturingAssistantProvider();
 		AssistantIntentExtractor extractor = extractor(provider, new PermittingAiQuotaLedger(),

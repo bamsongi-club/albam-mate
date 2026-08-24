@@ -84,9 +84,10 @@ ADR-0074는 사용자별 KST 일 5회·월 150회, 앱 전체 월 `$5` hard cap�
 - 상태: 미검증
 - 근거:
   - 계약: 이 ADR, API·AI 기능 명세·검증 설계의 목표 계약을 같은 변경에서 정렬한다.
+  - 구현: 일 10회 quota, 호출당 고정 USD 0.10 reservation, 후보 전용 DTO와 문장 내 유일 게임명 providerless resolver가 구현돼 있다.
+  - H2 테스트: `AiQuotaPolicyTest`, `AiQuotaRuntimeConfigurationTest`, `AssistantExactGameNameQueryServiceTest`, `AssistantGameCandidateQueryServiceTest`, `AssistantIntentOrchestrationServiceTest`가 통과했다.
+  - PostgreSQL 테스트: `AiQuotaRedisPostgresTest`, `AssistantExactGameNamePostgresTest`, `AssistantGameCandidatePostgresTest`가 quota/비용·유일성·후보 상세 조회 경계를 통과했다.
 - 미검증:
-  - 일 10회/11번째 거절, 40번째 warning·50번째 허용·51번째 거절, fake provider 분리 검증
-  - 유일·0·복수 정확 게임명과 문장 내 유일 게임명, provider·quota·비용 예약 0건 경로
   - 실제 provider 호출·가격 snapshot·운영 비용·배포 후 관측
 
 > 상태 값과 번호·대체 규칙은 [README](../README.md)를 따른다.

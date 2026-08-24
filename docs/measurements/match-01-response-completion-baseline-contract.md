@@ -19,6 +19,49 @@
 | 표본 | 각 시나리오·round의 latency 모집단은 정확히 1,000개의 최초 유효 명령이다. 마지막 `ACCEPT`는 500건의 정상 비종결 `PROPOSED`와 500건의 정상 최종 확정을 모두 포함하며 어느 응답도 패자·중복 응답으로 분류하지 않는다. correctness-only 중복 경합 명령은 latency p50/p95/p99 모집단에서 제외하고 최종 상태 assertion에만 포함한다 |
 | 배경 작업 | 응답 경로와 무관한 scheduler·relay·retention 작업은 끄거나, 끌 수 없으면 이름·설정·실행 SQL을 결과에 기록한다 |
 
+artifact의 environment.profile에는 before/after 동일 환경 여부를 재현할 수 있는 비밀값 없는 profile을 기록한다. AWS 측정에서는 다음 항목을 모두 채우며, 비밀번호·접속 URL·SSM 값은 기록하지 않는다.
+
+| profile 항목 | 의미 |
+| --- | --- |
+| target·stackId·region | 측정 대상과 AWS stack 식별자 |
+| releaseSha | 측정 당시 배포 release의 40자리 SHA |
+| appInstanceType·postgresInstanceType·redisInstanceType | AWS 인스턴스 유형 |
+| backendImage·webImage·postgresImage·redisImage | 실제 사용한 이미지 digest |
+| applicationConfigSha256 | 비밀값을 제외한 애플리케이션 설정 profile digest |
+| responseTopology | 응답 측정 runner와 PostgreSQL 연결 topology |
+
+기본 runner는 Testcontainers PostgreSQL을 사용한다. AWS 측정은 measurement 전용 외부 datasource 경로를 명시적으로 켜고, infra 저장소가 전달한 접속 환경변수와 위 profile 시스템 속성을 사용한다. 외부 모드에서 접속 비밀값이 없거나 profile 항목이 누락되면 결과를 만들지 않는다.
+외부 datasource 경로는 Flyway를 실행하지 않고 Hibernate schema validation도 끈다. 이 runner는 배포 DB를 초기화하거나 pending migration을 적용하는 역할이 아니라, 측정 전용으로 허용된 외부 DB에서 fixture·응답 전이·관측만 수행한다. 외부 모드에서는 `ISSUE776_ALLOWED_DATABASE`와 `ISSUE776_ALLOWED_SCHEMA`를 반드시 지정하고, 모든 connection pool connection의 `search_path`를 허용 schema와 `pg_catalog`으로 고정한다. 연결 직후 `current_database()`·`current_schema()`가 두 값과 일치하는지도 확인한다. 선택된 schema의 `flyway_schema_history`를 제외한 모든 base table이 비어 있지 않으면 `TRUNCATE` 전에 중단한다. 따라서 외부 대상은 전용 빈 DB/schema이고 동시 업무 쓰기가 없어야 하며, 대상 확인이 끝나기 전에는 fixture 정리를 실행하지 않는다. 응답 측정에 필요한 MATCH 스키마가 없거나 컬럼 계약이 다르면 fixture 또는 명령 실행이 실패해 결과를 채택하지 않는다. 식별자를 반환해야 하는 Proposal·User·Request는 각 입력 행을 `INSERT ... RETURNING id`로 개별 삽입하고, Member는 반환된 ID map을 명시적으로 사용한다. fixture 생성·정리와 identifier 반환 순서 검증은 측정 구간 밖에서 수행하므로 응답 latency에 포함하지 않는다.
+measurement opt-in 실행은 response-completion 결과 디렉터리에서 생성되는 산출물만 허용하고, 그 밖의 source 변경이 남아 있으면 artifact 기록 전에 중단한다. Git rename/copy 상태도 원본과 목적지 경로를 모두 확인한다. 따라서 `measuredGitCommitSha`는 실제 측정 코드가 포함된 clean commit을 가리켜야 한다.
+
+~~~powershell
+$env:ISSUE776_JDBC_URL = "jdbc:postgresql://127.0.0.1:15432/albam_mate_measurement?sslmode=disable&ApplicationName=match-01-response-completion"
+$env:ISSUE776_JDBC_USERNAME = "<infra가 전달한 DB 사용자>"
+$env:ISSUE776_JDBC_PASSWORD = "<infra가 전달한 DB 비밀번호>"
+$env:ISSUE776_ALLOWED_DATABASE = "albam_mate_measurement"
+$env:ISSUE776_ALLOWED_SCHEMA = "public"
+# 아래 <...> 값은 같은 release와 stack의 실제 infra/profile 값으로 교체한다.
+.\gradlew.bat `
+  "-Dissue776.measurement=true" `
+  "-Dissue776.external=true" `
+  "-Dissue776.measurement.target=aws" `
+  "-Dissue776.environment.stackId=<stack-id>" `
+  "-Dissue776.environment.region=<aws-region>" `
+  "-Dissue776.environment.releaseSha=<release-sha>" `
+  "-Dissue776.environment.appInstanceType=<app-instance-type>" `
+  "-Dissue776.environment.postgresInstanceType=<postgres-instance-type>" `
+  "-Dissue776.environment.redisInstanceType=<redis-instance-type>" `
+  "-Dissue776.environment.backendImage=<backend-image-digest>" `
+  "-Dissue776.environment.webImage=<web-image-digest>" `
+  "-Dissue776.environment.postgresImage=<postgres-image-digest>" `
+  "-Dissue776.environment.redisImage=<redis-image-digest>" `
+  "-Dissue776.environment.applicationConfigSha256=<application-config-sha256>" `
+  "-Dissue776.environment.responseTopology=<response-topology>" `
+  postgresMeasurementTest --tests "cloud.bamsongi.albammate.matching.measurement.MatchResponseCompletionBaselinePostgresTest"
+~~~
+
+위 명령의 실제 AWS 자원 생성·SSM tunnel·destroy는 albam-mate-infra 저장소가 소유하며, 이 저장소에는 접속 비밀값을 남기지 않는다.
+
 시나리오별 fixture와 최종 상태 assertion은 다음으로 고정한다.
 
 | 시나리오 | 명령 뒤 필수 상태 |
@@ -28,7 +71,7 @@
 | `REQUEUE` | Proposal `DECLINED`; 대상 Member `REQUEUED`; 대상 요청은 새 `queuedAt`·`prioritySince`의 `WAITING`; 비대상 Member는 `PENDING`, 비대상 요청은 기존 `queuedAt`·`prioritySince`를 유지한 `WAITING`; Party 0개 |
 | `CANCEL` | Proposal `CANCELED`; 대상 Member `CANCELED`; 대상 요청 `CANCELED`; 비대상 Member는 `PENDING`, 비대상 요청은 기존 `queuedAt`·`prioritySince`를 유지한 `WAITING`; Party 0개 |
 
-fixture 생성·truncate·통계 초기화는 측정 구간 밖에서 끝낸다. 각 시나리오와 round는 위 전체 상태의 Proposal·Member·연결 요청을 새로 만들며 이전 응답·Party·잠금 상태를 재사용하지 않는다. DB 삽입 전 `scenario,proposalOrdinal,memberOrdinal,userFixtureOrdinal,minPartySize,maxPartySize,partySize,initialRequestStatus,initialResponseStatus,commandTarget` 열 순서와 Proposal·Member ordinal 오름차순, UTF-8·LF·마지막 LF를 사용하는 CSV를 만들고 SHA-256을 `fixtureInputSha256`으로 기록한다. materialized fixture manifest에는 이 입력과 실제 Proposal·Member·request ID, 기대 결과 집합을 보존하되 결과 artifact에는 사용자 식별자를 원문으로 공개하지 않는다.
+fixture 생성·truncate·통계 초기화는 측정 구간 밖에서 끝낸다. 외부 모드의 첫 fixture 정리 전에 위 database/schema allow-list와 빈 schema guard를 통과해야 하며, 이후 정리는 전용 대상과 동시 쓰기가 없다는 전제에서만 수행한다. 각 시나리오와 round는 위 전체 상태의 Proposal·Member·연결 요청을 새로 만들며 이전 응답·Party·잠금 상태를 재사용하지 않는다. DB 삽입 전 `scenario,proposalOrdinal,memberOrdinal,userFixtureOrdinal,minPartySize,maxPartySize,partySize,initialRequestStatus,initialResponseStatus,commandTarget` 열 순서와 Proposal·Member ordinal 오름차순, UTF-8·LF·마지막 LF를 사용하는 CSV를 만들고 SHA-256을 `fixtureInputSha256`으로 기록한다. materialized fixture manifest에는 이 입력과 실제 Proposal·Member·request ID, 기대 결과 집합을 보존하되 결과 artifact에는 사용자 식별자를 원문으로 공개하지 않는다.
 
 correctness-only 중복 경합은 네 시나리오 각각에 대해 같은 전체 fixture와 1,000개 논리 명령을 새로 만든 뒤, 각 논리 명령을 같은 action·body·`Idempotency-Key`로 동시에 두 번 보내는 2,000개 물리 요청으로 고정한다. latency 표본에는 넣지 않고, 키별 멱등성 기록 1개·논리 명령 한 번의 상태 전이·위 표의 최종 상태를 assertion한다. 마지막 `ACCEPT`에서만 Proposal당 Party 1개를 요구하며 나머지 세 시나리오는 Party 0개를 요구한다.
 
@@ -46,7 +89,7 @@ correctness-only 중복 경합은 네 시나리오 각각에 대해 같은 전�
 
 - 유효한 시나리오 measured round의 응답 완료 latency p50·p95·p99는 유효 명령 표본 `n = 1,000`을 오름차순 정렬해 nearest-rank로 계산한다. p95는 `ceil(0.95 × 1,000) = 950`번째 값을 사용한다. 성공·정상 업무 거절·재시도 결과는 action과 결과 상태별로 분포를 나누고 전체 응답 완료 비교에도 포함한다.
 - 각 시나리오의 세 measured round가 모두 유효하고 1,000개 표본·fixture manifest·DB 통계·lock wait·최종 상태 assertion이 모두 보존된 경우에만 결과를 비교한다. 결과 문서는 시나리오별 p50·p95·p99, 처리량, retry 수, lock wait, 실패율과 세 round p95의 중앙값·최댓값을 함께 제시한다.
-- `RESPONSE_BASELINE_ACCEPTED`는 마지막 `ACCEPT` 경합에서 Proposal별 하나의 최종 확정, 패자 응답의 중복 전이 없음, `REQUEUE`·`CANCEL`의 결과 상태 일치, 중복 Party·부분 성공 0건, 모든 current-state assertion 통과일 때만 부여한다. 이는 운영 SLO 달성이나 후보 선점 baseline 통과를 뜻하지 않는다.
+- `RESPONSE_BASELINE_ACCEPTED`는 마지막 `ACCEPT` 경합에서 Proposal별 하나의 최종 확정, 패자 응답의 중복 전이 없음, `REQUEUE`·`CANCEL`의 결과 상태 일치, 중복 Party·부분 성공 0건, 모든 최종 영속 상태 assertion이 통과하고 응답 DTO의 current-state가 허용된 상태일 때만 부여한다. 마지막 `ACCEPT`에서 두 Member의 응답이 동시에 처리되면 한 DTO가 상대 Member의 commit 전에 `PROPOSED`를 관측할 수 있으므로 이를 raw sample에 보존한다. 이 경우에도 최종 DB 상태는 `CONFIRMED`와 `PREPARING|ACTIVE` Party로 수렴해야 하며 `EMPTY`·기타 상태는 실패다. 이는 운영 SLO 달성이나 후보 선점 baseline 통과를 뜻하지 않는다.
 - `INVALID`는 실행·관측 계약을 충족하지 않아 비교에 쓸 수 없는 결과다. `FAILED`는 실행·관측 계약을 충족한 뒤 최종 상태 정합성 검증이 실패한 결과다. 기술 오류·timeout·matcher 조기 종료·fixture 개수 불일치·관측 누락은 `INVALID`로, 실행 완료 후 최종 상태 정합성 위반은 `FAILED`로 분류한다. 두 결과 모두 응답 성능 통과나 Redis 업무 락 도입의 근거로 사용하지 않는다.
 
 ## 원자료 보존과 재검토

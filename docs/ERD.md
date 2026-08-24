@@ -546,9 +546,9 @@ P1 CHAT-02의 V9 전진 Flyway가 생성하는 메시지 저장의 최종 정본
 
 ### CHAT-06 입장·퇴장 시스템 메시지 저장 계약
 
-> **도입 단계: P2** · **기능: CHAT-06** · **저장 계약 상태: 적용됨(#869)** · **적용 상태: expand migration·SYSTEM writer·전역 gate 적용됨. 조회 시점 조립·API 응답(#870)은 미구현**
+> **도입 단계: P2** · **기능: CHAT-06** · **저장 계약 상태: 적용됨(#869)** · **적용 상태: expand migration·SYSTEM writer·전역 gate·조회 시점 조립·API 응답(#870) 적용됨**
 >
-> 저장 스키마·writer·gate는 이 절과 위 [CHAT_MESSAGES](#chat_messages) 표가 실제 배포 대상이다. 이력·실시간 조회가 SYSTEM 행을 문장으로 조립해 API로 반환하는 범위는 #870이 별도로 완료해야 한다. 현재 상태는 [P2 기능 상태의 `CHAT-06`](p2/README.md#기능별-현재-상태)에서만 판정한다.
+> 저장 스키마·writer·gate·SYSTEM 조회 조립은 이 절과 위 [CHAT_MESSAGES](#chat_messages) 표가 소유한다. 이력·실시간 조회가 SYSTEM 행을 문장으로 조립해 API로 반환하는 범위는 #870이 구현·PostgreSQL 검증까지 완료했다. 현재 상태는 [P2 기능 상태의 `CHAT-06`](p2/README.md#기능별-현재-상태)에서만 판정한다.
 
 `CHAT-06`은 별도 시스템 메시지 테이블을 만들지 않고 `CHAT_MESSAGES`를 확장한다. 사용자 메시지와 시스템 메시지가 하나의 `id` 순서·커서·보존 경계를 공유하기 위한 선택이며 이유·대안·재검토 조건은 [ADR-0078](adr/chat/0078-chat-system-message-storage-and-read-time-composition.md)이 소유한다. 완성된 안내 문장과 표시용 닉네임 사본은 저장하지 않고, 조회 시점에 서버가 조립한다.
 
@@ -599,7 +599,7 @@ V33 expand migration이 적용한 변경은 다음과 같다.
 - `enabled_at`을 다시 비우면 그 뒤 사건의 안내 저장만 멈추고 참가·참가 취소는 기존 계약대로 성공한다. 이미 저장된 안내 행은 지우지 않는다.
 - rollback 순서는 `SYSTEM` 쓰기 중지 → 신버전 writer drain → `SYSTEM` 행을 읽을 수 있는 버전 유지다. 이미 저장된 `SYSTEM` 행이 있는 상태에서 구버전으로 되돌리면 그 방의 실시간 전달이 깨지므로, 구버전까지 되돌려야 한다면 해당 행의 격리·정리 범위를 함께 정한 뒤에만 진행한다.
 - `sender_user_id`·`client_message_id`·`content`의 NOT NULL 복구는 `SYSTEM` 행이 하나라도 있으면 불가능하다. schema를 되돌리는 rollback은 3단계 이후 지원하지 않는다.
-- 혼합 버전 저장(1·2단계, gate 비활성 상태의 기존 계약 유지)과 gate on/off 시각 경계 수렴은 #869의 PostgreSQL 검증(T5·T6)에서 확인했다. 3단계 활성화 이후의 이력·실시간 조회 회귀는 #870이 검증한다.
+- 혼합 버전 저장(1·2단계, gate 비활성 상태의 기존 계약 유지)과 gate on/off 시각 경계 수렴은 #869의 PostgreSQL 검증(T5·T6)에서 확인했고, 3단계 활성화 이후의 이력·실시간 조회 회귀는 #870의 PostgreSQL 검증으로 확인했다.
 
 ##### CHAT_SYSTEM_MESSAGE_ACTIVATION
 
@@ -615,9 +615,9 @@ expand migration이 위 고정 `gate_name` 행 하나를 `enabled_at NULL`로 �
 
 ### CHAT-07 읽음 커서 저장 계약
 
-> **도입 단계: P2** · **기능: CHAT-07** · **저장 계약 상태: 계약 준비 완료** · **적용 상태: 전진 migration 필요**
+> **도입 단계: P2** · **기능: CHAT-07** · **저장 계약 상태: 적용됨(#862)** · **적용 상태: 전진 migration·조회·읽음 처리 API 적용됨**
 >
-> 이 절은 승인된 목표 저장 계약이며 현재 배포된 스키마가 아니다. 현재 상태는 [P2 기능 상태의 `CHAT-07`](p2/README.md#기능별-현재-상태)에서만 판정한다.
+> 이 절은 적용된 `CHAT_ROOM_READ_STATES` 저장 계약과 조회 경계를 설명한다. 현재 상태는 [P2 기능 상태의 `CHAT-07`](p2/README.md#기능별-현재-상태)에서만 판정한다.
 
 `CHAT-07`은 사용자×채팅방마다 "어디까지 읽었는지"를 나타내는 커서 하나만 새 테이블 `CHAT_ROOM_READ_STATES`에 저장한다. 방별 미읽음 개수 자체는 이 테이블에 저장하지 않고, 조회 시점에 [CHAT_MESSAGES](#chat_messages)를 커서 기준으로 세어 계산한다. 저장 모델·파생 계산을 선택한 이유는 [ADR-0079](adr/chat/0079-chat-room-read-cursor-and-derived-unread-count.md)가 소유한다.
 
@@ -1138,6 +1138,13 @@ erDiagram
 
 - PostgreSQL은 `pg_trgm` extension과 `ix_games_name_lower_trgm` GIN 인덱스(`lower(name) gin_trgm_ops`)로 `lower(name) LIKE '%keyword%'` 부분일치와 3글자 이상 `similarity(lower(name), lower(keyword)) >= 0.3` 게임명 오타 유사 조회를 지원한다.
 - 3글자 이상 검색어는 정확 일치·부분 일치를 먼저 두고 유사도 내림차순, `name ASC`, `id ASC`으로 정렬한다. 1·2글자는 trgm 선택도가 낮을 수 있으므로 기존 부분일치·planner 경로를 유지한다.
+
+### SEARCH-04 sparse 후보 텍스트 인덱스
+
+- PostgreSQL 전용 V39은 `pg_trgm`을 재사용하고 `ix_games_english_name_lower_trgm`, `ix_games_alias_lower_trgm`, `ix_games_description_lower_trgm` GIN 인덱스(`lower(column) gin_trgm_ops`)를 추가한다.
+- 1·2글자 token은 pg_trgm이 선택할 삼중문자를 만들 수 없으므로, V39의 immutable `game_search_bigrams(text)`와 `ix_games_{name,english_name,alias,description}_lower_bigram` expression GIN 인덱스로 두 글자 substring을 보존한다. 3글자 이상 token은 trigram 경로를 사용한다.
+- `StructuredSparseCandidateSource`의 이름·영문명·별칭 경로는 token 길이별·column별 predicate를 `UNION`으로 분리해 인덱스를 사용하고, `game_id`·token 중복을 제거해 기존 필드 점수를 보존한다. description 경로도 같은 길이별 인덱스 계약을 사용한다.
+- 이 인덱스는 SEARCH-04 sparse 후보 생성 전용이며 dense 후보, Cloudflare provider, 게임 목록 API의 정렬·페이지 계약을 변경하지 않는다. 배포 전 승인 fixture의 `EXPLAIN (ANALYZE, BUFFERS)`와 6초 deadline 측정을 다시 수행한다.
 
 ### 해 본 게임 관계 인덱스
 

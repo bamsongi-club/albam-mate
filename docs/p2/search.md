@@ -2,7 +2,7 @@
 
 > **문서 상태: draft**
 >
-> 담당자: `@hanyejin` · 기능 ID: `SEARCH-04` · 상태 정본: [P2 기능 상태](README.md#기능별-현재-상태)
+> 담당자: `@beyejin` · 기능 ID: `SEARCH-04` · 상태 정본: [P2 기능 상태](README.md#기능별-현재-상태)
 
 ## 문서 책임
 
@@ -35,14 +35,14 @@ SEARCH-04 평가 corpus의 deterministic membership, pinned snapshot/version, 1,
 → 사용자가 플레이 의도 문장과 필요한 P1 조건 필터를 입력
 → 서버가 query·필터·인증 상태를 검증하고 승인된 검색 문서에서 후보를 조회
 → P1 hard filter를 결과에 다시 적용하고 관련도 순으로 중복 없이 정렬·페이지네이션
-→ 사용자가 기존 게임 카드 정보와 관련도 순서, 필요 시 fallback 상태를 확인
+→ 사용자가 기존 게임 카드 정보와 관련도 순서를 확인
 ~~~
 
 업무 거절은 빈 query·길이 초과·허용하지 않는 필터·로그인 없이 `playedFilter`를 전달한 경우로 구분한다. 결과가 없으면 조건을 자동 완화하지 않고 빈 결과를 반환한다. 검색 인덱스·외부 검색 의존성이 timeout 또는 장애를 일으키면 제한된 시간 안에 lexical fallback을 시도하며, fallback도 사용할 수 없을 때만 기술 실패를 반환한다. 재시도는 읽기 요청에 한해 전체 timeout 예산 안에서 제한하고, 인덱스 재생성은 이전 `READY` 버전을 유지한 채 별도로 복구한다.
 
-### 초안 인터페이스 경계
+### 공개 인터페이스 경계
 
-- P2는 별도 의미 검색 read contract를 추가한다. 공개 경로는 `GET /api/games/search`이며, 실제 DTO·오류 코드는 [API](../API.md)와 필요한 ADR에서 확정한다.
+- SEARCH-04는 별도 의미 검색 read contract인 `GET /api/games/search`를 제공한다. HTTP·DTO·오류 계약은 [API](../API.md)가 소유한다.
 - 의미 검색 contract는 `query`, `page`, `size`와 P1에서 이미 확정한 hard filter만 받는다. 기존 `GET /api/games`의 `keyword` 이름 검색 계약을 의미 검색으로 바꾸거나 Slice 응답 호환성을 변경하지 않는다.
 - 결과 카드의 기본 필드는 기존 `GameListItem`을 재사용할 수 있지만, 관련도 점수·embedding·내부 검색어·구현 방식(Dense/Sparse/Lexical)을 사용자 응답에 노출하지 않는다.
 
@@ -58,9 +58,9 @@ SEARCH-04 평가 corpus의 deterministic membership, pinned snapshot/version, 1,
 ### 포함 범위
 
 - 게임명만이 아니라 승인 manifest의 `approvedFields`에 포함된 게임 설명·별칭·카테고리·테마·메커니즘과 정규화된 인원·시간·복잡도·최소 연령을 이용한 의도 검색 후보 생성. 아래 필드명은 후보 목록이며 manifest allowlist를 대신하지 않는다.
-- lexical·semantic·hybrid 후보 생성 방식의 평가를 같은 fixture에서 보존한다. runtime primary candidate generation은 [ADR-0087](../adr/game/0087-search-04-cloudflare-managed-bge-m3-serving.md)에 따라 Cloudflare managed BGE-M3 direct REST와 그 provider/provenance에 묶인 새 pgvector index version만 사용한다. [ADR-0088](../adr/game/0088-search-04-hybrid-rrf-parallel-candidate-generation.md)이 SEARCH-04 후속 serving으로 Dense + structured/sparse 독립 병렬 후보 생성과 RRF 결합을 승인했으며, 이 결합 방식과 candidate K·RRF `k`·timeout 확정값은 [SEARCH-04e(#983)](https://github.com/bamsongi-club/albam-mate/issues/983)가 구현·검증한다.
+- lexical·semantic·hybrid 후보 생성 방식의 평가는 같은 fixture에서 보존한다. Dense runtime candidate generation은 [ADR-0087](../adr/game/0087-search-04-cloudflare-managed-bge-m3-serving.md)에 따라 Cloudflare managed BGE-M3 direct REST와 그 provider/provenance에 묶인 새 pgvector index version만 사용한다. [ADR-0088](../adr/game/0088-search-04-hybrid-rrf-parallel-candidate-generation.md)이 승인한 Dense + structured/sparse 독립 병렬 후보 생성과 RRF 결합은 [PR #992](https://github.com/bamsongi-club/albam-mate/pull/992)에서 구현하고 H2·PostgreSQL 자동 검증을 완료했다. 현재 serving 계약값은 Sparse candidate K=200·RRF `k`=60·공통 timeout=6초이며, [live evidence](../measurements/search-04e-hybrid-rrf-regression.md)는 40건 중 6건의 timeout을 기록하므로 최종 품질·운영 성능 승인이나 17만 catalog 실측 완료로 해석하지 않는다.
 - 후보 생성 뒤 `SEARCH-01`~`SEARCH-03`의 hard filter, 공개 게임 범위, `playedFilter` 권한과 페이지 경계를 적용하는 규칙.
-- 의미 검색 결과의 결정적 관련도 정렬, 동일 결과 중복 제거, 빈 결과와 fallback 상태 표시.
+- 의미 검색 결과의 결정적 관련도 정렬, 동일 결과 중복 제거, 빈 결과와 서비스 오류 상태 표시.
 - 기존 필터·Sparse·Dense·Hybrid 후보를 같은 질의와 fixture로 비교하는 단계별 평가 게이트.
 - 평가 fixture·기대 결과·판정자·산식·최소 표본을 고정하고 P1 이름 검색 baseline과 비교하는 품질 검증.
 - 인덱스 버전·생성·활성화·rollback과 query latency·fallback·zero-result·hard-filter 위반 관측.
@@ -134,16 +134,16 @@ SEARCH-04 평가 corpus의 deterministic membership, pinned snapshot/version, 1,
 
 - 업무 거절: 빈 query, 허용 길이 초과, 잘못된 page/size·P1 filter·검색 mode는 `400 VALIDATION_ERROR`로 거절한다. 로그인 없이 `playedFilter`를 사용하면 `401 UNAUTHENTICATED`다.
 - 정상적인 no-result: 모든 hard filter와 검색 후보를 적용한 뒤 `200 OK`의 빈 페이지를 반환한다. 결과가 없다는 이유로 인원·시간·연령·테마 필터를 자동 완화하지 않는다.
-- semantic/hybrid index timeout·provider 오류: 요청 전체 timeout 안에서 제한된 단일 내부 재시도 후 승인된 lexical fallback을 사용한다. #836 internal result는 `LEXICAL_FALLBACK`으로만 표현하고, #871이 public response의 fallback 상태·원인 코드를 계약한다.
-- semantic `READY` index가 없는 것만으로는 실패로 판정하지 않는다. 승인된 lexical fallback source가 있으면 P1 hard filter를 적용한 `200 OK` 결과와 명시적 fallback 상태(`SEMANTIC_INDEX_UNAVAILABLE`)를 반환한다. #836 internal result의 `UNAVAILABLE`은 semantic index와 lexical fallback을 모두 사용할 수 없을 때만이며, #871이 그 경우의 `503 SEARCH_UNAVAILABLE` HTTP 계약을 소유한다. 부분 후보를 성공 결과로 포장하지 않고 기존 P1 이름 검색 endpoint에는 영향을 주지 않는다.
-- build 실패·배포 중단: 이전 `READY` index를 계속 서빙하고 새 버전은 활성화하지 않는다. 이전 버전이 없더라도 승인된 lexical fallback source가 있으면 semantic 기능을 명시적 fallback 상태의 `200 OK`로 제공한다. semantic index와 lexical fallback이 모두 없으면 semantic 요청만 `503 SEARCH_UNAVAILABLE`로 반환하고 catalog 원본과 P1 검색은 계속 제공한다.
+- semantic/hybrid index timeout·provider 오류: 요청 전체 timeout 안에서 제한된 단일 내부 재시도 후 승인된 lexical fallback을 사용한다. `GameSearchResponse`는 구현 방식과 fallback 상태를 노출하지 않으며, fallback도 사용할 수 없을 때만 #871이 계약한 `503 SEARCH_UNAVAILABLE`을 반환한다.
+- semantic `READY` index가 없는 것만으로는 실패로 판정하지 않는다. 승인된 lexical fallback source가 있으면 P1 hard filter를 적용한 `200 OK` `GameSearchResponse`를 반환한다. #836 internal result의 `UNAVAILABLE`은 semantic index와 lexical fallback을 모두 사용할 수 없을 때만이며, #871이 그 경우의 `503 SEARCH_UNAVAILABLE` HTTP 계약을 소유한다. 부분 후보를 성공 결과로 포장하지 않고 기존 P1 이름 검색 endpoint에는 영향을 주지 않는다.
+- build 실패·배포 중단: 이전 `READY` index를 계속 서빙하고 새 버전은 활성화하지 않는다. 이전 버전이 없더라도 승인된 lexical fallback source가 있으면 semantic 기능을 `GameSearchResponse`의 `200 OK`로 제공한다. semantic index와 lexical fallback이 모두 없으면 semantic 요청만 `503 SEARCH_UNAVAILABLE`로 반환하고 catalog 원본과 P1 검색은 계속 제공한다.
 - 복구는 원인 코드와 source release를 고정해 재생성하고, fixture·index 검증을 다시 통과한 뒤 atomic cutover한다. rollback은 이전 `READY` pointer로 되돌리며 사용자 데이터나 게임 원천을 보상 삭제하지 않는다.
 
 ## 정본 변경 지도
 
 | 정본 | 변경 필요 여부 | 반영할 내용·링크 |
 | --- | --- | --- |
-| [API](../API.md) | 필요 | 별도 의미 검색 요청·응답·fallback 상태·`SEARCH_UNAVAILABLE` 오류·인증/필터 계약을 등록한다. 기존 [GAME-01](../API.md#game-01-게임-목록검색)의 `keyword` 의미와 응답 호환성은 유지한다. |
+| [API](../API.md) | 필요 | 별도 의미 검색 요청·응답·`SEARCH_UNAVAILABLE` 오류·인증/필터 계약을 등록한다. fallback은 공개 응답에 노출하지 않으며, 기존 [GAME-01](../API.md#game-01-게임-목록검색)의 `keyword` 의미와 응답 호환성은 유지한다. |
 | [ERD](../ERD.md) | 조건부 필요 | 영속 index metadata·source release·version·상태·활성 pointer가 필요하다고 결정될 때만 테이블·제약·보존을 반영한다. vector/검색 projection은 승인 release·필드 allowlist와 rollback/삭제 경계를 연결해 반영한다. |
 | [아키텍처](../ARCHITECTURE.md) | 필요 | `game` 내부 의미 검색 read service와 projection/index build port의 책임, 외부 검색 adapter 의존 방향, query·catalog·fallback 흐름을 반영한다. 현재 `game` 모듈의 게임 목록·검색 책임은 유지한다. |
 | [ADR](../adr/README.md) | 필요 | [ADR-0060](../adr/game/0060-approved-catalog-ai-embedding-scope.md)과 [ADR-0072](../adr/game/0072-search-quality-corpus-membership-and-versioning.md)의 승인 release·corpus membership·version 경계를 전제로 [ADR-0087](../adr/game/0087-search-04-cloudflare-managed-bge-m3-serving.md)가 Cloudflare managed BGE-M3 direct REST, pgvector, hard filter·fallback과 index-delivery 분리를 승인한다. |
@@ -158,7 +158,7 @@ SEARCH-04 평가 corpus의 deterministic membership, pinned snapshot/version, 1,
 - `SEARCH-04-AC3`: 빈 query·길이·필터·페이지 검증 오류와 비로그인 `playedFilter` 요청이 확정한 `400`·`401` 오류로 거절되고, 잘못된 요청이 index 조회나 사용자 데이터 조회를 실행하지 않는다. 판정은 HTTP 계약 테스트와 보안 로그 검증으로 한다.
 - `SEARCH-04-AC4`: 의미 검색 결과의 hard-filter 위반률이 0이고, 동일 query·동일 index version의 반복 요청이 동일한 결과 순서와 페이지 경계를 반환한다. 판정은 최소 60개 평가 query와 동시 반복 요청 결과 비교로 한다.
 - `SEARCH-04-AC5`: 의미 검색 평가 fixture가 구현 전에 대표 평가 질의 3개를 포함한 query, 필수 조건, 기대 게임 ID 10~30개, 제외 게임 ID, 기대 이유, 출처·버전을 고정하고, 최소 60개 query를 `exact/name variant` 15개 이상, `intent/description` 25개 이상, `intent+hard filter` 20개 이상으로 분포시킨다. 각 cohort와 전체 집합에서 2명의 독립 판정자·Recall@10·MRR@10·nDCG@10 산식을 재현하며, fixture manifest에 cohort별 각 지표의 `min_delta_vs_baseline`과 `hard_filter_violation_rate=0`을 기록한다. `exact/name variant`는 baseline 비회귀, 의미 cohort는 담당자·리뷰어가 승인한 baseline 대비 최소 개선값을 각각 통과해야 하며, 값이 없거나 승인되지 않은 cohort는 품질 합격으로 판정하지 않는다.
-- `SEARCH-04-AC6`: no-result는 조건을 완화하지 않은 빈 `200` 결과이고, index/provider timeout과 semantic index 부재는 승인된 lexical fallback이 있으면 명시적 fallback 상태의 `200 OK`, fallback도 없으면 `503 SEARCH_UNAVAILABLE`로 수렴한다. 판정은 no-result·timeout·index 없음·fallback 불가 장애 주입 테스트와 사용자 표시 상태 확인으로 한다.
+- `SEARCH-04-AC6`: no-result는 조건을 완화하지 않은 빈 `200` 결과이고, index/provider timeout과 semantic index 부재는 승인된 lexical fallback이 있으면 구현 방식과 fallback 상태를 노출하지 않는 `GameSearchResponse`의 `200 OK`, fallback도 없으면 `503 SEARCH_UNAVAILABLE`로 수렴한다. 판정은 no-result·timeout·index 없음·fallback 불가 장애 주입 테스트와 사용자 표시 상태 확인으로 한다.
 - `SEARCH-04-AC7`: source release가 바뀌거나 index build가 실패해도 `BUILDING`·실패 버전이 사용자에게 노출되지 않고, 이전 `READY` 버전 유지 또는 승인된 fallback으로 처리되며 rollback 후 결과가 이전 버전으로 복구된다. 판정은 두 release의 순서 역전·중복 build·cutover 중단 PostgreSQL/통합 검증으로 한다.
 - `SEARCH-04-AC8`: 검색 query 원문, 설명 원문, 사용자 ID·이메일·세션·토큰이 metric label과 중앙 로그에 없고, index·query 데이터의 보존·삭제가 승인된 source release 경계를 따른다. 판정은 구조화 로그·metric payload·보존/삭제 점검으로 한다.
 - `SEARCH-04-AC9`: 고정 release·image digest·catalog fixture·index version에서 성공·거절·no-result·fallback·복구 canary를 재현하고, 지연·오류·fallback·zero-result·index freshness·품질·비용 증거를 지정 위치에 보존한다. 판정은 배포 manifest와 원자료 hash가 일치하는지 확인한다.
@@ -167,9 +167,9 @@ SEARCH-04 평가 corpus의 deterministic membership, pinned snapshot/version, 1,
 
 | 증거 | fixture·환경 | 판정 기준 |
 | --- | --- | --- |
-| 단위·통합 테스트 | query 정규화, 허용 필드, hard filter 재적용, deterministic ranking, no-result, fallback DTO. Spring/H2 또는 mock은 규칙 조립에 사용 | P1 필터 의미를 바꾸지 않고 경계·중복·페이지 계산이 통과한다. |
+| 단위·통합 테스트 | query 정규화, 허용 필드, hard filter 재적용, deterministic ranking, no-result, fallback 처리·서비스 오류. Spring/H2 또는 mock은 규칙 조립에 사용 | P1 필터 의미를 바꾸지 않고 경계·중복·페이지 계산이 통과한다. |
 | PostgreSQL·외부 의존성 검증 | 현재 지원 PostgreSQL, 승인된 catalog release, 최소 50 query fixture, `ANALYZE`와 index version 고정. 외부 provider를 쓰면 provider/model·timeout·응답 fixture를 pin | 실제 저장 제약·검색 계획·index cutover·provider timeout·재시도가 재현되고, H2만으로 완료 판정하지 않는다. |
-| 프론트엔드·계약 검증 | 의미 query 입력, 결과 관련도 순서, P1 필터 조합, 빈 결과, fallback/서비스 오류와 기존 게임 카드 회귀 | 사용자는 성공 결과와 degraded/fallback 상태를 구분해 확인하고, 실패 시 이전 결과를 새 결과로 오인하지 않는다. |
+| 프론트엔드·계약 검증 | 의미 query 입력, 결과 관련도 순서, P1 필터 조합, 빈 결과, 서비스 오류와 기존 게임 카드 회귀 | 사용자는 성공 결과와 서비스 오류 상태를 구분해 확인하고, 실패 시 이전 결과를 새 결과로 오인하지 않는다. |
 | 품질 평가 | `docs/p2` 하위 평가 fixture에 대표 질의 3개와 최소 60개 query를 보존하고 `exact/name variant` 15개 이상, `intent/description` 25개 이상, `intent+hard filter` 20개 이상의 고정 분포와 cohort별 기대·제외 game ID·출처를 기록한다. 2인 독립 판정, 불일치 제3 판정과 cohort별 baseline manifest를 사용한다. | 모든 cohort와 전체 집합에서 hard-filter violation rate `0`, cohort별·전체 Recall@10·MRR@10·nDCG@10이 manifest의 baseline 대비 승인 임계값을 각각 통과한다. 대표 질의의 기대 결과·필수 조건·관련성 이유가 없거나 표본·분포·임계값이 승인되지 않은 상태는 품질 합격으로 표시하지 않는다. |
 | 실패·복구 검증 | index `BUILDING`/`FAILED`, provider timeout·5xx, stale release, cutover 중단, retry 중복, 이전 `READY` rollback | 부분 결과·잘못된 release·필터 우회가 없고 fallback 또는 `503`으로 결정적으로 수렴한다. 기존 P1 검색과 catalog 원본은 영향받지 않는다. |
 

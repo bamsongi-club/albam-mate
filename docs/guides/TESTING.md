@@ -158,7 +158,7 @@ macOS·Linux:
 
 `required` 또는 `needs-review` 변경을 제출하기 전에는 Docker 환경에서 H2와 PostgreSQL 결과를 합산하는 정본 게이트를 실행한다. 확실한 `not-required` 변경은 CI의 `Backend Fast`에서 전체 H2 테스트·컨벤션과 변경 패키지 H2 커버리지를 확인한다.
 
-`not-required`의 H2 커버리지 게이트는 전체 BRANCH·LINE 최소선과 실제 변경한 생산 Java 패키지의 `gatedBranchCoverage` 최소선을 적용한다. PostgreSQL 테스트가 커버하는 변경하지 않은 패키지의 H2 비율은 이 경로를 가로막지 않는다. `verifyCoverageRuleTargets`는 전체 리포트의 패키지 구조와 최소선 목록이 어긋나지 않았는지 별도로 확인한다.
+`not-required`의 변경 패키지 H2 커버리지 게이트는 실제 변경한 생산 Java 패키지에만 적용한다. `gatedBranchCoverage`에 있는 패키지는 해당 BRANCH 최소선을, 개별 BRANCH 규칙이 없는 패키지는 전역 LINE 최소선을 패키지 단위로 적용한다. PostgreSQL 테스트가 커버하는 변경하지 않은 패키지의 H2 비율은 이 경로를 가로막지 않는다. `verifyCoverageRuleTargets`는 전체 리포트의 패키지 구조와 최소선 목록이 어긋나지 않았는지 별도로 확인한다.
 
 Windows PowerShell:
 
@@ -210,12 +210,12 @@ build/reports/jacoco/jacocoMergedTestReport/html/index.html
 
 CI는 `Changes`에서 변경 경로를 먼저 나눈 뒤 PostgreSQL 필요 여부와 근거를 job summary에 남긴다. 모든 변경에서 `Docs`와 마지막 `CI Gate`를 실행한다. 문서만 바뀌면 조건부 검증 job은 실행하지 않고, 프론트엔드만 바뀌면 `Frontend`만 추가로 실행한다.
 
-- 모든 백엔드 변경의 `Backend Fast`: 애플리케이션 조립, H2 `test`, Spotless와 모든 Java source set의 Checkstyle. `not-required`에는 전체 및 변경 패키지 H2 커버리지 게이트도 적용
+- 모든 백엔드 변경의 `Backend Fast`: 애플리케이션 조립, H2 `test`, Spotless와 모든 Java source set의 Checkstyle. `not-required`에는 변경 패키지 H2 커버리지 게이트도 적용
 - `required`·`needs-review`의 `Local Multi Runtime`: 프록시, Spring 두 대, PostgreSQL과 Redis를 사용하는 교차 인스턴스 세션
 - `required`·`needs-review`의 `PostgreSQL 1/3`, `PostgreSQL 2/3`, `PostgreSQL 3/3`: 최근 세 JUnit 클래스 시간 중앙값을 deterministic LPT로 분할한 PostgreSQL 검증. 새 클래스만 소스 크기 기반 추정값 사용
 - `required`·`needs-review`의 `Coverage Gate`: H2와 세 PostgreSQL shard의 execution data를 합산하는 정본 커버리지 게이트
 
-확실한 `not-required`에서는 `Local Multi Runtime`, PostgreSQL shard와 합산 `Coverage Gate`를 생략한다. 이 경로는 PostgreSQL 의미를 바꾸지 않는 것으로 확정된 변경에만 허용하고, H2 전체 테스트·컨벤션·전체 및 변경 패키지 커버리지 최소선은 그대로 적용한다. `Backend Fast`와 실행된 PostgreSQL shard는 execution data를 이름이 겹치지 않는 artifact로 전달한다. `Coverage Gate`는 필요한 네 입력 중 하나라도 없거나 비어 있으면 실패하고, 테스트를 다시 실행하지 않은 채 합산 리포트와 패키지 규칙 대상을 판정한다. shard별 JUnit XML과 HTML은 실행시간 재조정과 실패 분석을 위해 14일간 보관한다.
+확실한 `not-required`에서는 `Local Multi Runtime`, PostgreSQL shard와 합산 `Coverage Gate`를 생략한다. 이 경로는 PostgreSQL 의미를 바꾸지 않는 것으로 확정된 변경에만 허용하고, H2 전체 테스트·컨벤션과 변경 패키지 커버리지 최소선을 적용한다. `Backend Fast`와 실행된 PostgreSQL shard는 execution data를 이름이 겹치지 않는 artifact로 전달한다. `Coverage Gate`는 필요한 네 입력 중 하나라도 없거나 비어 있으면 실패하고, 테스트를 다시 실행하지 않은 채 합산 리포트와 패키지 규칙 대상을 판정한다. shard별 JUnit XML과 HTML은 실행시간 재조정과 실패 분석을 위해 14일간 보관한다.
 
 수동 실행, 빈 변경 집합, build·workflow·런타임 변경, 분류기 오류처럼 생략을 확정할 수 없는 경우는 `needs-review`로 기록하고 기존 전체 Docker 검증을 실행한다. 분류 실패가 검증 생략으로 이어지지 않는다.
 

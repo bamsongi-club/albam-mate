@@ -82,16 +82,90 @@ function fixtureSummary(fixture) {
   };
 }
 
+function canonicalize(value) {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonicalize(value[key])]));
+  }
+  return value;
+}
+
+function measurementDigestPayload({ executionMode, measuredGitCommitSha, environmentProfile, externalProvenance,
+  mixedRangeSmoke, fixture, warmUp, measured }) {
+  return {
+    executionMode,
+    measuredGitCommitSha,
+    environmentProfile,
+    externalProvenance,
+    mixedRangeSmoke,
+    fixture: fixtureSummary(fixture),
+    warmUp: reportRound(warmUp),
+    measured: Array.isArray(measured) ? measured.map(reportRound) : [],
+  };
+}
+
+function measurementDigestFromPayload(payload) {
+  return createHash("sha256").update(JSON.stringify(canonicalize(payload)), "utf8").digest("hex");
+}
+
+export function calculateRawMeasurementSha256(input) {
+  const measuredGitCommitSha = input?.measuredGitCommitSha ?? input?.warmUp?.measuredGitCommitSha;
+  const executionMode = input?.executionMode ?? (isExternalProvenance(input?.externalProvenance) ? "external" : "local");
+  return measurementDigestFromPayload(measurementDigestPayload({
+    executionMode,
+    measuredGitCommitSha,
+    environmentProfile: input?.environmentProfile,
+    externalProvenance: input?.externalProvenance,
+    mixedRangeSmoke: input?.mixedRangeSmoke,
+    fixture: input?.fixture,
+    warmUp: input?.warmUp,
+    measured: input?.measured,
+  }));
+}
+
+function reportMeasurementDigest(report) {
+  return measurementDigestFromPayload({
+    executionMode: report?.executionMode,
+    measuredGitCommitSha: report?.measuredGitCommitSha,
+    environmentProfile: report?.environmentProfile,
+    externalProvenance: report?.externalProvenance,
+    mixedRangeSmoke: report?.mixedRangeSmoke,
+    fixture: report?.fixture,
+    warmUp: report?.warmUp?.round,
+    measured: report?.measuredRounds,
+  });
+}
+
 export function buildCandidateBaselineReport(input) {
   const { fixture, warmUp, measured } = input ?? {};
   const measuredRounds = Array.isArray(measured) ? measured.map(reportRound) : [];
   const measuredGitCommitSha = input?.measuredGitCommitSha ?? warmUp?.measuredGitCommitSha;
+  const executionMode = input?.executionMode ?? (isExternalProvenance(input?.externalProvenance) ? "external" : "local");
+  const rawMeasurementSha256 = measurementDigestFromPayload(measurementDigestPayload({
+    executionMode,
+    measuredGitCommitSha,
+    environmentProfile: input?.environmentProfile,
+    externalProvenance: input?.externalProvenance,
+    mixedRangeSmoke: input?.mixedRangeSmoke,
+    fixture,
+    warmUp,
+    measured,
+  }));
+  const suppliedRawMeasurementSha256 = input?.rawMeasurementSha256;
   const p95Values = measuredRounds.length === MEASURED_ROUND_COUNT
     ? measuredRounds.map((round) => round.statistics.p95Nanos).sort((left, right) => left - right)
     : [];
   return {
     schemaVersion: 1,
+    executionMode,
     measuredGitCommitSha,
+    environmentProfile: input?.environmentProfile,
+    externalProvenance: input?.externalProvenance,
+    mixedRangeSmoke: input?.mixedRangeSmoke,
+    rawMeasurementSha256,
+    rawMeasurementDigestVerified: suppliedRawMeasurementSha256 === undefined
+      ? null
+      : suppliedRawMeasurementSha256 === rawMeasurementSha256,
     fixture: fixtureSummary(fixture),
     warmUp: { countsTowardBaseline: false, round: reportRound(warmUp) },
     measuredRounds,
@@ -291,7 +365,103 @@ function hasIntegrityMismatch(round) {
     .some((field) => integrity[field] !== correctnessInput[field]);
 }
 
+function isExternalProvenance(provenance) {
+  if (!provenance || typeof provenance !== "object" || Array.isArray(provenance)) return false;
+  const keys = Object.keys(provenance).sort();
+  const environmentProfile = provenance.environmentProfile;
+  const profileKeys = environmentProfile && typeof environmentProfile === "object" && !Array.isArray(environmentProfile)
+    ? Object.keys(environmentProfile)
+    : [];
+  const allowedProfileKeys = new Set(["stackId", "region", "accountAlias", "databaseRole", "runner", "ephemeral", "releaseSha"]);
+  const profileValuesAreScalars = profileKeys.every((key) =>
+    typeof environmentProfile[key] === "string"
+      || typeof environmentProfile[key] === "number"
+      || typeof environmentProfile[key] === "boolean");
+  return JSON.stringify(keys) === JSON.stringify(["environmentProfile", "runner", "target"])
+    && provenance.runner === "MATCH-01-T10-EXTERNAL-POSTGRESQL-V1"
+    && provenance.target === "external-postgresql"
+    && environmentProfile !== null
+    && typeof environmentProfile === "object"
+    && profileKeys.every((key) => allowedProfileKeys.has(key))
+    && profileValuesAreScalars
+    && typeof environmentProfile.stackId === "string"
+    && environmentProfile.stackId.length > 0
+    && environmentProfile.runner === provenance.runner
+    && typeof environmentProfile.databaseRole === "string"
+    && environmentProfile.databaseRole.length > 0
+    && environmentProfile.ephemeral === true
+    && typeof environmentProfile.releaseSha === "string"
+    && /^[a-f0-9]{40}$/u.test(environmentProfile.releaseSha);
+}
+
+function hasMatchingExternalReleaseSha(provenance, measuredGitCommitSha) {
+  return provenance?.environmentProfile?.releaseSha === measuredGitCommitSha;
+}
+
+function isExternalMeasurement(report) {
+  return report?.executionMode === "external";
+}
+
+function hasCompleteMixedRangeSmoke(smoke, measuredGitCommitSha) {
+  const rows = [
+    [1, 2, 4],
+    [2, 4, 4],
+    [3, 2, 2],
+    [4, 4, 4],
+    [5, 4, 4],
+  ];
+  const header = "fixtureOrdinal,userFixtureOrdinal,queuedAt,prioritySince,minPartySize,maxPartySize";
+  const csv = `${header}\n${rows.map(([ordinal, minPartySize, maxPartySize]) => {
+    const timestamp = new Date(FIXTURE_BASE_TIME_MS + (ordinal * 1_000)).toISOString().replace(".000Z", "Z");
+    return `${ordinal},${ordinal},${timestamp},${timestamp},${minPartySize},${maxPartySize}`;
+  }).join("\n")}\n`;
+  if (smoke?.fixtureGenerator !== "MATCH-01-CANDIDATE-MIXED-RANGE-V1"
+    || smoke.fixtureInputSha256 !== fixtureInputSha256(csv)
+    || smoke.measuredGitCommitSha !== measuredGitCommitSha
+    || smoke.proposalCount !== 1
+    || smoke.targetPartySize !== 2
+    || !Array.isArray(smoke.proposalMembers)
+    || smoke.proposalMembers.length !== 2
+    || smoke.proposalMembers[0] !== "R1"
+    || smoke.proposalMembers[1] !== "R3"
+    || smoke.waitingRequestCount !== 3
+    || smoke.passed !== true
+    || !Array.isArray(smoke.materializedManifest)
+    || smoke.materializedManifest.length !== rows.length) return false;
+
+  const userIds = new Set();
+  const requestIds = new Set();
+  for (let index = 0; index < rows.length; index += 1) {
+    const [ordinal, minPartySize, maxPartySize] = rows[index];
+    const timestamp = new Date(FIXTURE_BASE_TIME_MS + (ordinal * 1_000)).toISOString().replace(".000Z", "Z");
+    const entry = smoke.materializedManifest[index];
+    if (entry?.fixtureOrdinal !== ordinal || entry?.userFixtureOrdinal !== ordinal
+      || entry?.queuedAt !== timestamp || entry?.prioritySince !== timestamp
+      || entry?.minPartySize !== minPartySize || entry?.maxPartySize !== maxPartySize
+      || entry?.expectedTieOrder !== ordinal
+      || !Number.isInteger(entry?.userId) || entry.userId <= 0 || userIds.has(entry.userId)
+      || !Number.isInteger(entry?.requestId) || entry.requestId <= 0 || requestIds.has(entry.requestId)) return false;
+    userIds.add(entry.userId);
+    requestIds.add(entry.requestId);
+  }
+  const manifestBytes = `${FIXTURE_MANIFEST_FIELDS.join(",")}\n${smoke.materializedManifest.map((entry) =>
+    FIXTURE_MANIFEST_FIELDS.map((field) => entry[field]).join(",")).join("\n")}\n`;
+  return typeof smoke.materializedManifestSha256 === "string"
+    && smoke.materializedManifestSha256 === fixtureInputSha256(manifestBytes);
+}
+
 export function evaluateCandidateBaseline(report) {
+	if (report?.executionMode !== "local" && report?.executionMode !== "external") {
+		return { outcome: "INVALID", reason: "execution mode가 local 또는 external이 아닙니다." };
+	}
+	if (report.executionMode === "local" && report.externalProvenance !== undefined) {
+		return { outcome: "INVALID", reason: "external provenance가 local report로 강등되었습니다." };
+	}
+  if (isExternalMeasurement(report)
+    && (!isExternalProvenance(report.externalProvenance)
+      || !hasMatchingExternalReleaseSha(report.externalProvenance, report.measuredGitCommitSha))) {
+    return { outcome: "INVALID", reason: "external provenance가 완결되지 않았습니다." };
+  }
   if (!report || typeof report !== "object" || !hasCompleteFixture(report.fixture)) {
     return { outcome: "INVALID", reason: "fixture input 또는 materialized manifest가 완결되지 않았습니다." };
   }
@@ -303,6 +473,15 @@ export function evaluateCandidateBaseline(report) {
   }
   if (report.measuredRounds.some((round) => !hasCompleteObservations(round))) {
     return { outcome: "INVALID", reason: "실행 또는 관측 원자료가 완결되지 않았습니다." };
+  }
+  if (isExternalMeasurement(report)
+    && !hasCompleteMixedRangeSmoke(report.mixedRangeSmoke, report.measuredGitCommitSha)) {
+    return { outcome: "INVALID", reason: "혼합 범위 correctness smoke 증거가 계약과 일치하지 않습니다." };
+  }
+  if (isExternalMeasurement(report)
+    && (report.rawMeasurementSha256 !== reportMeasurementDigest(report)
+      || report.rawMeasurementDigestVerified !== true)) {
+    return { outcome: "INVALID", reason: "raw measurement digest가 원자료와 일치하지 않습니다." };
   }
   if (report.measuredRounds.some(hasIntegrityMismatch)) return { outcome: "INVALID", reason: "integrity가 correctnessInput과 다릅니다." };
   if (report.measuredRounds.some((round) => !hasCandidateClaimIntegrity(round))) {
@@ -321,7 +500,13 @@ if (process.argv[1]?.endsWith("match01-candidate-baseline-report.mjs")) {
   if (inputIndex < 0 || outputIndex < 0 || !process.argv[inputIndex + 1] || !process.argv[outputIndex + 1]) {
     throw new Error("--input과 --output이 필요합니다.");
   }
-  const input = JSON.parse(readFileSync(process.argv[inputIndex + 1], "utf8"));
+  const inputPath = process.argv[inputIndex + 1];
+  let input = JSON.parse(readFileSync(inputPath, "utf8"));
+	input = { ...input, executionMode: process.argv.includes("--external") ? "external" : "local" };
+  if (process.argv.includes("--embed-raw-digest")) {
+    input = { ...input, rawMeasurementSha256: calculateRawMeasurementSha256(input) };
+    writeFileSync(inputPath, JSON.stringify(input, null, 2));
+  }
   const report = buildCandidateBaselineReport(input);
   writeFileSync(process.argv[outputIndex + 1], JSON.stringify({ report, decision: evaluateCandidateBaseline(report) }, null, 2));
 }

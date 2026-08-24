@@ -212,6 +212,7 @@ class RoomWaitlistRepositoryTest {
 				"findWaitingRoomIdsByUserIdAndRoomIds",
 				"getNextQueueOrder",
 				"cancelWaiting",
+				"cancelPromoted",
 				"promoteWaiting",
 				"expireAllWaiting",
 				"cancelAllWaiting",
