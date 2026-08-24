@@ -241,6 +241,7 @@ class P0CoreUserFlowRealHttpIntegrationTest {
 					"experienceLevel", "ALL_LEVELS",
 					"isRulemasterLed", true,
 					"startsAt", "2099-01-01T19:00:00+09:00",
+					"region", "홍대",
 					"place", "홍대 테스트 보드게임 카페",
 					"recruitmentCapacity", 3)));
 		JsonNode createdRoom = assertSuccess(createdResponse, 201);

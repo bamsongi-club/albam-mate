@@ -144,6 +144,7 @@ class RoomCreateServiceUnitTest {
 			ExperienceLevel.ALL_LEVELS,
 			true,
 			NOW,
+			"홍대",
 			"장소",
 			3);
 
@@ -173,6 +174,7 @@ class RoomCreateServiceUnitTest {
 			ExperienceLevel.ALL_LEVELS,
 			true,
 			NOW.plusSeconds(3600),
+			"홍대",
 			"  장소  ",
 			3);
 	}

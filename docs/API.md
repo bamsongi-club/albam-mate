@@ -341,7 +341,7 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 | `건대` | 건대 생활권 |
 | `잠실` | 잠실 생활권 |
 
-AI-03 초안 요청에서 `region`을 생략하면 호환 기간 동안 `홍대`로 해석한다. 기존 직접 Room 생성 API는 현재 계약을 유지하며, 지역을 포함한 확인형 생성은 AI-03 초안 계약으로만 제공한다. 호환 기간 종료 뒤 필수 전환은 별도 승인한다.
+AI-03 초안 요청에서 `region`을 생략하면 호환 기간 동안 `홍대`로 해석한다. 일반 직접 `POST /api/rooms`는 `region`을 필수로 받고 `홍대`, `강남`, `건대`, `잠실`을 허용한다. 일반 직접 생성은 [ADR-0092](adr/room/0092-p2-direct-room-create-region-required.md)의 계약을 따르며, AI 초안의 optional·홍대 fallback 규칙과는 별개다.
 
 ### AI 기능군 목표 enum
 
@@ -641,7 +641,7 @@ P0 프로필은 닉네임만 제공·수정한다. P1부터 프로필 이미지 
 | `experienceLevel` | ExperienceLevel | Y | N | P0 | 제공 | 권장 경험 수준 |
 | `isRulemasterLed` | boolean | Y | N | P0 | 제공 | 룰마스터 진행 여부 |
 | `startsAt` | string(date-time) | Y | N | P0 | 제공 | 시작 시각 |
-| `region` | string | Y | N | P0 | 제공 | 고정값 `홍대` |
+| `region` | Region | Y | N | P0 | 제공 | `홍대`, `강남`, `건대`, `잠실` 중 하나 |
 | `recruitmentCapacity` | integer | Y | N | P0 | 제공 | 주최자를 제외한 모집 인원, 1~10 |
 | `participantCount` | integer | Y | N | P0 | 제공 | 주최자 1명 + 현재 `ACTIVE` 참가 관계 수 |
 | `remainingRecruitmentSeats` | integer | Y | N | P0 | 제공 | `recruitmentCapacity − 현재 ACTIVE 참가 관계 수` |
@@ -1860,11 +1860,12 @@ Vary: Cookie
 | `experienceLevel` | ExperienceLevel | Y | N | 검색 필터·참가 제한으로 사용하지 않음 |
 | `isRulemasterLed` | boolean | Y | N | 모든 로그인 사용자가 설정 가능 |
 | `startsAt` | string(date-time) | Y | N | 오프셋 필수. 요청 처리 시점보다 미래여야 함 |
+| `region` | Region | Y | N | `홍대`, `강남`, `건대`, `잠실` 중 하나 |
 | `place` | string | Y | N | 앞뒤 공백 제거 후 1~100자, 제어문자 금지 |
 | `recruitmentCapacity` | integer | Y | N | 주최자를 제외한 모집 인원, 1~10 |
 
 - `startsAt`의 누락·`null`·오프셋 없음·형식 오류·현재·과거 시각은 `VALIDATION_ERROR`다.
-- `region`은 요청으로 받지 않으며 응답에서는 항상 `홍대`다. `status`도 요청으로 받지 않으며 생성 결과는 `RECRUITING`이다.
+- `region`의 누락·`null`·허용하지 않는 값은 `VALIDATION_ERROR`다. `status`는 요청으로 받지 않으며 생성 결과는 `RECRUITING`이다.
 - `PERSON_FOCUSED`에 존재하는 `gameId`가 오면 선택 게임으로 저장한다. 태그·카테고리·BGG Weight는 요청으로 받지 않는다.
 
 #### 요청 예시
@@ -1880,6 +1881,7 @@ Vary: Cookie
   "experienceLevel": "ALL_LEVELS",
   "isRulemasterLed": true,
   "startsAt": "2099-01-01T19:00:00+09:00",
+  "region": "홍대",
   "place": "홍대입구역 인근 보드게임 카페",
   "recruitmentCapacity": 3
 }
@@ -1896,6 +1898,7 @@ Vary: Cookie
   "experienceLevel": "BEGINNER_WELCOME",
   "isRulemasterLed": false,
   "startsAt": "2099-01-01T19:00:00+09:00",
+  "region": "강남",
   "place": "홍대입구역 인근",
   "recruitmentCapacity": 3
 }

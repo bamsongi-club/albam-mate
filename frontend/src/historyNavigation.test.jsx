@@ -67,6 +67,7 @@ describe('#756 T1~T5 완료 이동은 히스토리에 쌓이지 않는다', () =
     fireEvent.click(screen.getByRole('button', { name: /사람 중심/ }));
     fireEvent.change(screen.getByLabelText('제목'), { target: { value: '새 모임' } });
     fireEvent.change(screen.getByLabelText('장소'), { target: { value: '홍대 카페' } });
+    fireEvent.change(screen.getByLabelText('지역'), { target: { value: '홍대' } });
     fireEvent.change(screen.getByLabelText('날짜'), { target: { value: tomorrow() } });
     fireEvent.change(screen.getByLabelText('시작 시간'), { target: { value: '19:00' } });
     const lengthBeforeSubmit = window.history.length;

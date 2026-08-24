@@ -5,7 +5,7 @@
 - 결정일: 2026-08-18
 - 관련: [#794](https://github.com/bamsongi-club/albam-mate/issues/794), [#796](https://github.com/bamsongi-club/albam-mate/issues/796), [AI-01 명세](../../p2/assistant.md), [ROOM-03 API](../../API.md#room-03-방-생성), [Room ERD](../../ERD.md)
 - 대체 대상: 없음
-- 후속 ADR: 없음
+- 후속 ADR: [ADR-0092](0092-p2-direct-room-create-region-required.md) — 일반 직접 `POST /api/rooms`의 region 필수화·홍대 fallback 폐기 범위
 
 ## 맥락
 

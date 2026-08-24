@@ -19,6 +19,7 @@ import cloud.bamsongi.albammate.room.dto.NicknameSummary;
 import cloud.bamsongi.albammate.room.dto.ParticipantRoomResponse;
 import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.MyRole;
+import cloud.bamsongi.albammate.room.enums.Region;
 import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
 import cloud.bamsongi.albammate.room.service.RoomActionAvailability;
@@ -58,6 +59,7 @@ public class RoomCreateService {
 			request.experienceLevel(),
 			request.isRulemasterLed(),
 			request.startsAt(),
+			Region.from(request.region()).value(),
 			request.place(),
 			request.recruitmentCapacity());
 		Room savedRoom = roomRepository.save(room);

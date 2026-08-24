@@ -57,6 +57,7 @@
     "cloud.bamsongi.albammate.room.ChatUnreadSummaryQueryServicePostgresTest",
     "cloud.bamsongi.albammate.room.RoomCommandRequestTimeRetryBoundaryPostgresTest",
     "cloud.bamsongi.albammate.room.RoomListPostgresTest",
+	"cloud.bamsongi.albammate.room.RoomCreateServicePostgresTest",
     "cloud.bamsongi.albammate.room.RoomParticipationConcurrencyPostgresTest",
     "cloud.bamsongi.albammate.room.RoomRejoinPromotionConcurrencyPostgresTest",
     "cloud.bamsongi.albammate.room.RoomWaitlistConcurrencyPostgresTest",

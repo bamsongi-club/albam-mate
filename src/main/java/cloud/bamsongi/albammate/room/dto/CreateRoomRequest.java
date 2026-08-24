@@ -18,6 +18,8 @@ public record CreateRoomRequest(
 	@NotNull ExperienceLevel experienceLevel,
 	@NotNull Boolean isRulemasterLed,
 	@NotNull Instant startsAt,
+	@NotNull @Pattern(regexp = "^(홍대|강남|건대|잠실)$")
+	String region,
 	@NotNull @Size(min = 1, max = 100) @Pattern(regexp = "^[^\\p{Cc}]*$") String place,
 	@NotNull @jakarta.validation.constraints.Min(1) @jakarta.validation.constraints.Max(10) Integer recruitmentCapacity) {
 

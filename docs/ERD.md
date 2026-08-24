@@ -444,7 +444,7 @@ ERD의 `ROOMS` 표기는 물리 테이블명 `rooms`를 뜻한다.
 
 `idx_rooms_public_start_at_id (start_at, id) WHERE status IN ('RECRUITING', 'CLOSED')`는 공개 방의 날짜 범위와 `startsAt ASC, id ASC` 페이지를 위한 PostgreSQL 전용 부분 인덱스다.
 
-P2 AI-03a migration은 기존 `rooms.region` 값을 먼저 검사한다. 허용 집합 밖의 값이 하나라도 있으면 제약을 추가하지 않고 migration을 중단하며, 기존 Room 행은 재작성하지 않는다. 기존 직접 Room 생성 요청의 `region` 생략과 `홍대` 기본값은 호환 기간 동안 유지한다.
+P2 AI-03a migration은 기존 `rooms.region` 값을 먼저 검사한다. 허용 집합 밖의 값이 하나라도 있으면 제약을 추가하지 않고 migration을 중단하며, 기존 Room 행은 재작성하지 않는다. DB 기본값은 기존 factory·fixture 호환을 위해 유지하지만, 일반 직접 Room 생성 API는 `region`을 필수로 받는다.
 
 ### PARTICIPATIONS
 

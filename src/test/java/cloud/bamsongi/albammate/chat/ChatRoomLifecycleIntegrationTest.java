@@ -139,6 +139,7 @@ class ChatRoomLifecycleIntegrationTest {
 			false,
 			NOW.plusSeconds(3600),
 			"홍대",
+			"홍대",
 			3);
 	}
 

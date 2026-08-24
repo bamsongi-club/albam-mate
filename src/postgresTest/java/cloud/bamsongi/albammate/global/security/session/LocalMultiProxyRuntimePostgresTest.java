@@ -409,7 +409,8 @@ class LocalMultiProxyRuntimePostgresTest {
 			proxyUri.resolve("/api/rooms"),
 			"{\"roomType\":\"PERSON_FOCUSED\",\"title\":\"프록시 WebSocket 검증 방\","
 				+ "\"experienceLevel\":\"ALL_LEVELS\",\"isRulemasterLed\":false,"
-				+ "\"startsAt\":\"2099-01-01T10:00:00+09:00\",\"place\":\"홍대\",\"recruitmentCapacity\":2}",
+				+ "\"startsAt\":\"2099-01-01T10:00:00+09:00\",\"region\":\"홍대\","
+				+ "\"place\":\"홍대\",\"recruitmentCapacity\":2}",
 			csrfToken);
 		assertEquals(201, response.statusCode(), response.body());
 		Matcher matcher = ROOM_ID_PATTERN.matcher(response.body());
