@@ -1,8 +1,8 @@
 # ADR-0091: MATCH-01 T10 AWS 성능 측정 유예와 기능 gate 분리
 
-- 상태: 제안됨
+- 상태: 승인됨
 - 작성일: 2026-08-24
-- 결정일: 미정
+- 결정일: 2026-08-24
 - 관련: [결정 이슈 #1063](https://github.com/bamsongi-club/albam-mate/issues/1063), [MATCH-01 통합 정합성 검증 이슈 #746](https://github.com/bamsongi-club/albam-mate/issues/746), [#999](https://github.com/bamsongi-club/albam-mate/issues/999), [#1000](https://github.com/bamsongi-club/albam-mate/issues/1000), [PR #1047](https://github.com/bamsongi-club/albam-mate/pull/1047), [PR #1051](https://github.com/bamsongi-club/albam-mate/pull/1051), [MATCH-01 명세](../../p2/matching.md), [candidate 측정 계약](../../measurements/match-01-candidate-search-baseline-contract.md), [response 측정 계약](../../measurements/match-01-response-completion-baseline-contract.md), [ADR-0063](0063-match-baseline-measurement-gate.md), [ADR-0065](0065-match-candidate-claim-baseline-scope.md)
 - 대체 대상: 없음
 - 후속 ADR: 없음
@@ -51,9 +51,9 @@
     - 현재 기능 gate에 `DEFERRED_BY_ADR_0091`와 성능 미검증을 표현할 문서·판정 변경이 필요하다.
     - PostgreSQL 동시성·lock 대기·candidate claim 성능에 대한 운영 결론을 내릴 수 없다.
 - 후속 작업:
-    - #999·#1000 PR의 리뷰·CI·provenance를 확인하고 필요한 변경을 머지한다.
-    - 머지 후 최종 `develop` SHA에서 T10을 제외한 기능 evidence의 gate 정합성을 확인한다.
+    - 현재 확보된 evidence와 이 결정을 기록한 뒤 #1063·#746·#999를 이번 범위에서 닫는다. #1000은 관련 PR #1051이 병합된 뒤 닫으며, 어느 Issue의 종료도 MATCH-01 운영 성능 검증 완료를 뜻하지 않는다.
     - P2 상태표와 #746 결과에는 이 ADR과 T10 유예를 연결하되, 운영 성능 열은 미검증으로 둔다.
+    - 별도 infra 결정으로 PostgreSQL 사양 또는 측정 topology가 바뀌면 새 최종 release SHA에서 T10·T11을 다시 검증한다.
 
 ## 적용·호환·rollback
 
