@@ -164,7 +164,7 @@ export function RankSkeletons({ count = 3 }) {
 
 export function Pagination({ page, totalPages, loading, onChange, className = '' }) {
   if (!totalPages || totalPages <= 1) return null;
-  const windowSize = 5;
+  const windowSize = 3;
   const start = Math.max(0, Math.min(page - Math.floor(windowSize / 2), totalPages - windowSize));
   const end = Math.min(totalPages, start + windowSize);
   const numbers = [];
