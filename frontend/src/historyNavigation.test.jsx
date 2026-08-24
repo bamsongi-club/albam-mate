@@ -37,6 +37,11 @@ async function renderAt(hash) {
   return view;
 }
 
+async function chooseRegion(region) {
+  fireEvent.click(await screen.findByRole('button', { name: /^지역/ }));
+  fireEvent.click(await screen.findByRole('option', { name: region }));
+}
+
 const settle = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
 
 // 내일 날짜여야 "시작 시간은 현재 시각 이후" 검증을 통과한다.
@@ -67,7 +72,7 @@ describe('#756 T1~T5 완료 이동은 히스토리에 쌓이지 않는다', () =
     fireEvent.click(screen.getByRole('button', { name: /사람 중심/ }));
     fireEvent.change(screen.getByLabelText('제목'), { target: { value: '새 모임' } });
     fireEvent.change(screen.getByLabelText('장소'), { target: { value: '홍대 카페' } });
-    fireEvent.change(screen.getByLabelText('지역'), { target: { value: '홍대' } });
+    await chooseRegion('홍대');
     fireEvent.change(screen.getByLabelText('날짜'), { target: { value: tomorrow() } });
     fireEvent.change(screen.getByLabelText('시작 시간'), { target: { value: '19:00' } });
     const lengthBeforeSubmit = window.history.length;
@@ -146,5 +151,16 @@ describe('#756 T1~T5 완료 이동은 히스토리에 쌓이지 않는다', () =
     // 진입 이동까지 replace로 바꾸면 뒤로 가기가 아예 동작하지 않는다. 기본값은 push로 남아야 한다.
     expect(window.location.hash).toBe('#/create');
     expect(window.history.length).toBe(lengthAtHome + 1);
+  });
+
+  it('T6 직접 진입한 하위 화면의 뒤로가기는 앱 밖으로 빠지지 않는다', async () => {
+    stubApp();
+    window.history.replaceState(null, '', '/#/create');
+    render(<App />);
+    await waitFor(() => expect(screen.getByLabelText('제목')).toBeTruthy());
+
+    fireEvent.click(screen.getByRole('button', { name: '닫기' }));
+
+    await waitFor(() => expect(window.location.hash).toBe('#/home'));
   });
 });
