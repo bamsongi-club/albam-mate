@@ -1512,8 +1512,6 @@ export function ChatRoomView({ roomId, dataVersion, onBack, onChatRead }) {
   const historyInitializedRef = useRef(false);
   const isChatAtBottomRef = useRef(true);
   const scrollToBottomRef = useRef(false);
-  const composeInputRef = useRef(null);
-  const refocusComposeRef = useRef(false);
   const mergeMessages = (incoming) => setMessages((current) => mergeChatMessages(current, incoming));
 
   useEffect(() => {
@@ -1697,7 +1695,6 @@ export function ChatRoomView({ roomId, dataVersion, onBack, onChatRead }) {
       setSendError('메시지는 500자까지 입력할 수 있어요.');
       return;
     }
-    refocusComposeRef.current = true;
     // WebSocket 이벤트가 이 HTTP 응답보다 먼저 도착할 수 있으므로 대기 전에 미리 세운다.
     scrollToBottomRef.current = true;
     setSending(true);
@@ -1752,13 +1749,6 @@ export function ChatRoomView({ roomId, dataVersion, onBack, onChatRead }) {
       if (roomIdRef.current === requestedRoomId && roomGenerationRef.current === requestedGeneration) setSending(false);
     }
   };
-
-  // 전송 중에는 입력이 disabled가 되어 브라우저가 포커스를 뗀다. 전송이 끝나면 되돌려 바로 이어 쓸 수 있게 한다.
-  useEffect(() => {
-    if (sending || !refocusComposeRef.current) return;
-    refocusComposeRef.current = false;
-    composeInputRef.current?.focus();
-  }, [sending]);
 
   const handleChatScroll = (event) => {
     const history = event.currentTarget;
@@ -1837,7 +1827,7 @@ export function ChatRoomView({ roomId, dataVersion, onBack, onChatRead }) {
       {!error && (
         <form className="chat-compose" onSubmit={submit}>
           <label className="sr-only" htmlFor="chat-message">메시지</label>
-          <textarea id="chat-message" ref={composeInputRef} disabled={sending} maxLength="500" value={content} onChange={(event) => { setContent(event.target.value); setSendError(''); setSendResultUnknown(false); }} onKeyDown={handleComposeKeyDown} placeholder="메시지 입력" />
+          <textarea id="chat-message" readOnly={sending} aria-busy={sending} maxLength="500" value={content} onChange={(event) => { setContent(event.target.value); setSendError(''); setSendResultUnknown(false); }} onKeyDown={handleComposeKeyDown} placeholder="메시지 입력" />
           <button className="chat-send" disabled={sending} type="submit" aria-label={sending ? '전송 중…' : sendResultUnknown ? '다시 시도' : '전송'}>
             <SendIcon />
           </button>
