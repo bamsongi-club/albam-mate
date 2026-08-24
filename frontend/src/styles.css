@@ -45,6 +45,13 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* 모바일 브라우저가 입력 포커스 때 페이지 텍스트를 임의로 키우지 않게 한다. */
+html,
+body {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   background: var(--surround);
   color: var(--ink);
@@ -81,7 +88,7 @@ body {
 
 a { color: inherit; text-decoration: none; }
 button { background: none; border: 0; color: inherit; cursor: pointer; font: inherit; text-align: inherit; }
-input, select, textarea { background: transparent; border: 0; color: var(--ink); font: inherit; width: 100%; }
+input, select, textarea { background: transparent; border: 0; color: var(--ink); font: inherit; font-size: 16px; width: 100%; }
 ::placeholder { color: var(--muted); }
 input:focus, textarea:focus, select:focus { outline: none; }
 :focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
@@ -171,7 +178,7 @@ ul, ol { list-style: none; }
 .btn-square.fill { background: var(--fill); }
 
 .searchbox { align-items: center; background: var(--fill); border-radius: var(--radius-pill); display: flex; gap: 11px; height: 52px; padding: 0 16px; }
-.searchbox input { font-size: 15px; }
+.searchbox input { font-size: 16px; }
 .searchbox input:focus-visible { outline: none; }
 .searchbox svg { color: var(--sub); flex: none; }
 
@@ -202,7 +209,7 @@ ul, ol { list-style: none; }
 .field { margin-top: 20px; }
 .field-label { color: var(--sub); display: block; font-size: 13px; font-weight: 700; }
 .field-label + * { margin-top: 11px; }
-.field-input { background: var(--fill); border-radius: var(--radius-pill); font-size: 15px; height: 52px; padding: 0 16px; }
+.field-input { background: var(--fill); border-radius: var(--radius-pill); font-size: 16px; height: 52px; padding: 0 16px; }
 textarea.field-input { height: 112px; line-height: 1.6; padding: 14px 16px; resize: none; }
 .field-hint { color: var(--sub); font-size: 12.5px; line-height: 1.6; margin-top: 8px; }
 .field-hint.warn { color: var(--red); font-weight: 700; }
@@ -547,7 +554,7 @@ textarea.field-input { height: 112px; line-height: 1.6; padding: 14px 16px; resi
 .chat-fail button { flex: none; font-size: 13.5px; font-weight: 800; min-height: 44px; }
 .chat-notice { background: var(--fill); border-radius: 14px; color: var(--mid); font-size: 14px; line-height: 1.6; margin: 0 18px 16px; padding: 16px; }
 .chat-compose { align-items: center; background: #fff; bottom: 0; box-shadow: 0 -1px 0 var(--line); display: flex; gap: 9px; margin-top: auto; padding: 12px 14px calc(14px + env(safe-area-inset-bottom)); position: sticky; }
-.chat-compose textarea { background: var(--fill); border-radius: var(--radius-pill); font-size: 15px; height: 48px; line-height: 24px; max-height: 96px; padding: 12px 16px; resize: none; }
+.chat-compose textarea { background: var(--fill); border-radius: var(--radius-pill); font-size: 16px; height: 48px; line-height: 24px; max-height: 96px; padding: 12px 16px; resize: none; }
 .chat-send { align-items: center; background: var(--ink); border-radius: var(--radius-pill); color: #fff; display: flex; flex: none; height: 48px; justify-content: center; width: 48px; }
 .chat-send:disabled { background: var(--fill); color: var(--muted); }
 .chat-empty { color: var(--sub); font-size: 14.5px; line-height: 1.7; margin: auto 0; text-align: center; }
@@ -721,7 +728,7 @@ textarea.field-input { height: 112px; line-height: 1.6; padding: 14px 16px; resi
 .bot-plan .btn-row { margin-top: 18px; }
 .bot-plan-note { color: var(--muted); font-size: 12.5px; line-height: 1.55; margin-top: 12px; }
 .bot-chips { display: flex; flex: none; gap: 8px; overflow-x: auto; padding: 0 18px 12px; }
-.chat-compose input { background: var(--fill); border-radius: var(--radius-pill); flex: 1; font-size: 15px; height: 48px; min-width: 0; padding: 0 16px; }
+.chat-compose input { background: var(--fill); border-radius: var(--radius-pill); flex: 1; font-size: 16px; height: 48px; min-width: 0; padding: 0 16px; }
 
 /* ── AI 모임 도우미 ─────────────────────────────────────── */
 

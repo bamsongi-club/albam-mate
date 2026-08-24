@@ -604,6 +604,100 @@ describe('MATCH-01 실시간 파티 매칭', () => {
     await waitFor(() => expect(screen.getByText('좋아요')).toBeTruthy());
   });
 
+  it('매칭 채팅 전송 중 같은 입력의 포커스와 키보드 상태를 유지한다', async () => {
+    const active = {
+      operationTime: OPERATION_TIME,
+      state: 'ACTIVE',
+      request: null,
+      proposal: null,
+      preparing: null,
+      chat: {
+        partyId: 9,
+        members: [{ participantRef: 'me', nickname: '테스터', profileImageUrl: null, isMine: true }],
+        chatOpenedAt: OPERATION_TIME,
+        closesAt: new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(),
+        historyPath: '/api/matches/parties/9/chat/messages',
+        sendPath: '/api/matches/parties/9/chat/messages',
+        webSocketPath: '/api/matches/parties/9/chat/ws'
+      }
+    };
+    const send = deferred();
+    api.getCurrentMatch.mockResolvedValue(active);
+    vi.spyOn(api, 'getMatchChatMessages').mockResolvedValue({ messages: [], nextBeforeMessageId: null, hasNext: false });
+    vi.spyOn(api, 'sendMatchChatMessage').mockReturnValue(send.promise);
+    useFakeWebSocket();
+
+    await renderApp('#/match-chat');
+    await waitFor(() => expect(screen.getByText('온라인 매칭 · 1명')).toBeTruthy());
+
+    const input = screen.getByLabelText('메시지');
+    input.focus();
+    fireEvent.change(input, { target: { value: '이어서 칠게요' } });
+    const sendButton = screen.getByRole('button', { name: '보내기' });
+    const pointerDown = new Event('pointerdown', { bubbles: true, cancelable: true });
+    fireEvent(sendButton, pointerDown);
+    expect(pointerDown.defaultPrevented).toBe(true);
+    fireEvent.submit(input.closest('form'));
+
+    await waitFor(() => expect(api.sendMatchChatMessage).toHaveBeenCalled());
+    expect(input.disabled).toBe(false);
+    expect(input.readOnly).toBe(true);
+    expect(document.activeElement).toBe(input);
+
+    await act(async () => {
+      send.resolve({
+        messageId: 1,
+        partyId: 9,
+        type: 'USER',
+        clientMessageId: 'x',
+        sender: { participantRef: 'me', nickname: '테스터' },
+        isMine: true,
+        content: '이어서 칠게요',
+        createdAt: OPERATION_TIME
+      });
+      await send.promise;
+    });
+    await waitFor(() => expect(input.readOnly).toBe(false));
+    expect(input.value).toBe('');
+    expect(document.activeElement).toBe(input);
+  });
+
+  it('매칭 채팅 화면을 누르면 포커스를 해제하고 입력을 누르면 유지한다', async () => {
+    const active = {
+      operationTime: OPERATION_TIME,
+      state: 'ACTIVE',
+      request: null,
+      proposal: null,
+      preparing: null,
+      chat: {
+        partyId: 9,
+        members: [{ participantRef: 'me', nickname: '테스터', profileImageUrl: null, isMine: true }],
+        chatOpenedAt: OPERATION_TIME,
+        closesAt: new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(),
+        historyPath: '/api/matches/parties/9/chat/messages',
+        sendPath: '/api/matches/parties/9/chat/messages',
+        webSocketPath: '/api/matches/parties/9/chat/ws'
+      }
+    };
+    api.getCurrentMatch.mockResolvedValue(active);
+    vi.spyOn(api, 'getMatchChatMessages').mockResolvedValue({ messages: [], nextBeforeMessageId: null, hasNext: false });
+    useFakeWebSocket();
+
+    await renderApp('#/match-chat');
+    await waitFor(() => expect(screen.getByText('온라인 매칭 · 1명')).toBeTruthy());
+
+    const input = screen.getByLabelText('메시지');
+    input.focus();
+    fireEvent.pointerDown(document.querySelector('.chat-log'));
+    expect(document.activeElement).toBe(input);
+    fireEvent.click(document.querySelector('.chat-log'));
+    expect(document.activeElement).not.toBe(input);
+
+    input.focus();
+    fireEvent.pointerDown(input);
+    expect(document.activeElement).toBe(input);
+  });
+
   it('나가기를 확인하면 파티를 나가고 매칭 화면으로 돌아간다', async () => {
     const active = {
       operationTime: OPERATION_TIME,
