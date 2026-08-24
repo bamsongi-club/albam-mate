@@ -77,10 +77,11 @@ MATCH-01은 실제로 구성 가능한 요청만 제한된 FIFO 순서로 제안
 ## 검증
 
 - 상태: 미검증
-- 근거: 없음
+- 근거:
+    - 구현: V28과 MATCH Entity·Repository·Command Executor가 후보 선점, 조건부 `WAITING → PROPOSED`, 사용자·멱등성 잠금 순서와 `MATCH_IDEMPOTENCY_RECORDS` 결과 재생을 구현한다.
+    - PostgreSQL 테스트: `MatchSchemaPostgresTest`, `MatchProposalClaimPostgresTest`, `MatchRequestInvariantPostgresTest`, `MatchProposalTerminalPostgresTest`, `MatchLifecycleConcurrencyPostgresTest`가 제약·SKIP LOCKED·경합·중복 요청/응답을 검증한다.
+    - 측정: candidate claim runner와 저장 결과는 측정 계약 자체 판정에서 채택됐고, 통합 gate는 T10을 `DEFERRED_BY_ADR_0091`로 분리한다.
 - 미검증:
-    - #737 계약을 실행하는 후보 선점, 유니크 제약, 멱등 레코드의 생산 코드와 Flyway 마이그레이션이 아직 없다.
-    - 다중 matcher의 SKIP LOCKED 선점, 조건부 WAITING에서 PROPOSED 전이, 사용자 행 잠금으로 직렬화한 새 등록·전원 수락 경합, 중복 등록·응답과 목표 상태 반복 호출의 PostgreSQL 통합 테스트가 없다.
-    - [ADR-0063](0063-match-baseline-measurement-gate.md)가 요구하는 후보 탐색 p95·DB lock wait·재시도율·처리량·정합성 측정 결과가 없다.
+    - 유효한 T10 운영 before/after에서 후보 탐색 p95·DB lock wait·재시도율·처리량과 정합성을 함께 확인하지 못했다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.

@@ -2,7 +2,7 @@
 
 이 문서는 Albam Mate 백엔드 코드의 안정적인 구조 규칙을 설명하는 정본이다. 개별 파일·클래스·엔드포인트 목록은 관리하지 않으며, 같은 경계 안에서 기능을 추가하는 것만으로는 이 문서를 갱신하지 않는다.
 
-본문에서 `후속` 또는 `필요 시 생성`으로 표시한 항목은 아직 만들지 않은 경계다. 모듈 관계 Mermaid와 모듈 책임 표는 현재 생산 코드 구조를 설명하되, 명시한 `P2 계획·미구현` 항목은 승인된 목표 구조일 뿐 현재 코드·구조 검사 규칙이 아니다. 기능별 절에는 구현된 P1 계약과 남은 운영값이 함께 있을 수 있다. P1 종료 상태는 [P1 기능 종료 상태](archive/p1/README.md#기능별-종료-상태), 새 P2 기능의 현재 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)에서 확인한다.
+본문에서 `후속` 또는 `필요 시 생성`으로 표시한 항목은 아직 만들지 않은 경계다. 모듈 관계 Mermaid와 모듈 책임 표는 현재 생산 코드 구조를 설명하며, 목표 구조를 별도로 설명하는 절은 현재 구현·검증 상태를 명시한다. 기능별 절에는 구현된 P1 계약과 남은 운영값이 함께 있을 수 있다. P1 종료 상태는 [P1 기능 종료 상태](archive/p1/README.md#기능별-종료-상태), 새 P2 기능의 현재 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)에서 확인한다.
 
 - 모듈러 모놀리스 선택 근거: [ADR-0007](adr/platform/0007-domain-centered-modular-monolith.md)
 - 낙관 락·저장 상태 보정·조회 snapshot 근거: [ADR-0005](adr/participation/0005-room-participation-optimistic-locking.md), [ADR-0055](adr/room/0055-room-query-effective-status-and-persistence-correction.md), [ADR-0056](adr/room/0056-postgresql-room-query-snapshot-without-global-pre-correction.md)
@@ -169,13 +169,13 @@ AI-01~AI-03 협력 계약은 책임을 소유한 모듈의 `contract`에 둔다.
 
 ### P2 SEARCH-04 semantic serving core (승인된 설계·#836 internal core)
 
-`game.contract.SemanticGameSearchQuery`는 #871이 호출하는 내부 read contract이고, `game.contract.DenseCandidateSource`는 dense 후보 ID·내부 relevance를 제공하는 port다. `game` service는 후보 결과를 신뢰하지 않고 `GameListSpecification`으로 P1 hard filter, `playedFilter`, 현재 catalog 유효성을 다시 조회한 뒤 `relevance DESC, name ASC, id ASC` 순서와 페이지를 만든다. relevance·vector·query 원문은 internal adapter 경계 밖 result에 노출하지 않는다.
+`game.contract.SemanticGameSearchQuery`는 #871이 호출하는 내부 read contract이고, `game.contract.DenseCandidateSource`와 `game.contract.SparseCandidateSource`는 각 후보 ID·내부 relevance를 제공하는 port다. `game` service는 후보 결과를 신뢰하지 않고 `GameListSpecification`으로 P1 hard filter, `playedFilter`, 현재 catalog 유효성을 다시 조회한 뒤 `relevance DESC, name ASC, id ASC` 순서와 페이지를 만든다. relevance·vector·query 원문은 internal adapter 경계 밖 result에 노출하지 않는다.
 
-`infra.search`는 `DenseCandidateSource`만 구현하며 `game`의 Entity·Repository·DTO를 참조하지 않는다. 기본 adapter는 index 부재를 fail-closed로 표현하고, dense 불능 시 core는 같은 hard filter의 lexical fallback 또는 `UNAVAILABLE`로 수렴한다. #836은 model 실행·pgvector schema를 소유하지 않는다. 별도 Python BGE-M3 service, pgvector-enabled image/extension, release-bound backfill·`BUILDING → READY` activation·rollback은 [ADR-0086](adr/game/0086-search-04-dense-serving-architecture.md)와 [#942](https://github.com/bamsongi-club/albam-mate/issues/942)가 소유한다.
+`infra.search`는 `DenseCandidateSource`와 `SparseCandidateSource`를 구현하며 `game`의 Entity·Repository·DTO를 참조하지 않는다. `StructuredSparseCandidateSource`는 이름·영문명·별칭·설명과 검수된 mechanism/category/theme 신호로 후보를 만들고, `game` service는 dense와 sparse를 공통 timeout 안에서 병렬 실행해 RRF로 결합한다. 기본 dense adapter는 index 부재를 fail-closed로 표현하고, dense 불능 시 core는 같은 hard filter의 lexical fallback 또는 `UNAVAILABLE`로 수렴한다. Cloudflare BGE-M3 direct REST·pgvector index delivery, release-bound backfill·`BUILDING → READY` activation·rollback은 [ADR-0087](adr/game/0087-search-04-cloudflare-managed-bge-m3-serving.md)과 [#942](https://github.com/bamsongi-club/albam-mate/issues/942)가 소유한다.
 
 ### P2 MATCH 모듈 계약
 
-> 이 절은 P2 MATCH의 승인된 구조다. `matching` 모듈·`matching.contract`·MATCH 전용 chat 저장 구조와 구조 검사는 존재한다. `user.contract` 조회와 `MatchPartyChatAccess` 확장은 [ADR-0067](adr/matching/0067-match-shared-contract-boundary.md)의 결정이며 [#801](https://github.com/bamsongi-club/albam-mate/issues/801)이 구현한다. 게임·플랫폼 없는 인원 범위 매칭과 그에 따른 공개 계약은 [ADR-0077](adr/matching/0077-match-no-game-player-range.md)와 [#835](https://github.com/bamsongi-club/albam-mate/issues/835)에 반영한다. 기능별 구현·검증 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)로만 판정하고, 이 절의 계약 서술을 완료 증거로 읽지 않는다.
+> 이 절은 P2 MATCH의 승인된 구조다. `matching` 모듈·`matching.contract`·MATCH 전용 chat 저장 구조와 구조 검사는 존재한다. `user.contract` 조회와 `MatchPartyChatAccess` 확장은 [ADR-0067](adr/matching/0067-match-shared-contract-boundary.md)의 결정이며 [#801](https://github.com/bamsongi-club/albam-mate/issues/801)에서 구현·계약 검증을 완료했다. 게임·플랫폼 없는 인원 범위 매칭과 그에 따른 공개 계약은 [ADR-0077](adr/matching/0077-match-no-game-player-range.md)와 [#835](https://github.com/bamsongi-club/albam-mate/issues/835)에 반영했다. 기능별 구현·검증 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)로만 판정하고, 이 절의 계약 서술을 완료 증거로 읽지 않는다.
 
 `matching`은 MATCH 요청·제안·응답, 성공 파티와 참가자 접근, 후보 선점·복구·멱등성·신고·차단을 소유한다. `chat`은 MATCH 전용 채팅방·URL 텍스트를 포함한 메시지·실시간 전달만 소유한다. P1 `ChatRoom`/`roomId`/ROOM 접근/30일 보존은 계속 ROOM 전용이며 MATCH로 확장하거나 재사용하지 않는다.
 
@@ -568,7 +568,7 @@ flowchart LR
     roomCreate --> roomCreated["room.contract.RoomCreated"]
     roomCreated --> chatRoomListener["chat 동기 listener"]
     chatRoomListener --> chatRoom["CHAT_ROOMS 저장<br/>같은 트랜잭션"]
-    chatController["ChatController<br/>HTTP 전송·조회"] --> chatService["ChatMessageCommandService<br/>단일 트랜잭션"]
+    chatController["ChatMessageController<br/>HTTP 전송·조회"] --> chatService["ChatMessageCommandService<br/>단일 트랜잭션"]
     chatService --> access["room.contract ChatAccessGuard<br/>ROOMS 공유 잠금·권한 확인"]
     access --> appendLock["CHAT_ROOMS 쓰기 잠금<br/>방별 append 순서"]
     appendLock --> messageWrite["멱등성 키 확인<br/>메시지 저장"]
@@ -581,7 +581,7 @@ flowchart LR
     subscriber --> catchup["PostgreSQL catch-up<br/>messageId ASC"]
     catchup --> websocket["인스턴스 로컬<br/>WebSocket 연결"]
     wsHandler["ChatWebSocketHandler<br/>방별 수신 연결"] --> access
-    chatController --> history["ChatHistoryQueryService<br/>커서 조회"]
+    chatController --> history["ChatMessageHistoryQueryService<br/>커서 조회"]
     history --> messages
     retention["ChatMessageRetentionScheduler<br/>하루 한 번"] --> schedulerLock["PostgreSQL ShedLock"]
     schedulerLock --> deleteBatch["소량 묶음 삭제<br/>독립 트랜잭션"]
@@ -594,9 +594,9 @@ flowchart LR
 
 방이 최종 상태가 되면 일반 사용자 접근은 즉시 차단하고, 메시지는 [ADR-0049](adr/chat/0049-chat-message-retention-lock-section-boundary.md)에 따라 30일 뒤 일일 스케줄러가 소량 묶음으로 삭제한다. 모든 인스턴스가 스케줄을 등록하지만 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)의 PostgreSQL ShedLock을 얻은 하나만 작업을 실행한다. 잠금 트랜잭션과 각 삭제 묶음의 독립 트랜잭션은 결합하지 않는다.
 
-#### P2 MATCH 제안·채팅 복구 흐름 (계획·미구현)
+#### P2 MATCH 제안·채팅 복구 흐름
 
-> 아래 Coordinator·Executor·Scheduler는 승인된 목표 경계이며 아직 생산 코드와 운영 작업이 없다. `matching`의 패키지 경계는 이미 구조 검사에 등록돼 있으나, 이 절의 실행 경계가 구현됐다는 뜻은 아니다. P1 `CHAT_ROOMS` 흐름을 바꾸지 않는다.
+> 아래 Coordinator·Executor·Scheduler와 MATCH 전용 chat adapter는 생산 코드로 구현됐고 H2·PostgreSQL 자동 검증을 부분 완료했다. 운영 배포와 유효한 T10 성능 실측은 완료되지 않았다. P1 `CHAT_ROOMS` 흐름을 바꾸지 않는다.
 
 ```mermaid
 flowchart LR
@@ -636,7 +636,7 @@ flowchart LR
 - chat은 Party가 `ACTIVE`로 확정된 뒤 `CHAT_OPENED`, `closeNoticeAt`에 도달해도 아직 `ACTIVE`인 경우 `CLOSES_IN_ONE_HOUR` SYSTEM 메시지를 matching Executor의 Party 잠금 안에서 저장한다. 같은 방·이벤트 키의 유일 제약과 conflict-as-exists 처리로 재시작·재시도·겹친 scheduler도 각 lifecycle 알림 한 건으로 수렴하며, 조기 `CLOSED` Party에는 사전 종료 알림을 새로 만들지 않는다.
 - 재접속과 이벤트 유실은 한 번의 서버 상태 조회로 복구한다. P1 Redis Pub/Sub·세션·전송 제한은 `ACTIVE` 뒤 전달에만 재사용하며, Redis business lock은 MATCH 후보·응답·복구 정합성에 도입하지 않는다.
 
-#### P2 MATCH 현재 상태 snapshot (계획·미구현)
+#### P2 MATCH 현재 상태 snapshot
 
 `GET /api/matches/current`는 만료 보정과 읽기 snapshot을 서로 다른 경계로 고정한다. Query Coordinator는 due `OPEN` Proposal을 Proposal Terminal/expiry Executor에, `PREPARING` deadline 초과 Party를 Recovery/Cleanup Executor에, `ACTIVE` lifecycle 미처리 due Party를 Party lifecycle Executor에 위임하고, 해당 Executor가 최신 상태를 확정한 뒤에만 읽기를 시작한다. `CLOSES_IN_ONE_HOUR`가 이미 존재하는 종료 전 `ACTIVE` Party는 due가 아니므로 정상 snapshot으로 반환한다. 조회가 보정을 대신해 상태를 추정하거나, 만료된 행을 단순히 `null`로 숨기지 않는다.
 
@@ -644,9 +644,9 @@ flowchart LR
 
 `WAITING`·`PROPOSED`·`PAUSED`는 요청 사실과 같은 snapshot의 제안 사실로, `PREPARING`·`ACTIVE`는 성공 Party와 접근 관계로 판정한다. `PREPARING`에는 채팅 경로를 조합하지 않고, `ACTIVE`에서만 `MatchPartyAccessQuery`가 반환한 접근 관계와 chat handoff를 조합한다. 이 경계가 API의 `CurrentMatchStateResponse.operationTime`과 만료 상태 처리 정본이며, ERD는 해당 실행 순서를 다시 정의하지 않는다.
 
-#### P2 MATCH 기준 측정 gate (계획·미구현)
+#### P2 MATCH 기준 측정 gate
 
-candidate claim transaction baseline의 fixture·round·통계·결과 채택은 [MATCH-01 후보 탐색 baseline 측정 계약](measurements/match-01-candidate-search-baseline-contract.md)만 소유한다. candidate claim과 최종 상태 정합성 증거를 분리하는 선택 이유는 [ADR-0065](adr/matching/0065-match-candidate-claim-baseline-scope.md), baseline 전 수치 목표·Redis 업무 락을 채택하지 않는 결정은 [ADR-0063](adr/matching/0063-match-baseline-measurement-gate.md)을 따른다.
+candidate claim transaction baseline의 fixture·round·통계·결과 채택은 [MATCH-01 후보 탐색 baseline 측정 계약](measurements/match-01-candidate-search-baseline-contract.md)만 소유한다. candidate claim·response completion runner와 판정기는 구현됐고 저장된 evidence는 각각의 계약 기준에서 채택됐다. 통합 gate는 ADR-0091에 따라 T10을 `DEFERRED_BY_ADR_0091`로 분리하며, 유효한 운영 성능 before/after 결과는 아직 없다. candidate claim과 최종 상태 정합성 증거를 분리하는 선택 이유는 [ADR-0065](adr/matching/0065-match-candidate-claim-baseline-scope.md), baseline 전 수치 목표·Redis 업무 락을 채택하지 않는 결정은 [ADR-0063](adr/matching/0063-match-baseline-measurement-gate.md)을 따른다.
 
 #### 다중 인스턴스 실행
 
@@ -669,7 +669,7 @@ App1과 `local` Nginx는 Spring의 유일한 신뢰 프록시다. HTTP와 WebSoc
 - Quartz 클러스터, Outbox, Redis Streams, RabbitMQ와 Kafka는 P1에 도입하지 않는다.
 - 실제 AWS App1 Nginx의 WebSocket Upgrade·다중 upstream·장애 처리, 고정 EC2 수동 교체와 운영 Redis의 HA·TLS·접근 제어·비밀·비용 검증은 후속 OPS다. 이 미검증은 `local` 기반 P1 채팅 구현을 막지 않는다.
 
-#### P2 운영 관측 경계 (후속 구현)
+#### P2 운영 관측 경계
 
 P2 운영 관측의 기능 규칙과 완료 기준은 [운영 관측 명세](p2/monitoring.md), 화면·경고·비용·배포 검증 정책은 [대시보드 정책](p2/dashboard.md), metric·log inventory와 운영 상태 전이·runbook은 [운영 관측 런북](guides/MONITORING_OPERATIONS.md)이 소유한다. 아래 전송 경계는 승인됐지만 아직 생산 배포에서 검증하지 않았으며, 현재 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)를 따른다.
 
@@ -678,7 +678,7 @@ P2 운영 관측의 기능 규칙과 완료 기준은 [운영 관측 명세](p2/
 - production Spring은 [ADR-0059](adr/platform/0059-p2-structured-stdout-cloudwatch-logs.md)에 따라 같은 Spring Boot Logstash 한 줄 JSON event를 stdout과 bind-mounted Agent 전용 rolling file에 함께 기록한다. Docker `json-file`과 전용 file은 각각 10MB × 5개로 sink별 최대 50MB, 두 sink 합계는 Spring container별 최대 100MB 이내로 제한 회전한다. host 전체 용량은 Spring container 수에 따른 이 합계와 다른 container·host log를 별도로 더해 산정한다. host Agent는 Docker daemon 전용 내부 파일이 아니라 전용 file의 허용 event만 CloudWatch Logs에 14일 보존한다.
 - metric·log 수집기는 제품 모듈이나 업무 데이터 정본이 아니다. 도메인 코드는 안정된 meter·event와 금지 데이터 경계를 소유하고, bridge·Agent·CloudWatch·dashboard·alarm은 인프라 adapter와 별도 인프라 저장소가 소유한다.
 
-현재 develop에는 Actuator·Micrometer meter와 production management endpoint, Docker 로그 회전 기반이 있지만 OTLP registry·Agent receiver·구조화 console·중앙 filter·retention·dashboard·alarm 구현은 없다. ADR·아키텍처 문서가 존재한다는 사실을 구현·배포·실측 완료로 해석하지 않는다.
+현재 develop에는 Actuator·Micrometer meter, production management endpoint, OTLP registry·export 설정, 구조화 console/file logging과 중앙 허용 field customizer가 구현돼 있다. 별도 인프라 저장소에는 검증용 Agent receiver·retention·dashboard·alarm과 실행 도구가 구현돼 OPS-01·OPS-02·OPS-03·OPS-05의 고정 SHA 임시 AWS 배포·실측·철거를 완료했다. 이는 상시 운영 배포를 뜻하지 않으며, OPS-04는 앱·인프라 부분 구현과 로컬 검증까지만 완료해 미배포·미측정 상태다.
 
 #### 기준 시각과 재시도
 

@@ -104,10 +104,10 @@ Stage B는 아래 두 가지만 P1 파일을 행위 보존형으로 확장하고
 
 ## 검증
 
-- 상태: 미검증
-- 근거: 없음
-- 미검증:
-    - 공유 클래스(`RedisFixedWindowDualBucketRateLimiter` 등)와 MATCH 전용 클래스, `RedisChatMessageRateLimiter`·`RedisChatRealtimeListenerConfiguration`의 행위 보존형 수정이 아직 없다. Stage B 구현·테스트로 확인한다.
-    - P1 ROOM chat의 기존 회귀 테스트가 이 확장 이후에도 그대로 통과하는지 아직 확인하지 않았다.
+- 상태: 검증됨
+- 근거:
+    - 구현: `RedisFixedWindowDualBucketRateLimiter` 공유 엔진과 MATCH 전용 rate limiter·realtime publisher/subscriber가 구현됐고, P1 ROOM chat adapter는 기존 namespace와 행위를 유지한다.
+    - H2 테스트: `RedisFixedWindowDualBucketRateLimiterTest`, `RedisChatMessageRateLimiterTest`, `RedisMatchChatMessageRateLimiterTest`가 공유 엔진과 ROOM/MATCH adapter 판정을 검증한다.
+    - PostgreSQL/Redis 테스트: `ChatMessageRateLimitProductionPostgresTest`, `MatchChatMessageRateLimitPostgresTest`, `MatchChatWebSocketCrossInstanceDeliveryPostgresTest`, `MatchChatWebSocketRestartRecoveryPostgresTest`가 P1 회귀와 MATCH 다중 인스턴스 전달을 검증한다.
 
 > 상태 값과 번호·대체 규칙은 [README](../README.md)를 따른다.

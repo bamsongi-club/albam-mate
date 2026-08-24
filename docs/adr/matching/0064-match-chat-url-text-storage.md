@@ -66,10 +66,10 @@ ADR-0062는 MATCH chat cleanup과 7일 보관을 설명하면서 `message·link`
 
 ## 검증
 
-- 상태: 미검증
+- 상태: 검증됨
 - 근거:
     - 계약: API·ERD·아키텍처·MATCH-01 제품 명세가 URL을 메시지 `content`로만 다루는 현재 계약을 각 책임 범위에서 정의한다.
-- 미검증:
-    - URL 텍스트만 저장하는 MATCH chat 생산 코드·Flyway·PostgreSQL 통합 테스트·보존 삭제 증거가 아직 없다.
+    - 구현: MATCH chat message Entity·V29 schema·command는 별도 URL·link table 없이 URL을 일반 `content`로 저장한다.
+    - PostgreSQL 테스트: `MatchChatAdapterTransactionPostgresTest`가 URL 원문 보존과 CLOSED 7일 경계를, `MatchChatPersistencePostgresTest`가 MATCH 전용 메시지 저장 구조를 검증한다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.

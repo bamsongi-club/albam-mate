@@ -73,7 +73,7 @@ docker compose --env-file .env -f compose.local.yml down
 
 ### PostgreSQL 마이그레이션 검증
 
-`postgresTest`는 빈 PostgreSQL 18.4 컨테이너에 Flyway를 적용하고 Hibernate 스키마와 PostgreSQL 전용 계약을 확인한다. 실행·실패 해석은 [PostgreSQL 검증 가이드](guides/TESTING.md#postgresql-검증-실행)를 따른다.
+`postgresTest`는 Testcontainers의 `pgvector/pgvector:pg18` 컨테이너에 Flyway를 적용하고 Hibernate 스키마, pgvector 확장과 PostgreSQL 전용 계약을 확인한다. 실행·실패 해석은 [PostgreSQL 검증 가이드](guides/TESTING.md#postgresql-검증-실행)를 따른다.
 
 PostgreSQL topology와 shard 도구만 빠르게 확인한다.
 

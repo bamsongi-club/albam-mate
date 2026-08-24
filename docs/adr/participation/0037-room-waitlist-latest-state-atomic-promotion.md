@@ -97,11 +97,9 @@ P1은 시작 전 정원이 찬 ROOM에 별도로 대기를 신청하고, 현재 
 
 ## 검증
 
-- 상태: 미검증
-- 근거: 없음
-- 미검증:
-    - 별도 버전 열 없는 대기 관계 ERD·Flyway 제약과 인덱스 확정
-    - `WAITING` 활성화의 ROOM 버전 증가·전체 요청 재시도, 조건부 상태 전이와 갱신 결과 분기, 참가 취소·자동 승격의 원자적 구현
-    - 신규 대기·재신청과 참가 취소의 두 커밋 순서, FIFO·동시 대기 취소·승격·일괄 종료의 PostgreSQL 통합 테스트
+- 상태: 검증됨
+- 근거:
+    - 구현: `ROOM_WAITLISTS` Flyway·ERD, 조건부 상태 전이 repository와 등록·취소·자동 승격 command가 별도 버전 열 없이 단일 최신 상태를 유지한다.
+    - PostgreSQL 테스트: `RoomWaitlistSchemaPostgresTest`, `RoomWaitlistRepositoryPostgresTest`, `RoomWaitlistRegistrationConcurrencyPostgresTest`, `RoomWaitlistConcurrencyPostgresTest`, `RoomRejoinPromotionConcurrencyPostgresTest`가 제약·FIFO·동시 등록/취소/승격과 원자 rollback을 검증한다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.

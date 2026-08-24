@@ -65,10 +65,11 @@ MATCH-01은 후보 탐색 p95, DB lock 대기, 재시도율, 처리량과 정합
 ## 검증
 
 - 상태: 미검증
-- 근거: 없음
+- 근거:
+    - 구현: `MatchCandidateClaimBaselineExternalRunner`와 PostgreSQL fixture, candidate/response report·comparison·integration gate validator가 구현돼 있다.
+    - 테스트: `MatchCandidateClaimBaselinePostgresTest`, `MatchCandidateClaimBaselineExternalRunnerPostgresTest`, 측정 report·gate Node 테스트가 fixture·통계·정합성 판정을 검증한다.
+    - 실행: 저장된 candidate claim과 response completion evidence는 각 측정 계약에서 채택됐고, T10 AWS 결과는 OOM으로 `INVALID` 처리한 뒤 ADR-0091에 따라 gate에서 유예했다.
 - 미검증:
-    - 사용자 인원 범위 `[2, 4]`의 `WAITING` 매칭 요청 1,000개·서버 2대 matcher의 PostgreSQL baseline runner와 fixture가 아직 없다.
-    - 후보 탐색 p95, DB lock wait, 재시도, 처리량, 중복 활성 요청·제안·성공·부분 성공 0건의 결과 파일이 없다.
-    - baseline 근거로 정한 수치 목표, 쿼리·인덱스·트랜잭션 개선 전후 비교, Redis 업무 락 필요성의 별도 ADR이 없다.
+    - 안정된 운영 인프라에서 유효한 T10 before/after를 확보하지 못해 최종 수치 목표와 Redis 업무 락 재검토 조건을 판정하지 않았다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.

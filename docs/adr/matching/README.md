@@ -11,9 +11,9 @@
 | [0061](0061-postgresql-candidate-reservation-idempotency.md) | PostgreSQL 후보 선점과 매칭 요청 멱등성 | 승인됨 | 2026-08-14 | 미검증 |
 | [0062](0062-match-chat-handoff-recovery-retention.md) | MATCH 전용 채팅 handoff·복구와 최소 보관 | 승인됨 | 2026-08-14 | 미검증 |
 | [0063](0063-match-baseline-measurement-gate.md) | MATCH 후보 탐색 성능 baseline 측정 gate | 승인됨 | 2026-08-14 | 미검증 |
-| [0064](0064-match-chat-url-text-storage.md) | MATCH 채팅 URL 텍스트를 메시지 본문에만 저장 | 승인됨 | 2026-08-15 | 미검증 |
-| [0065](0065-match-candidate-claim-baseline-scope.md) | MATCH candidate claim baseline 범위와 종합 정합성 gate | 승인됨 | 2026-08-15 | 미검증 |
-| [0067](0067-match-shared-contract-boundary.md) | MATCH 공통 모듈 공개 계약 경계와 chat 접근 오류 매핑 | 승인됨 | 2026-08-18 | 미검증 |
+| [0064](0064-match-chat-url-text-storage.md) | MATCH 채팅 URL 텍스트를 메시지 본문에만 저장 | 승인됨 | 2026-08-15 | 검증됨 |
+| [0065](0065-match-candidate-claim-baseline-scope.md) | MATCH candidate claim baseline 범위와 종합 정합성 gate | 승인됨 | 2026-08-15 | 검증됨 |
+| [0067](0067-match-shared-contract-boundary.md) | MATCH 공통 모듈 공개 계약 경계와 chat 접근 오류 매핑 | 승인됨 | 2026-08-18 | 검증됨 |
 | [0077](0077-match-no-game-player-range.md) | MATCH 게임·플랫폼 없는 인원 범위 매칭 | 승인됨 | 2026-08-18 | 미검증 |
-| [0080](0080-match-chat-p1-technical-reuse-boundary.md) | MATCH 채팅 실시간 전달의 P1 채팅 기술 기반 재사용 경계 | 승인됨 | 2026-08-19 | 미검증 |
+| [0080](0080-match-chat-p1-technical-reuse-boundary.md) | MATCH 채팅 실시간 전달의 P1 채팅 기술 기반 재사용 경계 | 승인됨 | 2026-08-19 | 검증됨 |
 | [0091](0091-match-t10-aws-measurement-deferral.md) | MATCH-01 T10 AWS 성능 측정 유예와 기능 gate 분리 | 승인됨 | 2026-08-24 | 미검증 |

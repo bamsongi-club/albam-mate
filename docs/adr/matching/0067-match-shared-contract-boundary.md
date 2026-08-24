@@ -106,10 +106,10 @@ chat 접근 판정은 `matching.contract`가 소유하는 3-way 결과 타입으
 
 ## 검증
 
-- 상태: 미검증
-- 근거: 없음
-- 미검증:
-    - 공개 계약과 구현체, 계약 테스트가 아직 없다. 결정대로 동작하는지는 [#801](https://github.com/bamsongi-club/albam-mate/issues/801)의 구현과 테스트로 확인한다.
-    - 구조 검사의 허용 패키지 등록이 아직 없어, 진행 중인 기능 갈래의 위반이 해소됐는지 확인하지 못했다.
+- 상태: 검증됨
+- 근거:
+    - 구현: `game.contract`, `user.contract`, `matching.contract`의 공개 query/DTO와 구현체, MATCH chat 접근·참가자 참조·쓰기 guard가 #801 범위로 구현돼 있다.
+    - 테스트: 각 query service 테스트와 `MatchPartyAccessQueryPostgresTest`, `MatchPartyChatWriteGuardPostgresTest`가 공개 계약의 구현·오류 경계를 검증한다.
+    - 구조: `ModuleArchitectureTest`, MATCH repository structure 테스트와 ArchUnit 허용 패키지 규칙이 모듈 간 직접 Entity·Repository 참조를 차단한다.
 
 > 상태 값과 번호·대체 규칙은 [README](../README.md)를 따른다.

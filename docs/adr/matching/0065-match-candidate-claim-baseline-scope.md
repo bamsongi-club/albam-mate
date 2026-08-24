@@ -54,10 +54,11 @@ ADR-0063은 MATCH baseline에서 후보 선점 성능과 중복·부분 성공·
 
 ## 검증
 
-- 상태: 미검증
+- 상태: 검증됨
 - 근거:
     - 계약: measurement contract가 candidate claim transaction의 fixture·metric·acceptance와 최종 상태 통합 검증의 분리 경계를 기록한다.
-- 미검증:
-    - candidate claim runner·통합 검증·결과 JSON이 아직 없고, 실제 `500`개 Proposal·`1,000`개 Member·tie 순서와 T1·T5~T7 종합 gate는 실행으로 확인하지 않았다.
+    - 구현: candidate claim PostgreSQL runner·결과 JSON report와 MATCH 통합 gate validator가 측정과 기능 정합성 evidence를 별도 입력으로 소비한다.
+    - 테스트: `MatchCandidateClaimBaselinePostgresTest`, `MatchCandidateClaimBaselineExternalRunnerPostgresTest`와 `match01-integration-gate.test.mjs`가 `500`개 Proposal·`1,000`개 Member·tie 순서와 T1·T5~T7 분리 판정을 검증한다.
+    - 실행: 저장된 candidate claim 결과와 최종 gate가 candidate evidence를 자체 기준에서 `ACCEPTED`로 판정한다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.
