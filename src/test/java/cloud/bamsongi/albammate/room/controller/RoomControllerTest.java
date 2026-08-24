@@ -358,6 +358,15 @@ class RoomControllerTest {
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
 
+		mockMvc.perform(
+			post("/api/rooms")
+				.with(csrf())
+				.with(authenticationFor(42L))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(validJsonWithNullRegion()))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
+
 		verifyNoInteractions(roomCreateService);
 	}
 
@@ -702,6 +711,10 @@ class RoomControllerTest {
 
 	private String validJsonWithoutRegion() {
 		return validJson().replace("  \"region\": \"홍대\",\n", "");
+	}
+
+	private String validJsonWithNullRegion() {
+		return validJson().replace("\"region\": \"홍대\"", "\"region\": null");
 	}
 
 	private ListAppender<ILoggingEvent> attachLogAppender() {
