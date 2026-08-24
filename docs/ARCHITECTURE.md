@@ -286,9 +286,9 @@ flowchart LR
     accessCheck --> upsert["CHAT_ROOM_READ_STATES<br/>GREATEST UPSERT"]
 ```
 
-### P2 CHAT-08 채팅 목록 실시간 갱신 흐름 (백엔드 구현·프런트 진행)
+### P2 CHAT-08 채팅 목록 실시간 갱신 흐름
 
-> 이 절은 P2 `CHAT-08`의 승인된 목표 구조다. 사용자 단위 WebSocket handshake·연결 레지스트리·참가자 팬아웃(`ChatUserWebSocketHandshakeController`·`ChatUserConnectionRegistry`·`RedisChatRoomUpdatedSubscriber`)은 `#918`이 구현·자동 검증까지 완료했다. 클라이언트 구독·재조회·재정렬은 아직 존재하지 않으며 `#919`가 소유한다. 현재 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)로만 판정한다. 제품 규칙은 [CHAT-08 명세](p2/chat.md#chat-08-채팅-목록-실시간-갱신), 채널 구조 선택 이유는 [ADR-0082](adr/chat/0082-chat-list-per-user-realtime-channel.md)가 소유한다.
+> 이 절은 P2 `CHAT-08`의 승인된 구조와 현재 구현 경계를 설명한다. 사용자 단위 WebSocket handshake·연결 레지스트리·참가자 팬아웃은 `#918`이 구현·자동 검증까지 완료했고, 클라이언트 구독·재조회·재정렬도 `#919`가 구현·프런트엔드 통합 검증까지 완료했다. 현재 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)로만 판정한다. 제품 규칙은 [CHAT-08 명세](p2/chat.md#chat-08-채팅-목록-실시간-갱신), 채널 구조 선택 이유는 [ADR-0082](adr/chat/0082-chat-list-per-user-realtime-channel.md)가 소유한다.
 
 `CHAT-08`은 기존 방별 실시간 경로(`ChatWebSocketHandler`, 방 단위 `ChatConnectionRegistry`)를 바꾸지 않고, 사용자 단위 연결과 레지스트리를 병렬로 추가한다. 메시지 커밋 뒤 `AFTER_COMMIT` 신호 발행 지점은 [CHAT-06/07 흐름](#p2-chat-06-입장퇴장-시스템-메시지-흐름)과 같은 `ChatMessageCommittedListener`이며, 이 listener가 기존 방 단위 팬아웃과 별개로 사용자 단위 팬아웃을 함께 트리거한다.
 

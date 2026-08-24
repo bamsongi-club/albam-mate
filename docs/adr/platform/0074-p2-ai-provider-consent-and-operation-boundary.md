@@ -5,7 +5,7 @@
 - 결정일: 2026-08-18
 - 관련: [#794](https://github.com/bamsongi-club/albam-mate/issues/794), [#795](https://github.com/bamsongi-club/albam-mate/issues/795), [AI-01 명세](../../p2/assistant.md), [OPS-04](../../p2/monitoring.md#ops-04-ai-사용량과-추정-비용), [ADR-0019](../game/0019-bgg-full-catalog-staged-enrichment.md)
 - 대체 대상: 없음
-- 후속 ADR: [ADR-0085](0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md) (`기본 실행·제한·비용` 중 사용자별 호출 한도와 앱 월 비용 예약·상한을 부분 대체)
+- 후속 ADR: [ADR-0085](0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md) (`기본 실행·제한·비용` 중 사용자별 호출 한도와 앱 월 비용 예약·상한을 부분 대체), [ADR-0089](0089-p2-ai-openai-default-retention-and-smoke-gate.md) (provider 보존 확인 gate를 부분 대체)
 
 ## 맥락
 

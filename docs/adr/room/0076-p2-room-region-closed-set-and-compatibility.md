@@ -67,5 +67,5 @@
   - H2 테스트: `AssistantDraftHttpIntegrationTest`가 유효 지역 입력과 누락 시 `홍대` 기본값 경계를 통과했다.
   - PostgreSQL 테스트: `AssistantDraftPostgresTest`가 region을 포함한 draft schema·confirm 경계를 통과했다.
 - 미검증:
-  - 운영 Room region 값 확인과 `CHECK` migration rollback 검증
-  - 기존 client 호환성과 운영 migration rollback 검증
+  - 운영 Room region 값 preflight와 `CHECK` migration rollback 증거
+  - first-party client의 `region` 전송 전환, 30일 누락 요청 관측과 production 구형 client 호환성
