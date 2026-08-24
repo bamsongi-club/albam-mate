@@ -210,6 +210,12 @@ test("외부 T10 raw measurement digest가 원자료 변경을 INVALID로 판정
   assert.equal(valid.rawMeasurementDigestVerified, true);
   assert.equal(evaluateCandidateBaseline(valid).outcome, "BASELINE_ACCEPTED");
 
+  const mismatchedReleaseSha = structuredClone(externalInput);
+  mismatchedReleaseSha.externalProvenance.environmentProfile.releaseSha = "b".repeat(40);
+  mismatchedReleaseSha.rawMeasurementSha256 = calculateRawMeasurementSha256(mismatchedReleaseSha);
+  const mismatchedReleaseShaReport = buildCandidateBaselineReport(mismatchedReleaseSha);
+  assert.equal(evaluateCandidateBaseline(mismatchedReleaseShaReport).outcome, "INVALID");
+
   const tampered = structuredClone(valid);
   tampered.measuredRounds[0].logicalClaims[0].durationNanos += 1;
   assert.equal(evaluateCandidateBaseline(tampered).outcome, "INVALID");

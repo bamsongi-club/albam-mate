@@ -394,6 +394,10 @@ function isExternalProvenance(provenance) {
     && /^[a-f0-9]{40}$/u.test(environmentProfile.releaseSha);
 }
 
+function hasMatchingExternalReleaseSha(provenance, measuredGitCommitSha) {
+  return provenance?.environmentProfile?.releaseSha === measuredGitCommitSha;
+}
+
 function isExternalMeasurement(report) {
   return report?.executionMode === "external";
 }
@@ -453,9 +457,11 @@ export function evaluateCandidateBaseline(report) {
 	if (report.executionMode === "local" && report.externalProvenance !== undefined) {
 		return { outcome: "INVALID", reason: "external provenance가 local report로 강등되었습니다." };
 	}
-	if (isExternalMeasurement(report) && !isExternalProvenance(report.externalProvenance)) {
-		return { outcome: "INVALID", reason: "external provenance가 완결되지 않았습니다." };
-	}
+  if (isExternalMeasurement(report)
+    && (!isExternalProvenance(report.externalProvenance)
+      || !hasMatchingExternalReleaseSha(report.externalProvenance, report.measuredGitCommitSha))) {
+    return { outcome: "INVALID", reason: "external provenance가 완결되지 않았습니다." };
+  }
   if (!report || typeof report !== "object" || !hasCompleteFixture(report.fixture)) {
     return { outcome: "INVALID", reason: "fixture input 또는 materialized manifest가 완결되지 않았습니다." };
   }
