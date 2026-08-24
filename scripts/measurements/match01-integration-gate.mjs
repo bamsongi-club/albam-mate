@@ -7,6 +7,12 @@ const CANDIDATE_EVIDENCE_ID = "MATCH-01-CANDIDATE-CLAIM";
 const INTEGRATION_EVIDENCE_IDS = ["MATCH-01-T1", "MATCH-01-T5", "MATCH-01-T6", "MATCH-01-T7"];
 const RESPONSE_EVIDENCE_ID = "MATCH-01-RESPONSE-COMPLETION";
 const CURRENT_STATE_EVIDENCE_ID = "MATCH-01-T12";
+const FUNCTIONAL_GATE_RESULT = "MATCH_01_FUNCTIONAL_GATE_ACCEPTED_WITH_T10_DEFERRED";
+const T10_EVIDENCE_ID = "MATCH-01-T10";
+const T10_DEFERRED_STATUS = "DEFERRED_BY_ADR_0091";
+const PERFORMANCE_UNVERIFIED_STATUS = "UNVERIFIED";
+const ADR_0091_PATH = "docs/adr/matching/0091-match-t10-aws-measurement-deferral.md";
+const T10_INVALID_EVIDENCE_PATH = "docs/measurements/results/match-01/candidate-claim/match-01-t10-aws-invalid-2026-08-24.md";
 const COMMIT_SHA_PATTERN = /^[0-9a-f]{40}$/u;
 const DIGEST_PATTERN = /^[0-9a-f]{64}$/u;
 const MATCH_VERIFICATION_SOURCE_PATH_PREFIXES = [
@@ -56,6 +62,65 @@ function canonicalArtifactPath(repository, relativePath) {
     throw new Error("artifact path가 repository 밖을 가리킵니다.");
   }
   return canonicalArtifact;
+}
+
+function validateGateDecision(repository, gateDecision) {
+  if (!gateDecision || gateDecision.result !== FUNCTIONAL_GATE_RESULT) {
+    return invalid(`gateDecision.result는 ${FUNCTIONAL_GATE_RESULT}이어야 합니다.`);
+  }
+  if (gateDecision.performanceStatus !== PERFORMANCE_UNVERIFIED_STATUS) {
+    return invalid("T10 유예 기능 gate의 performanceStatus는 UNVERIFIED여야 합니다.");
+  }
+  if (!Array.isArray(gateDecision.deferredTests) || gateDecision.deferredTests.length !== 1) {
+    return invalid("gateDecision.deferredTests에는 T10 유예 항목이 정확히 하나 필요합니다.");
+  }
+
+  const [deferredTest] = gateDecision.deferredTests;
+  if (deferredTest?.testId !== T10_EVIDENCE_ID
+    || deferredTest.status !== T10_DEFERRED_STATUS
+    || deferredTest.adrPath !== ADR_0091_PATH
+    || deferredTest.invalidEvidencePath !== T10_INVALID_EVIDENCE_PATH
+    || !DIGEST_PATTERN.test(deferredTest.adrGitCanonicalBlobSha256)
+    || !DIGEST_PATTERN.test(deferredTest.adrArtifactSha256)
+    || !DIGEST_PATTERN.test(deferredTest.invalidEvidenceGitCanonicalBlobSha256)
+    || !DIGEST_PATTERN.test(deferredTest.invalidEvidenceArtifactSha256)) {
+    return invalid("T10 유예 항목이 ADR-0091과 보존된 INVALID evidence를 정확히 가리켜야 합니다.");
+  }
+
+  try {
+    const documents = [
+      {
+        label: "ADR-0091",
+        path: deferredTest.adrPath,
+        gitCanonicalBlobSha256: deferredTest.adrGitCanonicalBlobSha256,
+        artifactSha256: deferredTest.adrArtifactSha256,
+      },
+      {
+        label: "T10 INVALID evidence",
+        path: deferredTest.invalidEvidencePath,
+        gitCanonicalBlobSha256: deferredTest.invalidEvidenceGitCanonicalBlobSha256,
+        artifactSha256: deferredTest.invalidEvidenceArtifactSha256,
+      },
+    ];
+    for (const document of documents) {
+      const artifactBytes = readFileSync(canonicalArtifactPath(repository, document.path));
+      const blobBytes = gitBlobBytes(repository, document.path);
+      const artifactSha256 = sha256(artifactBytes);
+      const gitCanonicalBlobSha256 = sha256(blobBytes);
+      if (gitCanonicalBlobSha256 !== document.gitCanonicalBlobSha256) {
+        return invalid(`${document.label} Git blob SHA-256이 일치하지 않습니다.`);
+      }
+      if (artifactSha256 !== document.artifactSha256) {
+        return invalid(`${document.label} artifact SHA-256이 일치하지 않습니다.`);
+      }
+      if (artifactSha256 !== gitCanonicalBlobSha256) {
+        return invalid(`${document.label} artifact가 Git canonical blob과 일치하지 않습니다.`);
+      }
+    }
+  } catch (error) {
+    return invalid(`T10 유예 근거 파일을 확인할 수 없습니다: ${error.message}`);
+  }
+  return { outcome: "ACCEPTED" };
 }
 
 function gitBlobBytes(repository, relativePath) {
@@ -182,6 +247,9 @@ function validateShape(gate) {
   if (!gate || !COMMIT_SHA_PATTERN.test(gate.measuredGitCommitSha)) {
     return invalid("gate measuredGitCommitSha는 40자 소문자 Git SHA여야 합니다.");
   }
+  if (!gate.gateDecision) {
+    return invalid("ADR-0091 기능 gate 판정이 없습니다.");
+  }
   if (!Array.isArray(gate.integrationEvidence) || gate.integrationEvidence.length !== INTEGRATION_EVIDENCE_IDS.length) {
     return invalid("candidate gate에는 T1·T5·T6·T7 evidence가 정확히 하나씩 필요합니다.");
   }
@@ -213,6 +281,10 @@ export function evaluateIntegrationGate(repository, gate) {
   const shape = validateShape(gate);
   if (shape.outcome !== "ACCEPTED") {
     return shape;
+  }
+  const gateDecision = validateGateDecision(repository, gate.gateDecision);
+  if (gateDecision.outcome !== "ACCEPTED") {
+    return gateDecision;
   }
   try {
     gitCommitExists(repository, gate.measuredGitCommitSha);
@@ -256,7 +328,12 @@ export function evaluateIntegrationGate(repository, gate) {
       failed = result;
     }
   }
-  return failed ?? { outcome: "ACCEPTED" };
+  return failed ?? {
+    outcome: "ACCEPTED",
+    result: gate.gateDecision.result,
+    performanceStatus: gate.gateDecision.performanceStatus,
+    deferredTestIds: gate.gateDecision.deferredTests.map(({ testId }) => testId),
+  };
 }
 
 function main() {
