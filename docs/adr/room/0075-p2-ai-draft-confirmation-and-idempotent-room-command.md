@@ -80,8 +80,8 @@
 
 ## 검증
 
-- 상태: 미검증
-- 근거: 없음
-- 미검증:
-  - 초안·멱등 record schema, migration, row lock/version과 동시 confirm 테스트
-  - 공개 API·오류 응답·기존 Room 생성 회귀 검증
+- 상태: 검증됨
+- 근거:
+  - 구현: 초안 schema·멱등 record migration, 만료·row lock/version, Room·ChatRoom 동기 handoff와 rollback 경계가 구현돼 있다.
+  - H2 테스트: `AssistantDraftHttpIntegrationTest`, `AssistantDraftFeatureGateIntegrationTest`, `AssistantDraftRollbackIntegrationTest`가 공개 API·오류·feature gate·멱등·rollback 경계를 통과했다.
+  - PostgreSQL 테스트: `AssistantDraftPostgresTest`가 schema 제약과 동시 confirm에서 하나의 Room·ChatRoom 결과로 수렴하는 경계를 통과했다.

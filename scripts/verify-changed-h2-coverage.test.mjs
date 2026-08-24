@@ -114,7 +114,7 @@ test('변경된 프로덕션 패키지가 없으면 전체 최소선 미달도 �
     });
 
     assert.deepEqual(result.problems, []);
-    assert.equal(result.globalChecked, false);
+    assert.deepEqual(result.checkedPackages, []);
 });
 
 test('H2 전용 최소선은 합산 LINE 기준보다 낮은 현재 baseline을 별도 래칫으로 지킨다', () => {
@@ -139,6 +139,26 @@ test('H2 전용 branch 또는 line baseline 미달은 변경 패키지와 함께
     assert.equal(result.problems.length, 2);
     assert.match(result.problems[0], /H2 전체 BRANCH.*70\.00%.*72\.00%/u);
     assert.match(result.problems[1], /H2 전체 LINE.*86\.00%.*86\.50%/u);
+});
+
+test('개별 branch 규칙이 없는 변경 패키지는 전역 LINE 최소선을 패키지 단위로 적용한다', () => {
+    const result = verifyChangedH2Coverage({
+        buildFileText: buildFile,
+        reportXml: [
+            '<?xml version="1.0" encoding="UTF-8"?>',
+            '<report name="test">',
+            packageXml('example.dto', { branchMissed: 1, branchCovered: 9 }),
+            packageXml('example.database', { branchMissed: 9, branchCovered: 1 }),
+            packageXml('example.contract', { branchMissed: 1, branchCovered: 1, lineMissed: 2, lineCovered: 8 }),
+            '<counter type="BRANCH" missed="10" covered="90"/>',
+            '<counter type="LINE" missed="5" covered="95"/>',
+            '</report>',
+        ].join(''),
+        changedPackages: ['example.contract'],
+    });
+
+    assert.equal(result.problems.length, 1);
+    assert.match(result.problems[0], /example\.contract LINE.*80\.00%.*92\.00%/u);
 });
 
 function createGitWorktree(t) {
