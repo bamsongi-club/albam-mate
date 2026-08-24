@@ -24,6 +24,7 @@ import java.util.Locale;
 
 import javax.sql.DataSource;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -206,6 +207,7 @@ class StructuredSparseCandidateSourcePostgresTest extends SharedPostgresIntegrat
 	}
 
 	@Test
+	@Tag("measurement")
 	@Transactional(propagation = Propagation.NOT_SUPPORTED)
 	void T5_승인된_십칠만오건_fixture에서_migration_전후_sparse_실행계획과_육초_deadline을_측정한다() throws Exception {
 		Path fixture = Path.of(requiredIssue1053Fixture());
@@ -229,7 +231,9 @@ class StructuredSparseCandidateSourcePostgresTest extends SharedPostgresIntegrat
 
 			String baselinePlan = explainSparseServingSql("rejuvenation", false);
 			List<Double> baselineMillis = measureSparseServingSql("rejuvenation");
+			long migrationStartedAtNanos = System.nanoTime();
 			applySparseIndexMigration();
+			double migrationMillis = (System.nanoTime() - migrationStartedAtNanos) / 1_000_000.0;
 			String candidatePlan = explainSparseServingSql("rejuvenation", false);
 			List<Double> candidateMillis = measureSparseServingSql("rejuvenation");
 			String shortTokenPlan = explainSparseServingSql("게임", false);
@@ -253,8 +257,9 @@ class StructuredSparseCandidateSourcePostgresTest extends SharedPostgresIntegrat
 			assertTrue(max(shortTokenMillis) < Duration.ofSeconds(6).toMillis(),
 				"short-token max=" + max(shortTokenMillis));
 			System.out.printf(Locale.ROOT,
-				"ISSUE_1053_T5 fixtureSha256=%s rows=%d baselineMs=%s baselineP50=%.3f baselineP95=%.3f baselineMax=%.3f candidateMs=%s candidateP50=%.3f candidateP95=%.3f candidateMax=%.3f shortTokenMs=%s shortTokenP50=%.3f shortTokenP95=%.3f shortTokenMax=%.3f%n",
-				ISSUE_1053_FIXTURE_SHA256, ISSUE_1053_CATALOG_ROWS, baselineMillis, percentile50(baselineMillis),
+				"ISSUE_1053_T5 fixtureSha256=%s rows=%d migrationMs=%.3f baselineMs=%s baselineP50=%.3f baselineP95=%.3f baselineMax=%.3f candidateMs=%s candidateP50=%.3f candidateP95=%.3f candidateMax=%.3f shortTokenMs=%s shortTokenP50=%.3f shortTokenP95=%.3f shortTokenMax=%.3f%n",
+				ISSUE_1053_FIXTURE_SHA256, ISSUE_1053_CATALOG_ROWS, migrationMillis, baselineMillis,
+				percentile50(baselineMillis),
 				percentile95(baselineMillis), max(baselineMillis), candidateMillis, percentile50(candidateMillis),
 				percentile95(candidateMillis), max(candidateMillis), shortTokenMillis, percentile50(shortTokenMillis),
 				percentile95(shortTokenMillis), max(shortTokenMillis));

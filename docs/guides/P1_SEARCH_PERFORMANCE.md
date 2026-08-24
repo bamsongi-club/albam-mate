@@ -67,10 +67,12 @@ P2의 `StructuredSparseCandidateSource`는 게임명·영문명·별칭과 설�
 승인된 170,005건 artifact에서 migration 전후 `EXPLAIN (ANALYZE, BUFFERS)`를 확인하고, 3글자 이상 대표 query와 2글자 대표 query의 candidate sparse 호출 5회 p50·p95·max가 공통 6초 deadline 안에 있는지 함께 측정한다. 이 artifact 측정은 P1 2,000건 fixture 및 기존 live evidence와 별도이며, 일반 CI에서 대규모 artifact 경로가 없으면 T5를 실행하지 않는다. 로컬 재현은 승인 artifact의 `01-games-full.sql` 경로를 지정한다.
 
 ```sh
-ISSUE1053_FIXTURE=/path/to/approved/01-games-full.sql ./gradlew postgresTest \
+ISSUE1053_FIXTURE=/path/to/approved/01-games-full.sql ./gradlew postgresMeasurementTest \
   --tests 'cloud.bamsongi.albammate.infra.search.StructuredSparseCandidateSourcePostgresTest.T5_승인된_십칠만오건_fixture에서_migration_전후_sparse_실행계획과_육초_deadline을_측정한다' \
   --rerun --fail-fast
 ```
+
+T5는 `@Tag("measurement")`가 붙은 대용량 wall-clock 측정이므로 `postgresMeasurementTest`에서만 실행한다. V39의 일반 `CREATE INDEX` 적용 시간과 쓰기 잠금 경계는 같은 승인 fixture 측정 기록에 남기며, 이 수치는 production 무중단 보장을 의미하지 않는다.
 
 마이그레이션·검색 계약 회귀는 17만 건 성능 측정과 분리해 다음 명령으로 확인한다.
 
