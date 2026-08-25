@@ -1,4 +1,4 @@
-import defaultGameCover from '../../assets/default-game-cover.jpg';
+import defaultGameCover from '../../assets/default-game-cover.png';
 
 export const GAME_SEARCH_PAGE_SIZE = 10;
 export const GAME_LIST_PAGE_SIZE = 24;
