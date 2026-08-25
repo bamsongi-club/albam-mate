@@ -1,6 +1,6 @@
 import React from 'react';
 import { playerColor, playerTextColor } from './players';
-import defaultGameCover from '../../assets/default-game-cover.jpg';
+import defaultGameCover from '../../assets/default-game-cover.png';
 
 // 로고는 인라인 SVG 단색 마크 한 벌만 쓴다. 로고 전용 서체는 쓰지 않는다.
 export function BrandMark({ size = 32, tone = '#0A0A0A', hole = '#fff' }) {
