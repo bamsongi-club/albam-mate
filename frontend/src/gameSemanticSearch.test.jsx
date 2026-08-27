@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const getGames = vi.fn();
@@ -34,6 +34,34 @@ const SEARCH_HIT = {
   size: 24,
   hasNext: false
 };
+const SEARCH_FIRST_PAGE = {
+  ...SEARCH_HIT,
+  content: [{ ...SEARCH_HIT.content[0], name: '검색 첫 번째 게임' }],
+  hasNext: true
+};
+const SEARCH_NEXT_PAGE = {
+  ...SEARCH_HIT,
+  content: [{ ...SEARCH_HIT.content[0], id: 2, name: '검색 두 번째 게임' }],
+  page: 1,
+  hasNext: false
+};
+
+class FakeIntersectionObserver {
+  static instances = [];
+
+  constructor(callback) {
+    this.callback = callback;
+    FakeIntersectionObserver.instances.push(this);
+  }
+
+  observe() {}
+
+  disconnect() {}
+
+  trigger(isIntersecting = true) {
+    this.callback([{ isIntersecting }]);
+  }
+}
 
 async function renderGamesView(gameQuery = '') {
   const onGameQueryChange = vi.fn();
@@ -65,6 +93,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
 });
 
 describe('T1 검색어 없이 열면 기존 인기순 목록을 그대로 쓴다', () => {
@@ -147,13 +176,26 @@ describe('T6 필터·검색어 없는 상태의 전체 페이지 수 기반 번�
   });
 });
 
-describe('T7 검색·필터가 걸린 상태의 이전/다음 방식 유지', () => {
-  it('검색어가 있어 totalPages가 없는 응답은 페이지 번호 버튼 없이 이전/다음 방식을 쓴다', async () => {
-    getGameSearch.mockResolvedValue({ ...SEARCH_HIT, hasNext: true });
+describe('T7 검색 결과 무한 로딩', () => {
+  it('검색 결과는 하단 감지 시 다음 Slice를 이어 붙이고 페이지 이동 UI를 표시하지 않는다', async () => {
+    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
+    FakeIntersectionObserver.instances = [];
+    getGameSearch.mockImplementation(({ page }) => Promise.resolve(page === 0 ? SEARCH_FIRST_PAGE : SEARCH_NEXT_PAGE));
     await renderGamesView('가족과 짧게 할 협력 게임');
 
-    expect(screen.queryByRole('button', { name: '2' })).toBeNull();
-    expect(screen.getByRole('button', { name: '다음 페이지' })).toBeTruthy();
+    await waitFor(() => expect(FakeIntersectionObserver.instances).toHaveLength(1));
+    expect(screen.getByText('검색 첫 번째 게임')).toBeTruthy();
+    expect(screen.queryByRole('navigation', { name: '페이지 이동' })).toBeNull();
+
+    await act(async () => { FakeIntersectionObserver.instances[0].trigger(); });
+
+    await waitFor(() => expect(screen.getByText('검색 두 번째 게임')).toBeTruthy());
+    expect(getGameSearch).toHaveBeenLastCalledWith(
+      expect.objectContaining({ query: '가족과 짧게 할 협력 게임', page: 1, size: 24 }),
+      expect.anything()
+    );
+    expect(screen.getByText('검색 첫 번째 게임')).toBeTruthy();
+    expect(screen.queryByRole('navigation', { name: '페이지 이동' })).toBeNull();
   });
 });
 
