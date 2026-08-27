@@ -1,0 +1,151 @@
+id,query,source,origin
+Q001,"트릭테이킹 방식의 협력 게임 중 3인 이상 플레이 가능한 게임",existing_fixture,development-seed/Q-001
+Q002,"4명이 모두 초보여도 쉽게 즐길 수 있는 재미있는 파티 게임",existing_fixture,development-seed/Q-002
+Q003,"일꾼 놓기 게임 중 4인 플레이가 가능하고 플레이타임이 30분 이하인 게임",existing_fixture,development-seed/Q-003
+Q004,"스페이스크루",existing_fixture,development-seed/Q-004
+Q005,"Deep Sea Crew",existing_fixture,development-seed/Q-005
+Q006,"하나비게임",existing_fixture,development-seed/Q-006
+Q007,"더마인드",existing_fixture,development-seed/Q-007
+Q008,"코드네임즈",existing_fixture,development-seed/Q-008
+Q009,"세븐원더스",existing_fixture,development-seed/Q-009
+Q010,"협력하면서 트릭을 따는 카드 게임",existing_fixture,development-seed/Q-010
+Q011,"팀으로 규칙을 맞춰 가는 트릭테이킹 게임",existing_fixture,development-seed/Q-011
+Q012,"실수해도 함께 복구할 수 있는 협력 카드 게임",existing_fixture,development-seed/Q-012
+Q013,"넷이서 빠르게 끝낼 수 있는 일꾼 놓기 게임 추천해줘",existing_fixture,development-seed/Q-013
+Q014,"일꾼을 배치하는 방식인데 4인용이고 30분 안에 끝나는 게임 있어?",existing_fixture,development-seed/Q-014
+Q015,"4명이서 짧게 즐기는 워커 플레이스먼트 게임",existing_fixture,development-seed/Q-015
+Q016,"가볍게 웃으면서 즐길 수 있는 게임",existing_fixture,dense-bge-m3/Q-010
+Q017,"상대의 반응을 살피며 서로 눈치를 보는 재미가 있는 게임",existing_fixture,dense-bge-m3/Q-011
+Q018,"보드게임을 처음 하는 초보자와도 부담 없이 시작할 수 있는 게임",existing_fixture,dense-bge-m3/Q-012
+Q019,"서로의 말을 들으면서 누가 거짓말하고 있는지 의심하고 추리하는 게임",existing_fixture,semantic-30-v1/Q-001
+Q020,"그림이나 짧은 단서를 보고 다른 사람이 무슨 생각을 했는지 맞혀 가는 게임",existing_fixture,semantic-30-v1/Q-002
+Q021,"처음 하는 사람도 금방 이해하고 자연스럽게 웃고 떠들 수 있는 게임",existing_fixture,semantic-30-v1/Q-003
+Q022,"모두가 동시에 결정을 내려서 다른 사람이 무엇을 고를지 예상하는 재미가 있는 게임",existing_fixture,semantic-30-v1/Q-004
+Q023,"처음에는 할 수 있는 일이 적지만 플레이할수록 내 선택지와 능력이 점점 강해지는 게임",existing_fixture,semantic-30-v1/Q-005
+Q024,"한정된 행동 기회를 서로 먼저 차지하려고 경쟁해서 매 차례 계획을 바꿔야 하는 게임",existing_fixture,semantic-30-v1/Q-006
+Q025,"내가 하나를 선택하면 남은 선택지가 다른 사람에게 넘어가서 무엇을 남길지도 고민하게 되는 게임",existing_fixture,semantic-30-v1/Q-007
+Q026,"각자 잘하는 일이 다른 캐릭터를 맡아 힘을 합쳐 하나의 목표를 해결하는 게임",existing_fixture,semantic-30-v1/Q-008
+Q027,"서로 가진 정보를 나누고 의견을 맞춰야만 문제를 해결할 수 있는 협력 게임",existing_fixture,semantic-30-v1/Q-009
+Q028,"더 큰 보상을 노리고 계속 진행할지 지금 얻은 것을 지킬지 매번 고민하게 되는 게임",existing_fixture,semantic-30-v1/Q-010
+Q029,"필요한 것을 서로 교환하고 설득하면서 거래 조건을 만들어 가는 게임",existing_fixture,semantic-30-v1/Q-011
+Q030,"중요한 지역을 서로 차지하고 빼앗으면서 판 위의 주도권이 계속 바뀌는 게임",existing_fixture,semantic-30-v1/Q-012
+Q031,"상대가 다음에 무엇을 할지 읽어야 하고 작은 선택 하나가 승부에 크게 영향을 주는 게임",existing_fixture,semantic-30-v1/Q-013
+Q032,"흩어진 단서를 하나씩 연결해서 정답이나 사건의 전모를 밝혀내는 게임",existing_fixture,semantic-30-v1/Q-014
+Q033,"게임을 진행하면서 이야기가 이어지고 내가 내린 선택에 따라 이후 상황이 달라지는 게임",existing_fixture,semantic-30-v1/Q-015
+Q034,"조각이나 타일을 어디에 놓느냐에 따라 공간을 효율적으로 채우는 방법을 고민하는 게임",existing_fixture,semantic-30-v1/Q-016
+Q035,"서로 관련 있는 것들을 모아 조합을 완성할수록 더 많은 점수를 얻는 게임",existing_fixture,semantic-30-v1/Q-017
+Q036,"내가 가진 것이 좋은지 나쁜지 숨기면서 상대가 믿거나 포기하도록 유도하는 게임",existing_fixture,semantic-30-v1/Q-018
+Q037,"초반에 뒤처지더라도 한두 번의 좋은 판단으로 다시 따라잡을 기회가 있는 게임",existing_fixture,semantic-30-v1/Q-019
+Q038,"다른 사람을 직접 공격하기보다는 각자 계획을 발전시키면서 은근히 경쟁하는 게임",existing_fixture,semantic-30-v1/Q-020
+Q039,"서로 직접 싸우지는 않는데도 다른 사람의 선택 때문에 계속 긴장하게 되는 게임",existing_fixture,semantic-30-v1/Q-021
+Q040,"혼자 조용히 생각하는 것보다 플레이하는 동안 계속 이야기하고 반응하는 재미가 큰 게임",existing_fixture,semantic-30-v1/Q-022
+Q041,"규칙은 금방 배울 수 있지만 몇 번 해볼수록 더 깊은 선택이 보이는 게임",existing_fixture,semantic-30-v1/Q-023
+Q042,"한 사람이 실수해도 바로 망하지 않고 서로 도와서 다시 상황을 풀어갈 수 있는 게임",existing_fixture,semantic-30-v1/Q-024
+Q043,"내가 알고 있는 정보를 전부 말할 수 없어서 서로의 의도를 눈치로 맞춰야 하는 협력 게임",existing_fixture,semantic-30-v1/Q-025
+Q044,"네 명이서 30분 이내에 끝내고 처음 하는 사람도 부담 없이 즐길 수 있는 파티 게임",existing_fixture,semantic-30-v1/Q-026
+Q045,"세 명 이상이 45분 안에 함께 목표를 해결할 수 있는 협력 게임",existing_fixture,semantic-30-v1/Q-027
+Q046,"두세 명이 30분 이내에 즐기면서 서로 정보를 주고받는 것이 중요한 게임",existing_fixture,semantic-30-v1/Q-028
+Q047,"다섯 명 이상이 30분 이내에 즐길 수 있고 사람들끼리 많이 이야기하며 웃을 수 있는 게임",existing_fixture,semantic-30-v1/Q-029
+Q048,"두 명이 한 시간 안에 즐길 수 있고 규칙은 어렵지 않지만 생각할 거리는 충분한 전략 게임",existing_fixture,semantic-30-v1/Q-030
+Q049,"일꾼 놓고 밥 먹이는 게임",existing_regression,live-regression/STONE-01
+Q050,"일꾼 배치하고 식량으로 부족을 부양하는 게임",existing_regression,live-regression/STONE-02
+Q051,"place workers and feed your population",existing_regression,live-regression/STONE-03
+Q052,"worker placement and food management game",existing_regression,live-regression/STONE-04
+Q053,"게임",existing_regression,live-regression/COMMON-01
+Q054,"game",existing_regression,live-regression/COMMON-02
+Q055,"플레이어",existing_regression,live-regression/COMMON-03
+Q056,"카드 게임",existing_regression,live-regression/COMMON-04
+Q057,"스페이스크루 규칙 다시 찾기",synthetic,synthetic/v1
+Q058,"deep sea crew 한국어로 뭐라고 검색해야 해",synthetic,synthetic/v1
+Q059,"하나비게임 이름이 맞나?",synthetic,synthetic/v1
+Q060,"더 마인드 비슷한 카드게임",synthetic,synthetic/v1
+Q061,"코드네임즈 같은 팀 게임",synthetic,synthetic/v1
+Q062,"세븐원더스 4인 가능?",synthetic,synthetic/v1
+Q063,"Stone Age",synthetic,synthetic/v1
+Q064,"Lost Cities",synthetic,synthetic/v1
+Q065,"리코셰 로봇",synthetic,synthetic/v1
+Q066,"Rummikub",synthetic,synthetic/v1
+Q067,"워커 플레이스맨트 게임 이름이 생각 안나요",synthetic,synthetic/v1
+Q068,"예전에 하던 타일 놓는 게임인데 이름을 모르겠어요",synthetic,synthetic/v1
+Q069,"영문 제목에 crew 들어가는 협력 카드게임",synthetic,synthetic/v1
+Q070,"이름이 한 단어였던 추리 보드게임",synthetic,synthetic/v1
+Q071,"카드로 도시를 만드는 게임 이름 찾기",synthetic,synthetic/v1
+Q072,"스톤에이지?",synthetic,synthetic/v1
+Q073,"카르카손 비슷한 게임",synthetic,synthetic/v1
+Q074,"catan 같은 게임",synthetic,synthetic/v1
+Q075,"Bohnanza 한글 이름",synthetic,synthetic/v1
+Q076,"게임명이 기억 안 나는데 배를 타고 가는 보드게임",synthetic,synthetic/v1
+Q077,"일꾼 놓기 말고 액션을 먼저 선택하는 게임",synthetic,synthetic/v1
+Q078,"카드를 여러 용도로 쓰는 게임",synthetic,synthetic/v1
+Q079,"주사위 굴린 뒤 결과를 다시 굴릴 수 있는 게임",synthetic,synthetic/v1
+Q080,"덱을 직접 만들어 가는 게임",synthetic,synthetic/v1
+Q081,"타일을 이어 붙여 길을 만드는 게임",synthetic,synthetic/v1
+Q082,"경매에서 서로 가격을 올리는 게임",synthetic,synthetic/v1
+Q083,"카드 드래프팅 방식",synthetic,synthetic/v1
+Q084,"세트 컬렉션 게임 추천",synthetic,synthetic/v1
+Q085,"지역을 차지하고 영향력을 겨루는 게임",synthetic,synthetic/v1
+Q086,"hidden role 있는 보드게임",synthetic,synthetic/v1
+Q087,"내 차례에 할 일을 고르는 게 아니라 동시에 정하는 게임",synthetic,synthetic/v1
+Q088,"내가 고른 것을 다음 사람은 못 고르게 되는 게임",synthetic,synthetic/v1
+Q089,"자원 모아서 건물이나 길을 확장하는 게임",synthetic,synthetic/v1
+Q090,"카드 순서를 바꾸지 못해서 계획을 세워야 하는 게임",synthetic,synthetic/v1
+Q091,"상대가 뭘 낼지 보고 내 선택을 바꾸는 게임",synthetic,synthetic/v1
+Q092,"주사위 운을 감수하고 더 욕심내는 게임",synthetic,synthetic/v1
+Q093,"점수 대신 지역을 연결하는 게 중요한 게임",synthetic,synthetic/v1
+Q094,"한 판마다 맵이 달라지는 게임",synthetic,synthetic/v1
+Q095,"라운드마다 역할이 바뀌는 게임",synthetic,synthetic/v1
+Q096,"규칙서 없이도 바로 해볼 수 있는 보드게임",synthetic,synthetic/v1
+Q097,"서로 상의하면서 공동 목표를 달성하는 게임",synthetic,synthetic/v1
+Q098,"팀 안에서 의논을 많이 해야 하는 게임",synthetic,synthetic/v1
+Q099,"친구를 속이거나 거짓말을 잡아내는 게임",synthetic,synthetic/v1
+Q100,"배신자가 섞여 있는 협력 게임",synthetic,synthetic/v1
+Q101,"거래하고 흥정하는 재미가 큰 게임",synthetic,synthetic/v1
+Q102,"직접 공격 없이 경쟁하는 게임",synthetic,synthetic/v1
+Q103,"한 사람의 선택이 모두에게 영향을 주는 게임",synthetic,synthetic/v1
+Q104,"서로 눈치 보며 동시에 카드를 내는 게임",synthetic,synthetic/v1
+Q105,"실수해도 탈락하지 않는 협력 게임",synthetic,synthetic/v1
+Q106,"말을 많이 해야 잘 풀리는 게임",synthetic,synthetic/v1
+Q107,"가볍고 웃긴 게임",synthetic,synthetic/v1
+Q108,"긴장감 있지만 너무 무겁지 않은 게임",synthetic,synthetic/v1
+Q109,"조용히 생각하는 맛이 있는 게임",synthetic,synthetic/v1
+Q110,"운보다 전략이 중요한 게임",synthetic,synthetic/v1
+Q111,"한 판이 끝나도 다시 하고 싶은 게임",synthetic,synthetic/v1
+Q112,"초보에게 설명하기 쉬운 게임",synthetic,synthetic/v1
+Q113,"보드게임 처음인 사람 5분 안에 가르칠 수 있는 게임",synthetic,synthetic/v1
+Q114,"아이와 같이 해도 규칙이 복잡하지 않은 게임",synthetic,synthetic/v1
+Q115,"실력 차이가 나도 덜 억울한 게임",synthetic,synthetic/v1
+Q116,"계속 선택할 게 많아서 지루하지 않은 게임",synthetic,synthetic/v1
+Q117,"우주를 탐험하는 보드게임",synthetic,synthetic/v1
+Q118,"중세 도시를 건설하는 게임",synthetic,synthetic/v1
+Q119,"바다와 항해가 배경인 게임",synthetic,synthetic/v1
+Q120,"고대 문명 테마 게임",synthetic,synthetic/v1
+Q121,"판타지 모험하는 게임",synthetic,synthetic/v1
+Q122,"정치나 협상 테마가 있는 게임",synthetic,synthetic/v1
+Q123,"농장이나 자원 생산이 나오는 게임",synthetic,synthetic/v1
+Q124,"탐정처럼 단서를 모으는 추리 게임",synthetic,synthetic/v1
+Q125,"이야기가 이어지는 캠페인 게임",synthetic,synthetic/v1
+Q126,"전쟁 지도에서 부대를 움직이는 게임",synthetic,synthetic/v1
+Q127,"2명이서 20분 안에 끝나는 게임",synthetic,synthetic/v1
+Q128,"3~4명이서 45분 이하",synthetic,synthetic/v1
+Q129,"5명 이상이 할 수 있는 짧은 게임",synthetic,synthetic/v1
+Q130,"7세 이상 아이와 할 게임",synthetic,synthetic/v1
+Q131,"두 명부터 네 명까지 60분 안쪽",synthetic,synthetic/v1
+Q132,"4인 고정으로 30분 이하",synthetic,synthetic/v1
+Q133,"1인도 가능한 게임",synthetic,synthetic/v1
+Q134,"6명에서 할 수 있는 파티게임",synthetic,synthetic/v1
+Q135,"90분 넘지 않는 전략 게임",synthetic,synthetic/v1
+Q136,"플레이어 3명, 최대 30분, 협력",synthetic,synthetic/v1
+Q137,"연인 둘이서 주말에 할 게임",synthetic,synthetic/v1
+Q138,"친구들 처음 만난 자리에서 어색하지 않게 할 게임",synthetic,synthetic/v1
+Q139,"부모님과 같이 할 수 있는 게임",synthetic,synthetic/v1
+Q140,"초등학생 포함 가족 모임용",synthetic,synthetic/v1
+Q141,"여섯 명 모인 파티에서 말 많이 하는 게임",synthetic,synthetic/v1
+Q142,"혼자 퇴근 후 30분 즐길 게임",synthetic,synthetic/v1
+Q143,"보드게임 모임에서 다음 게임으로 추천할 만한 것",synthetic,synthetic/v1
+Q144,"작은 테이블에서 할 수 있는 게임",synthetic,synthetic/v1
+Q145,"4명이서 30분 안에 초보자도 할 수 있는 협력 게임",synthetic,synthetic/v1
+Q146,"2인용이고 60분 이내인데 운보다 생각하는 게임",synthetic,synthetic/v1
+Q147,"6명이 45분 안에 처음 온 사람도 참여하는 파티 게임",synthetic,synthetic/v1
+Q148,"아이랑 가족끼리 45분 안에 할 수 있는 쉬운 타일 게임",synthetic,synthetic/v1
+Q149,"tile placement 3-4 players under 45 minutes",synthetic,synthetic/v1
+Q150,"3명 이상 90분 이내에 이야기와 협력이 함께 있는 게임",synthetic,synthetic/v1

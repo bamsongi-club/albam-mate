@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 1,
+  "kind": "search-04-taxonomy-discovery-corpus",
+  "taxonomyVersion": "search-04-taxonomy-v1",
+  "status": "draft-discovery",
+  "queryCount": 150,
+  "annotationCount": 150,
+  "taxonomyIds": [
+    "TITLE_EXACT",
+    "TITLE_RECOVERY",
+    "REFERENCE_SIMILARITY",
+    "MECHANIC_RULE",
+    "THEME_CONTENT",
+    "INTERACTION_MODE",
+    "PLAY_EXPERIENCE",
+    "ACCESSIBILITY",
+    "STRUCTURED_FIT",
+    "OCCASION_CONTEXT",
+    "OPEN_DISCOVERY"
+  ],
+  "artifacts": {
+    "queries": {
+      "path": "queries.csv",
+      "sha256": "7da7e880f7cda380a171a3b62ddb4efcfa88f7abfe53e7e516fd6ed4873394f3",
+      "rowCount": 150
+    },
+    "annotations": {
+      "path": "annotations.csv",
+      "sha256": "37ab07b6ed98381b45641aa192128c88df4cee11ddfe259094575fa4ce44453e",
+      "rowCount": 150
+    },
+    "taxonomy": {
+      "path": "taxonomy.md",
+      "sha256": "0af960293dd0e44131e3fedceaf4b0b07f727ec80976f7a2e8f5ba80e758c39c"
+    }
+  },
+  "coverage": {
+    "primaryDistribution": {
+      "MECHANIC_RULE": 37,
+      "INTERACTION_MODE": 30,
+      "OCCASION_CONTEXT": 13,
+      "TITLE_EXACT": 12,
+      "THEME_CONTENT": 11,
+      "STRUCTURED_FIT": 11,
+      "PLAY_EXPERIENCE": 10,
+      "TITLE_RECOVERY": 10,
+      "ACCESSIBILITY": 8,
+      "OPEN_DISCOVERY": 4,
+      "REFERENCE_SIMILARITY": 4
+    },
+    "sourceDistribution": {
+      "existing_fixture": 48,
+      "existing_regression": 8,
+      "synthetic": 94
+    },
+    "answerabilityDistribution": {
+      "DIRECT_CATALOG": 12,
+      "PARTIAL_TITLE_CATALOG": 10,
+      "REFERENCE_QRELS": 4,
+      "CATALOG_METADATA_PLUS_QRELS": 28,
+      "STRUCTURED_CHECKABLE_PLUS_QRELS": 24,
+      "HUMAN_QRELS": 66,
+      "CLARIFY_FIRST": 4,
+      "NOT_REPRESENTED": 2
+    },
+    "multiLabelCount": 83,
+    "ambiguousCount": 48,
+    "outlierCount": 4
+  },
+  "catalogReality": {
+    "releaseId": "bgg-catalog-170k-v5-2026-08-21",
+    "releaseManifest": "../../../game-catalog/catalog-dataset-release-v5.json",
+    "qualityCorpusScope": "BoardLife Top-1000",
+    "executionReady": false,
+    "reason": "taxonomy discovery는 human qrels 또는 embedding/index execution 승인이 아니다."
+  },
+  "provenance": {
+    "existingFixture": [
+      "development-seed",
+      "dense-bge-m3",
+      "semantic-30-v1"
+    ],
+    "existingRegression": [
+      "live-regression"
+    ],
+    "synthetic": "synthetic/v1",
+    "labeling": "post-discovery analyst annotation; human label review pending"
+  },
+  "validation": {
+    "command": "node scripts/search-evaluation/validate-taxonomy-corpus.mjs",
+    "qrels": "not included",
+    "productionApproval": false
+  }
+}

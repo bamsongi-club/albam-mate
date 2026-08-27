@@ -37,6 +37,7 @@ java --version
 | 빠른 커버리지 게이트 | `.\gradlew.bat jacocoTestReport jacocoTestCoverageVerification` | `./gradlew jacocoTestReport jacocoTestCoverageVerification` |
 | Java 컨벤션 검사 | `.\gradlew.bat conventionCheck` | `./gradlew conventionCheck` |
 | 문서 링크 검사 | `node scripts/docs/check-doc-links.mjs` | `node scripts/docs/check-doc-links.mjs` |
+| SEARCH-04 taxonomy corpus 검증 | `node scripts/search-evaluation/validate-taxonomy-corpus.mjs` | `node scripts/search-evaluation/validate-taxonomy-corpus.mjs` |
 | 프론트엔드 테스트 | `Set-Location frontend; npm.cmd test` | `cd frontend && npm test` |
 | 프론트엔드 빌드 | `Set-Location frontend; npm.cmd run build` | `cd frontend && npm run build` |
 | 로컬 전체 스택 시작 | `docker compose --env-file .env -f compose.local.yml up -d --build --wait` | 동일 |

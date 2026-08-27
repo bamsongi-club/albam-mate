@@ -14,6 +14,23 @@
 
 따라서 현재 fixture/validator 성공은 **SEARCH-04 최종 품질 승인이나 `quality-ready`를 의미하지 않습니다.**
 
+## Taxonomy discovery v1
+
+[`taxonomy-discovery-v1/`](taxonomy-discovery-v1/taxonomy.md)는 기존 fixture·regression 56개와 synthetic query 94개를 합친 150개 discovery corpus입니다.
+
+- [`queries.csv`](taxonomy-discovery-v1/queries.csv): label을 붙이기 전 query·source·origin
+- [`annotations.csv`](taxonomy-discovery-v1/annotations.csv): bottom-up discovery 이후의 multi-label·constraint·answerability annotation
+- [`taxonomy.md`](taxonomy-discovery-v1/taxonomy.md): initial clustering, merge/split, final taxonomy
+- [`manifest.json`](taxonomy-discovery-v1/manifest.json): artifact SHA-256·분포·catalog release 경계
+- 상태: `draft-discovery`; human review·qrels·검색 방식 승인을 포함하지 않음
+
+검증 명령:
+
+```bash
+node scripts/search-evaluation/validate-taxonomy-corpus.mjs
+node --test scripts/search-evaluation/validate-taxonomy-corpus.test.mjs
+```
+
 ## 데이터 경계
 
 - 검색 품질 평가는 ADR-0066의 초기 **BoardLife Top 1,000 품질 corpus**를 사용합니다.
@@ -82,6 +99,7 @@ Final Quality Evaluation 완료 전에는 SEARCH-04 최종 검색 방식, produc
 - 원본 판정 packet·qrels·metrics는 실행 시 생성하거나 승인된 외부 artifact 저장소에 보관하며, 이 PR에는 전체 JSON을 커밋하지 않음
 - `queriesSha256`·`qualityCorpusSha256`: 원자료 변경 감지용 SHA-256
 - `manifest.index`: corpus version/checksum과 `BUILDING → READY` 또는 `FAILED`, 실패 시 이전 `READY` 유지 규칙
+- `taxonomy-discovery-v1/`: 150개 query discovery corpus와 bottom-up taxonomy annotation. 이 artifact는 qrels나 production execution manifest가 아니다.
 
 Catalog Dataset Release 승인과 Search/Embedding Execution 승인은 분리합니다. dataset release gate 통과만으로 특정 `search_text`, model/provider, embedding/index/output의 실행 승인이 생기지 않습니다.
 

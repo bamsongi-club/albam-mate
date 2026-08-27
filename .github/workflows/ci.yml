@@ -464,6 +464,12 @@ jobs:
       - name: Check SEARCH-04 evaluation fixture
         run: node scripts/p2-search-evaluation.mjs --check --manifest docs/p2/search-evaluation/manifest.json
 
+      - name: Test SEARCH-04 taxonomy corpus validator
+        run: node --test scripts/search-evaluation/validate-taxonomy-corpus.test.mjs
+
+      - name: Check SEARCH-04 taxonomy corpus
+        run: node scripts/search-evaluation/validate-taxonomy-corpus.mjs
+
       - name: Check SEARCH-04 semantic-30 comparison manifest
         run: node scripts/search-evaluation/search-candidate-comparison.mjs --check --manifest docs/p2/search-evaluation/search-candidate-semantic-30-input.json
 
