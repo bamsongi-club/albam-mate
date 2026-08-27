@@ -56,7 +56,7 @@
 | `INTERACTION_MODE` | 상호작용 방식 | 협력·배신·협상·정보 공유·눈치 | 사람 간 관계가 핵심 | 단순한 분위기 표현 | Q019, Q097, Q100 | `MECHANIC_RULE`, `PLAY_EXPERIENCE` | dense + relation/lexical signal |
 | `PLAY_EXPERIENCE` | 플레이 경험·분위기 | 가벼움·긴장감·전략성·반복성 등 | 주관적 체감 | 명시적 수치 조건 | Q016, Q107, Q110 | `INTERACTION_MODE`, `ACCESSIBILITY` | dense + graded qrels |
 | `ACCESSIBILITY` | 입문성·접근성 | 초보·아이·설명 난이도·실력 차이 | 배우기 쉬움·teachability | 숫자 나이만 있음 | Q018, Q112, Q115 | `STRUCTURED_FIT`, `OCCASION_CONTEXT` | complexity/age + human judgment |
-| `STRUCTURED_FIT` | 구조화 조건 적합성 | 인원·시간·연령 등 명시 조건 | “4인”, “30분 이하” | “짧게”만 있음 | Q127, Q132, Q149 | `ACCESSIBILITY`, `OCCASION_CONTEXT` | parser → hard filter → feasible recall |
+| `STRUCTURED_FIT` | 구조화 조건 적합성 | 인원·시간·연령 등 명시 조건 | “4인”, “30분 이하” | “짧게”만 있음 | Q127, Q128, Q132 | `ACCESSIBILITY`, `OCCASION_CONTEXT` | parser → hard filter → feasible recall |
 | `OCCASION_CONTEXT` | 사용 상황·대상 | 커플·가족·친구·모임·혼자 등 | 이용 맥락 | 숫자 조건만 있음 | Q137, Q140, Q143 | `STRUCTURED_FIT`, `INTERACTION_MODE` | soft hint + dense/qrels |
 | `OPEN_DISCOVERY` | 정보 부족·광범위 탐색 | 의도를 특정하기 어려운 짧은 query | `게임`, `game` 등 | 구체 조건이 있는 query | Q053~Q056 | 없음 | clarification·broad retrieval |
 
