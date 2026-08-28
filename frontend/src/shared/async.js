@@ -75,7 +75,7 @@ export function useCumulativeRequest(loadPage, dependencies) {
   useEffect(() => {
     const controller = new AbortController();
     let active = true;
-    setState((current) => ({ ...current, page: 0, hasNext: false, loading: true, error: '' }));
+    setState({ ...EMPTY_CUMULATIVE, loading: true });
     loadPageRef.current(0, controller.signal)
       .then((data) => {
         if (!active) return;

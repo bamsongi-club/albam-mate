@@ -138,8 +138,8 @@ describe('T7 searchMode 미노출 — 구현 방식 배너를 보여주지 않�
   });
 });
 
-describe('T5 재검색 중 로딩 표시', () => {
-  it('이미 결과가 있는 상태에서 검색어를 바꾸면 검색 중임을 알린다', async () => {
+describe('T5 재검색 중 이전 결과 초기화', () => {
+  it('이미 결과가 있는 상태에서 검색어를 바꾸면 이전 결과를 지우고 검색 중임을 알린다', async () => {
     getGameSearch.mockResolvedValue(SEARCH_HIT);
     const { rerender, onGameQueryChange } = await renderGamesView('첫 검색어');
     expect(screen.getByText('협동 게임')).toBeTruthy();
@@ -150,12 +150,15 @@ describe('T5 재검색 중 로딩 표시', () => {
     rerender(<GamesView title="게임 찾기" gameQuery="두번째 검색어" onGameQueryChange={onGameQueryChange} dataVersion={0} />);
     await act(async () => {});
 
-    // 이전 결과를 지우지 않고 로딩 중임을 알린다.
+    // 새 검색 결과가 도착하기 전에는 이전 조건의 결과를 보여주지 않는다.
     expect(screen.getByText('검색하는 중')).toBeTruthy();
-    expect(screen.getByText('협동 게임')).toBeTruthy();
+    expect(screen.queryByText('협동 게임')).toBeNull();
 
-    await act(async () => { resolveSecond(SEARCH_HIT); });
+    await act(async () => {
+      resolveSecond({ ...SEARCH_HIT, content: [{ ...SEARCH_HIT.content[0], name: '두 번째 검색 결과' }] });
+    });
     expect(screen.getByText('게임 목록')).toBeTruthy();
+    expect(screen.getByText('두 번째 검색 결과')).toBeTruthy();
   });
 });
 
