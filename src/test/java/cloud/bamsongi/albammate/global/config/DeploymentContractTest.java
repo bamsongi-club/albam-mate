@@ -117,6 +117,13 @@ class DeploymentContractTest {
 	}
 
 	@Test
+	void T8_P2_CD는_send_command_실패를_즉시_phase_실패로_끝낸다() throws IOException {
+		String workflow = file(".github/workflows/p2-cd.yml");
+		assertTrue(workflow.contains("if ! command_id=\"$(aws ssm send-command"));
+		assertTrue(workflow.contains("|| [[ -z \"$command_id\" ]]; then"));
+	}
+
+	@Test
 	void 모든_Compose와_검증기와_부하_문서는_ALBAM_MATE_LOGIN_LIMIT만_쓴다() throws IOException {
 		for (String composePath : new String[] {"compose.production.yml", "compose.app2.yml"}) {
 			String compose = file(composePath);
