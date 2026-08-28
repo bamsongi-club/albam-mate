@@ -1,6 +1,7 @@
 import React from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { EMPTY_GAME_FILTERS } from './game/constants.js';
 
 const getGames = vi.fn();
 const getGameSearch = vi.fn();
@@ -25,6 +26,7 @@ vi.mock('./api', () => ({
   setUnauthenticatedHandler: vi.fn()
 }));
 
+const { ApiError } = await import('./api');
 const { GamesView } = await import('./game/index.js');
 
 const EMPTY_PAGE = { content: [], page: 0, size: 24, hasNext: false };
@@ -63,10 +65,10 @@ class FakeIntersectionObserver {
   }
 }
 
-async function renderGamesView(gameQuery = '') {
+async function renderGamesView(gameQuery = '', props = {}) {
   const onGameQueryChange = vi.fn();
   const view = render(
-    <GamesView title="게임 찾기" gameQuery={gameQuery} onGameQueryChange={onGameQueryChange} dataVersion={0} />
+    <GamesView title="게임 찾기" gameQuery={gameQuery} onGameQueryChange={onGameQueryChange} dataVersion={0} {...props} />
   );
   await act(async () => {});
   return { ...view, onGameQueryChange };
@@ -199,6 +201,23 @@ describe('T7 검색 결과 무한 로딩', () => {
     );
     expect(screen.getByText('검색 첫 번째 게임')).toBeTruthy();
     expect(screen.queryByRole('navigation', { name: '페이지 이동' })).toBeNull();
+  });
+
+  it('추가 Slice의 401은 로그인 필요 화면으로 안내한다', async () => {
+    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
+    FakeIntersectionObserver.instances = [];
+    const unauthenticated = Object.assign(new ApiError('로그인이 필요합니다.'), { status: 401, code: 'UNAUTHENTICATED' });
+    getGameSearch.mockImplementation(({ page }) => (
+      page === 0 ? Promise.resolve(SEARCH_FIRST_PAGE) : Promise.reject(unauthenticated)
+    ));
+    await renderGamesView('가족과 짧게 할 협력 게임', { initialFilters: { ...EMPTY_GAME_FILTERS, playedFilter: 'PLAYED_ONLY' } });
+
+    await waitFor(() => expect(FakeIntersectionObserver.instances).toHaveLength(1));
+    await act(async () => { FakeIntersectionObserver.instances[0].trigger(); });
+
+    await waitFor(() => expect(screen.getByText('로그인이 필요해요')).toBeTruthy());
+    expect(screen.getByText('해 본 게임으로 거르려면 로그인해주세요.')).toBeTruthy();
+    expect(screen.getByRole('link', { name: '로그인 또는 회원가입' })).toBeTruthy();
   });
 });
 

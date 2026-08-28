@@ -116,7 +116,7 @@ export function useCumulativeRequest(loadPage, dependencies) {
       })))
       .catch((error) => {
         if (error?.name === 'AbortError') return;
-        setState((current) => ({ ...current, loading: false, error: messageForError(error) }));
+        setState((current) => ({ ...current, loading: false, error: messageForError(error), unauthenticated: isUnauthenticated(error) }));
       });
   };
 
