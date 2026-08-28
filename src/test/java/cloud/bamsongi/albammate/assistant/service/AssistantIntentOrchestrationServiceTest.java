@@ -26,6 +26,7 @@ import cloud.bamsongi.albammate.assistant.dto.AssistantRecommendationState;
 import cloud.bamsongi.albammate.game.contract.AssistantExactGameNameQuery;
 import cloud.bamsongi.albammate.game.contract.AssistantGameCandidateQuery;
 import cloud.bamsongi.albammate.game.contract.AssistantRecommendationCandidate;
+import cloud.bamsongi.albammate.game.contract.AssistantVocabularyQuery;
 import cloud.bamsongi.albammate.game.contract.GameSummary;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
@@ -56,7 +57,7 @@ class AssistantIntentOrchestrationServiceTest {
 		};
 		AssistantIntentOrchestrationService service = new AssistantIntentOrchestrationService(
 			deniedGate, new AssistantConsentProperties(), exactQuery, extractor,
-			mock(AssistantGameCandidateQuery.class));
+			mock(AssistantGameCandidateQuery.class), passThroughVocabulary());
 
 		BusinessException error = assertThrows(BusinessException.class,
 			() -> service.recommend(1L, new AssistantRecommendationRequest("카 탄", null)));
@@ -71,7 +72,7 @@ class AssistantIntentOrchestrationServiceTest {
 		AssistantExactGameNameQuery exactQuery = mock(AssistantExactGameNameQuery.class);
 		AssistantIntentOrchestrationService service = new AssistantIntentOrchestrationService(
 			grantedGate(), new AssistantConsentProperties(), exactQuery, extractor,
-			mock(AssistantGameCandidateQuery.class));
+			mock(AssistantGameCandidateQuery.class), passThroughVocabulary());
 
 		BusinessException error = assertThrows(BusinessException.class,
 			() -> service.recommend(1L, new AssistantRecommendationRequest("카 탄", null)));
@@ -90,7 +91,7 @@ class AssistantIntentOrchestrationServiceTest {
 			new AssistantIntentProposal("RECOMMEND", List.of("STRATEGY")), null, false));
 		when(candidateQuery.findCandidates(any())).thenReturn(List.of());
 		var service = new AssistantIntentOrchestrationService(grantedGate(), grantableProperties(), exactQuery,
-			extractor, candidateQuery);
+			extractor, candidateQuery, passThroughVocabulary());
 
 		var response = service.recommend(1L, new AssistantRecommendationRequest("카탄!", null));
 
@@ -115,7 +116,7 @@ class AssistantIntentOrchestrationServiceTest {
 		};
 		AssistantIntentOrchestrationService service = new AssistantIntentOrchestrationService(
 			revokedGate, grantableProperties(), name -> java.util.Optional.empty(), providerDelegate,
-			criteria -> java.util.List.of());
+			criteria -> java.util.List.of(), passThroughVocabulary());
 
 		BusinessException exception = assertThrows(
 			BusinessException.class,
@@ -136,7 +137,8 @@ class AssistantIntentOrchestrationServiceTest {
 			java.util.Optional.of(new AssistantRecommendationCandidate(7L, "카탄", null, "공개 설명")));
 
 		AssistantIntentOrchestrationService service = new AssistantIntentOrchestrationService(
-			grantedGate, grantableProperties(), exactGameNameQuery, extractor, candidateQuery);
+			grantedGate, grantableProperties(), exactGameNameQuery, extractor, candidateQuery,
+			passThroughVocabulary());
 
 		AssistantConditionSummary priorConditions = new AssistantConditionSummary(
 			List.of("STRATEGY"), List.of(), List.of(), null, null, null, 4, null, null, null);
@@ -169,7 +171,8 @@ class AssistantIntentOrchestrationServiceTest {
 			List.of(new AssistantRecommendationCandidate(1L, "후보", null, "공개 설명")));
 
 		AssistantIntentOrchestrationService service = new AssistantIntentOrchestrationService(
-			grantedGate, grantableProperties(), exactGameNameQuery, extractor, candidateQuery);
+			grantedGate, grantableProperties(), exactGameNameQuery, extractor, candidateQuery,
+			passThroughVocabulary());
 		AssistantConditionSummary previous = new AssistantConditionSummary(
 			List.of(),
 			List.of("DRAFTING"),
@@ -192,12 +195,18 @@ class AssistantIntentOrchestrationServiceTest {
 		assertEquals("UP_TO_10", response.conditions().playTimeMax());
 		assertEquals(4, response.conditions().playerCount());
 		verify(candidateQuery).findCandidates(new AssistantGameCandidateQuery.Criteria(
-			List.of("STRATEGY"), List.of("DRAFTING"), List.of("HORROR"), new BigDecimal("3.00"), "UP_TO_10", null,
-			4));
+			List.of("STRATEGY"), List.of("DRAFTING"), List.of("HORROR"), new BigDecimal("3.00"), "UP_TO_10",
+			null, 4));
 		verify(candidateQuery).validateCriteria(new AssistantGameCandidateQuery.Criteria(
-			List.of("STRATEGY"), List.of("DRAFTING"), List.of("HORROR"), new BigDecimal("3.00"), "UP_TO_10", null,
-			4));
+			List.of("STRATEGY"), List.of("DRAFTING"), List.of("HORROR"), new BigDecimal("3.00"), "UP_TO_10",
+			null, 4));
 		verifyNoMoreInteractions(candidateQuery);
+	}
+
+	/** 어휘 해석 자체는 game 모듈 책임이므로, 여기서는 넘긴 값을 그대로 돌려주는 통과 구현을 쓴다. */
+	private AssistantVocabularyQuery passThroughVocabulary() {
+		return (categories, mechanisms, themes) -> new AssistantVocabularyQuery.Resolved(categories, mechanisms,
+			themes);
 	}
 
 	private AssistantConsentGate grantedGate() {

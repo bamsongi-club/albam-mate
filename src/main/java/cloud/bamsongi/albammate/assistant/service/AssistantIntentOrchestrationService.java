@@ -15,6 +15,7 @@ import cloud.bamsongi.albammate.assistant.dto.AssistantRecommendationState;
 import cloud.bamsongi.albammate.game.contract.AssistantExactGameNameQuery;
 import cloud.bamsongi.albammate.game.contract.AssistantGameCandidateQuery;
 import cloud.bamsongi.albammate.game.contract.AssistantRecommendationCandidate;
+import cloud.bamsongi.albammate.game.contract.AssistantVocabularyQuery;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +30,7 @@ public class AssistantIntentOrchestrationService {
 	private final AssistantExactGameNameQuery assistantExactGameNameQuery;
 	private final AssistantIntentExtractor assistantIntentExtractor;
 	private final AssistantGameCandidateQuery assistantGameCandidateQuery;
+	private final AssistantVocabularyQuery assistantVocabularyQuery;
 
 	public AssistantIntentExtraction extract(long userId, AssistantIntentRequest request) {
 		requireAssistantAccess(userId);
@@ -58,8 +60,12 @@ public class AssistantIntentOrchestrationService {
 			return response(AssistantRecommendationState.UNSUPPORTED,
 				AssistantConditionSummary.empty(), java.util.List.of());
 		}
+		// provider는 카탈로그 코드 체계를 모르므로 자연어 레이블을 반환한다. catalog를 소유한 game 경계에서
+		// 코드로 해석하고, 카탈로그에 없는 레이블은 요청 실패가 아니라 조건 누락으로 다뤄 아래에서 되묻는다.
+		AssistantVocabularyQuery.Resolved resolved = assistantVocabularyQuery.resolve(
+			extraction.proposal().categories(), extraction.proposal().mechanisms(), extraction.proposal().themes());
 		AssistantConditionSummary extractedConditions = new AssistantConditionSummary(
-			extraction.proposal().categories(), extraction.proposal().mechanisms(), extraction.proposal().themes(),
+			resolved.categories(), resolved.mechanisms(), resolved.themes(),
 			extraction.proposal().complexityMax(), extraction.proposal().playTimeMax(), null,
 			extraction.proposal().playerCount(), null, null, null);
 		AssistantConditionSummary conditions = request.conditions() == null
