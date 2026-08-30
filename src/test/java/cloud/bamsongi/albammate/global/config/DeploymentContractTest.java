@@ -121,31 +121,16 @@ class DeploymentContractTest {
 		String workflow = file(".github/workflows/p2-cd.yml");
 		assertTrue(workflow.contains("if ! command_id=\"$(aws ssm send-command"));
 		assertTrue(workflow.contains("|| [[ -z \"$command_id\" ]]; then"));
-		// 실패 분기는 어떤 경로에서도 원인을 남기고 non-zero로 끝난다.
+		// 실패 분기는 원인을 로그와 receipt에 남기고 non-zero로 끝난다.
 		int failureBranch = workflow.indexOf("|| [[ -z \"$command_id\" ]]; then");
 		int waitCall = workflow.indexOf("if wait_for_command", failureBranch);
 		String branch = workflow.substring(failureBranch, waitCall);
 		assertTrue(branch.contains("cat \"$error_file\" >&2"));
+		assertTrue(branch.contains("status=failed"));
 		assertTrue(branch.contains("return 1"));
-		assertTrue(branch.contains("return 2"));
-		assertTrue(branch.contains("status=unmanaged-target"));
-	}
-
-	@Test
-	void T9_P2_CD는_계약이_허용하고_두_대가_모두_없을_때만_건너뛴다() throws IOException {
-		String workflow = file(".github/workflows/p2-cd.yml");
-		// 건너뛰기는 오류 문자열 추측이 아니라 계약의 명시적 정책을 함께 요구한다.
-		assertTrue(workflow.contains("jq -r '.absentTargetPolicy // \"fail\"'"));
-		assertTrue(workflow.contains("\"$ABSENT_TARGET_POLICY\" == 'skip' && \"$app1_preflight\" -eq 2"));
-		int skipBranch = workflow.indexOf("status=skipped");
-		assertTrue(skipBranch > 0);
-		// 건너뛰기는 아무것도 바꾸지 않은 preflight 단계에서만 일어난다.
-		int firstMutation = workflow.indexOf("invoke migrate-app2-candidate");
-		assertTrue(skipBranch < firstMutation);
-		// 건너뛴 실행만 정상 종료이고, 그 밖의 preflight 실패는 fail-closed다.
-		assertTrue(workflow.contains("exit 0"));
-		assertTrue(workflow.indexOf("exit 0") < firstMutation);
-		assertTrue(workflow.contains("phase=preflight status=failed"));
+		// 대상 상태를 오류 문자열로 판정해 배포를 성공으로 끝내지 않는다.
+		assertFalse(workflow.contains("InvalidInstanceId"));
+		assertFalse(workflow.contains("exit 0"));
 	}
 
 	@Test

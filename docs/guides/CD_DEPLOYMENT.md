@@ -7,9 +7,7 @@
 > - 트리거: **`develop` push의 같은 SHA가 `CI Gate`를 성공한 뒤 최신 성공 후보로 선택됨**
 > - 구현 상태: **GitHub Actions workflow·migrator·앱 설정은 자동 검증했으며, deploy role·고정 SSM runner·host bootstrap은 target 결정 뒤에 구현한다. 실제 AWS execution receipt는 없음**
 
-이 가이드는 별도 P2 Terraform 환경을 만들지 않는다. CD 대상은 기존 4노드 Terraform root의 App1·App2이며, 그 root는 `run.sh down`으로 내려갈 수 있다. 운영자가 검증을 위해 스택을 반복해서 올렸다 내리므로 상시 유지되는 별도 배포 대상을 두지 않기로 했다. 상시 4노드를 유지하는 비용보다 대상 부재를 정상 상태로 다루는 편이 이 단계의 사용 방식에 맞다는 판단이다.
-
-이 선택의 결과로 CD는 배포 대상이 없는 상태를 실패가 아니라 건너뛰기로 처리한다. 다만 `InvalidInstanceId`는 대상 부재뿐 아니라 SSM Agent 정지·미등록, 인스턴스 정지, instance profile 누락, 계약의 낡은 instance ID에서도 반환되므로 오류 문자열만으로 부재를 단정하지 않는다. 건너뛰기는 배포 계약의 `absentTargetPolicy`가 `skip`이고, App1·App2가 **모두** SSM 관리 대상이 아니며, 아직 아무것도 바꾸지 않은 preflight 단계일 때만 적용한다. 한쪽만 관리 대상이 아니면 부분 장애로 보아 실패시키고, 계약에 이 값이 없으면 `fail`로 읽는다. 그 밖의 오류와 이후 phase의 같은 오류는 기존대로 fail-closed로 실패시킨다. 스택을 다시 올린 뒤에는 `run.sh p2-bootstrap`이 현재 스택 output으로 deployment contract의 instance ID와 deploy role 허용 목록을 함께 갱신하므로 운영자가 주소를 손으로 옮겨 적지 않는다. 다만 재생성된 호스트에는 릴리스가 없으므로 LKG는 운영자가 다시 기록해야 한다. Terraform plan/apply, DNS/TLS 입력, LKG 최초 기록은 운영자 수동 절차이고 workflow가 실행하지 않는다. P1 기준선과 수동 절차는 [P1 AWS 저비용 4 EC2 인프라 실행안](AWS_MULTI_INSTANCE_INFRASTRUCTURE.md)에 보존한다.
+이 가이드는 별도 P2 Terraform 환경을 만들지 않는다. 기존 4노드 Terraform root는 후보이지만, 현재 `perf` state·`run.sh down` 수명주기를 CD 대상으로 암묵적으로 재사용하지 않는다. CD를 enable하기 전에 운영자는 stable target의 state/key, instance selector, runtime namespace와 teardown 제외를 확정한다. Terraform plan/apply, DNS/TLS 입력, LKG 최초 기록은 운영자 수동 절차이고 workflow가 실행하지 않는다. P1 기준선과 수동 절차는 [P1 AWS 저비용 4 EC2 인프라 실행안](AWS_MULTI_INSTANCE_INFRASTRUCTURE.md)에 보존한다.
 
 ## 한눈에 보는 흐름
 
@@ -19,10 +17,7 @@ flowchart LR
     CI --> SOURCE["최신 성공 CI source gate"]
     SOURCE --> BUILD["backend·web ARM64 image\nSHA tag + immutable digest"]
     BUILD --> LOCK["P2 deploy 직렬 lock\n실행 중 취소 금지"]
-    LOCK --> TARGET["배포 대상 SSM 관리 여부 확인"]
-    TARGET --> PRECHECK["P2 LKG·현재 앱 일치 확인"]
-    TARGET -->|"App1·App2 모두 없음\n계약이 skip 허용"| SKIP["배포하지 않고 종료"]
-    TARGET -->|"한쪽만 없음\n또는 계약이 fail"| STOP["실패"]
+    LOCK --> PRECHECK["P2 LKG·현재 앱 일치 확인"]
     PRECHECK --> MIGRATE["App2 one-shot Flyway\nvalidate + migrate 1회"]
     MIGRATE --> APP2["App2 교체·health·upstream"]
     APP2 --> APP1["App1 교체·health·upstream"]
@@ -40,7 +35,7 @@ flowchart LR
 | --- | --- | --- |
 | source SHA | same-repository `develop` push의 성공한 `CI Gate`가 검증한 정확히 같은 40자리 `workflow_run.head_sha` | CI run, CD run, image label이 모두 같은 SHA |
 | source 선택 | 더 높은 run number의 성공 CI가 있을 때만 이전 성공 후보를 건너뜀 | source-gate 조회 결과와 선택 SHA |
-| 배포 대상 | 운영자가 승인한 기존 4노드의 고정 App2 뒤 App1. 스택이 내려가 있으면 배포를 건너뛴다 | deployment contract의 instance ID와 대상별 release SHA, 건너뛴 run의 `status=skipped` receipt |
+| 이미지 | backend·web 모두 `linux/arm64`, 같은 SHA tag·OCI revision·immutable digest | ECR manifest/digest, OCI label, pull 후 RepoDigest |
 | 실행 권한 | GitHub Actions OIDC의 짧은 수명 image-publish role과 deploy role | trust policy, workflow permission, ECR/SSM 실행 결과 |
 | 배포 대상 | 운영자가 승인한 기존 4노드의 고정 App2 뒤 App1 | deployment contract의 instance ID와 대상별 release SHA |
 | 직렬화 | 한 P2 deploy만 실행하고 실행 중 run은 취소하지 않음 | 겹치지 않는 deployment sequence와 최신 성공 pending |
@@ -109,8 +104,6 @@ Flyway 실패는 데이터베이스가 전혀 바뀌지 않았다는 뜻이 아�
 | --- | --- | --- | --- |
 | CI·source gate·image build | 그대로 유지 | 배포를 시작하지 않음 | 변경 없음 |
 | LKG 없음·불일치 | 그대로 유지 | bootstrap 또는 일치 검증 전에는 migrator·앱 교체를 시작하지 않음 | 변경 없음 |
-| 배포 대상 전체 부재 | 대상이 없으므로 서비스 없음 | 계약의 `absentTargetPolicy`가 `skip`이면 배포하지 않고 성공으로 끝냄. `status=skipped` receipt로 확인 | 변경 없음 |
-| 배포 대상 일부 부재·SSM 미관리 | 남은 노드가 옛 release로 서빙 | 부분 장애로 보아 실패시키고 앱 교체를 시작하지 않음 | 변경 없음 |
 | migrator validate/migrate | App1·App2 컨테이너 유지 | 새 release 실패 | 이미 성공한 앞 migration은 남을 수 있음; 자동 rollback 없음 |
 | App2 health/upstream | App1과 기존 또는 복귀한 App2가 서빙 | App2만 LKG SHA·digest로 자동 복귀 | expand schema 유지 |
 | App1 health/upstream | 복귀 과정 중 짧은 재연결 가능 | App1까지 바뀌었으면 App1 → App2 순서로 모두 LKG로 복귀하고 재검증 | expand schema 유지 |
