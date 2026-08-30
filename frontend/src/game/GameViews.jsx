@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import poweredByBgg from '../../assets/powered-by-bgg.svg';
 import { ArrowIcon, BackIcon, BggAttribution, CheckIcon, Cover, ErrorBox, PlusIcon, Pagination, RoomSkeletons, ScreenTitle, SearchIcon, StateBlock, TopBar } from '../shared/ui';
-import { usePaginatedRequest, useRequest } from '../shared/async';
+import { useCumulativeRequest, usePaginatedRequest, useRequest } from '../shared/async';
 import { GAME_LIST_PAGE_SIZE, ROOM_LIST_PAGE_SIZE, EMPTY_GAME_FILTERS, EMPTY_GAME_FILTER_KEY, PLAYED_FILTER_OPTIONS, DEFAULT_GAME_COVER_URL } from './constants';
 import { gameFilterParameters } from './filterLogic';
 import { gameMeta, normalizeGameSummary, normalizeRoom } from './data';
@@ -78,6 +78,8 @@ function GameSlicePagination({ page, hasNext, loading, onChange }) {
   );
 }
 
+const EMPTY_GAME_PAGE = { content: [], page: 0, size: GAME_LIST_PAGE_SIZE, hasNext: false };
+
 export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, onPlayedError, headerActions, initialFilters = EMPTY_GAME_FILTERS, onBack }) {
   const [input, setInput] = useState(gameQuery);
   const [filters, setFilters] = useState(initialFilters);
@@ -88,21 +90,48 @@ export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, on
   // 해 본 게임 필터가 활성화된 동안에만 표시·취소 성공을 재조회 신호로 쓴다.
   // 그 외에는 조회 결과가 playedByMe로 걸러지지 않으므로 다시 부를 필요가 없다.
   const playedRefreshKey = filters.playedFilter ? playedGames.version : 0;
-  const { data, loading, error, unauthenticated, setPage, retry } = usePaginatedRequest(
+  const isSearching = Boolean(query);
+  const paginatedRequest = usePaginatedRequest(
     (page, signal) => {
-      // 검색어가 없으면 기존 인기순 목록(GAME-01)을 그대로 보여주고, 검색어가 있으면 의미 검색으로 넘긴다.
-      // 탭 없이 한 검색창에서 이름·문장 검색을 모두 받기 위한 분기다.
-      if (!query) return api.getGames({ ...parameters, page, size: GAME_LIST_PAGE_SIZE }, signal);
+      if (isSearching) return Promise.resolve(EMPTY_GAME_PAGE);
+      return api.getGames({ ...parameters, page, size: GAME_LIST_PAGE_SIZE }, signal);
+    },
+    [query, filterKey, dataVersion, playedRefreshKey]
+  );
+  const cumulativeRequest = useCumulativeRequest(
+    (page, signal) => {
+      if (!isSearching) return Promise.resolve(EMPTY_GAME_PAGE);
       return api.getGameSearch({ query, ...parameters, page, size: GAME_LIST_PAGE_SIZE }, signal);
     },
     [query, filterKey, dataVersion, playedRefreshKey]
   );
-  const games = (data?.content || []).map(normalizeGameSummary);
-  const isSearching = Boolean(query);
+  const { data } = paginatedRequest;
+  const { items: cumulativeItems, loading: cumulativeLoading, error: cumulativeError, unauthenticated: cumulativeUnauthenticated, page: cumulativePage, hasNext: cumulativeHasNext, loadMore, retry: retryCumulative } = cumulativeRequest;
+  const items = isSearching ? cumulativeItems : (data?.content || []);
+  const loading = isSearching ? cumulativeLoading : paginatedRequest.loading;
+  const error = isSearching ? cumulativeError : paginatedRequest.error;
+  const unauthenticated = isSearching ? cumulativeUnauthenticated : paginatedRequest.unauthenticated;
+  const hasNext = isSearching ? cumulativeHasNext : Boolean(data?.hasNext);
+  const page = isSearching ? cumulativePage : (data?.page ?? 0);
+  const retry = isSearching ? retryCumulative : paginatedRequest.retry;
+  const displayedGames = items.map(normalizeGameSummary);
   // 필터를 고르면 debounce·조회가 끝나기 전에도 이전 filterless 응답의 total을 바로 감춘다.
   // raw filters를 기준으로 판정해야 사용자가 지금 보고 있는 화면과 어긋나지 않는다(#1057 리뷰).
   const isFilterless = !query && JSON.stringify(filters) === EMPTY_GAME_FILTER_KEY;
   const showTotals = isFilterless && Number.isFinite(data?.totalPages);
+  const loadMoreSentinelRef = useRef(null);
+
+  useEffect(() => {
+    const sentinel = loadMoreSentinelRef.current;
+    if (!isSearching || !sentinel || !hasNext || loading || error || !globalThis.IntersectionObserver) return undefined;
+    const root = sentinel.closest('.screen-body');
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) loadMore();
+    }, { root, rootMargin: '240px 0px', threshold: 0 });
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [error, hasNext, isSearching, loadMore, loading]);
+
   useEffect(() => setInput(gameQuery), [gameQuery]);
 
   const playedChips = (
@@ -161,10 +190,10 @@ export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, on
             : <ErrorBox message={error} title="게임을 불러오지 못했어요" onRetry={retry} />}
         </div>
       )}
-      {!error && loading && !data && <div style={{ marginTop: 22 }}><RoomSkeletons count={3} /></div>}
-      {!error && !!games.length && (
+      {!error && loading && !displayedGames.length && <div style={{ marginTop: 22 }}><RoomSkeletons count={3} /></div>}
+      {!error && !!displayedGames.length && (
         <div className="gamegrid" style={{ marginTop: 18, opacity: loading ? 0.5 : 1, transition: 'opacity 0.15s ease' }}>
-          {games.map((game) => (
+          {displayedGames.map((game) => (
             <GameCard
               key={game.id}
               game={game}
@@ -175,7 +204,7 @@ export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, on
           ))}
         </div>
       )}
-      {!error && !loading && !games.length && (
+      {!error && !loading && !displayedGames.length && (
         <div style={{ marginTop: 26 }}>
           <StateBlock
             title="검색 결과가 없어요"
@@ -183,10 +212,16 @@ export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, on
           />
         </div>
       )}
-      {!error && data && (
+      {!error && isSearching && !!displayedGames.length && hasNext && (
+        <>
+          <div ref={loadMoreSentinelRef} aria-hidden="true" style={{ height: 1 }} />
+          {loading && <p className="section-label" role="status" style={{ marginTop: 8 }}>검색 결과를 더 불러오는 중…</p>}
+        </>
+      )}
+      {!error && !isSearching && data && (
         showTotals
-          ? <Pagination page={data.page ?? 0} totalPages={data.totalPages} loading={loading} onChange={setPage} className="tab-fab-clear" />
-          : <GameSlicePagination page={data.page ?? 0} hasNext={Boolean(data.hasNext)} loading={loading} onChange={setPage} />
+          ? <Pagination page={data.page ?? 0} totalPages={data.totalPages} loading={loading} onChange={paginatedRequest.setPage} className="tab-fab-clear" />
+          : <GameSlicePagination page={data.page ?? 0} hasNext={Boolean(data.hasNext)} loading={loading} onChange={paginatedRequest.setPage} />
       )}
       </div>
     </>

@@ -1,6 +1,7 @@
 import React from 'react';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { EMPTY_GAME_FILTERS } from './game/constants.js';
 
 const getGames = vi.fn();
 const getGameSearch = vi.fn();
@@ -25,6 +26,7 @@ vi.mock('./api', () => ({
   setUnauthenticatedHandler: vi.fn()
 }));
 
+const { ApiError } = await import('./api');
 const { GamesView } = await import('./game/index.js');
 
 const EMPTY_PAGE = { content: [], page: 0, size: 24, hasNext: false };
@@ -34,11 +36,39 @@ const SEARCH_HIT = {
   size: 24,
   hasNext: false
 };
+const SEARCH_FIRST_PAGE = {
+  ...SEARCH_HIT,
+  content: [{ ...SEARCH_HIT.content[0], name: '검색 첫 번째 게임' }],
+  hasNext: true
+};
+const SEARCH_NEXT_PAGE = {
+  ...SEARCH_HIT,
+  content: [{ ...SEARCH_HIT.content[0], id: 2, name: '검색 두 번째 게임' }],
+  page: 1,
+  hasNext: false
+};
 
-async function renderGamesView(gameQuery = '') {
+class FakeIntersectionObserver {
+  static instances = [];
+
+  constructor(callback) {
+    this.callback = callback;
+    FakeIntersectionObserver.instances.push(this);
+  }
+
+  observe() {}
+
+  disconnect() {}
+
+  trigger(isIntersecting = true) {
+    this.callback([{ isIntersecting }]);
+  }
+}
+
+async function renderGamesView(gameQuery = '', props = {}) {
   const onGameQueryChange = vi.fn();
   const view = render(
-    <GamesView title="게임 찾기" gameQuery={gameQuery} onGameQueryChange={onGameQueryChange} dataVersion={0} />
+    <GamesView title="게임 찾기" gameQuery={gameQuery} onGameQueryChange={onGameQueryChange} dataVersion={0} {...props} />
   );
   await act(async () => {});
   return { ...view, onGameQueryChange };
@@ -65,6 +95,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
 });
 
 describe('T1 검색어 없이 열면 기존 인기순 목록을 그대로 쓴다', () => {
@@ -109,8 +140,8 @@ describe('T7 searchMode 미노출 — 구현 방식 배너를 보여주지 않�
   });
 });
 
-describe('T5 재검색 중 로딩 표시', () => {
-  it('이미 결과가 있는 상태에서 검색어를 바꾸면 검색 중임을 알린다', async () => {
+describe('T5 재검색 중 이전 결과 초기화', () => {
+  it('이미 결과가 있는 상태에서 검색어를 바꾸면 이전 결과를 지우고 검색 중임을 알린다', async () => {
     getGameSearch.mockResolvedValue(SEARCH_HIT);
     const { rerender, onGameQueryChange } = await renderGamesView('첫 검색어');
     expect(screen.getByText('협동 게임')).toBeTruthy();
@@ -121,12 +152,15 @@ describe('T5 재검색 중 로딩 표시', () => {
     rerender(<GamesView title="게임 찾기" gameQuery="두번째 검색어" onGameQueryChange={onGameQueryChange} dataVersion={0} />);
     await act(async () => {});
 
-    // 이전 결과를 지우지 않고 로딩 중임을 알린다.
+    // 새 검색 결과가 도착하기 전에는 이전 조건의 결과를 보여주지 않는다.
     expect(screen.getByText('검색하는 중')).toBeTruthy();
-    expect(screen.getByText('협동 게임')).toBeTruthy();
+    expect(screen.queryByText('협동 게임')).toBeNull();
 
-    await act(async () => { resolveSecond(SEARCH_HIT); });
+    await act(async () => {
+      resolveSecond({ ...SEARCH_HIT, content: [{ ...SEARCH_HIT.content[0], name: '두 번째 검색 결과' }] });
+    });
     expect(screen.getByText('게임 목록')).toBeTruthy();
+    expect(screen.getByText('두 번째 검색 결과')).toBeTruthy();
   });
 });
 
@@ -147,13 +181,43 @@ describe('T6 필터·검색어 없는 상태의 전체 페이지 수 기반 번�
   });
 });
 
-describe('T7 검색·필터가 걸린 상태의 이전/다음 방식 유지', () => {
-  it('검색어가 있어 totalPages가 없는 응답은 페이지 번호 버튼 없이 이전/다음 방식을 쓴다', async () => {
-    getGameSearch.mockResolvedValue({ ...SEARCH_HIT, hasNext: true });
+describe('T7 검색 결과 무한 로딩', () => {
+  it('검색 결과는 하단 감지 시 다음 Slice를 이어 붙이고 페이지 이동 UI를 표시하지 않는다', async () => {
+    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
+    FakeIntersectionObserver.instances = [];
+    getGameSearch.mockImplementation(({ page }) => Promise.resolve(page === 0 ? SEARCH_FIRST_PAGE : SEARCH_NEXT_PAGE));
     await renderGamesView('가족과 짧게 할 협력 게임');
 
-    expect(screen.queryByRole('button', { name: '2' })).toBeNull();
-    expect(screen.getByRole('button', { name: '다음 페이지' })).toBeTruthy();
+    await waitFor(() => expect(FakeIntersectionObserver.instances).toHaveLength(1));
+    expect(screen.getByText('검색 첫 번째 게임')).toBeTruthy();
+    expect(screen.queryByRole('navigation', { name: '페이지 이동' })).toBeNull();
+
+    await act(async () => { FakeIntersectionObserver.instances[0].trigger(); });
+
+    await waitFor(() => expect(screen.getByText('검색 두 번째 게임')).toBeTruthy());
+    expect(getGameSearch).toHaveBeenLastCalledWith(
+      expect.objectContaining({ query: '가족과 짧게 할 협력 게임', page: 1, size: 24 }),
+      expect.anything()
+    );
+    expect(screen.getByText('검색 첫 번째 게임')).toBeTruthy();
+    expect(screen.queryByRole('navigation', { name: '페이지 이동' })).toBeNull();
+  });
+
+  it('추가 Slice의 401은 로그인 필요 화면으로 안내한다', async () => {
+    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
+    FakeIntersectionObserver.instances = [];
+    const unauthenticated = Object.assign(new ApiError('로그인이 필요합니다.'), { status: 401, code: 'UNAUTHENTICATED' });
+    getGameSearch.mockImplementation(({ page }) => (
+      page === 0 ? Promise.resolve(SEARCH_FIRST_PAGE) : Promise.reject(unauthenticated)
+    ));
+    await renderGamesView('가족과 짧게 할 협력 게임', { initialFilters: { ...EMPTY_GAME_FILTERS, playedFilter: 'PLAYED_ONLY' } });
+
+    await waitFor(() => expect(FakeIntersectionObserver.instances).toHaveLength(1));
+    await act(async () => { FakeIntersectionObserver.instances[0].trigger(); });
+
+    await waitFor(() => expect(screen.getByText('로그인이 필요해요')).toBeTruthy());
+    expect(screen.getByText('해 본 게임으로 거르려면 로그인해주세요.')).toBeTruthy();
+    expect(screen.getByRole('link', { name: '로그인 또는 회원가입' })).toBeTruthy();
   });
 });
 
