@@ -223,12 +223,21 @@ jobs:
             local release_sha="$5"
             local backend_digest="$6"
             local web_digest="$7"
-            local command_id
+            local command_id error_file
+            error_file="$(mktemp)"
             # send-command 실패는 즉시 phase 실패다. 빈 command id로 대기하면 조회가 계속 실패해 폴링만 소진한다.
-            if ! command_id="$(aws ssm send-command --document-name "$SSM_DOCUMENT" --instance-ids "$instance_id" --parameters "operation=${operation},sourceSha=${release_sha},backendDigest=${backend_digest},webDigest=${web_digest},runtimeSecretPrefix=${runtime_secret_prefix}" --comment "P2 CD ${label} ${release_sha}" --query 'Command.CommandId' --output text)" || [[ -z "$command_id" ]]; then
+            if ! command_id="$(aws ssm send-command --document-name "$SSM_DOCUMENT" --instance-ids "$instance_id" --parameters "operation=${operation},sourceSha=${release_sha},backendDigest=${backend_digest},webDigest=${web_digest},runtimeSecretPrefix=${runtime_secret_prefix}" --comment "P2 CD ${label} ${release_sha}" --query 'Command.CommandId' --output text 2>"$error_file")" || [[ -z "$command_id" ]]; then
+              # 대상이 SSM 관리 대상이 아닐 때만 구분해서 알린다. 판단은 호출부가 한다.
+              if grep -Fq InvalidInstanceId "$error_file"; then
+                rm -f -- "$error_file"
+                return 2
+              fi
+              cat "$error_file" >&2
+              rm -f -- "$error_file"
               receipt "phase=${label} source_sha=${release_sha} target=${instance_id} status=failed"
               return 1
             fi
+            rm -f -- "$error_file"
             receipt "phase=${label} source_sha=${release_sha} target=${instance_id} command_id=${command_id} status=started"
             if wait_for_command "$command_id" "$instance_id"; then
               receipt "phase=${label} source_sha=${release_sha} target=${instance_id} command_id=${command_id} status=success"
@@ -280,7 +289,19 @@ jobs:
           receipt "phase=preflight source_sha=${SOURCE_SHA} ci_url=${CI_URL} backend_digest=${BACKEND_DIGEST} web_digest=${WEB_DIGEST} lkg_status=loaded"
 
           # LKG preflight completes before any candidate mutation.
-          invoke preflight-app2-current current "$APP2_INSTANCE_ID" "$RUNTIME_SECRET_PREFIX" "$LKG_SHA" "$LKG_BACKEND_DIGEST" "$LKG_WEB_DIGEST" || { receipt 'phase=preflight status=failed'; exit 1; }
+          # 배포 대상이 아직 만들어지지 않았으면 실패가 아니라 건너뛴다. 아무것도 바꾸지 않은 첫
+          # preflight에서만 적용하며, 이후 phase의 같은 오류는 기존대로 실패로 처리한다.
+          preflight_status=0
+          invoke preflight-app2-current current "$APP2_INSTANCE_ID" "$RUNTIME_SECRET_PREFIX" "$LKG_SHA" "$LKG_BACKEND_DIGEST" "$LKG_WEB_DIGEST" || preflight_status="$?"
+          if [[ "$preflight_status" -eq 2 ]]; then
+            receipt "phase=preflight source_sha=${SOURCE_SHA} target=${APP2_INSTANCE_ID} status=skipped"
+            echo '배포 대상이 SSM 관리 대상이 아니라 이번 배포를 건너뜁니다.' >&2
+            exit 0
+          fi
+          if [[ "$preflight_status" -ne 0 ]]; then
+            receipt 'phase=preflight status=failed'
+            exit 1
+          fi
           invoke preflight-app1-current current "$APP1_INSTANCE_ID" "$RUNTIME_SECRET_PREFIX" "$LKG_SHA" "$LKG_BACKEND_DIGEST" "$LKG_WEB_DIGEST" || { receipt 'phase=preflight status=failed'; exit 1; }
 
           invoke migrate-app2-candidate migrate "$APP2_INSTANCE_ID" "$RUNTIME_SECRET_PREFIX" "$SOURCE_SHA" "$BACKEND_DIGEST" "$WEB_DIGEST" || { receipt 'phase=migrate-app2-candidate status=failed'; exit 1; }

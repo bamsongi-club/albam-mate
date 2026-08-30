@@ -124,6 +124,16 @@ class DeploymentContractTest {
 	}
 
 	@Test
+	void T9_P2_CD는_배포_대상이_없으면_실패하지_않고_건너뛴다() throws IOException {
+		String workflow = file(".github/workflows/p2-cd.yml");
+		assertTrue(workflow.contains("grep -Fq InvalidInstanceId"));
+		assertTrue(workflow.contains("preflight_status\" -eq 2"));
+		assertTrue(workflow.contains("status=skipped"));
+		// 대상 없음 외의 실패는 기존대로 fail-closed다.
+		assertTrue(workflow.contains("phase=preflight status=failed"));
+	}
+
+	@Test
 	void 모든_Compose와_검증기와_부하_문서는_ALBAM_MATE_LOGIN_LIMIT만_쓴다() throws IOException {
 		for (String composePath : new String[] {"compose.production.yml", "compose.app2.yml"}) {
 			String compose = file(composePath);
