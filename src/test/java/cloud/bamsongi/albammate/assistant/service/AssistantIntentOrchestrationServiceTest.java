@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.assistant.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -21,6 +22,7 @@ import cloud.bamsongi.albammate.assistant.contract.AssistantIntentProposal;
 import cloud.bamsongi.albammate.assistant.contract.AssistantIntentRequest;
 import cloud.bamsongi.albammate.assistant.contract.AssistantIntentStatus;
 import cloud.bamsongi.albammate.assistant.dto.AssistantConditionSummary;
+import cloud.bamsongi.albammate.assistant.dto.AssistantMissingField;
 import cloud.bamsongi.albammate.assistant.dto.AssistantRecommendationRequest;
 import cloud.bamsongi.albammate.assistant.dto.AssistantRecommendationState;
 import cloud.bamsongi.albammate.game.contract.AssistantExactGameNameQuery;
@@ -204,9 +206,44 @@ class AssistantIntentOrchestrationServiceTest {
 	}
 
 	/** 어휘 해석 자체는 game 모듈 책임이므로, 여기서는 넘긴 값을 그대로 돌려주는 통과 구현을 쓴다. */
+	@Test
+	void 카탈로그에_없는_스타일을_말하면_이전_스타일을_되살리지_않고_다시_묻는다() {
+		AssistantIntentExtractor extractor = mock(AssistantIntentExtractor.class);
+		AssistantExactGameNameQuery exactGameNameQuery = mock(AssistantExactGameNameQuery.class);
+		AssistantGameCandidateQuery candidateQuery = mock(AssistantGameCandidateQuery.class);
+		when(exactGameNameQuery.findUniqueByNormalizedName(any())).thenReturn(java.util.Optional.empty());
+		when(extractor.extract(any())).thenReturn(new AssistantIntentExtraction(
+			AssistantIntentStatus.SUCCESS,
+			new AssistantIntentProposal("RECOMMEND", List.of(), List.of(), List.of("없는테마"), null, null, null),
+			null,
+			false));
+		var service = new AssistantIntentOrchestrationService(grantedGate(), grantableProperties(),
+			exactGameNameQuery, extractor, candidateQuery, dropAllVocabulary());
+		// 앞 턴에서 확보한 스타일과 정확 게임이 남아 있는 상태다.
+		AssistantConditionSummary previous = new AssistantConditionSummary(
+			List.of("STRATEGY"), List.of(), List.of(), new BigDecimal("3.00"), "UP_TO_10", 7L, 4, null, null, null);
+
+		var response = service.recommend(1L, new AssistantRecommendationRequest("없는 테마로 추천해줘", previous));
+
+		assertEquals(AssistantRecommendationState.NEEDS_INPUT, response.state());
+		assertEquals(List.of(AssistantMissingField.GAME_STYLE), response.missingFields());
+		assertEquals(List.of(), response.conditions().categories());
+		assertEquals(List.of(), response.conditions().themes());
+		assertNull(response.conditions().gameId());
+		// 스타일과 무관한 정제 조건은 유지한다.
+		assertEquals(new BigDecimal("3.00"), response.conditions().complexityMax());
+		assertEquals(4, response.conditions().playerCount());
+		verifyNoInteractions(candidateQuery);
+	}
+
 	private AssistantVocabularyQuery passThroughVocabulary() {
 		return (categories, mechanisms, themes) -> new AssistantVocabularyQuery.Resolved(categories, mechanisms,
 			themes);
+	}
+
+	/** 카탈로그에 없는 레이블만 들어와 아무것도 해석하지 못한 경우를 재현한다. */
+	private AssistantVocabularyQuery dropAllVocabulary() {
+		return (categories, mechanisms, themes) -> AssistantVocabularyQuery.Resolved.empty();
 	}
 
 	private AssistantConsentGate grantedGate() {

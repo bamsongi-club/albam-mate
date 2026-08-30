@@ -40,12 +40,8 @@ final class OpenAiAssistantProvider implements AiProviderClient {
 		You extract a board-game room intent from exactly one current user sentence.
 		Call propose_game_room_intent exactly once and return only arguments matching its schema.
 		Use RECOMMEND only when at least one of category, mechanism, or theme is present. If none is present, use
-		NEEDS_INPUT even when playerCount or other refinements are present, and use UNSUPPORTED when the request
-		is not a board-game recommendation.
-		Set complexityMax only from this fixed mapping, never from your own judgement. Words meaning easy, light,
-		simple or beginner-friendly ("쉬운", "간단한", "가벼운", "입문용", "부담 없는") map to 2.0. Words meaning
-		average or moderate ("보통", "적당한") map to 3.0. An explicit numeric ceiling the user states is used as
-		given. Leave complexityMax null for everything else.
+		NEEDS_INPUT even when playerCount or other refinements are present; do not turn vague words such as "가볍게"
+		into a numeric complexity value, and use UNSUPPORTED when the request is not a board-game recommendation.
 		Return categories, mechanisms and themes as short natural-language labels written in the user's language,
 		never as identifiers: use "협력", "공포", "전략" rather than COOPERATIVE, HORROR or STRATEGY. Do not invent
 		catalog identifiers, do not use underscores or numeric suffixes, and keep each label under 40 characters.

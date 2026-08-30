@@ -81,6 +81,34 @@ class AssistantVocabularyQueryServiceTest {
 	}
 
 	@Test
+	void 레이블에_붙은_축_접미사를_떼어_정확한_이름과_맞춘다() {
+		// 카탈로그의 정확한 이름은 "전략"이고 레이블만 "전략 게임"이다.
+		var resolved = service().resolve(List.of("전략 게임"), List.of(), List.of());
+
+		assertEquals(List.of("STRATEGY"), resolved.categories());
+	}
+
+	@Test
+	void 다른_축의_정확한_이름이_이_축의_접미사_별칭보다_우선한다() {
+		GameCategoryRepository categoryRepository = mock(GameCategoryRepository.class);
+		GameMechanismRepository mechanismRepository = mock(GameMechanismRepository.class);
+		GameThemeRepository themeRepository = mock(GameThemeRepository.class);
+		// category "협력 게임"은 별칭 "협력"을, mechanism "협력"은 정확한 이름 "협력"을 갖는다.
+		when(categoryRepository.findOptions()).thenReturn(List.of(
+			new GameCategoryOptionRow("COOP_CATEGORY", "협력 게임", "Cooperative Games", 1)));
+		when(mechanismRepository.findPublicOptions()).thenReturn(List.of(
+			new GameMechanismOptionRow("COOPERATIVE", "협력", "Cooperative", 1, null)));
+		when(themeRepository.findOptions()).thenReturn(List.of());
+		var service = new AssistantVocabularyQueryService(categoryRepository, mechanismRepository,
+			themeRepository);
+
+		var resolved = service.resolve(List.of("협력"), List.of(), List.of());
+
+		assertEquals(List.of(), resolved.categories());
+		assertEquals(List.of("COOPERATIVE"), resolved.mechanisms());
+	}
+
+	@Test
 	void 해석할_레이블이_하나도_없으면_카탈로그를_조회하지_않는다() {
 		GameCategoryRepository categoryRepository = mock(GameCategoryRepository.class);
 		GameMechanismRepository mechanismRepository = mock(GameMechanismRepository.class);
