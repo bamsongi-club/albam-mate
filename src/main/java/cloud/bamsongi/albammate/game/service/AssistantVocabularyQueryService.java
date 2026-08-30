@@ -125,19 +125,17 @@ public class AssistantVocabularyQueryService implements AssistantVocabularyQuery
 				continue;
 			}
 			keys.add(normalized);
+			// stripTrailingNoise는 접미사보다 긴 값만 잘라내므로 결과가 비지 않는다.
 			String stripped = stripTrailingNoise(normalized);
-			if (!stripped.equals(normalized) && !stripped.isEmpty()) {
+			if (!stripped.equals(normalized)) {
 				keys.add(stripped);
 			}
 		}
 		return keys;
 	}
 
-	/** 코드에만 붙는 BGG 식별자 접미사와 구분 문자를 제거해 이름·코드를 같은 평면에서 비교한다. */
+	/** 코드에만 붙는 BGG 식별자 접미사와 구분 문자를 제거해 이름·코드를 같은 평면에서 비교한다. 이름·코드는 모두 NOT NULL이다. */
 	private String normalize(String value) {
-		if (value == null) {
-			return "";
-		}
 		String lowered = value.toLowerCase(Locale.ROOT).replaceAll("_bgg_\\d+$", "");
 		StringBuilder builder = new StringBuilder(lowered.length());
 		for (int index = 0; index < lowered.length(); index++) {
