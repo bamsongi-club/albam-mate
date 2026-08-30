@@ -1,5 +1,10 @@
 package cloud.bamsongi.albammate.infra.ai;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
@@ -63,11 +68,17 @@ class OpenAiAssistantProviderStubServerReproTest {
 				"AI-02-INSTRUCTION-V1", "propose_game_room_intent", "AI-02-SCHEMA-V1", "Asia/Seoul",
 				"보드게임 추천해줘", List.of()));
 
-			System.out.println("=== REQUEST SENT TO OPENAI ===");
-			System.out.println(capturedRequest.get());
-			System.out.println("=== PROVIDER RESULT ===");
-			System.out.println("succeeded=" + response.succeeded() + " failure=" + response.failure()
-				+ " action=" + response.action());
+			// 실제 SDK 경로에서 tool 호출이 강제되고 응답이 그대로 해석되는지 고정한다.
+			String sentRequest = capturedRequest.get();
+			assertNotNull(sentRequest);
+			assertTrue(sentRequest.contains("propose_game_room_intent"));
+			assertTrue(sentRequest.contains("\"tool_choice\""));
+
+			// provider는 예외 없이 실패를 반환할 수 있으므로 실패 여부를 단언한다.
+			assertNull(response.failure());
+			assertTrue(response.succeeded());
+			assertEquals("NEEDS_INPUT", response.action());
+			assertEquals(List.of(), response.categories());
 		} finally {
 			server.stop(0);
 		}

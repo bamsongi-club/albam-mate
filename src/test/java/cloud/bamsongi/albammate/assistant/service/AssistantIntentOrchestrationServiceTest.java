@@ -236,6 +236,36 @@ class AssistantIntentOrchestrationServiceTest {
 		verifyNoInteractions(candidateQuery);
 	}
 
+	@Test
+	void 새_스타일로_다시_추천하면_이전_정확_게임을_후보_조건에서_제거한다() {
+		AssistantIntentExtractor extractor = mock(AssistantIntentExtractor.class);
+		AssistantExactGameNameQuery exactGameNameQuery = mock(AssistantExactGameNameQuery.class);
+		AssistantGameCandidateQuery candidateQuery = mock(AssistantGameCandidateQuery.class);
+		when(exactGameNameQuery.findUniqueByNormalizedName(any())).thenReturn(java.util.Optional.empty());
+		when(extractor.extract(any())).thenReturn(new AssistantIntentExtraction(
+			AssistantIntentStatus.SUCCESS,
+			new AssistantIntentProposal("RECOMMEND", List.of(), List.of(), List.of("HORROR"), null, null, null),
+			null,
+			false));
+		when(candidateQuery.findCandidates(any())).thenReturn(
+			List.of(new AssistantRecommendationCandidate(1L, "후보", null, "공개 설명")));
+		var service = new AssistantIntentOrchestrationService(grantedGate(), grantableProperties(),
+			exactGameNameQuery, extractor, candidateQuery, passThroughVocabulary());
+		// 앞 턴에서 "카탄"이 정확 게임으로 확정된 상태다.
+		AssistantConditionSummary previous = new AssistantConditionSummary(
+			List.of("STRATEGY"), List.of(), List.of(), null, null, 7L, 4, null, null, null);
+
+		var response = service.recommend(1L, new AssistantRecommendationRequest("공포 테마로 다시 추천해줘", previous));
+
+		assertEquals(AssistantRecommendationState.RECOMMENDED, response.state());
+		assertNull(response.conditions().gameId());
+		assertEquals(List.of("HORROR"), response.conditions().themes());
+		// 이전 스타일 조건은 유지하되 정확 게임만 교체 범위에서 빠진다.
+		assertEquals(List.of("STRATEGY"), response.conditions().categories());
+		verify(candidateQuery).findCandidates(new AssistantGameCandidateQuery.Criteria(
+			List.of("STRATEGY"), List.of(), List.of("HORROR"), null, null, null, 4));
+	}
+
 	private AssistantVocabularyQuery passThroughVocabulary() {
 		return (categories, mechanisms, themes) -> new AssistantVocabularyQuery.Resolved(categories, mechanisms,
 			themes);
