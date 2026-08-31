@@ -12,6 +12,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -220,22 +221,21 @@ public class SemanticGameSearchService implements SemanticGameSearch {
 	}
 
 	private static ExecutorService newDaemonPool(String threadNamePrefix, int poolSize) {
-		AtomicInteger threadCount = new AtomicInteger();
-		return Executors.newFixedThreadPool(poolSize, runnable -> {
-			Thread thread = new Thread(runnable, threadNamePrefix + "-" + threadCount.incrementAndGet());
-			thread.setDaemon(true);
-			return thread;
-		});
+		return Executors.newFixedThreadPool(poolSize, newDaemonThreadFactory(threadNamePrefix));
 	}
 
 	private static ExecutorService newBoundedDaemonPool(String threadNamePrefix, int poolSize) {
-		AtomicInteger threadCount = new AtomicInteger();
 		return new ThreadPoolExecutor(poolSize, poolSize, 0, TimeUnit.MILLISECONDS, new SynchronousQueue<>(),
-			runnable -> {
-				Thread thread = new Thread(runnable, threadNamePrefix + "-" + threadCount.incrementAndGet());
-				thread.setDaemon(true);
-				return thread;
-			}, new ThreadPoolExecutor.AbortPolicy());
+			newDaemonThreadFactory(threadNamePrefix), new ThreadPoolExecutor.AbortPolicy());
+	}
+
+	private static ThreadFactory newDaemonThreadFactory(String threadNamePrefix) {
+		AtomicInteger threadCount = new AtomicInteger();
+		return runnable -> {
+			Thread thread = new Thread(runnable, threadNamePrefix + "-" + threadCount.incrementAndGet());
+			thread.setDaemon(true);
+			return thread;
+		};
 	}
 
 	private record CandidateOutcome(List<DenseCandidateSource.Candidate> candidates, boolean succeeded) {
