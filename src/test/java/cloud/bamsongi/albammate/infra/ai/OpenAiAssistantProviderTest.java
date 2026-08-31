@@ -104,8 +104,18 @@ class OpenAiAssistantProviderTest {
 		assertEquals(AiProviderFailure.INVALID_SCHEMA,
 			responseFor("{\"action\":\"NEEDS_INPUT\",\"categories\":[\"STRATEGY\"],\"mechanisms\":[],\"themes\":[],"
 				+ "\"complexityMax\":null,\"playTimeMax\":null,\"playerCount\":null}").failure());
+		// 조건은 카탈로그 코드가 아니라 자연어 레이블이므로 소문자·한글도 유효하다. 대조는 game 모듈이 한다.
+		assertTrue(
+			responseFor("{\"action\":\"RECOMMEND\",\"categories\":[\"협력\"],\"mechanisms\":[],\"themes\":[],"
+				+ "\"complexityMax\":null,\"playTimeMax\":null,\"playerCount\":null}")
+				.succeeded());
+		// 빈 레이블과 한도를 넘는 레이블은 형식 위반이다.
 		assertEquals(AiProviderFailure.INVALID_SCHEMA,
-			responseFor("{\"action\":\"RECOMMEND\",\"categories\":[\"invalid\"],\"mechanisms\":[],\"themes\":[],"
+			responseFor("{\"action\":\"RECOMMEND\",\"categories\":[\"\"],\"mechanisms\":[],\"themes\":[],"
+				+ "\"complexityMax\":null,\"playTimeMax\":null,\"playerCount\":null}").failure());
+		assertEquals(AiProviderFailure.INVALID_SCHEMA,
+			responseFor("{\"action\":\"RECOMMEND\",\"categories\":[\"" + "가".repeat(41)
+				+ "\"],\"mechanisms\":[],\"themes\":[],"
 				+ "\"complexityMax\":null,\"playTimeMax\":null,\"playerCount\":null}").failure());
 		AiProviderResponse recommendWithoutSearchCondition = responseFor(
 			"{\"action\":\"RECOMMEND\"," + emptyConditions + "}");

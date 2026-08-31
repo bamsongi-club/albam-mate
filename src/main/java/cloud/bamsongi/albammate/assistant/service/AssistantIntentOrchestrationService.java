@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import cloud.bamsongi.albammate.assistant.contract.AssistantConsentGate;
 import cloud.bamsongi.albammate.assistant.contract.AssistantIntentExtraction;
 import cloud.bamsongi.albammate.assistant.contract.AssistantIntentExtractor;
+import cloud.bamsongi.albammate.assistant.contract.AssistantIntentProposal;
 import cloud.bamsongi.albammate.assistant.contract.AssistantIntentRequest;
 import cloud.bamsongi.albammate.assistant.contract.AssistantIntentStatus;
 import cloud.bamsongi.albammate.assistant.dto.AssistantConditionSummary;
@@ -15,6 +16,7 @@ import cloud.bamsongi.albammate.assistant.dto.AssistantRecommendationState;
 import cloud.bamsongi.albammate.game.contract.AssistantExactGameNameQuery;
 import cloud.bamsongi.albammate.game.contract.AssistantGameCandidateQuery;
 import cloud.bamsongi.albammate.game.contract.AssistantRecommendationCandidate;
+import cloud.bamsongi.albammate.game.contract.AssistantVocabularyQuery;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +31,7 @@ public class AssistantIntentOrchestrationService {
 	private final AssistantExactGameNameQuery assistantExactGameNameQuery;
 	private final AssistantIntentExtractor assistantIntentExtractor;
 	private final AssistantGameCandidateQuery assistantGameCandidateQuery;
+	private final AssistantVocabularyQuery assistantVocabularyQuery;
 
 	public AssistantIntentExtraction extract(long userId, AssistantIntentRequest request) {
 		requireAssistantAccess(userId);
@@ -58,13 +61,29 @@ public class AssistantIntentOrchestrationService {
 			return response(AssistantRecommendationState.UNSUPPORTED,
 				AssistantConditionSummary.empty(), java.util.List.of());
 		}
+		// provider는 카탈로그 코드 체계를 모르므로 자연어 레이블을 반환한다. catalog를 소유한 game 경계에서
+		// 코드로 해석하고, 카탈로그에 없는 레이블은 요청 실패가 아니라 조건 누락으로 다뤄 아래에서 되묻는다.
+		AssistantVocabularyQuery.Resolved resolved = assistantVocabularyQuery.resolve(
+			extraction.proposal().categories(), extraction.proposal().mechanisms(), extraction.proposal().themes());
 		AssistantConditionSummary extractedConditions = new AssistantConditionSummary(
-			extraction.proposal().categories(), extraction.proposal().mechanisms(), extraction.proposal().themes(),
+			resolved.categories(), resolved.mechanisms(), resolved.themes(),
 			extraction.proposal().complexityMax(), extraction.proposal().playTimeMax(), null,
 			extraction.proposal().playerCount(), null, null, null);
-		AssistantConditionSummary conditions = request.conditions() == null
+		AssistantConditionSummary merged = request.conditions() == null
 			? extractedConditions
 			: request.conditions().merge(extractedConditions);
+		// 이번 문장이 스타일을 말했는데 카탈로그에서 하나도 찾지 못한 경우다. 빈 배열을 그대로 병합하면
+		// "이번 문장이 언급하지 않음"으로 읽혀 이전 턴 스타일이 되살아나고, 사용자가 방금 말한 것과 다른
+		// 후보를 추천하게 된다. 이전 스타일을 지운 채 다시 묻는다.
+		if (hasLabel(extraction.proposal()) && !extractedConditions.hasRecommendationSearchCondition()) {
+			return response(AssistantRecommendationState.NEEDS_INPUT, withoutStyle(merged),
+				java.util.List.of(AssistantMissingField.GAME_STYLE));
+		}
+		// 새 스타일로 다시 추천하는 문장은 이전 정확 게임과 그 후보를 교체하는 새 추천 범위다.
+		// gameId를 남기면 후보가 그 게임 하나로 고정되어 새 스타일을 반영하지 못한다.
+		AssistantConditionSummary conditions = extractedConditions.hasRecommendationSearchCondition()
+			? withoutGame(merged)
+			: merged;
 		AssistantGameCandidateQuery.Criteria criteria = new AssistantGameCandidateQuery.Criteria(
 			conditions.categories(),
 			conditions.mechanisms(),
@@ -87,6 +106,28 @@ public class AssistantIntentOrchestrationService {
 
 	private boolean hasCatalogCriteria(AssistantConditionSummary conditions) {
 		return conditions.hasRecommendationSearchCondition() || conditions.gameId() != null;
+	}
+
+	/** provider가 이번 문장에서 스타일 레이블을 하나라도 냈는지 확인한다. 해석 성공 여부와는 별개다. */
+	private boolean hasLabel(AssistantIntentProposal proposal) {
+		return !proposal.categories().isEmpty() || !proposal.mechanisms().isEmpty()
+			|| !proposal.themes().isEmpty();
+	}
+
+	/** 새 스타일을 물어야 하므로 이전 스타일과 그에 딸린 정확 게임을 비운다. 나머지 정제 조건은 유지한다. */
+	private AssistantConditionSummary withoutStyle(AssistantConditionSummary conditions) {
+		return new AssistantConditionSummary(
+			java.util.List.of(), java.util.List.of(), java.util.List.of(),
+			conditions.complexityMax(), conditions.playTimeMax(), null, conditions.playerCount(),
+			conditions.startsAt(), conditions.region(), conditions.experienceLevel());
+	}
+
+	/** 이전 정확 게임만 비우고 병합한 스타일과 정제 조건은 그대로 둔다. */
+	private AssistantConditionSummary withoutGame(AssistantConditionSummary conditions) {
+		return new AssistantConditionSummary(
+			conditions.categories(), conditions.mechanisms(), conditions.themes(),
+			conditions.complexityMax(), conditions.playTimeMax(), null, conditions.playerCount(),
+			conditions.startsAt(), conditions.region(), conditions.experienceLevel());
 	}
 
 	private void requireAssistantAccess(long userId) {

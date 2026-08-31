@@ -6,7 +6,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,13 +35,17 @@ final class OpenAiAssistantProvider implements AiProviderClient {
 	private static final Set<String> ALLOWED_ACTIONS = Set.of("RECOMMEND", "NEEDS_INPUT", "UNSUPPORTED");
 	private static final Set<String> PLAY_TIME_MAX_VALUES = Set.of(
 		"UP_TO_10", "OVER_10_TO_20", "OVER_20_TO_30", "OVER_30_TO_60", "OVER_60_UNDER_90", "AT_LEAST_90");
-	private static final Pattern CODE = Pattern.compile("[A-Z][A-Z0-9_]*");
+	private static final int MAX_LABEL_LENGTH = 40;
 	private static final String V1_INSTRUCTION = """
 		You extract a board-game room intent from exactly one current user sentence.
 		Call propose_game_room_intent exactly once and return only arguments matching its schema.
 		Use RECOMMEND only when at least one of category, mechanism, or theme is present. If none is present, use
 		NEEDS_INPUT even when playerCount or other refinements are present; do not turn vague words such as "가볍게"
 		into a numeric complexity value, and use UNSUPPORTED when the request is not a board-game recommendation.
+		Return categories, mechanisms and themes as short natural-language labels written in the user's language,
+		never as identifiers: use "협력", "공포", "전략" rather than COOPERATIVE, HORROR or STRATEGY. Do not invent
+		catalog identifiers, do not use underscores or numeric suffixes, and keep each label under 40 characters.
+		The server maps these labels onto its own catalog and silently drops the labels it does not carry.
 		Never call any other tool, search for games, create rooms, execute SQL, or infer identifiers.
 		Use only the current user sentence, the server-provided missing field names, and Asia/Seoul as reference zone.
 		""";
@@ -59,19 +62,19 @@ final class OpenAiAssistantProvider implements AiProviderClient {
 			  "type":"array",
 			  "minItems":0,
 			  "maxItems":8,
-			  "items":{"type":"string","pattern":"^[A-Z][A-Z0-9_]*$"}
+			  "items":{"type":"string","minLength":1,"maxLength":40}
 			},
 			"mechanisms":{
 			  "type":"array",
 			  "minItems":0,
 			  "maxItems":8,
-			  "items":{"type":"string","pattern":"^[A-Z][A-Z0-9_]*$"}
+			  "items":{"type":"string","minLength":1,"maxLength":40}
 			},
 			"themes":{
 			  "type":"array",
 			  "minItems":0,
 			  "maxItems":8,
-			  "items":{"type":"string","pattern":"^[A-Z][A-Z0-9_]*$"}
+			  "items":{"type":"string","minLength":1,"maxLength":40}
 			},
 			"complexityMax":{"type":["number","null"],"minimum":1.0,"maximum":5.0},
 			"playTimeMax":{"type":["string","null"],"enum":["UP_TO_10","OVER_10_TO_20","OVER_20_TO_30","OVER_30_TO_60","OVER_60_UNDER_90","AT_LEAST_90",null]},
@@ -209,7 +212,8 @@ final class OpenAiAssistantProvider implements AiProviderClient {
 		JsonNode playerCount = output.get("playerCount");
 		if (action == null || !action.isTextual()
 			|| !isValidCodes(categories) || !isValidCodes(mechanisms) || !isValidCodes(themes)
-			|| !isValidComplexity(complexityMax) || !isValidPlayTime(playTimeMax) || !isValidPlayerCount(playerCount)) {
+			|| !isValidComplexity(complexityMax)
+			|| !isValidPlayTime(playTimeMax) || !isValidPlayerCount(playerCount)) {
 			return false;
 		}
 		String actionValue = action.asText();
@@ -245,17 +249,23 @@ final class OpenAiAssistantProvider implements AiProviderClient {
 		JsonNode playerCount = output.get("playerCount");
 		return action != null && action.isTextual()
 			&& isValidCodes(categories) && isValidCodes(mechanisms) && isValidCodes(themes)
-			&& isValidComplexity(complexityMax) && isValidPlayTime(playTimeMax)
-			&& isValidPlayerCount(playerCount);
+			&& isValidComplexity(complexityMax)
+			&& isValidPlayTime(playTimeMax) && isValidPlayerCount(playerCount);
 	}
 
+	// 레이블은 카탈로그 코드가 아니라 사용자 언어의 짧은 낱말이므로 형태만 확인하고,
+	// 실제 어휘 대조는 catalog를 소유한 game 모듈이 수행한다.
 	private boolean isValidCodes(JsonNode codes) {
 		if (codes == null || !codes.isArray() || codes.size() > 8) {
 			return false;
 		}
-		Set<String> seenCodes = new HashSet<>();
+		Set<String> seenLabels = new HashSet<>();
 		for (JsonNode code : codes) {
-			if (!code.isTextual() || !CODE.matcher(code.asText()).matches() || !seenCodes.add(code.asText())) {
+			if (!code.isTextual()) {
+				return false;
+			}
+			String label = code.asText().trim();
+			if (label.isEmpty() || label.length() > MAX_LABEL_LENGTH || !seenLabels.add(label)) {
 				return false;
 			}
 		}
@@ -282,7 +292,7 @@ final class OpenAiAssistantProvider implements AiProviderClient {
 	private List<String> codes(JsonNode codes) {
 		List<String> values = new ArrayList<>();
 		for (JsonNode code : codes) {
-			values.add(code.asText());
+			values.add(code.asText().trim());
 		}
 		return values;
 	}

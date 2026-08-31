@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.assistant.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -21,11 +22,13 @@ import cloud.bamsongi.albammate.assistant.contract.AssistantIntentProposal;
 import cloud.bamsongi.albammate.assistant.contract.AssistantIntentRequest;
 import cloud.bamsongi.albammate.assistant.contract.AssistantIntentStatus;
 import cloud.bamsongi.albammate.assistant.dto.AssistantConditionSummary;
+import cloud.bamsongi.albammate.assistant.dto.AssistantMissingField;
 import cloud.bamsongi.albammate.assistant.dto.AssistantRecommendationRequest;
 import cloud.bamsongi.albammate.assistant.dto.AssistantRecommendationState;
 import cloud.bamsongi.albammate.game.contract.AssistantExactGameNameQuery;
 import cloud.bamsongi.albammate.game.contract.AssistantGameCandidateQuery;
 import cloud.bamsongi.albammate.game.contract.AssistantRecommendationCandidate;
+import cloud.bamsongi.albammate.game.contract.AssistantVocabularyQuery;
 import cloud.bamsongi.albammate.game.contract.GameSummary;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
@@ -56,7 +59,7 @@ class AssistantIntentOrchestrationServiceTest {
 		};
 		AssistantIntentOrchestrationService service = new AssistantIntentOrchestrationService(
 			deniedGate, new AssistantConsentProperties(), exactQuery, extractor,
-			mock(AssistantGameCandidateQuery.class));
+			mock(AssistantGameCandidateQuery.class), passThroughVocabulary());
 
 		BusinessException error = assertThrows(BusinessException.class,
 			() -> service.recommend(1L, new AssistantRecommendationRequest("카 탄", null)));
@@ -71,7 +74,7 @@ class AssistantIntentOrchestrationServiceTest {
 		AssistantExactGameNameQuery exactQuery = mock(AssistantExactGameNameQuery.class);
 		AssistantIntentOrchestrationService service = new AssistantIntentOrchestrationService(
 			grantedGate(), new AssistantConsentProperties(), exactQuery, extractor,
-			mock(AssistantGameCandidateQuery.class));
+			mock(AssistantGameCandidateQuery.class), passThroughVocabulary());
 
 		BusinessException error = assertThrows(BusinessException.class,
 			() -> service.recommend(1L, new AssistantRecommendationRequest("카 탄", null)));
@@ -90,7 +93,7 @@ class AssistantIntentOrchestrationServiceTest {
 			new AssistantIntentProposal("RECOMMEND", List.of("STRATEGY")), null, false));
 		when(candidateQuery.findCandidates(any())).thenReturn(List.of());
 		var service = new AssistantIntentOrchestrationService(grantedGate(), grantableProperties(), exactQuery,
-			extractor, candidateQuery);
+			extractor, candidateQuery, passThroughVocabulary());
 
 		var response = service.recommend(1L, new AssistantRecommendationRequest("카탄!", null));
 
@@ -115,7 +118,7 @@ class AssistantIntentOrchestrationServiceTest {
 		};
 		AssistantIntentOrchestrationService service = new AssistantIntentOrchestrationService(
 			revokedGate, grantableProperties(), name -> java.util.Optional.empty(), providerDelegate,
-			criteria -> java.util.List.of());
+			criteria -> java.util.List.of(), passThroughVocabulary());
 
 		BusinessException exception = assertThrows(
 			BusinessException.class,
@@ -136,7 +139,8 @@ class AssistantIntentOrchestrationServiceTest {
 			java.util.Optional.of(new AssistantRecommendationCandidate(7L, "카탄", null, "공개 설명")));
 
 		AssistantIntentOrchestrationService service = new AssistantIntentOrchestrationService(
-			grantedGate, grantableProperties(), exactGameNameQuery, extractor, candidateQuery);
+			grantedGate, grantableProperties(), exactGameNameQuery, extractor, candidateQuery,
+			passThroughVocabulary());
 
 		AssistantConditionSummary priorConditions = new AssistantConditionSummary(
 			List.of("STRATEGY"), List.of(), List.of(), null, null, null, 4, null, null, null);
@@ -169,7 +173,8 @@ class AssistantIntentOrchestrationServiceTest {
 			List.of(new AssistantRecommendationCandidate(1L, "후보", null, "공개 설명")));
 
 		AssistantIntentOrchestrationService service = new AssistantIntentOrchestrationService(
-			grantedGate, grantableProperties(), exactGameNameQuery, extractor, candidateQuery);
+			grantedGate, grantableProperties(), exactGameNameQuery, extractor, candidateQuery,
+			passThroughVocabulary());
 		AssistantConditionSummary previous = new AssistantConditionSummary(
 			List.of(),
 			List.of("DRAFTING"),
@@ -192,12 +197,83 @@ class AssistantIntentOrchestrationServiceTest {
 		assertEquals("UP_TO_10", response.conditions().playTimeMax());
 		assertEquals(4, response.conditions().playerCount());
 		verify(candidateQuery).findCandidates(new AssistantGameCandidateQuery.Criteria(
-			List.of("STRATEGY"), List.of("DRAFTING"), List.of("HORROR"), new BigDecimal("3.00"), "UP_TO_10", null,
-			4));
+			List.of("STRATEGY"), List.of("DRAFTING"), List.of("HORROR"), new BigDecimal("3.00"), "UP_TO_10",
+			null, 4));
 		verify(candidateQuery).validateCriteria(new AssistantGameCandidateQuery.Criteria(
-			List.of("STRATEGY"), List.of("DRAFTING"), List.of("HORROR"), new BigDecimal("3.00"), "UP_TO_10", null,
-			4));
+			List.of("STRATEGY"), List.of("DRAFTING"), List.of("HORROR"), new BigDecimal("3.00"), "UP_TO_10",
+			null, 4));
 		verifyNoMoreInteractions(candidateQuery);
+	}
+
+	/** 어휘 해석 자체는 game 모듈 책임이므로, 여기서는 넘긴 값을 그대로 돌려주는 통과 구현을 쓴다. */
+	@Test
+	void 카탈로그에_없는_스타일을_말하면_이전_스타일을_되살리지_않고_다시_묻는다() {
+		AssistantIntentExtractor extractor = mock(AssistantIntentExtractor.class);
+		AssistantExactGameNameQuery exactGameNameQuery = mock(AssistantExactGameNameQuery.class);
+		AssistantGameCandidateQuery candidateQuery = mock(AssistantGameCandidateQuery.class);
+		when(exactGameNameQuery.findUniqueByNormalizedName(any())).thenReturn(java.util.Optional.empty());
+		when(extractor.extract(any())).thenReturn(new AssistantIntentExtraction(
+			AssistantIntentStatus.SUCCESS,
+			new AssistantIntentProposal("RECOMMEND", List.of(), List.of(), List.of("없는테마"), null, null, null),
+			null,
+			false));
+		var service = new AssistantIntentOrchestrationService(grantedGate(), grantableProperties(),
+			exactGameNameQuery, extractor, candidateQuery, dropAllVocabulary());
+		// 앞 턴에서 확보한 스타일과 정확 게임이 남아 있는 상태다.
+		AssistantConditionSummary previous = new AssistantConditionSummary(
+			List.of("STRATEGY"), List.of(), List.of(), new BigDecimal("3.00"), "UP_TO_10", 7L, 4, null, null, null);
+
+		var response = service.recommend(1L, new AssistantRecommendationRequest("없는 테마로 추천해줘", previous));
+
+		assertEquals(AssistantRecommendationState.NEEDS_INPUT, response.state());
+		assertEquals(List.of(AssistantMissingField.GAME_STYLE), response.missingFields());
+		assertEquals(List.of(), response.conditions().categories());
+		assertEquals(List.of(), response.conditions().themes());
+		assertNull(response.conditions().gameId());
+		// 스타일과 무관한 정제 조건은 유지한다.
+		assertEquals(new BigDecimal("3.00"), response.conditions().complexityMax());
+		assertEquals(4, response.conditions().playerCount());
+		verifyNoInteractions(candidateQuery);
+	}
+
+	@Test
+	void 새_스타일로_다시_추천하면_이전_정확_게임을_후보_조건에서_제거한다() {
+		AssistantIntentExtractor extractor = mock(AssistantIntentExtractor.class);
+		AssistantExactGameNameQuery exactGameNameQuery = mock(AssistantExactGameNameQuery.class);
+		AssistantGameCandidateQuery candidateQuery = mock(AssistantGameCandidateQuery.class);
+		when(exactGameNameQuery.findUniqueByNormalizedName(any())).thenReturn(java.util.Optional.empty());
+		when(extractor.extract(any())).thenReturn(new AssistantIntentExtraction(
+			AssistantIntentStatus.SUCCESS,
+			new AssistantIntentProposal("RECOMMEND", List.of(), List.of(), List.of("HORROR"), null, null, null),
+			null,
+			false));
+		when(candidateQuery.findCandidates(any())).thenReturn(
+			List.of(new AssistantRecommendationCandidate(1L, "후보", null, "공개 설명")));
+		var service = new AssistantIntentOrchestrationService(grantedGate(), grantableProperties(),
+			exactGameNameQuery, extractor, candidateQuery, passThroughVocabulary());
+		// 앞 턴에서 "카탄"이 정확 게임으로 확정된 상태다.
+		AssistantConditionSummary previous = new AssistantConditionSummary(
+			List.of("STRATEGY"), List.of(), List.of(), null, null, 7L, 4, null, null, null);
+
+		var response = service.recommend(1L, new AssistantRecommendationRequest("공포 테마로 다시 추천해줘", previous));
+
+		assertEquals(AssistantRecommendationState.RECOMMENDED, response.state());
+		assertNull(response.conditions().gameId());
+		assertEquals(List.of("HORROR"), response.conditions().themes());
+		// 이전 스타일 조건은 유지하되 정확 게임만 교체 범위에서 빠진다.
+		assertEquals(List.of("STRATEGY"), response.conditions().categories());
+		verify(candidateQuery).findCandidates(new AssistantGameCandidateQuery.Criteria(
+			List.of("STRATEGY"), List.of(), List.of("HORROR"), null, null, null, 4));
+	}
+
+	private AssistantVocabularyQuery passThroughVocabulary() {
+		return (categories, mechanisms, themes) -> new AssistantVocabularyQuery.Resolved(categories, mechanisms,
+			themes);
+	}
+
+	/** 카탈로그에 없는 레이블만 들어와 아무것도 해석하지 못한 경우를 재현한다. */
+	private AssistantVocabularyQuery dropAllVocabulary() {
+		return (categories, mechanisms, themes) -> AssistantVocabularyQuery.Resolved.empty();
 	}
 
 	private AssistantConsentGate grantedGate() {

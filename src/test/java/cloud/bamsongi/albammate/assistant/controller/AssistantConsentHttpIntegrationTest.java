@@ -40,6 +40,7 @@ import cloud.bamsongi.albammate.assistant.contract.AssistantIntentStatus;
 import cloud.bamsongi.albammate.assistant.service.AssistantConsentProperties;
 import cloud.bamsongi.albammate.assistant.service.AssistantIntentOrchestrationService;
 import cloud.bamsongi.albammate.game.contract.AssistantGameCandidateQuery;
+import cloud.bamsongi.albammate.game.contract.AssistantVocabularyQuery;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.global.security.currentuser.CurrentUserPrincipal;
@@ -75,6 +76,16 @@ class AssistantConsentHttpIntegrationTest {
 	private AssistantIntentExtractor assistantIntentExtractor;
 	@MockitoBean
 	private AssistantGameCandidateQuery assistantGameCandidateQuery;
+	// 이 테스트는 인증·CSRF 경계와 위임을 검증한다. 어휘 해석은 game 모듈 책임이므로 통과 구현으로 고정한다.
+	@MockitoBean
+	private AssistantVocabularyQuery assistantVocabularyQuery;
+
+	@org.junit.jupiter.api.BeforeEach
+	void 어휘_해석은_넘긴_값을_그대로_돌려준다() {
+		given(assistantVocabularyQuery.resolve(any(), any(), any())).willAnswer(
+			invocation -> new AssistantVocabularyQuery.Resolved(invocation.getArgument(0), invocation.getArgument(1),
+				invocation.getArgument(2)));
+	}
 
 	@Test
 	void T1_비로그인_조회는_401이고_동의가_없는_인증_사용자는_NOT_GRANTED를_받는다() throws Exception {
