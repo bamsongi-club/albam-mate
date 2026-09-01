@@ -223,8 +223,17 @@ jobs:
             local release_sha="$5"
             local backend_digest="$6"
             local web_digest="$7"
-            local command_id
-            command_id="$(aws ssm send-command --document-name "$SSM_DOCUMENT" --instance-ids "$instance_id" --parameters "operation=${operation},sourceSha=${release_sha},backendDigest=${backend_digest},webDigest=${web_digest},runtimeSecretPrefix=${runtime_secret_prefix}" --comment "P2 CD ${label} ${release_sha}" --query 'Command.CommandId' --output text)"
+            local command_id error_file
+            error_file="$(mktemp)"
+            # send-command 실패는 즉시 phase 실패다. 빈 command id로 대기하면 조회가 계속 실패해 폴링만 소진한다.
+            if ! command_id="$(aws ssm send-command --document-name "$SSM_DOCUMENT" --instance-ids "$instance_id" --parameters "operation=${operation},sourceSha=${release_sha},backendDigest=${backend_digest},webDigest=${web_digest},runtimeSecretPrefix=${runtime_secret_prefix}" --comment "P2 CD ${label} ${release_sha}" --query 'Command.CommandId' --output text 2>"$error_file")" || [[ -z "$command_id" ]]; then
+              # 실패 원인을 로그와 receipt 양쪽에 남긴다. command id가 없으므로 receipt에 넣지 않는다.
+              cat "$error_file" >&2
+              rm -f -- "$error_file"
+              receipt "phase=${label} source_sha=${release_sha} target=${instance_id} status=failed"
+              return 1
+            fi
+            rm -f -- "$error_file"
             receipt "phase=${label} source_sha=${release_sha} target=${instance_id} command_id=${command_id} status=started"
             if wait_for_command "$command_id" "$instance_id"; then
               receipt "phase=${label} source_sha=${release_sha} target=${instance_id} command_id=${command_id} status=success"
