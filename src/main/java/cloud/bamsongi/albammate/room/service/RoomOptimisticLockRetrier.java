@@ -4,6 +4,7 @@ import java.util.Objects;
 import java.util.function.IntConsumer;
 import java.util.function.Supplier;
 
+import org.slf4j.spi.LoggingEventBuilder;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 
@@ -51,23 +52,20 @@ public class RoomOptimisticLockRetrier {
 	private void logRetry(String event, Long roomId, int attempt, boolean exhausted) {
 		String useCase = resolveUseCase(event);
 		String reasonCode = exhausted ? "OPTIMISTIC_LOCK_EXHAUSTED" : "OPTIMISTIC_LOCK_CONFLICT";
+		LoggingEventBuilder logBuilder = exhausted ? log.atWarn() : log.atDebug();
+		logBuilder.addKeyValue("event", event);
 		if (roomId == null) {
-			if (exhausted) {
-				log.atWarn().addKeyValue("event", event).addKeyValue("attempt", attempt)
-					.addKeyValue("useCase", useCase).addKeyValue("reasonCode", reasonCode).log("room retry exhausted");
-			} else {
-				log.atDebug().addKeyValue("event", event).addKeyValue("attempt", attempt)
-					.addKeyValue("useCase", useCase).addKeyValue("reasonCode", reasonCode).log("room retry conflict");
-			}
-			return;
-		}
-		if (exhausted) {
-			log.atWarn().addKeyValue("event", event).addKeyValue("roomId", roomId).addKeyValue("attempt", attempt)
-				.addKeyValue("useCase", useCase).addKeyValue("reasonCode", reasonCode).log("room retry exhausted");
+			writeRetryLog(logBuilder, attempt, useCase, reasonCode, exhausted);
 		} else {
-			log.atDebug().addKeyValue("event", event).addKeyValue("roomId", roomId).addKeyValue("attempt", attempt)
-				.addKeyValue("useCase", useCase).addKeyValue("reasonCode", reasonCode).log("room retry conflict");
+			logBuilder.addKeyValue("roomId", roomId);
+			writeRetryLog(logBuilder, attempt, useCase, reasonCode, exhausted);
 		}
+	}
+
+	private void writeRetryLog(LoggingEventBuilder logBuilder, int attempt, String useCase, String reasonCode,
+		boolean exhausted) {
+		logBuilder.addKeyValue("attempt", attempt).addKeyValue("useCase", useCase).addKeyValue("reasonCode", reasonCode)
+			.log(exhausted ? "room retry exhausted" : "room retry conflict");
 	}
 
 	private String resolveUseCase(String event) {
