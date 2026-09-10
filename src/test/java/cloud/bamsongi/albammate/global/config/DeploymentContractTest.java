@@ -65,6 +65,23 @@ class DeploymentContractTest {
 	}
 
 	@Test
+	void T9_P2_CD는_승인된_albam_mate_p2_prod_existing_EC2_target만_사용한다() throws IOException {
+		String trigger = file(".github/workflows/p2-cd-trigger.yml");
+		String workflow = file(".github/workflows/p2-cd.yml");
+
+		assertTrue(trigger.contains("target-configuration-gate:"));
+		assertTrue(trigger.contains("P2_STACK_ID"));
+		assertTrue(trigger.contains("albam-mate-p2-prod"));
+		assertTrue(trigger.contains("target_stack_id: ${{ vars.P2_STACK_ID }}"));
+		assertTrue(workflow.contains("target_stack_id:"));
+		assertTrue(workflow.contains("TARGET_STACK_ID: ${{ inputs.target_stack_id }}"));
+		assertTrue(workflow.contains("require_target_stack_id"));
+		assertTrue(workflow.contains(".stackId == $expected_stack_id"));
+		assertTrue(workflow.contains(".targetMode == $expected_target_mode"));
+		assertTrue(workflow.contains("target_stack_id=${TARGET_STACK_ID}"));
+	}
+
+	@Test
 	void T2_P2_CD는_SHA_pin과_OIDC_immutable_ARM64_계약을_사용한다() throws IOException {
 		String workflow = file(".github/workflows/p2-cd.yml");
 		assertTrue(workflow.contains("id-token: write"));
