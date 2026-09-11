@@ -11,6 +11,10 @@ on:
         description: Successful CI run URL retained in the deployment receipt.
         required: true
         type: string
+      target_stack_id:
+        description: Approved stable P2 target stack ID recorded in the deployment contract.
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -178,11 +182,13 @@ jobs:
           WEB_DIGEST: ${{ needs.publish-images.outputs.web_digest }}
           BACKEND_REPOSITORY: ${{ needs.publish-images.outputs.backend_repository }}
           WEB_REPOSITORY: ${{ needs.publish-images.outputs.web_repository }}
+          TARGET_STACK_ID: ${{ inputs.target_stack_id }}
         run: |
           set -euo pipefail
           readonly DEPLOYMENT_CONTRACT_PARAMETER='/albam-mate/p2/deployment-contract'
           readonly LKG_PARAMETER='/albam-mate/p2/last-known-good'
           readonly SSM_DOCUMENT='AlbamMateP2Cd'
+          readonly TARGET_MODE='existing-ec2-attachment'
 
           receipt() {
             printf '%s\n' "$1" >> "$GITHUB_STEP_SUMMARY"
@@ -198,6 +204,10 @@ jobs:
 
           require_runtime_secret_prefix() {
             [[ "$1" =~ ^/[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)+$ ]] || { echo 'invalid runtime secret prefix' >&2; exit 1; }
+          }
+
+          require_target_stack_id() {
+            [[ "$1" == 'albam-mate-p2-prod' ]] || { echo 'P2 target stack ID must be albam-mate-p2-prod' >&2; exit 1; }
           }
 
           wait_for_command() {
@@ -261,15 +271,23 @@ jobs:
           require_sha "$SOURCE_SHA"
           require_digest "$BACKEND_DIGEST"
           require_digest "$WEB_DIGEST"
+          require_target_stack_id "$TARGET_STACK_ID"
           [[ "$CI_URL" == https://github.com/* ]] || { echo 'invalid CI URL' >&2; exit 1; }
 
           contract="$(aws ssm get-parameter --name "$DEPLOYMENT_CONTRACT_PARAMETER" --query 'Parameter.Value' --output text)"
+          CONTRACT_STACK_ID="$(jq -er '.stackId | select(type == "string" and test("^[a-z0-9][a-z0-9-]{2,27}$"))' <<< "$contract")"
+          CONTRACT_TARGET_MODE="$(jq -er '.targetMode | select(type == "string" and . == "existing-ec2-attachment")' <<< "$contract")"
           APP1_INSTANCE_ID="$(jq -er '.app1InstanceId | select(type == "string" and test("^i-[0-9a-f]+$"))' <<< "$contract")"
           APP2_INSTANCE_ID="$(jq -er '.app2InstanceId | select(type == "string" and test("^i-[0-9a-f]+$"))' <<< "$contract")"
           RUNTIME_SECRET_PREFIX="$(jq -er '.runtimeSecretPrefix | select(type == "string" and test("^/[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)+$"))' <<< "$contract")"
           require_runtime_secret_prefix "$RUNTIME_SECRET_PREFIX"
-          jq -e --arg document "$SSM_DOCUMENT" --arg lkg "$LKG_PARAMETER" --arg backend "$BACKEND_REPOSITORY" --arg web "$WEB_REPOSITORY" --arg runtime_prefix "$RUNTIME_SECRET_PREFIX" '
+          jq -e --arg expected_stack_id "$TARGET_STACK_ID" --arg actual_stack_id "$CONTRACT_STACK_ID" --arg expected_target_mode "$TARGET_MODE" --arg actual_target_mode "$CONTRACT_TARGET_MODE" --arg document "$SSM_DOCUMENT" --arg lkg "$LKG_PARAMETER" --arg backend "$BACKEND_REPOSITORY" --arg web "$WEB_REPOSITORY" --arg runtime_prefix "$RUNTIME_SECRET_PREFIX" '
+            .schemaVersion == 1 and
+            $actual_stack_id == $expected_stack_id and
+            $actual_target_mode == $expected_target_mode and
+            .stackId == $expected_stack_id and
             .environment == "p2" and
+            .targetMode == $expected_target_mode and
             .documentName == $document and
             .lastKnownGoodParameter == $lkg and
             .backendRepository == $backend and
@@ -282,7 +300,7 @@ jobs:
           LKG_SHA="$(jq -er '.sourceSha | select(type == "string" and test("^[0-9a-f]{40}$"))' <<< "$lkg")"
           LKG_BACKEND_DIGEST="$(jq -er '.backendDigest | select(type == "string" and test("^sha256:[0-9a-f]{64}$"))' <<< "$lkg")"
           LKG_WEB_DIGEST="$(jq -er '.webDigest | select(type == "string" and test("^sha256:[0-9a-f]{64}$"))' <<< "$lkg")"
-          receipt "phase=preflight source_sha=${SOURCE_SHA} ci_url=${CI_URL} backend_digest=${BACKEND_DIGEST} web_digest=${WEB_DIGEST} lkg_status=loaded"
+          receipt "phase=preflight target_stack_id=${TARGET_STACK_ID} source_sha=${SOURCE_SHA} ci_url=${CI_URL} backend_digest=${BACKEND_DIGEST} web_digest=${WEB_DIGEST} lkg_status=loaded"
 
           # LKG preflight completes before any candidate mutation.
           invoke preflight-app2-current current "$APP2_INSTANCE_ID" "$RUNTIME_SECRET_PREFIX" "$LKG_SHA" "$LKG_BACKEND_DIGEST" "$LKG_WEB_DIGEST" || { receipt 'phase=preflight status=failed'; exit 1; }

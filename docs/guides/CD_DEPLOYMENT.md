@@ -2,12 +2,34 @@
 
 이 가이드는 [#961](https://github.com/bamsongi-club/albam-mate/issues/961)에서 승인한 T1~T7을 구현 계약으로 삼는 P2 자동 CD의 실행·확인 경계를 설명한다.
 
-> - 문서 상태: **T1~T7 승인·앱 코드/자동 검증 완료, target binding·AWS 실행 보류**
+> - 문서 상태: **T1~T7 승인·앱 코드/자동 검증 완료, `albam-mate-p2-prod` target contract gate 추가, target binding·AWS 실행 보류**
 > - 적용 환경: **운영자가 stable CD lifecycle을 승인한 기존 4노드 App1·App2·PostgreSQL·Redis 대상**
 > - 트리거: **`develop` push의 같은 SHA가 `CI Gate`를 성공한 뒤 최신 성공 후보로 선택됨**
 > - 구현 상태: **GitHub Actions workflow·migrator·앱 설정은 자동 검증했으며, deploy role·고정 SSM runner·host bootstrap은 target 결정 뒤에 구현한다. 실제 AWS execution receipt는 없음**
 
 이 가이드는 별도 P2 Terraform 환경을 만들지 않는다. 기존 4노드 Terraform root는 후보이지만, 현재 `perf` state·`run.sh down` 수명주기를 CD 대상으로 암묵적으로 재사용하지 않는다. CD를 enable하기 전에 운영자는 stable target의 state/key, instance selector, runtime namespace와 teardown 제외를 확정한다. Terraform plan/apply, DNS/TLS 입력, LKG 최초 기록은 운영자 수동 절차이고 workflow가 실행하지 않는다. P1 기준선과 수동 절차는 [P1 AWS 저비용 4 EC2 인프라 실행안](AWS_MULTI_INSTANCE_INFRASTRUCTURE.md)에 보존한다.
+
+## `albam-mate-p2-prod` target contract
+
+현재 앱 저장소의 CD trigger는 `P2_CD_ENABLED=true`일 때 저장소 변수 `P2_STACK_ID`가 정확히
+`albam-mate-p2-prod`인지 먼저 확인한다. reusable workflow도 같은 값을 입력으로 받아 SSM
+deployment contract의 `stackId`, `environment=p2`, `targetMode=existing-ec2-attachment`와
+일치하지 않으면 이미지 게시 뒤 배포 단계로 넘어가지 않는다.
+
+이 검증은 이름표만 바꾸는 작업이 아니다. 인프라 저장소의 [P2 existing-EC2 attachment
+adapter](https://github.com/bamsongi-club/albam-mate-infra/tree/main/stacks/aws/p2)가 현재
+P1 state에서 App1·App2·PostgreSQL·Redis를 읽고, bootstrap이 같은 `stackId`와 실제 App1·App2
+instance ID를 비밀이 아닌 계약에 기록해야 한다. 이 앱 저장소 변경은 AWS 태그, Terraform state,
+SSM Parameter, host runner, GitHub repository variable을 변경하지 않는다.
+
+CD를 켜기 전 수동 확인 순서는 다음과 같다.
+
+1. P2 adapter의 state/key와 runtime secret namespace가 승인된 stable target을 가리키는지 확인한다.
+2. bootstrap plan에서 기존 4대에 대한 attachment와 `stackId=albam-mate-p2-prod` 계약만 생성·갱신되는지 확인한다.
+3. `p2-bootstrap`으로 App1·App2 host runner를 설치하고 현재 release의 health·upstream·digest를 확인한다.
+4. `/albam-mate/p2/last-known-good`을 기록한 뒤 저장소 변수 `P2_STACK_ID=albam-mate-p2-prod`와
+   `P2_CD_ENABLED=true`를 순서대로 설정한다.
+5. 다음 `develop` 성공 CI에서 target stack ID와 contract가 receipt에 남는지 확인한다.
 
 ## 한눈에 보는 흐름
 
@@ -37,7 +59,7 @@ flowchart LR
 | source 선택 | 더 높은 run number의 성공 CI가 있을 때만 이전 성공 후보를 건너뜀 | source-gate 조회 결과와 선택 SHA |
 | 이미지 | backend·web 모두 `linux/arm64`, 같은 SHA tag·OCI revision·immutable digest | ECR manifest/digest, OCI label, pull 후 RepoDigest |
 | 실행 권한 | GitHub Actions OIDC의 짧은 수명 image-publish role과 deploy role | trust policy, workflow permission, ECR/SSM 실행 결과 |
-| 배포 대상 | 운영자가 승인한 기존 4노드의 고정 App2 뒤 App1 | deployment contract의 instance ID와 대상별 release SHA |
+| 배포 대상 | `P2_STACK_ID=albam-mate-p2-prod`와 일치하는 기존 4노드의 고정 App2 뒤 App1 | deployment contract의 `stackId`, `environment=p2`, `targetMode=existing-ec2-attachment`, instance ID와 대상별 release SHA |
 | 직렬화 | 한 P2 deploy만 실행하고 실행 중 run은 취소하지 않음 | 겹치지 않는 deployment sequence와 최신 성공 pending |
 | last-known-good | `/albam-mate/p2/last-known-good`의 비밀이 아닌 단일 release manifest | Parameter version, source SHA, 두 앱 SHA·digest, health·upstream 성공 기록 |
 
@@ -114,7 +136,7 @@ P2는 traffic drain, standby slot, ALB health cutover를 제공하지 않는다.
 
 각 배포 run은 다음만 남긴다.
 
-- source SHA, CI run URL, backend·web digest, 시작·종료 시각
+- target stack ID, source SHA, CI run URL, backend·web digest, 시작·종료 시각
 - OIDC role과 P2 SSM 대상·command ID(비밀값 제외)
 - migrator validate/migrate 판정과 단계별 App2·App1 health/upstream·release SHA
 - 각 단계의 성공·실패 판정, 성공한 LKG SHA 또는 rollback SHA와 실패 지점

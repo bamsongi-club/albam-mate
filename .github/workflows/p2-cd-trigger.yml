@@ -53,8 +53,22 @@ jobs:
             core.setOutput('source_sha', process.env.SOURCE_SHA);
             core.setOutput('ci_url', source.html_url);
 
+  target-configuration-gate:
+    if: vars.P2_CD_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate the approved P2 production target
+        env:
+          TARGET_STACK_ID: ${{ vars.P2_STACK_ID }}
+        run: |
+          set -euo pipefail
+          [[ "$TARGET_STACK_ID" == 'albam-mate-p2-prod' ]] || {
+            echo 'P2_STACK_ID must be exactly albam-mate-p2-prod.' >&2
+            exit 1
+          }
+
   invoke-p2-cd:
-    needs: source-gate
+    needs: [source-gate, target-configuration-gate]
     if: vars.P2_CD_ENABLED == 'true'
     uses: bamsongi-club/albam-mate/.github/workflows/p2-cd.yml@develop
     permissions:
@@ -64,3 +78,4 @@ jobs:
     with:
       source_sha: ${{ needs.source-gate.outputs.source_sha }}
       ci_url: ${{ needs.source-gate.outputs.ci_url }}
+      target_stack_id: ${{ vars.P2_STACK_ID }}
