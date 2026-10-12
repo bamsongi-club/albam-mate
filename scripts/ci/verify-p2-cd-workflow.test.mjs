@@ -41,7 +41,7 @@ test('T1 workflow_run의 같은 저장소 develop 성공 CI head_sha만 배포 s
     assert.match(contents, /target_stack_id:\s*\$\{\{\s*vars\.P2_STACK_ID\s*\}\}/);
 });
 
-test('P2 CD는 승인된 albam-mate-p2-prod existing-EC2 target 계약만 사용한다', () => {
+test('P2 CD는 승인된 albam-mate-p2-prod dedicated-EC2 target 계약만 사용한다', () => {
     const trigger = triggerWorkflow();
     const contents = reusableWorkflow();
 
@@ -52,7 +52,7 @@ test('P2 CD는 승인된 albam-mate-p2-prod existing-EC2 target 계약만 사용
     assert.match(contents, /require_target_stack_id/);
     assert.match(contents, /\.stackId == \$expected_stack_id/);
     assert.match(contents, /\.targetMode == \$expected_target_mode/);
-    assert.match(contents, /existing-ec2-attachment/);
+    assert.match(contents, /dedicated-ec2-stack/);
     assert.match(contents, /target_stack_id=\$\{TARGET_STACK_ID\}/);
 });
 
