@@ -16,16 +16,18 @@
 deployment contract의 `stackId`, `environment=p2`, `targetMode=dedicated-ec2-stack`와
 일치하지 않으면 이미지 게시 뒤 배포 단계로 넘어가지 않는다.
 
-이 검증은 이름표만 바꾸는 작업이 아니다. 인프라 저장소의 [P2 dedicated stack
-adapter](https://github.com/bamsongi-club/albam-mate-infra/tree/main/stacks/aws/p2)가 현재
-P1 state에서 App1·App2·PostgreSQL·Redis를 읽고, bootstrap이 같은 `stackId`와 실제 App1·App2
-instance ID를 비밀이 아닌 계약에 기록해야 한다. 이 앱 저장소 변경은 AWS 태그, Terraform state,
-SSM Parameter, host runner, GitHub repository variable을 변경하지 않는다.
+이 검증은 이름표만 바꾸는 작업이 아니다. 인프라 저장소의 [P2 dedicated Terraform
+root](https://github.com/bamsongi-club/albam-mate-infra/tree/main/stacks/aws/p2)는 P1 state를
+읽거나 P1 인스턴스를 재사용하지 않고 P2 전용 VPC·EC2·PostgreSQL·Redis를 직접 관리한다.
+P2 Terraform root의 `app_instance_ids`·`instance_role_names` output을 `p2-bootstrap`이 받아
+실제로 생성된 전용 App1·App2 instance ID와 host IAM role을 bootstrap deployment contract와
+deploy role 허용 목록에 기록해야 한다. 이 앱 저장소 변경은 AWS 태그, Terraform state, SSM
+Parameter, host runner, GitHub repository variable을 변경하지 않는다.
 
 CD를 켜기 전 수동 확인 순서는 다음과 같다.
 
-1. P2 adapter의 state/key와 runtime secret namespace가 승인된 stable target을 가리키는지 확인한다.
-2. bootstrap plan에서 기존 4대에 대한 attachment와 `stackId=albam-mate-p2-prod` 계약만 생성·갱신되는지 확인한다.
+1. P2 dedicated Terraform root의 state/key와 runtime secret namespace, `app_instance_ids`·`instance_role_names` output이 승인된 stable target을 가리키는지 확인한다.
+2. P2 root output을 읽은 `p2-bootstrap`의 plan에서 전용 App1·App2 instance ID와 host IAM role이 deployment contract와 deploy role 허용 목록에 기록·갱신되는지 확인한다. P1 state 기반 재사용이나 기존 리소스 연결은 계획되지 않아야 한다.
 3. `p2-bootstrap`으로 App1·App2 host runner를 설치하고 현재 release의 health·upstream·digest를 확인한다.
 4. `/albam-mate/p2/last-known-good`을 기록한 뒤 저장소 변수 `P2_STACK_ID=albam-mate-p2-prod`와
    `P2_CD_ENABLED=true`를 순서대로 설정한다.
@@ -59,7 +61,7 @@ flowchart LR
 | source 선택 | 더 높은 run number의 성공 CI가 있을 때만 이전 성공 후보를 건너뜀 | source-gate 조회 결과와 선택 SHA |
 | 이미지 | backend·web 모두 `linux/arm64`, 같은 SHA tag·OCI revision·immutable digest | ECR manifest/digest, OCI label, pull 후 RepoDigest |
 | 실행 권한 | GitHub Actions OIDC의 짧은 수명 image-publish role과 deploy role | trust policy, workflow permission, ECR/SSM 실행 결과 |
-| 배포 대상 | `P2_STACK_ID=albam-mate-p2-prod`와 일치하는 기존 4노드의 고정 App2 뒤 App1 | deployment contract의 `stackId`, `environment=p2`, `targetMode=dedicated-ec2-stack`, instance ID와 대상별 release SHA |
+| 배포 대상 | `P2_STACK_ID=albam-mate-p2-prod`와 일치하는 P2 dedicated stack이 관리하는 전용 App2 뒤 App1 | deployment contract의 `stackId`, `environment=p2`, `targetMode=dedicated-ec2-stack`, instance ID와 대상별 release SHA |
 | 직렬화 | 한 P2 deploy만 실행하고 실행 중 run은 취소하지 않음 | 겹치지 않는 deployment sequence와 최신 성공 pending |
 | last-known-good | `/albam-mate/p2/last-known-good`의 비밀이 아닌 단일 release manifest | Parameter version, source SHA, 두 앱 SHA·digest, health·upstream 성공 기록 |
 
