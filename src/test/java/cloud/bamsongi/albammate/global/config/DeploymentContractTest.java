@@ -65,7 +65,7 @@ class DeploymentContractTest {
 	}
 
 	@Test
-	void T9_P2_CD는_승인된_albam_mate_p2_prod_existing_EC2_target만_사용한다() throws IOException {
+	void T9_P2_CD는_승인된_albam_mate_p2_prod_dedicated_EC2_target만_사용한다() throws IOException {
 		String trigger = file(".github/workflows/p2-cd-trigger.yml");
 		String workflow = file(".github/workflows/p2-cd.yml");
 

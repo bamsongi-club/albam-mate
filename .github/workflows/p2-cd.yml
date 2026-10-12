@@ -188,7 +188,7 @@ jobs:
           readonly DEPLOYMENT_CONTRACT_PARAMETER='/albam-mate/p2/deployment-contract'
           readonly LKG_PARAMETER='/albam-mate/p2/last-known-good'
           readonly SSM_DOCUMENT='AlbamMateP2Cd'
-          readonly TARGET_MODE='existing-ec2-attachment'
+          readonly TARGET_MODE='dedicated-ec2-stack'
 
           receipt() {
             printf '%s\n' "$1" >> "$GITHUB_STEP_SUMMARY"
@@ -276,7 +276,7 @@ jobs:
 
           contract="$(aws ssm get-parameter --name "$DEPLOYMENT_CONTRACT_PARAMETER" --query 'Parameter.Value' --output text)"
           CONTRACT_STACK_ID="$(jq -er '.stackId | select(type == "string" and test("^[a-z0-9][a-z0-9-]{2,27}$"))' <<< "$contract")"
-          CONTRACT_TARGET_MODE="$(jq -er '.targetMode | select(type == "string" and . == "existing-ec2-attachment")' <<< "$contract")"
+          CONTRACT_TARGET_MODE="$(jq -er '.targetMode | select(type == "string" and . == "dedicated-ec2-stack")' <<< "$contract")"
           APP1_INSTANCE_ID="$(jq -er '.app1InstanceId | select(type == "string" and test("^i-[0-9a-f]+$"))' <<< "$contract")"
           APP2_INSTANCE_ID="$(jq -er '.app2InstanceId | select(type == "string" and test("^i-[0-9a-f]+$"))' <<< "$contract")"
           RUNTIME_SECRET_PREFIX="$(jq -er '.runtimeSecretPrefix | select(type == "string" and test("^/[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)+$"))' <<< "$contract")"
