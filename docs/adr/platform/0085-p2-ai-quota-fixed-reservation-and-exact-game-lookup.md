@@ -5,7 +5,7 @@
 - 결정일: 2026-08-21
 - 관련: [#944](https://github.com/bamsongi-club/albam-mate/issues/944), [ADR-0074](0074-p2-ai-provider-consent-and-operation-boundary.md), [AI 기능 명세](../../p2/assistant.md), [API](../../API.md), [AI 검증 설계](../../p2/assistant-load-test.md), [OPS-04](../../p2/monitoring.md#ops-04-ai-사용량과-추정-비용)
 - 대체 대상: [ADR-0074](0074-p2-ai-provider-consent-and-operation-boundary.md)의 `기본 실행·제한·비용` 중 사용자별 호출 한도와 앱 월 비용 예약·상한 정책
-- 후속 ADR: 없음
+- 후속 ADR: [ADR-0093](0093-p2-ai-token-cost-reservation-and-ledger.md) (provider 비용 계산을 token 기반으로 대체), [ADR-0094](0094-p2-ai-user-quota-and-provider-cost-guardrails.md) (사용자 일 quota를 5회로 조정; 월 quota·동시성·정확 게임명 직접 조회는 유지)
 
 ## 맥락
 

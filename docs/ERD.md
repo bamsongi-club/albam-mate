@@ -827,7 +827,7 @@ Outbox의 `occurred_at`과 Notification의 `created_at`은 애플리케이션 `C
 
 ## P2 AI 기능군 저장 계약
 
-> 이 절의 AI-01 동의와 AI-03 초안·확인 저장 계약은 Flyway·JPA 엔티티·생산 테이블로 제공한다. 현재 배포·실측 여부는 [P2 기능 상태](p2/README.md#기능별-현재-상태)에서만 판정한다. 외부 provider·동의·보존 경계는 [ADR-0074](adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md), AI-02의 호출 quota·고정 예약 비용·정확 게임명 직접 조회는 [ADR-0085](adr/platform/0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md), 초안·확인·멱등성은 [ADR-0075](adr/room/0075-p2-ai-draft-confirmation-and-idempotent-room-command.md), 지역은 [ADR-0076](adr/room/0076-p2-room-region-closed-set-and-compatibility.md)을 따른다.
+> 이 절의 AI-01 동의와 AI-03 초안·확인 저장 계약은 Flyway·JPA 엔티티·생산 테이블로 제공한다. 현재 배포·실측 여부는 [P2 기능 상태](p2/README.md#기능별-현재-상태)에서만 판정한다. 외부 provider·동의·보존 경계는 [ADR-0074](adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md), AI-02의 요청 quota·정확 게임명 직접 조회는 [ADR-0085](adr/platform/0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md), token 비용 최대 예약·usage 정산은 [ADR-0093](adr/platform/0093-p2-ai-token-cost-reservation-and-ledger.md), 초안·확인·멱등성은 [ADR-0075](adr/room/0075-p2-ai-draft-confirmation-and-idempotent-room-command.md), 지역은 [ADR-0076](adr/room/0076-p2-room-region-closed-set-and-compatibility.md)을 따른다.
 
 이 절은 AI-01 동의와 AI-03 초안·확인 멱등성의 저장 이름·타입·제약과 저장 효과만 소유한다. AI-02의 자연어 요청·provider payload·모델 원문 응답·대화 이력·게임 후보는 저장하지 않으며, HTTP 필드·오류는 [AI 기능군 API](API.md#ai-기능군-api), 모듈·트랜잭션 흐름은 [아키텍처의 AI 기능군 모듈 계약](ARCHITECTURE.md#p2-ai-기능군-모듈-계약-현재-구현승인된-확장)이 소유한다.
 

@@ -9,7 +9,7 @@
 ## 검증 원칙
 
 - 기본 runner는 결정적 fake provider를 사용한다. 같은 입력·schema version·fixture hash는 같은 구조화 결과와 오류를 반환해야 한다.
-- 실제 provider는 [ADR-0074](../adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md)·[ADR-0089](../adr/platform/0089-p2-ai-openai-default-retention-and-smoke-gate.md)·[ADR-0085](../adr/platform/0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md)의 실행 권한, model ID 확인, retention mode, payload allowlist와 고정 예약 상한 확인 뒤 별도 수동 smoke에서만 사용한다.
+- 실제 provider는 [ADR-0074](../adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md)·[ADR-0089](../adr/platform/0089-p2-ai-openai-default-retention-and-smoke-gate.md)·[ADR-0085](../adr/platform/0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md)·[ADR-0093](../adr/platform/0093-p2-ai-token-cost-reservation-and-ledger.md)의 실행 권한, model ID 확인, retention mode, payload allowlist와 최대 token 비용 예약 설정 확인 뒤 별도 수동 smoke에서만 사용한다.
 - 테스트는 `AI-01a`·`AI-01b`·`AI-02a`·`AI-03a`의 계약을 기능별로 분리해 판정하고, setup 실패·관측 누락·generator 포화는 기능 실패가 아닌 `INVALID`로 기록한다.
 - prompt·응답·Tool 인자·게임 후보·사용자 ID·세션·비밀값을 결과 파일·metric label·central log에 남기지 않는다.
 
@@ -54,13 +54,15 @@ manifest hash는 `manifestSha256` 필드를 제외한 전체 manifest를 JSON ob
 
 ## 부하 시나리오
 
-실제 외부 provider 호출 제한값은 [ADR-0085](../adr/platform/0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md)의 사용자 KST 일 10회·월 150회·동시 1회·timeout 10초·retry 0을 사용한다. 10분 이동 창은 두지 않으며, 호출당 USD `0.10` 고정 예약을 적용한 앱 전체 월 hard cap은 `$5`, warning 기준은 `$4`다. 40명은 초기 대상 사용자 수일 뿐 개인별 provider 호출 보장이나 공유 예산 배분을 뜻하지 않는다. `40명 × 사용자별 월 150회 = 6,000회`는 사용자 quota의 이론상 합계이며, 실제 외부 provider 호출은 공유 예약 예산에 의해 빈 월 최대 50회로 먼저 제한된다. 결정적 fake provider를 쓰는 격리 synthetic 부하는 이 공유 예산 가용량을 증명하지 않는다.
+실제 외부 provider 요청 quota는 [ADR-0094](../adr/platform/0094-p2-ai-user-quota-and-provider-cost-guardrails.md)의 인증 사용자별 KST 일 최대 5회·월 150회·동시 1회 및 기존 [ADR-0085](../adr/platform/0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md)의 timeout 10초·retry 0을 사용한다. 비용 예약·정산은 [ADR-0093](../adr/platform/0093-p2-ai-token-cost-reservation-and-ledger.md)·[ADR-0094](../adr/platform/0094-p2-ai-user-quota-and-provider-cost-guardrails.md)을 따른다. Redis 앱 전체 KST 월 `$5` 상한과 `$4` warning은 token 가격 snapshot으로 계산한 예상 비용 및 진행 중 최대 비용 예약을 기준으로 하고, 전용 OpenAI Project 월 `$5` hard spend limit은 별도 provider-side guardrail이다. Project limit은 provider 설정에서 확인하며 fake-provider 부하는 그 설정이나 적용 시차·실제 비용을 검증하지 않는다. `40명 × 사용자별 월 150회 = 6,000회`는 사용자 quota의 이론상 합계일 뿐 provider 호출 보장이나 실제 가능 호출 수가 아니다.
 
 | 시나리오 | 목적 | 관찰값 |
 | --- | --- | --- |
 | 단일 정상 요청 | 기본 latency·상태 전이 | provider 호출 수, 구조화 성공, 응답 지연 |
-| 사용자 한도 경계 | 10회/11번째 요청과 월 150/151번째 요청의 원자 판정 | 허용·거절 수, quota 소비, 상태 부수효과 |
-| 공유 예약 예산 경계 | 40번째 warning, 50번째 허용, 51번째 거절 | warning 수, provider 호출 수, USD `0.10` 예약 누계, `ASSISTANT_COST_LIMIT_EXCEEDED` |
+| 사용자 한도 경계 | 동일 사용자의 5회/6번째 요청과 월 150/151번째 요청의 원자 판정 | 허용·거절 수, quota 소비·반환, 상태 부수효과 |
+| 인증 주체 분리 | 서로 다른 로그인 사용자와 client-supplied user ID 조작 | 서버 인증 사용자별 독립 quota, client ID 무시 여부 |
+| 공유 비용 상한 경계 | `$4` warning, `$5` projected app cost cap, token 정산 후 재예약 가능 여부 | warning 수, provider 호출 수, micro-USD 예약·정산·미확정 합계, `ASSISTANT_COST_LIMIT_EXCEEDED` |
+| usage 분류·실패 정산 | cache-hit/cache-write token 정보 있음/없음, usage 포함 오류, 확정 일반 실패, 응답 중단 | 각 적용 단가, cache 구분 누락 시 일반 input 단가, reservation 반환, 미확정 slot·예약 유지 |
 | 동시 요청 | 동시 1회와 초안/confirm 수렴 | 중복 초안·Room·provider call, lock wait |
 | timeout·429 반복 | retry 없음·fail-closed | 오류 상태, latency, quota 소비, 부분 저장 |
 | Redis 불능 | 비용·quota 저장소 장애 | AI 명령 거절, fallback 여부, 저장 부수효과 |
@@ -69,9 +71,9 @@ manifest hash는 `manifestSha256` 필드를 제외한 전체 manifest를 JSON ob
 ## 비용·지연 판정
 
 - 측정 경계는 인증·동의·quota 판정이 끝나 AI 명령이 수락된 시점부터 최종 상태 응답을 조합한 시점까지의 end-to-end latency와, provider adapter가 payload를 전송한 시점부터 구조화 응답 검증 또는 timeout까지의 provider latency로 나눈다. fixture 생성·setup·generator warm-up은 latency 표본에서 제외하고 provider 대기·schema 검증은 포함한다.
-- 예약 비용은 실제 외부 provider 호출 수에 호출당 USD `0.10`을 곱해 계산한다. 49번째 예약 뒤 `$4.90`, 50번째 예약 뒤 `$5.00`, 51번째 요청은 예약 전 거절이어야 한다. input/output token과 가격 snapshot은 이 cap의 계산값이 아니라 예약값 적정성·사용량 관측 근거다. 예약 trace가 없으면 비용 `0`으로 대체하지 않고 `NO_OBSERVATION` 또는 `INVALID`로 판정한다.
-- cost cap은 [ADR-0085](../adr/platform/0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md)의 앱 전체 월 `$5`와 warning 기준 `$4`를 사용한다. latency threshold는 구현 이슈의 테스트 계약에서 별도 승인하며, threshold·cap이 없거나 실제 provider 관측을 실행하지 않은 결과는 `NOT_RUN`이다.
-- `PASS`는 manifest/hash·trace·부수효과가 완전하고, 승인된 latency threshold와 고정 예약 cap을 모두 만족하며 금지 데이터가 없는 경우에만 부여한다. 실행·관측 계약은 충족했지만 threshold 초과·cap 초과·금지 데이터가 확인되면 `FAIL`, manifest/hash·trace·측정 자료가 누락되면 `INVALID`로 판정한다. provider 호출·가격 snapshot·승인값이 없는 경우는 `NOT_RUN` 또는 `NO_OBSERVATION`이며 `AI-02-AC3`의 quota·비용 근거나 `AI-04-AC2`의 배포 후 관측 근거로 세지 않는다.
+- usage가 있는 응답의 비용은 input/output token과 적용 가격 snapshot을 곱한 뒤 USD micro 단위로 올림한다. provider가 cache-hit input을 분리해 주면 cached-input 단가를, 별도로 가격이 매겨진 cache-write token을 보고하면 그 category 단가를 쓴다. cache 구분 정보가 없으면 전체 input에 일반 단가를 쓴다. 예약은 설정된 최대 token 비용으로 시작하고, usage가 확인되면 실제 예상액으로 대체한다. usage를 알 수 없는 timeout·응답 누락은 quota slot과 전체 비용 예약을 미확정 상태로 유지한다. 확정된 일반 실패는 사용하지 않은 slot과 비용 예약을 돌려준다. trace가 없으면 비용 `0`으로 대체하지 않고 `NO_OBSERVATION` 또는 `INVALID`로 판정한다.
+- cost cap은 [ADR-0094](../adr/platform/0094-p2-ai-user-quota-and-provider-cost-guardrails.md)의 Redis 앱 전체 KST 월 `$5` 및 warning `$4`와 전용 OpenAI Project 월 `$5` hard spend limit을 구분한다. OpenAI Usage/Cost data는 별도 provider 대조 자료이며 앱 내부 예상액과 동일시하지 않는다. latency threshold는 구현 이슈의 테스트 계약에서 별도 승인하며, threshold·cap이 없거나 실제 provider 관측을 실행하지 않은 결과는 `NOT_RUN`이다.
+- `PASS`는 manifest/hash·trace·부수효과가 완전하고 승인된 latency threshold와 token 기반 예상 비용 예약·정산 기준을 만족하며 금지 데이터가 없는 경우에만 부여한다. 실행·관측 계약은 충족했지만 threshold 초과·cap 초과·금지 데이터가 확인되면 `FAIL`, manifest/hash·trace·측정 자료가 누락되면 `INVALID`로 판정한다. provider 호출·가격 snapshot·승인값이 없는 경우는 `NOT_RUN` 또는 `NO_OBSERVATION`이며 `AI-02-AC3`의 quota·비용 근거나 `AI-04-AC2`의 배포 후 관측 근거로 세지 않는다.
 
 ## 판정 기준
 

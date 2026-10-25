@@ -36,7 +36,7 @@ Provider endpoint·secret/config·release·migration·feature gate·rollback과 
 ## 문서 책임
 
 - 이 문서가 소유하는 기능 동작과 완료 기준: `AI-01`~`AI-04`의 사용자 흐름·Provider·Room·운영 경계와 각 기능의 독립 완료 기준. 공개 API·저장·모듈 계약은 각 기능이 소유한 정본에 연결한다.
-- 이 문서가 소유하지 않는 결정: 외부 AI 처리·동의·provider 운영 경계는 [ADR-0074](../adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md)와 [ADR-0089](../adr/platform/0089-p2-ai-openai-default-retention-and-smoke-gate.md), AI-02의 호출 quota·고정 예약 비용·정확 게임명 직접 조회는 [ADR-0085](../adr/platform/0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md), Room 초안·확인형 생성은 [ADR-0075](../adr/room/0075-p2-ai-draft-confirmation-and-idempotent-room-command.md), 지역 계약은 [ADR-0076](../adr/room/0076-p2-room-region-closed-set-and-compatibility.md)가 소유한다. 공개 HTTP·저장·모듈 계약은 [API](../API.md), [ERD](../ERD.md), [아키텍처](../ARCHITECTURE.md)에 반영됐다.
+- 이 문서가 소유하지 않는 결정: 외부 AI 처리·동의·provider 운영 경계는 [ADR-0074](../adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md)와 [ADR-0089](../adr/platform/0089-p2-ai-openai-default-retention-and-smoke-gate.md), AI-02의 호출 quota·정확 게임명 직접 조회는 [ADR-0085](../adr/platform/0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md), 비용 최대 예약·token 사용량 정산은 [ADR-0093](../adr/platform/0093-p2-ai-token-cost-reservation-and-ledger.md), Room 초안·확인형 생성은 [ADR-0075](../adr/room/0075-p2-ai-draft-confirmation-and-idempotent-room-command.md), 지역 계약은 [ADR-0076](../adr/room/0076-p2-room-region-closed-set-and-compatibility.md)가 소유한다. 공개 HTTP·저장·모듈 계약은 [API](../API.md), [ERD](../ERD.md), [아키텍처](../ARCHITECTURE.md)에 반영됐다.
 - `AI-01`~`AI-04`는 [`DISCOVERY-01` 게임 탐색 도우미](game-discovery-assistant.md#ai-01과의-경계)와 별도 기능군이다. `DISCOVERY-01`은 `SEARCH-04` 읽기 전용 탐색을 소유하고, AI 기능군은 서버 추천과 확인형 Room 생성 흐름을 소유한다.
 
 문서 등록과 AI-D01~D04 결정은 provider 도입·생산 코드·배포·실측 완료를 뜻하지 않는다. 승인된 ADR과 목표 계약, 그리고 기능별 구현·검증·배포·실측 상태는 서로 다른 축이며 현재 값은 [P2 기능 상태](README.md#기능별-현재-상태) 표에서만 판정한다.
@@ -50,9 +50,9 @@ Provider endpoint·secret/config·release·migration·feature gate·rollback과 
 | `AI-D01` | 외부 provider는 `assistant.contract.AssistantIntentExtractor` 한 port 뒤에 두고, 동의·PII/secret 차단·명시적 retention mode·no-training·fake provider를 적용한다. 모델은 `propose_game_room_intent` 구조화 결과만 제안하며 검색·Room 쓰기·tool loop 권한을 갖지 않는다. | [ADR-0074](../adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md)·[ADR-0089](../adr/platform/0089-p2-ai-openai-default-retention-and-smoke-gate.md) |
 | `AI-D02` | `RECOMMEND`는 후보만 조회하고 초안을 만들지 않는다. `CREATE_ROOM` 전환 후 15분 초안을 만들며, 상세 장소와 최종 조건을 사용자가 확인한 뒤에만 `room.contract` 확인형 command를 호출한다. `Idempotency-Key`·draft version·Room·ChatRoom 원자성을 적용한다. | [ADR-0075](../adr/room/0075-p2-ai-draft-confirmation-and-idempotent-room-command.md) |
 | `AI-D03` | 지역은 `홍대`·`강남`·`건대`·`잠실`의 닫힌 집합이다. 호환 기간의 누락은 `홍대`로 해석하고, 기존 행은 재작성하지 않으며 migration 전 허용값을 검사한다. | [ADR-0076](../adr/room/0076-p2-room-region-closed-set-and-compatibility.md) |
-| `AI-D04` | 실제 외부 provider 경로만 사용자별 KST 일 10회·월 150회·동시 1회와 호출당 USD `0.10` 고정 예약을 적용한다. 앱 전체 KST 월 `$5` hard cap·`$4` warning을 유지하고, 유일한 정규화 정식 게임명은 provider·quota·비용 예약 없이 `game.contract`로 조회한다. | [ADR-0085](../adr/platform/0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md) |
+| `AI-D04` | 인증된 앱 사용자별 실제 외부 provider 호출을 KST 일 최대 5회·월 150회·동시 1회로 제한한다. Redis 앱 전체 월 예상 비용은 `$5` 상한·`$4` warning으로 token usage에 따라 예약·정산하고, 전용 OpenAI Project 월 `$5` 지출 상한은 별도 provider 안전장치로 둔다. cache-hit token은 보고되면 cached-input 단가, 별도로 가격이 매겨진 cache-write token은 해당 token 단가를 적용하고, cache 구분 정보가 없으면 일반 input 단가를 적용한다. 일반 실패는 확인된 미사용 quota·예약을 반환하고, usage가 불명확한 중단은 확인 전 보류한다. 유일한 정규화 정식 게임명은 quota·비용 예약 없이 `game.contract`로 조회한다. | 요청 quota·직접 조회: [ADR-0085](../adr/platform/0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md) · 내부 token 원가: [ADR-0093](../adr/platform/0093-p2-ai-token-cost-reservation-and-ledger.md) · 후속 정책: [ADR-0094](../adr/platform/0094-p2-ai-user-quota-and-provider-cost-guardrails.md) |
 
-결정 흐름은 `#794`의 AI-01 범위·소유 경계에서 시작해 `#795`의 AI-D01, `#796`의 AI-D02·D03, [#944](https://github.com/bamsongi-club/albam-mate/issues/944)의 AI-D04로 이어진다. 네 결정은 승인된 목표 계약으로 공개 API·ERD·아키텍처에 반영되며, 생산 코드·자동 검증·배포·실측은 별도 상태 축으로 관리한다.
+결정 흐름은 `#794`의 AI-01 범위·소유 경계에서 시작해 `#795`의 AI-D01, `#796`의 AI-D02·D03, [#944](https://github.com/bamsongi-club/albam-mate/issues/944)의 최초 AI-D04와 [#1111](https://github.com/bamsongi-club/albam-mate/issues/1111)의 quota·비용 후속 정책으로 이어진다. 네 결정은 승인된 목표 계약으로 공개 API·ERD·아키텍처에 반영되며, 생산 코드·자동 검증·배포·실측은 별도 상태 축으로 관리한다.
 
 ## 구현 컨텍스트
 
@@ -123,7 +123,7 @@ provider 내부 호출은 현재 문장과 서버가 허용한 구조화 schema�
 
 - `AI-01a`: 로그인·외부 처리 동의, 인증·인가·CSRF와 AI 요청 진입 경계. 자연어 추천 통합 T-ID는 이 슬라이스에서 함께 검증한다.
 - `AI-01b`: `#/assistant` 화면, 추천·추가 질문·확인 카드·실패 상태, `내정보 > AI 설정`의 동의 상태·정책 버전·URL·retention mode 확인과 철회 화면, 기존 수동 Room 생성 회귀 보호.
-- `AI-02a`: `AssistantIntentExtractor` port와 adapter, payload allowlist, 호출 한도·timeout·고정 예약 비용·fail-closed·fake provider·사용량 이벤트, `game.contract` 정확 게임명 resolver와 후보 전용 DTO. 구조화 조건·추천 상태의 통합 T-ID는 `AI-01a`와 `AI-01b`가 연결한다. 세부 값은 [ADR-0074](../adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md)·[ADR-0085](../adr/platform/0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md)·[ADR-0089](../adr/platform/0089-p2-ai-openai-default-retention-and-smoke-gate.md)을 따른다.
+- `AI-02a`: `AssistantIntentExtractor` port와 adapter, payload allowlist, 호출 quota·timeout·최대 token 비용 예약·usage 정산·fail-closed·fake provider·사용량 이벤트, `game.contract` 정확 게임명 resolver와 후보 전용 DTO. 구조화 조건·추천 상태의 통합 T-ID는 `AI-01a`와 `AI-01b`가 연결한다. 세부 값은 [ADR-0074](../adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md)·[ADR-0085](../adr/platform/0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md)·[ADR-0089](../adr/platform/0089-p2-ai-openai-default-retention-and-smoke-gate.md)·[ADR-0093](../adr/platform/0093-p2-ai-token-cost-reservation-and-ledger.md)·[ADR-0094](../adr/platform/0094-p2-ai-user-quota-and-provider-cost-guardrails.md)을 따른다.
 - `AI-03a`: 15분 임시 초안, 상세 장소 입력, 명시적 확인, `Idempotency-Key`와 draft version을 사용하는 Room 생성 연결. 확인 UI 통합 T-ID는 `AI-01b`가 연결하며, 세부 저장·지역·오류 계약은 [ADR-0075](../adr/room/0075-p2-ai-draft-confirmation-and-idempotent-room-command.md)와 [ADR-0076](../adr/room/0076-p2-room-region-closed-set-and-compatibility.md)를 따른다.
 - `AI-04a`: 운영 Provider endpoint·secret·설정과 인프라 배포. account/egress 검증값은 관찰 증거로 기록한다.
 - `AI-04b`: production release·migration·feature gate·rollback.
@@ -148,7 +148,7 @@ provider 내부 호출은 현재 문장과 서버가 허용한 구조화 schema�
 | --- | --- | --- |
 | `AI-01a` | 동의·철회, 인증·인가·CSRF, AI 요청 진입과 추천 orchestration | API·아키텍처·ADR-0074·0085·0089 계약 |
 | `AI-01b` | `#/assistant` 화면, 동의 설정, 추천·추가 질문·확인 카드, 수동 Room 회귀 | `AI-01a`·`AI-02a`·`AI-03a` 공개 응답 계약 |
-| `AI-02a` | provider adapter, fake provider, payload allowlist, 정확 게임명 resolver·후보 DTO, quota·timeout·고정 예약 비용·fail-closed·usage event | ADR-0074·0085·0089, 설정·관측 계약 |
+| `AI-02a` | provider adapter, fake provider, payload allowlist, 정확 게임명 resolver·후보 DTO, quota·timeout·최대 token 비용 예약·usage 정산·fail-closed·usage event | ADR-0074·0085·0089·0093, 설정·관측 계약 |
 | `AI-03a` | 임시 초안, 장소 입력, 지역 검증, 확인형 Room command와 멱등성 | ADR-0075·0076, ERD·API·Room 계약 |
 | `AI-04a` | 운영 인프라·Provider endpoint·secret/config 배포와 smoke 확인 | 운영 권한·Terraform/Compose·Secret 계약 |
 | `AI-04b` | production release·migration·feature gate·rollback | `AI-01a`·`AI-02a`·`AI-03a` 고정 release |
@@ -164,10 +164,10 @@ provider 내부 호출은 현재 문장과 서버가 허용한 구조화 schema�
 4. `CREATE_ROOM`의 누락 필드가 정확히 `NEEDS_INPUT`으로 반환되고, 확인 전 Room·ChatRoom·참가 관계가 생성되지 않는지 확인한다. 초안 수정은 `ACTIVE`에만 적용되고 `CONFIRMED`·`DISCARDED` 수정과 `CONFIRMED` 폐기가 계약된 충돌 오류로 끝나는지 확인한다.
 5. 유효한 confirm이 Room 정확히 1개와 ChatRoom 정확히 1개를 원자적으로 만들고, Room 생성 실패 시 부분 상태를 남기지 않는지 확인한다.
 6. AI 기능이 활성인 동안 같은 `(currentUserId, draft/resource, operation)` 범위의 동일 `Idempotency-Key`·draft version 재시도가 최초 결과를 재생하고 새 Room·ChatRoom을 만들지 않는지, 비활성 상태에서는 재생 전에 fail-closed로 끝나고 기존 결과가 바뀌지 않는지 확인한다. 범위 밖 key 재사용·다른 version·동시 요청·만료 초안은 계약된 오류로 수렴해야 한다. 보존 기간이 지난 key는 같은 사용자의 다음 초안 생성·확인 명령이 만료 기록을 정리한 뒤 새 확인으로 처리되고 이전 Room 결과를 재생하지 않는지도 확인한다.
-7. 동의 철회·timeout·429·schema 오류·Redis 불능·provider quota 10/11회·월 150/151회·예약 40번째 warning·50번째 허용·51번째 거절·provider 또는 Room 생성 실패가 공개 실패 상태와 fail-closed로 끝나는지 확인한다. 정확 게임명 직접 조회는 Redis 예약 저장소를 읽지 않는지도 확인한다.
+7. 동의 철회·timeout·429·schema 오류·Redis 불능·provider quota 5/6회·월 150/151회·앱 비용 `$4` warning·`$5` 차단·provider 또는 Room 생성 실패가 공개 실패 상태와 fail-closed로 끝나는지 확인한다. 일반 실패는 확인된 미사용 quota·예약을 반환하고, usage 불명확 중단은 보류한다. 정확 게임명 직접 조회는 Redis 예약 저장소를 읽지 않는지도 확인한다.
 8. prompt·응답·Tool 인자·게임 후보·사용자 ID·세션·비밀값이 provider payload·저장소·metric·central log에 원문으로 남지 않는지 확인한다.
 9. 고정 fixture의 manifest version·hash·caseId·trace·부수효과 assertion과 결과 판정이 일치하는지 확인한다. setup 실패·관측 누락·generator 포화는 기능 실패가 아닌 `INVALID`로 기록한다.
-10. 고정 release에서 승인된 latency threshold·고정 예약 비용 상한·운영 관측 증거가 모두 있을 때만 `PASS`를 부여하고, provider 호출·가격 snapshot·승인값이 없으면 `NOT_RUN` 또는 `NO_OBSERVATION`으로 구분한다. 가격 snapshot은 hard cap 산정값이 아니라 USD `0.10` 예약값 적정성 재검토 근거로만 기록한다.
+10. 고정 release에서 승인된 latency threshold·[ADR-0093](../adr/platform/0093-p2-ai-token-cost-reservation-and-ledger.md)의 token 기반 예상 비용 상한·운영 관측 증거가 모두 있을 때만 `PASS`를 부여하고, provider 호출·가격 snapshot·승인값이 없으면 `NOT_RUN` 또는 `NO_OBSERVATION`으로 구분한다. OpenAI Cost data와 내부 token 예상 비용은 별도 값으로 기록한다.
 
 상세 fixture·cohort·부하 시나리오·비용·지연 판정·runner 실행 게이트는 [AI-01 부하·계약 검증 설계](assistant-load-test.md)가 소유한다. 문서에 검증 항목을 등록한 것만으로 자동 검증·배포 검증·실측 완료로 표시하지 않는다.
 
@@ -211,7 +211,7 @@ provider 내부 호출은 현재 문장과 서버가 허용한 구조화 schema�
 
 - 성공·추가 질문·거절·provider 실패·Room 생성 최종 결과와 허용된 provider/model/feature/tool label만 집계한다.
 - prompt·응답 원문·Tool 인자·게임 후보·사용자 ID·세션·대화 이력·비밀값은 중앙 metric/log에 남기지 않는다.
-- AI 사용량·고정 예약 비용은 [OPS-04](monitoring.md#ops-04-ai-사용량과-추정-비용)의 공통 규칙과 승인된 [ADR-0074](../adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md)·[ADR-0085](../adr/platform/0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md)·[ADR-0089](../adr/platform/0089-p2-ai-openai-default-retention-and-smoke-gate.md)의 경계를 함께 따른다. token은 관측하고 가격 snapshot은 예약값 적정성을 재검토하되, 앱 월 hard cap 계산에는 사용하지 않는다. 호출이 없는 기간을 비용 `0`의 증거로 기록하지 않는다.
+- AI 사용량·비용 예약·예상액 정산은 [OPS-04](monitoring.md#ops-04-ai-사용량과-추정-비용)의 공통 규칙과 승인된 [ADR-0074](../adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md)·[ADR-0085](../adr/platform/0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md)·[ADR-0089](../adr/platform/0089-p2-ai-openai-default-retention-and-smoke-gate.md)·[ADR-0093](../adr/platform/0093-p2-ai-token-cost-reservation-and-ledger.md)의 경계를 함께 따른다. usage가 있는 응답은 가격 snapshot으로 계산한 token 예상 비용을 월 cap에 반영하고, usage가 불명확한 응답은 최대 예약을 유지한다. provider 청구 데이터와 같다고 보지 않으며, 호출이 없었다고 확인되지 않은 기간을 비용 `0`으로 기록하지 않는다.
 
 ## 기능 ID별 완료 기준
 
@@ -219,7 +219,7 @@ provider 내부 호출은 현재 문장과 서버가 허용한 구조화 schema�
 - `AI-01-AC2`: `#/assistant`와 `내정보 > AI 설정`이 동의 상태·정책 버전·URL·철회 결과를 표시하며, 추천·추가 질문·확인 카드와 기존 수동 Room 생성 회귀가 계약대로 동작한다.
 - `AI-02-AC1`: 자연어 요청이 서버 검증 가능한 구조화 조건·`NEEDS_INPUT`·`NO_CANDIDATES`·`UNSUPPORTED` 상태로 변환되고, provider 기반 유효 조건은 모두 AND 적용과 내부 `RANK-01` 순서를 지킨다. 유일한 정규화 정식 게임명은 그 필터 없이 후보 한 건과 `gameId`를 반환하며 0건·복수건은 일반 흐름으로 돌아간다.
 - `AI-02-AC2`: Provider 호출은 allowlist·schema·retention mode/no-training·timeout·retry 0·fail-closed 경계를 지키며 Provider가 게임 후보 조회·Room 쓰기·tool loop 권한을 갖지 않는다. 정확 게임명 직접 조회도 `game.contract`로만 수행하고 provider를 호출하지 않는다.
-- `AI-02-AC3`: 실제 외부 provider 경로에만 사용자별 KST 일 10회·월 150회·동시 1회, 호출당 USD `0.10` 고정 예약, 앱 월 hard cap `$5`·warning `$4`가 원자적으로 적용된다. token은 관측용이며 hard cap 산정에 쓰지 않고, 기본 fake provider는 이 ledger를 소비하지 않는다.
+- `AI-02-AC3`: 실제 외부 provider 경로에 인증된 session 사용자의 KST 일 최대 5회·월 150회·동시 1회가 적용되고, Redis 앱 전체 월 예상 비용 `$5` 상한·`$4` warning 및 전용 OpenAI Project 월 `$5` hard spend limit을 서로 다른 경계로 관리한다. provider 호출 전 최대 token 비용을 예약하고, usage에서 확인한 cache-hit·cache-write token은 각 적용 가격 snapshot으로 정산한다. cache 구분 정보가 없으면 일반 input 단가를 쓴다. 확정된 일반 실패는 사용하지 않은 slot·예약을 반환하고 usage 불명확 중단은 보류한다. 기본 fake provider는 이 ledger를 소비하지 않는다.
 - `AI-03-AC1`: 필수 조건이 완성된 경우에만 15분 ACTIVE 초안을 만들고, 확인 전 Room·ChatRoom·참가 관계를 만들지 않으며 만료·철회·충돌을 계약된 상태로 처리한다.
 - `AI-03-AC2`: 명시적 확인은 `Idempotency-Key`·draft version·동시성 경계를 통과한 뒤 Room 1개와 ChatRoom 1개를 원자적으로 만들고, 실패·재시도·범위 밖 key 재사용에서 부분·중복 상태를 남기지 않는다.
 - `AI-04-AC1`: 고정 release의 SHA/digest·migration·health·secret·provider smoke·feature gate·rollback 증거가 있고, 기존 일반 기능 회귀 없이 AI를 명시적으로 활성화·비활성화할 수 있다. account/egress 검증값은 별도 관찰 증거로 남긴다.
@@ -241,10 +241,10 @@ provider 내부 호출은 현재 문장과 서버가 허용한 구조화 schema�
 ## 구현·검증 게이트
 
 1. [#794](https://github.com/bamsongi-club/albam-mate/issues/794)의 AI-01 제품 흐름·`DISCOVERY-01` 경계 문서화와 이 문서의 `AI-02`~`AI-04` 독립 기능·완료 기준 등록은 계약 정본이다. 이 사실만으로 구현·검증 완료를 주장하지 않는다.
-2. [#795](https://github.com/bamsongi-club/albam-mate/issues/795), [#796](https://github.com/bamsongi-club/albam-mate/issues/796), [#944](https://github.com/bamsongi-club/albam-mate/issues/944)의 결정과 [ADR-0074](../adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md)·[ADR-0085](../adr/platform/0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md)·[ADR-0089](../adr/platform/0089-p2-ai-openai-default-retention-and-smoke-gate.md)·[ADR-0075](../adr/room/0075-p2-ai-draft-confirmation-and-idempotent-room-command.md)·[ADR-0076](../adr/room/0076-p2-room-region-closed-set-and-compatibility.md)가 공개 API·ERD·아키텍처 목표 계약에 반영됐다. 각 구현 변화의 대상 경로·테스트 계약·rollback과 실제 완료 상태는 [P2 기능 상태](README.md#기능별-현재-상태)를 따른다.
+2. [#795](https://github.com/bamsongi-club/albam-mate/issues/795), [#796](https://github.com/bamsongi-club/albam-mate/issues/796), [#944](https://github.com/bamsongi-club/albam-mate/issues/944), [#1110](https://github.com/bamsongi-club/albam-mate/issues/1110)의 결정과 [ADR-0074](../adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md)·[ADR-0085](../adr/platform/0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md)·[ADR-0089](../adr/platform/0089-p2-ai-openai-default-retention-and-smoke-gate.md)·[ADR-0093](../adr/platform/0093-p2-ai-token-cost-reservation-and-ledger.md)·[ADR-0075](../adr/room/0075-p2-ai-draft-confirmation-and-idempotent-room-command.md)·[ADR-0076](../adr/room/0076-p2-room-region-closed-set-and-compatibility.md)가 공개 API·ERD·아키텍처 목표 계약에 반영됐다. 각 구현 변화의 대상 경로·테스트 계약·rollback과 실제 완료 상태는 [P2 기능 상태](README.md#기능별-현재-상태)를 따른다.
 3. 공개 계약과 구현 이슈가 고정되면 기능별 T-ID를 먼저 승인하고, fake provider·고정 fixture로 `AI-01`~`AI-03`의 계약을 검증한다. 확인 전 무부수효과, 확인 후 단일 Room·ChatRoom 원자성, 동일 key·동시 요청 수렴, 기존 수동 Room 생성·참가·채팅·CSRF 회귀를 함께 확인한다.
-4. 실제 provider는 SSM API key 존재와 `./run.sh assistant-smoke` 결과를 먼저 확인하고, 운영 배포·제한된 배포 후 실측은 실행 권한과 환경·가격 snapshot·고정 예약값 적정성·결과 보존 경계를 확인한 뒤 별도 증거로 남긴다. 자동 부하테스트 runner는 이번 전달 범위에 포함하지 않는다. 문서·결정·계약·생산 코드·자동 검증·배포·실측은 [P2 기능 상태](README.md#기능별-현재-상태)에 별도 축으로 기록한다.
+4. 실제 provider는 SSM API key 존재와 `./run.sh assistant-smoke` 결과를 먼저 확인하고, 운영 배포·제한된 배포 후 실측은 실행 권한과 환경·가격 snapshot·최대 token 예약 적정성·결과 보존 경계를 확인한 뒤 별도 증거로 남긴다. 자동 부하테스트 runner는 이번 전달 범위에 포함하지 않는다. 문서·결정·계약·생산 코드·자동 검증·배포·실측은 [P2 기능 상태](README.md#기능별-현재-상태)에 별도 축으로 기록한다.
 
 ## 문서 관리
 
-소유자 `알밤메이트 AI 모임 도우미 담당자` · 최종 검증일 `2026-08-18` · 결정 정본 `ADR-0074~0076, ADR-0085, ADR-0089` · 상세 검증 정본 `assistant-load-test.md`
+소유자 `알밤메이트 AI 모임 도우미 담당자` · 최종 검증일 `2026-09-22` · 결정 정본 `ADR-0074~0076, ADR-0085, ADR-0089, ADR-0093` · 상세 검증 정본 `assistant-load-test.md`

@@ -76,13 +76,14 @@ P2는 같은 지표·로그를 재사용하는 CloudWatch dashboard 두 개를 �
 
 - 제한된 관측 `status`별 AI 요청과 label 없이 기록한 입력·출력 token. total은 두 token series를 조회에서 재계산하며 provider·model·feature·prompt/schema version은 event contract에만 남기고 metric label로 전송하지 않는다.
 - success·fallback·failure별 사용량
-- 실제 외부 provider 호출 수 × USD `0.10`의 고정 예약 비용과 앱 월 `$5` cap·`$4` warning 사용량
+- provider 응답 usage와 가격 snapshot으로 계산한 내부 예상 비용, usage가 불명확한 호출의 미확정 최대 예약, 앱 KST 월 `$5` 상한·`$4` warning 사용량. cache-hit input은 보고되면 cached-input 단가를 적용하고, 세부 정보가 없으면 일반 input 단가를 적용한다.
+- 전용 OpenAI Project 월 `$5` hard spend limit 및 project 지출은 앱 내부 추정과 별도로 표시·대조한다. Project 한도는 전체 project 사용량을 대상으로 하며 provider 적용 시차로 설정액을 소폭 넘을 수 있다.
 - 공식 가격표 snapshot을 적용한 token 기반 참고 추정 비용
 - CloudWatch custom metric 수와 log ingestion·보존량
 
-고정 예약 비용은 앱 내부 예산 통제값이고 실제 AI provider 청구서가 아니며, token 기반 참고 추정값도 청구 확정액이 아니다. 두 값을 같은 값으로 합치지 않고, 참고 추정에는 통화·가격 적용일·계산식을 표시한다. 이 화면을 실제 AWS·AI provider 청구서로 표현하지 않는다.
+앱 비용 상한은 앱 내부 예상 비용과 미확정 예약의 합이며 실제 AI provider 청구서가 아니다. OpenAI Project hard limit은 provider가 project 전체 지출에 적용하는 별도 안전장치다. token 기반 예상 비용도 청구 확정액이 아니므로 내부 예상 비용과 provider Cost data를 같은 값으로 합치지 않고, 예상 비용에는 통화·가격 snapshot·계산식을 표시한다. 이 화면을 실제 AWS·AI provider 청구서로 표현하지 않는다.
 
-배포 검증 전에 공식 provider 가격과 버전 관리 snapshot을 비교하고 변경됐을 때만 `jiho`가 갱신한다. 가격 snapshot은 USD `0.10` 고정 예약값의 적정성 재검토와 참고 추정에만 쓰며, 앱 월 `$5` cap을 token 가격으로 다시 계산하지 않는다. 과거 실행 결과는 당시 snapshot 식별자를 유지한다.
+배포 검증 전에 공식 provider 가격과 버전 관리 snapshot을 비교하고 변경됐을 때만 `jiho`가 갱신한다. 해당 snapshot은 호출 전 최대 비용 예약과 확인된 token usage의 내부 예상 비용 계산에 사용한다. 과거 실행 결과는 당시 snapshot 식별자를 유지한다.
 
 CloudWatch 비용 계산은 계정 전체 기준선을 한 번 적용한 뒤 조정된 P2 증분을 더한다. 기준선·가정·필수 입력이 하나라도 없으면 비용 0이나 `PASS`가 아니라 `NO_OBSERVATION`이며, 완성된 월 추정치가 USD 10을 넘으면 `BLOCKED_REAPPROVAL`이다. 새 AI release의 배포 후 실제 값은 #872의 미완료 실측 입력으로 남기며 사전 비용 gate의 `PASS`에 합치지 않는다.
 
