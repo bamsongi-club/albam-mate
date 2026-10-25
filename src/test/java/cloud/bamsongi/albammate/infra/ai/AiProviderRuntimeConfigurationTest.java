@@ -50,6 +50,8 @@ class AiProviderRuntimeConfigurationTest {
 		openAiProperties.setPricingSnapshot("OPENAI-PRICING-V1");
 		openAiProperties.setInputTokenPriceUsdPerMillion(new BigDecimal("1.00"));
 		openAiProperties.setOutputTokenPriceUsdPerMillion(new BigDecimal("1.00"));
+		openAiProperties.setCachedInputTokenPriceUsdPerMillion(new BigDecimal("0.25"));
+		openAiProperties.setCacheWriteInputTokenPriceUsdPerMillion(new BigDecimal("1.25"));
 		MockEnvironment localEnvironment = new MockEnvironment();
 		localEnvironment.setActiveProfiles("local");
 		localEnvironment.setProperty("spring.ai.openai.api-key", "test-api-key");
@@ -148,10 +150,10 @@ class AiProviderRuntimeConfigurationTest {
 	void T1_fake_provider는_외부_보존학습_검증없이도_결정적_로컬_경로를_사용할_수_있다() {
 		AiProviderSettings fakeSettings = new AiProviderSettings(
 			"fake", true, true, false, false, "", "", "gpt-5.6-luna", Duration.ofSeconds(10), 0, false,
-			"", BigDecimal.ZERO, BigDecimal.ZERO, 4096, 256, new BigDecimal("0.10"), "unverified");
+			"", BigDecimal.ZERO, BigDecimal.ZERO, 4096, 256, "unverified");
 		AiProviderSettings openAiSettings = new AiProviderSettings(
 			"local-openai", true, true, false, false, "", "", "gpt-5.6-luna", Duration.ofSeconds(10), 0, false,
-			"", BigDecimal.ZERO, BigDecimal.ZERO, 4096, 256, new BigDecimal("0.10"), "unverified");
+			"", BigDecimal.ZERO, BigDecimal.ZERO, 4096, 256, "unverified");
 
 		assertTrue(fakeSettings.readyForCall());
 		assertFalse(openAiSettings.readyForCall());
@@ -190,6 +192,8 @@ class AiProviderRuntimeConfigurationTest {
 		properties.setPricingSnapshot("OPENAI-PRICING-V1");
 		properties.setInputTokenPriceUsdPerMillion(new BigDecimal("1.00"));
 		properties.setOutputTokenPriceUsdPerMillion(new BigDecimal("1.00"));
+		properties.setCachedInputTokenPriceUsdPerMillion(new BigDecimal("0.25"));
+		properties.setCacheWriteInputTokenPriceUsdPerMillion(new BigDecimal("1.25"));
 		return properties;
 	}
 

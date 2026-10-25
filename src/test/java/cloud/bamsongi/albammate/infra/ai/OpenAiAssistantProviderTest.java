@@ -15,6 +15,8 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.SystemMessage;
+import org.springframework.ai.chat.metadata.ChatResponseMetadata;
+import org.springframework.ai.chat.metadata.DefaultUsage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
@@ -78,11 +80,44 @@ class OpenAiAssistantProviderTest {
 		AiProviderResponse response = provider.propose(payload());
 
 		assertTrue(response.succeeded());
+		assertFalse(response.usageAvailable());
 		assertEquals("RECOMMEND", response.action());
 		assertEquals(List.of("STRATEGY"), response.categories());
 		assertEquals(List.of("WORKER_PLACEMENT"), response.mechanisms());
 		assertEquals(List.of("HORROR"), response.themes());
 		assertEquals(4, response.playerCount());
+	}
+
+	@Test
+	void T3_openai_cache_usage는_cached_input과_cache_write_가격으로_정산한다() {
+		ChatModel chatModel = mock(ChatModel.class);
+		AssistantMessage output = AssistantMessage.builder()
+			.content("")
+			.toolCalls(List.of(new AssistantMessage.ToolCall(
+				"call-1", "function", "propose_game_room_intent",
+				"{\"action\":\"RECOMMEND\",\"categories\":[\"STRATEGY\"],"
+					+ "\"mechanisms\":[],\"themes\":[],\"complexityMax\":null,"
+					+ "\"playTimeMax\":null,\"playerCount\":null}")))
+			.build();
+		ChatResponseMetadata metadata = ChatResponseMetadata.builder()
+			.usage(new DefaultUsage(10, 5, 15, null, 3L, 2L))
+			.build();
+		when(chatModel.call(any(Prompt.class))).thenReturn(
+			new ChatResponse(List.of(new Generation(output)), metadata));
+		AiProviderSettings pricing = new AiProviderSettings(
+			"local-openai", true, true, true, true, "AI-02-POLICY-V1", "https://example.test/ai-policy",
+			"gpt-5.6-luna", Duration.ofSeconds(10), 0, false, "TEST-PRICING-V1",
+			new BigDecimal("8.00"), new BigDecimal("3.00"), new BigDecimal("1.00"),
+			new BigDecimal("12.00"), 4096, 256, "zero-data-retention");
+		OpenAiAssistantProvider provider = new OpenAiAssistantProvider(chatModel, pricing);
+
+		AiProviderResponse response = provider.propose(payload());
+
+		assertTrue(response.succeeded());
+		assertTrue(response.usageAvailable());
+		assertEquals(10, response.inputTokens());
+		assertEquals(5, response.outputTokens());
+		assertEquals(new BigDecimal("0.000082"), response.costUsd());
 	}
 
 	@Test
@@ -167,6 +202,22 @@ class OpenAiAssistantProviderTest {
 		OpenAiAssistantProvider provider = new OpenAiAssistantProvider(chatModel, AiProviderSettings.fakeDefaults());
 
 		assertEquals(AiProviderFailure.SERVICE_UNAVAILABLE, provider.propose(payload()).failure());
+	}
+
+	@Test
+	void T4_확인된_OpenAI_요청거절만_미처리로_표시한다() {
+		assertTrue(responseForStatus(429).confirmedUnprocessed());
+		assertTrue(responseForStatus(413).confirmedUnprocessed());
+		assertFalse(responseForStatus(408).confirmedUnprocessed());
+		assertFalse(responseForStatus(500).confirmedUnprocessed());
+	}
+
+	private AiProviderResponse responseForStatus(int status) {
+		ChatModel chatModel = mock(ChatModel.class);
+		OpenAIServiceException exception = mock(OpenAIServiceException.class);
+		when(exception.statusCode()).thenReturn(status);
+		when(chatModel.call(any(Prompt.class))).thenThrow(exception);
+		return new OpenAiAssistantProvider(chatModel, AiProviderSettings.fakeDefaults()).propose(payload());
 	}
 
 	private AiProviderFailure failureForStatus(int status) {

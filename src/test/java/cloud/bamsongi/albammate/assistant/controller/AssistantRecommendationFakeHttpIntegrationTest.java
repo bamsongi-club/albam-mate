@@ -1,5 +1,6 @@
 package cloud.bamsongi.albammate.assistant.controller;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
@@ -12,6 +13,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -20,9 +22,12 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
+import cloud.bamsongi.albammate.assistant.contract.AssistantIntentExtractor;
+import cloud.bamsongi.albammate.assistant.contract.AssistantIntentRequest;
 import cloud.bamsongi.albammate.game.contract.AssistantGameCandidateQuery;
 import cloud.bamsongi.albammate.game.contract.AssistantRecommendationCandidate;
 import cloud.bamsongi.albammate.global.security.currentuser.CurrentUserPrincipal;
@@ -51,6 +56,25 @@ class AssistantRecommendationFakeHttpIntegrationTest {
 
 	@MockitoBean
 	private AssistantGameCandidateQuery assistantGameCandidateQuery;
+	@MockitoSpyBean
+	private AssistantIntentExtractor assistantIntentExtractor;
+
+	@Test
+	void T1_HTTP_userId가_전달돼도_CurrentUserAccessor의_인증_ID를_quota_주체로_사용한다() throws Exception {
+		User user = userRepository.saveAndFlush(
+			User.create("assistant-authenticated-quota@example.com", "{bcrypt}hash", "인증 quota 사용자"));
+		grant(user);
+
+		mockMvc.perform(recommendationPost("{\"message\":\"게임 추천해줘\",\"userId\":999999}")
+			.with(authenticationFor(user.getId()))
+			.with(csrf()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.state").value("NEEDS_INPUT"));
+
+		ArgumentCaptor<AssistantIntentRequest> requestCaptor = ArgumentCaptor.forClass(AssistantIntentRequest.class);
+		verify(assistantIntentExtractor).extract(requestCaptor.capture());
+		assertEquals(Long.toString(user.getId()), requestCaptor.getValue().quotaSubject());
+	}
 
 	@Test
 	void T2_fake_provider는_조건이_없으면_NEEDS_INPUT만_반환하고_후보를_조회하지_않는다() throws Exception {

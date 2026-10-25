@@ -23,9 +23,10 @@ class AiProviderProperties {
 	private String pricingSnapshot = "";
 	private BigDecimal inputTokenPriceUsdPerMillion = BigDecimal.ZERO;
 	private BigDecimal outputTokenPriceUsdPerMillion = BigDecimal.ZERO;
+	private BigDecimal cachedInputTokenPriceUsdPerMillion = BigDecimal.ZERO;
+	private BigDecimal cacheWriteInputTokenPriceUsdPerMillion = BigDecimal.ZERO;
 	private int maxInputTokens = 4096;
 	private int maxOutputTokens = 256;
-	private BigDecimal reservationCostUsd = new BigDecimal("0.10");
 
 	boolean isEnabled() {
 		return enabled;
@@ -147,6 +148,22 @@ class AiProviderProperties {
 		this.outputTokenPriceUsdPerMillion = outputTokenPriceUsdPerMillion;
 	}
 
+	BigDecimal getCachedInputTokenPriceUsdPerMillion() {
+		return cachedInputTokenPriceUsdPerMillion;
+	}
+
+	void setCachedInputTokenPriceUsdPerMillion(BigDecimal cachedInputTokenPriceUsdPerMillion) {
+		this.cachedInputTokenPriceUsdPerMillion = cachedInputTokenPriceUsdPerMillion;
+	}
+
+	BigDecimal getCacheWriteInputTokenPriceUsdPerMillion() {
+		return cacheWriteInputTokenPriceUsdPerMillion;
+	}
+
+	void setCacheWriteInputTokenPriceUsdPerMillion(BigDecimal cacheWriteInputTokenPriceUsdPerMillion) {
+		this.cacheWriteInputTokenPriceUsdPerMillion = cacheWriteInputTokenPriceUsdPerMillion;
+	}
+
 	int getMaxInputTokens() {
 		return maxInputTokens;
 	}
@@ -163,11 +180,4 @@ class AiProviderProperties {
 		this.maxOutputTokens = maxOutputTokens;
 	}
 
-	BigDecimal getReservationCostUsd() {
-		return reservationCostUsd;
-	}
-
-	void setReservationCostUsd(BigDecimal reservationCostUsd) {
-		this.reservationCostUsd = reservationCostUsd;
-	}
 }

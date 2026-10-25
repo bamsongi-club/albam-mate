@@ -123,9 +123,10 @@ class AiProviderRuntimeConfiguration {
 			properties.getPricingSnapshot(),
 			properties.getInputTokenPriceUsdPerMillion(),
 			properties.getOutputTokenPriceUsdPerMillion(),
+			properties.getCachedInputTokenPriceUsdPerMillion(),
+			properties.getCacheWriteInputTokenPriceUsdPerMillion(),
 			properties.getMaxInputTokens(),
 			properties.getMaxOutputTokens(),
-			properties.getReservationCostUsd(),
 			properties.getRetentionMode());
 	}
 }
