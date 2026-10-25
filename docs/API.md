@@ -2040,7 +2040,7 @@ Vary: Cookie
 
 > **도입 단계: P2** · **기능: AI-01·AI-02·AI-03** · **API 계약 상태: 계약 확정** · **제공 상태: AI-01a T1~T5와 AI-03a T1~T6 검증 범위 제공**
 >
-> 이 절의 AI-01 동의·AI-02 자연어 추천과 AI-03 초안·확인 경로는 현재 제공한다. 외부 provider·동의·기본 보존 mode는 [ADR-0074](adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md)와 [ADR-0089](adr/platform/0089-p2-ai-openai-default-retention-and-smoke-gate.md), AI-02의 호출 quota·고정 예약 비용·정확 게임명 직접 조회는 [ADR-0085](adr/platform/0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md), 초안·확인·멱등성은 [ADR-0075](adr/room/0075-p2-ai-draft-confirmation-and-idempotent-room-command.md), 지역은 [ADR-0076](adr/room/0076-p2-room-region-closed-set-and-compatibility.md)을 따른다. ADR-0085의 후보 DTO·직접 조회는 #951에서 제공하며, 제공 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)에서 판정한다.
+> 이 절의 AI-01 동의·AI-02 자연어 추천과 AI-03 초안·확인 경로는 현재 제공한다. 외부 provider·동의·기본 보존 mode는 [ADR-0074](adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md)와 [ADR-0089](adr/platform/0089-p2-ai-openai-default-retention-and-smoke-gate.md), 사용자 요청 quota·정확 게임명 직접 조회는 [ADR-0085](adr/platform/0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md), 비용 예약·token 기반 예상 비용 정산은 [ADR-0093](adr/platform/0093-p2-ai-token-cost-reservation-and-ledger.md), 초안·확인·멱등성은 [ADR-0075](adr/room/0075-p2-ai-draft-confirmation-and-idempotent-room-command.md), 지역은 [ADR-0076](adr/room/0076-p2-room-region-closed-set-and-compatibility.md)을 따른다. ADR-0085의 후보 DTO·직접 조회는 #951에서 제공하며, 제공 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)에서 판정한다.
 
 모든 AI 기능군 API는 로그인한 현재 사용자만 호출한다. `GET`은 CSRF가 필요 없고 상태 변경 `PUT`·`POST`·`PATCH`·`DELETE`는 세션과 CSRF가 필요하다. 유효한 외부 처리 동의가 없으면 provider 호출·추천·초안 생성·확인을 시작하지 않는다. AI-01은 동의·제품 흐름, AI-02는 자연어 추천, AI-03은 확인형 초안·Room 생성 경로를 소유하며, 기존 `POST /api/rooms` 즉시 생성 경로는 유지한다.
 
@@ -3208,8 +3208,8 @@ MATCH 채팅 경로(`/api/matches/parties/{partyId}/chat/**`)는 성공 파티 �
 | `ASSISTANT_INPUT_NOT_ALLOWED` | 400 | 외부 AI 처리에 허용되지 않는 입력입니다. | PII·secret·지원하지 않는 지시를 안전하게 처리할 수 없음 |
 | `ASSISTANT_PROVIDER_UNAVAILABLE` | 503 | AI provider를 현재 사용할 수 없습니다. | provider를 호출하는 경로에서 provider·정책을 확인할 수 없거나 timeout·provider 429가 발생함. provider를 호출하지 않는 동의·초안 경로에는 사용하지 않음 |
 | `ASSISTANT_PROVIDER_RESPONSE_INVALID` | 503 | AI provider 응답을 처리할 수 없습니다. | 강제 구조화 schema를 검증하지 못함 |
-| `RATE_LIMIT_EXCEEDED` | 429 | 요청 처리 한도를 초과했습니다. 잠시 후 다시 시도해 주세요. | provider 기반 추천 경로에서 사용자별 KST 일일 10회 또는 월간 150회 quota에 도달함 |
-| `ASSISTANT_COST_LIMIT_EXCEEDED` | 429 | AI 사용 비용 한도를 초과했습니다. | provider 기반 추천의 다음 USD `0.10` 고정 예약이 앱 전체 KST 월 `$5` hard cap을 초과함. `$4`에서 warning을 발행하며 빈 월에는 50번째 예약까지 허용 |
+| `RATE_LIMIT_EXCEEDED` | 429 | 요청 처리 한도를 초과했습니다. 잠시 후 다시 시도해 주세요. | provider 기반 추천 경로에서 인증된 사용자의 KST 일 최대 5회 또는 월 150회 quota에 도달함 |
+| `ASSISTANT_COST_LIMIT_EXCEEDED` | 429 | AI 사용 비용 한도를 초과했습니다. | provider 기반 추천의 최대 token 비용 예약을 포함한 앱 내부 KST 월 예상액이 `$5` 상한을 초과함. `$4` warning은 별도 발행하며, 전용 OpenAI Project 월 `$5` hard spend limit과 provider 청구 확정액은 이 앱 내부 값과 별개임 |
 | `ASSISTANT_DRAFT_NOT_FOUND` | 404 | AI 초안을 찾을 수 없습니다. | 없는 초안 또는 현재 사용자 소유가 아닌 초안 |
 | `ASSISTANT_DRAFT_EXPIRED` | 410 | AI 초안이 만료되었습니다. | 요청 시작 시각에 초안의 15분 유효 기간이 지남 |
 | `ASSISTANT_DRAFT_CONFLICT` | 409 | AI 초안이 동시에 변경되었습니다. 다시 확인해 주세요. | 오래된 version, 다른 멱등키, 범위 밖 key 재사용, confirm 경합 또는 `CONFIRMED`·`DISCARDED` 초안 수정과 `CONFIRMED` 초안 폐기 시도 |

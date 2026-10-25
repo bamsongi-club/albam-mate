@@ -1,6 +1,6 @@
 # OPS-04 AI 사용량·추정 비용 증거 계약
 
-이 디렉터리는 [OPS-04](../../p2/monitoring.md#ops-04-ai-사용량과-추정-비용)의 공개 입력 경계다. 실제 청구서, prompt·응답·Tool 원문, 사용자·session 식별자와 secret은 저장하지 않는다. [ADR-0085](../../adr/platform/0085-p2-ai-quota-fixed-reservation-and-exact-game-lookup.md)에 따라 앱 월 `$5` hard cap과 `$4` warning은 실제 외부 provider 호출마다 USD `0.10`을 예약하는 내부 예산으로 계산한다. 아래 token 가격 계산은 이 예약값의 적정성을 재검토하는 참고 추정이며 hard cap이나 실제 청구액을 계산하지 않는다.
+이 디렉터리는 [OPS-04](../../p2/monitoring.md#ops-04-ai-사용량과-추정-비용)의 공개 입력 경계다. 실제 청구서, prompt·응답·Tool 원문, 사용자·session 식별자와 secret은 저장하지 않는다. [ADR-0093](../../adr/platform/0093-p2-ai-token-cost-reservation-and-ledger.md)에 따라 앱 월 `$5` hard cap과 `$4` warning은 최대 token 비용 예약과 확인된 usage의 내부 예상 비용으로 계산한다. 아래 offline calculator는 정제된 provider usage와 가격 snapshot을 독립적으로 재계산해 비교 자료를 제공한다. Redis ledger를 직접 읽거나 갱신하지 않고 실제 청구액도 계산하지 않는다.
 
 ## 가격 snapshot
 
@@ -18,7 +18,7 @@ estimatedUsd = inputTokens × 0.20 / 1,000,000
              + outputTokens × 1.20 / 1,000,000
 ```
 
-이 값은 할인·무료 구간·cache write·regional processing·환율·세금과 실제 provider 청구 조정을 포함하지 않는 참고 추정값이다. 계산 결과의 `estimatePurpose=RESERVATION_POLICY_REVIEW_ONLY`, `hardCapCalculation=false`, `fixedReservationUsdPerExternalProviderCall=0.10`은 token 추정과 고정 예약 예산을 혼동하지 않기 위한 계약이다.
+이 값은 할인·무료 구간·cache write·regional processing·환율·세금과 실제 provider 청구 조정을 포함하지 않는 참고 추정값이다. 계산 결과의 `estimatePurpose=PROVIDER_USAGE_COST_CROSSCHECK`, `hardCapCalculation=false`는 이 offline 기간 합계가 Redis의 예약·정산 원장이나 provider invoice가 아님을 나타낸다. 내부 token 예상 비용과 provider Cost data는 별도 값으로 관리한다.
 
 ## 재현 명령
 
@@ -36,4 +36,4 @@ AI 미배포, provider 미호출, usage 수집 공백, provider/model 불일치,
 
 ## 배포·실측 경계
 
-정적 snapshot과 계산기 테스트는 `OPS-04-AC3`의 구현·자동 검증 일부만 증명한다. 인프라 #43은 숫자 비용을 제거하고 dashboard·alarm을 기본 비활성화한 뒤 가격 적격성·전체 P2 비용·cardinality gate를 연결했지만, 현재 공유 meter에는 요청별 cached input과 long-context 가격 적격성을 판별할 bounded 신호가 없어 배포가 차단된다. 고정 release의 metric 도착, 실측 비용 입력·재승인, `$4` 경고의 CloudWatch alarm·SNS 수신과 복구, teardown receipt가 모두 연결되기 전에는 배포·실측 완료로 표시하지 않는다.
+정적 snapshot과 계산기 테스트는 `OPS-04-AC3`의 구현·자동 검증 일부만 증명한다. 인프라 #43은 숫자 비용을 제거하고 dashboard·alarm을 기본 비활성화한 뒤 가격 적격성·전체 P2 비용·cardinality gate를 연결했지만, 현재 공유 meter에는 요청별 cached input과 long-context 가격 적격성을 판별할 bounded 신호가 없어 배포가 차단된다. 앱 코드의 micro-USD ledger 적용만으로 metric 수집·dashboard·alarm이 배포됐다고 볼 수 없다. 고정 release의 metric 도착, 실측 비용 입력·재승인, `$4` 경고의 CloudWatch alarm·SNS 수신과 복구, teardown receipt가 모두 연결되기 전에는 배포·실측 완료로 표시하지 않는다.
