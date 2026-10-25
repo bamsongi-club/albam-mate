@@ -47,9 +47,10 @@ app:
     pricing-snapshot: ${ALBAM_MATE_ASSISTANT_PRICING_SNAPSHOT:}
     input-token-price-usd-per-million: ${ALBAM_MATE_ASSISTANT_INPUT_TOKEN_PRICE_USD_PER_MILLION:0}
     output-token-price-usd-per-million: ${ALBAM_MATE_ASSISTANT_OUTPUT_TOKEN_PRICE_USD_PER_MILLION:0}
+    cached-input-token-price-usd-per-million: ${ALBAM_MATE_ASSISTANT_CACHED_INPUT_TOKEN_PRICE_USD_PER_MILLION:0}
+    cache-write-input-token-price-usd-per-million: ${ALBAM_MATE_ASSISTANT_CACHE_WRITE_INPUT_TOKEN_PRICE_USD_PER_MILLION:0}
     max-input-tokens: ${ALBAM_MATE_ASSISTANT_MAX_INPUT_TOKENS:4096}
     max-output-tokens: ${ALBAM_MATE_ASSISTANT_MAX_OUTPUT_TOKENS:256}
-    reservation-cost-usd: 0.10
     timeout: 10s
     retry-count: 0
   profile-image:

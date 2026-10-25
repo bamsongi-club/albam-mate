@@ -61,9 +61,9 @@ class AiQuotaRedisPostgresTest {
 	}
 
 	@Test
-	void T1_여러_ledger_인스턴스도_KST_일_10회_월_150회와_사용자별_동시성을_공유한다() {
+	void T1_여러_ledger_인스턴스도_KST_일_5회_월_150회와_사용자별_동시성을_공유한다() {
 		RedisAiQuotaLedger otherInstance = new RedisAiQuotaLedger(redis, event -> {});
-		for (int index = 0; index < 10; index++) {
+		for (int index = 0; index < 5; index++) {
 			AiQuotaReservation reservation = ledger.reserve("sensitive-user-id", JANUARY_31_KST, BigDecimal.ZERO);
 			assertEquals(AiQuotaReservationStatus.ACQUIRED, reservation.status());
 			assertEquals(AiQuotaCompletionStatus.COMPLETED, otherInstance.complete(reservation, BigDecimal.ZERO));
@@ -74,13 +74,13 @@ class AiQuotaRedisPostgresTest {
 			otherInstance.reserve("sensitive-user-id", Instant.parse("2026-01-31T15:00:00Z"), BigDecimal.ZERO)
 				.status());
 		for (int index = 0; index < 150; index++) {
-			Instant day = Instant.parse("2026-01-01T00:00:00Z").plusSeconds((index / 10) * 86_400L);
+			Instant day = Instant.parse("2026-01-01T00:00:00Z").plusSeconds((index / 5) * 86_400L);
 			AiQuotaReservation reservation = ledger.reserve("monthly-user", day, BigDecimal.ZERO);
 			assertEquals(AiQuotaReservationStatus.ACQUIRED, reservation.status());
 			assertEquals(AiQuotaCompletionStatus.COMPLETED, otherInstance.complete(reservation, BigDecimal.ZERO));
 		}
 		assertEquals(AiQuotaReservationStatus.USER_LIMIT_REACHED,
-			ledger.reserve("monthly-user", Instant.parse("2026-01-30T00:00:00Z"), BigDecimal.ZERO).status());
+			ledger.reserve("monthly-user", Instant.parse("2026-01-31T00:00:00Z"), BigDecimal.ZERO).status());
 		assertEquals(AiQuotaReservationStatus.ACQUIRED,
 			ledger.reserve("monthly-user", Instant.parse("2026-01-31T15:00:00Z"), BigDecimal.ZERO).status());
 		Set<String> keys = redis.keys("albam:ai:quota:*");
@@ -89,7 +89,7 @@ class AiQuotaRedisPostgresTest {
 	}
 
 	@Test
-	void T2_서로_다른_ledger_인스턴스의_동시_예약은_정확히_하나만_획득한다() throws Exception {
+	void T5_서로_다른_ledger_인스턴스의_동시_예약은_정확히_하나만_획득한다() throws Exception {
 		RedisAiQuotaLedger otherInstance = new RedisAiQuotaLedger(redis, event -> {});
 		CountDownLatch ready = new CountDownLatch(2);
 		CountDownLatch start = new CountDownLatch(1);
@@ -108,14 +108,13 @@ class AiQuotaRedisPostgresTest {
 	}
 
 	@Test
-	void T3_Redis_고정_USD_0_10_예약은_40번째_경고_50번째_허용_51번째_차단을_원자적으로_보장한다() {
+	void T2_Redis_최대_비용_예약은_40번째_경고_월_5달러에서_초과_예약을_원자적으로_차단한다() {
 		java.util.concurrent.atomic.AtomicInteger warnings = new java.util.concurrent.atomic.AtomicInteger();
 		ledger = new RedisAiQuotaLedger(redis, event -> warnings.incrementAndGet());
 		for (int index = 1; index <= 50; index++) {
 			AiQuotaReservation reservation = ledger.reserve("cost-user-" + index, JANUARY_31_KST,
 				new BigDecimal("0.10"));
 			assertEquals(AiQuotaReservationStatus.ACQUIRED, reservation.status());
-			assertEquals(AiQuotaCompletionStatus.COMPLETED, ledger.complete(reservation, new BigDecimal("0.01")));
 			assertEquals(index >= 40 ? 1 : 0, warnings.get());
 		}
 		assertEquals(1, warnings.get());
@@ -124,7 +123,45 @@ class AiQuotaRedisPostgresTest {
 	}
 
 	@Test
-	void T3_경고_sink_실패에도_예약과_completion을_성공으로_반환한다() {
+	void T5_동시_최대비용_예약은_앱_월_5달러를_넘기지_않는다() throws Exception {
+		int workers = 20;
+		int requests = 100;
+		CountDownLatch ready = new CountDownLatch(workers);
+		CountDownLatch start = new CountDownLatch(1);
+		try (ExecutorService executor = Executors.newFixedThreadPool(workers)) {
+			List<Future<AiQuotaReservationStatus>> futures = new java.util.ArrayList<>();
+			for (int index = 0; index < requests; index++) {
+				int userIndex = index;
+				futures.add(executor.submit(() -> {
+					if (userIndex < workers) {
+						ready.countDown();
+					}
+					if (!start.await(5, java.util.concurrent.TimeUnit.SECONDS)) {
+						throw new AssertionError("동시 예약 시작 신호를 받지 못했습니다");
+					}
+					AiQuotaReservation reservation = ledger.reserve("parallel-cost-user-" + userIndex,
+						JANUARY_31_KST, new BigDecimal("0.10"));
+					if (reservation.status() == AiQuotaReservationStatus.ACQUIRED) {
+						ledger.complete(reservation, new BigDecimal("0.10"));
+					}
+					return reservation.status();
+				}));
+			}
+			assertTrue(ready.await(5, java.util.concurrent.TimeUnit.SECONDS));
+			start.countDown();
+			List<AiQuotaReservationStatus> statuses = new java.util.ArrayList<>();
+			for (Future<AiQuotaReservationStatus> future : futures) {
+				statuses.add(future.get());
+			}
+			assertEquals(50,
+				statuses.stream().filter(status -> status == AiQuotaReservationStatus.ACQUIRED).count());
+			assertEquals(50,
+				statuses.stream().filter(status -> status == AiQuotaReservationStatus.COST_CAP_REACHED).count());
+		}
+	}
+
+	@Test
+	void T2_경고_sink_실패에도_예약과_completion을_성공으로_반환한다() {
 		ledger = new RedisAiQuotaLedger(redis, event -> {
 			throw new IllegalStateException("warning delivery unavailable");
 		});
@@ -145,7 +182,7 @@ class AiQuotaRedisPostgresTest {
 	}
 
 	@Test
-	void T2_재기동과_active_TTL_이후에도_같은_token_completion은_고정_예약을_재정산하지_않는다() {
+	void T4_재기동과_active_TTL_이후에도_같은_token_completion은_저장한_정산액을_한번만_적용한다() {
 		ledger = new RedisAiQuotaLedger(redis, event -> {}, Duration.ofMillis(25));
 		AiQuotaReservation expiredActive = ledger.reserve("ttl-user", JANUARY_31_KST, BigDecimal.ZERO);
 		assertEquals(AiQuotaReservationStatus.ACQUIRED, expiredActive.status());
@@ -160,10 +197,82 @@ class AiQuotaRedisPostgresTest {
 		RedisAiQuotaLedger afterRestart = new RedisAiQuotaLedger(redis, event -> {});
 		assertEquals(AiQuotaCompletionStatus.COMPLETED, afterRestart.complete(expiredActive, BigDecimal.ZERO));
 		assertEquals(AiQuotaCompletionStatus.COMPLETED, afterRestart.complete(afterTtl, BigDecimal.ZERO));
-		awaitCostCents("10");
+		awaitCostMicros("200000");
 		assertEquals(AiQuotaCompletionStatus.COMPLETED, afterRestart.complete(reservation, new BigDecimal("0.20")));
 		assertEquals(AiQuotaReservationStatus.COST_CAP_REACHED,
 			afterRestart.reserve("user-b", JANUARY_31_KST, new BigDecimal("4.91")).status());
+	}
+
+	@Test
+	void T4_확인된_미처리_failure는_Redis_월비용과_사용자호출을_반환한다() {
+		java.util.concurrent.atomic.AtomicInteger providerCalls = new java.util.concurrent.atomic.AtomicInteger();
+		AiProviderClient provider = request -> {
+			if (providerCalls.incrementAndGet() <= 5) {
+				return AiProviderResponse.failureBeforeProcessing(AiProviderFailure.SERVICE_UNAVAILABLE);
+			}
+			return AiProviderResponse.success("RECOMMEND", List.of("STRATEGY"), 1, 1,
+				new BigDecimal("0.000003"));
+		};
+		AiProviderIntentExtractor extractor = new AiProviderIntentExtractor(
+			provider, ledger, event -> {}, expensiveFakeSettings(), Clock.fixed(JANUARY_31_KST, KST));
+		AssistantIntentRequest request = AssistantIntentRequest.forUser("refund-user", "전략 게임 추천", List.of());
+
+		for (int index = 0; index < 5; index++) {
+			assertEquals(AssistantIntentStatus.SERVICE_UNAVAILABLE, extractor.extract(request).status());
+		}
+		assertEquals(AssistantIntentStatus.SUCCESS, extractor.extract(request).status());
+		assertEquals(6, providerCalls.get());
+	}
+
+	@Test
+	void T4_usage가_불명확한_Redis_연결중단은_reservation과_slot을_보류한다() {
+		java.util.concurrent.atomic.AtomicInteger providerCalls = new java.util.concurrent.atomic.AtomicInteger();
+		AiProviderClient provider = request -> {
+			providerCalls.incrementAndGet();
+			throw new IllegalStateException("connection interrupted");
+		};
+		AiProviderIntentExtractor extractor = new AiProviderIntentExtractor(
+			provider, ledger, event -> {}, zeroCostFakeSettings(), Clock.fixed(JANUARY_31_KST, KST));
+		AssistantIntentRequest request = AssistantIntentRequest.forUser("uncertain-user", "전략 게임 추천", List.of());
+
+		assertEquals(AssistantIntentStatus.SERVICE_UNAVAILABLE, extractor.extract(request).status());
+		assertEquals(AssistantIntentStatus.QUOTA_EXCEEDED, extractor.extract(request).status());
+		assertEquals(1, providerCalls.get());
+	}
+
+	@Test
+	void T4_미확정_비용예약은_동시성_TTL_후에도_당월한도에_남고_다음_KST_월에_초기화된다() {
+		ledger = new RedisAiQuotaLedger(redis, event -> {}, Duration.ofMillis(25));
+		AiQuotaReservation uncertain = ledger.reserve("month-end-uncertain-user", JANUARY_31_KST,
+			new BigDecimal("5.00"));
+		assertEquals(AiQuotaReservationStatus.ACQUIRED, uncertain.status());
+
+		awaitActiveTtl();
+		AiQuotaReservation afterActiveTtl = ledger.reserve("month-end-uncertain-user", JANUARY_31_KST,
+			BigDecimal.ZERO);
+		assertEquals(AiQuotaReservationStatus.ACQUIRED, afterActiveTtl.status());
+
+		assertEquals(AiQuotaReservationStatus.COST_CAP_REACHED,
+			ledger.reserve("month-end-next-user", JANUARY_31_KST, new BigDecimal("0.01")).status());
+
+		Instant februaryStartKst = YearMonth.of(2026, 2).atDay(1).atStartOfDay(KST).toInstant();
+		assertEquals(AiQuotaReservationStatus.ACQUIRED,
+			ledger.reserve("month-end-next-user", februaryStartKst, new BigDecimal("0.01")).status());
+	}
+
+	@Test
+	void T5_기존_cent_누적과_새_micro_예약을_중복계산하지_않고_상한에_반영한다() {
+		String legacyCostKey = "albam:ai:quota:v1:{v1}:cost:2026-01";
+		redis.opsForValue().set(legacyCostKey, "499");
+
+		AiQuotaReservation lastCent = ledger.reserve("migration-user", JANUARY_31_KST, new BigDecimal("0.01"));
+
+		assertEquals(AiQuotaReservationStatus.ACQUIRED, lastCent.status());
+		assertEquals("500", redis.opsForValue().get(legacyCostKey));
+		assertEquals("1", redis.opsForValue().get("albam:ai:quota:v1:{v1}:cost-compat-shadow:2026-01"));
+		assertEquals("10000", redis.opsForValue().get("albam:ai:quota:v1:{v1}:cost-micros:2026-01"));
+		assertEquals(AiQuotaReservationStatus.COST_CAP_REACHED,
+			ledger.reserve("over-cap-user", JANUARY_31_KST, new BigDecimal("0.000001")).status());
 	}
 
 	@Test
@@ -205,7 +314,7 @@ class AiQuotaRedisPostgresTest {
 	private AiProviderSettings zeroCostFakeSettings() {
 		return new AiProviderSettings(
 			"fake", true, true, true, true, "", "", "gpt-5.6-luna", Duration.ofSeconds(10), 0, false,
-			"TEST-PRICING-V1", BigDecimal.ONE, BigDecimal.ONE, 4096, 256, BigDecimal.ZERO, "unverified");
+			"TEST-PRICING-V1", BigDecimal.ONE, BigDecimal.ONE, 4096, 256, "unverified");
 	}
 
 	private AiQuotaReservation reserveWhenStarted(
@@ -222,15 +331,22 @@ class AiQuotaRedisPostgresTest {
 		return quotaLedger.reserve("concurrent-user", JANUARY_31_KST, BigDecimal.ZERO);
 	}
 
-	private void awaitCostCents(String expectedCostCents) {
-		String costKey = "albam:ai:quota:v1:{v1}:cost:2026-01";
+	private void awaitCostMicros(String expectedCostMicros) {
+		String costKey = "albam:ai:quota:v1:{v1}:cost-micros:2026-01";
 		for (int attempt = 0; attempt < 30; attempt++) {
-			if (expectedCostCents.equals(redis.opsForValue().get(costKey))) {
+			if (expectedCostMicros.equals(redis.opsForValue().get(costKey))) {
 				return;
 			}
 			awaitActiveTtl();
 		}
-		assertEquals(expectedCostCents, redis.opsForValue().get(costKey));
+		assertEquals(expectedCostMicros, redis.opsForValue().get(costKey));
+	}
+
+	private AiProviderSettings expensiveFakeSettings() {
+		return new AiProviderSettings(
+			"fake", true, true, true, true, "", "", "gpt-5.6-luna", Duration.ofSeconds(10), 0, false,
+			"TEST-PRICING-V1", new BigDecimal("2.00"), BigDecimal.ONE, new BigDecimal("0.50"),
+			new BigDecimal("2.00"), 1_000_000, 1, "unverified");
 	}
 
 	private void awaitActiveTtl() {

@@ -71,7 +71,7 @@ public final class AiProviderIntentExtractor implements AssistantIntentExtractor
 		}
 		Instant startedAt = clock.instant();
 		AiQuotaReservation reservation = quotaLedger.reserve(
-			request.quotaSubject(), startedAt, settings.reservationCostUsd());
+			request.quotaSubject(), startedAt, settings.maximumCostUsd());
 		if (reservation.status() != AiQuotaReservationStatus.ACQUIRED) {
 			return failure(statusFor(reservation.status()));
 		}
@@ -87,9 +87,20 @@ public final class AiProviderIntentExtractor implements AssistantIntentExtractor
 		} catch (RuntimeException exception) {
 			response = AiProviderResponse.failure(AiProviderFailure.SERVICE_UNAVAILABLE);
 		}
-		BigDecimal chargedCostUsd = reservation.reservedCostUsd();
+		if (!response.succeeded() && !response.usageAvailable()) {
+			if (!response.confirmedUnprocessed()) {
+				return failure(statusFor(response.failure()));
+			}
+			if (releaseOnce(reservation) != AiQuotaCompletionStatus.COMPLETED) {
+				return failure(AssistantIntentStatus.SERVICE_UNAVAILABLE);
+			}
+			return failure(statusFor(response.failure()));
+		}
+		BigDecimal chargedCostUsd = response.usageAvailable()
+			? AiTokenCostCalculator.normalize(response.costUsd())
+			: reservation.reservedCostUsd();
 		AssistantIntentExtraction result = response.succeeded()
-			? success(response, startedAt)
+			? success(response, startedAt, chargedCostUsd)
 			: failure(statusFor(response.failure()), response, startedAt, chargedCostUsd);
 		AiQuotaCompletionStatus completionStatus = completeOnce(reservation, chargedCostUsd);
 		if (completionStatus != AiQuotaCompletionStatus.COMPLETED) {
@@ -112,8 +123,16 @@ public final class AiProviderIntentExtractor implements AssistantIntentExtractor
 		}
 	}
 
-	private AssistantIntentExtraction success(AiProviderResponse response, Instant startedAt) {
-		AssistantUsageEvent usage = usage(response, "SUCCESS", startedAt, response.costUsd());
+	private AiQuotaCompletionStatus releaseOnce(AiQuotaReservation reservation) {
+		try {
+			return quotaLedger.release(reservation);
+		} catch (RuntimeException exception) {
+			return AiQuotaCompletionStatus.UNAVAILABLE;
+		}
+	}
+
+	private AssistantIntentExtraction success(AiProviderResponse response, Instant startedAt, BigDecimal costUsd) {
+		AssistantUsageEvent usage = usage(response, "SUCCESS", startedAt, costUsd);
 		return new AssistantIntentExtraction(AssistantIntentStatus.SUCCESS,
 			new AssistantIntentProposal(
 				response.action(), response.categories(), response.mechanisms(), response.themes(),

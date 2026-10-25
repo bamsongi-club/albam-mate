@@ -13,6 +13,10 @@ interface AiQuotaLedger {
 
 	AiQuotaCompletionStatus complete(AiQuotaReservation reservation, BigDecimal costUsd);
 
+	default AiQuotaCompletionStatus release(AiQuotaReservation reservation) {
+		return AiQuotaCompletionStatus.UNAVAILABLE;
+	}
+
 	default void scheduleCompletionRetry(AiQuotaReservation reservation, BigDecimal costUsd) {
 		// Redis 장애 시 공유 ledger가 복구 후 재조정한다. fake ledger에는 별도 작업이 없다.
 	}

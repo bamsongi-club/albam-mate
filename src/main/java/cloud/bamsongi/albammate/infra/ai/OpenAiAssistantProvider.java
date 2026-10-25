@@ -115,21 +115,35 @@ final class OpenAiAssistantProvider implements AiProviderClient {
 
 	@Override
 	public AiProviderResponse propose(AiProviderPayload request) {
+		int inputTokens = 0;
+		int outputTokens = 0;
+		Integer cachedInputTokens = null;
+		Integer cacheWriteInputTokens = null;
+		boolean usageAvailable = false;
+		BigDecimal costUsd = BigDecimal.ZERO;
 		try {
 			ChatResponse response = chatModel.call(promptFor(request));
-			Usage usage = response.getMetadata().getUsage();
-			int inputTokens = tokenCount(usage == null ? null : usage.getPromptTokens());
-			int outputTokens = tokenCount(usage == null ? null : usage.getCompletionTokens());
+			Usage usage = response.getMetadata() == null ? null : response.getMetadata().getUsage();
+			usageAvailable = hasUsableUsage(usage);
+			inputTokens = tokenCount(usage == null ? null : usage.getPromptTokens());
+			outputTokens = tokenCount(usage == null ? null : usage.getCompletionTokens());
+			cachedInputTokens = optionalTokenCount(usage == null ? null : usage.getCacheReadInputTokens());
+			cacheWriteInputTokens = optionalTokenCount(usage == null ? null : usage.getCacheWriteInputTokens());
+			if (usageAvailable) {
+				costUsd = costEstimate(inputTokens, cachedInputTokens, cacheWriteInputTokens, outputTokens);
+			}
 			Generation generation = response.getResult();
 			String arguments = toolArguments(generation);
 			if (arguments == null) {
-				return AiProviderResponse.failure(AiProviderFailure.INVALID_SCHEMA);
+				return AiProviderResponse.failure(AiProviderFailure.INVALID_SCHEMA, inputTokens, outputTokens,
+					costUsd, usageAvailable);
 			}
 			JsonNode output = objectMapper.readTree(arguments);
 			String action;
 			if (!isValidOutput(output)) {
 				if (!isSearchConditionFreeRecommendation(output)) {
-					return AiProviderResponse.failure(AiProviderFailure.INVALID_SCHEMA);
+					return AiProviderResponse.failure(AiProviderFailure.INVALID_SCHEMA, inputTokens, outputTokens,
+						costUsd, usageAvailable);
 				}
 				// 검색 조건이 없는데 RECOMMEND를 선택한 모델 응답은 후보 조회를 허용하지 않고 되묻기로 정규화한다.
 				action = "NEEDS_INPUT";
@@ -146,13 +160,16 @@ final class OpenAiAssistantProvider implements AiProviderClient {
 				integerOrNull(output.get("playerCount")),
 				inputTokens,
 				outputTokens,
-				costEstimate(inputTokens, outputTokens));
+				costUsd,
+				usageAvailable);
 		} catch (JacksonException exception) {
 			log.warn("assistant provider returned an unparseable tool payload", exception);
-			return AiProviderResponse.failure(AiProviderFailure.INVALID_SCHEMA);
+			return AiProviderResponse.failure(AiProviderFailure.INVALID_SCHEMA, inputTokens, outputTokens,
+				costUsd, usageAvailable);
 		} catch (RuntimeException exception) {
 			log.warn("assistant provider call failed", exception);
-			return AiProviderResponse.failure(failureFor(exception));
+			return AiProviderResponse.failure(failureFor(exception), inputTokens, outputTokens,
+				costUsd, usageAvailable, confirmedUnprocessed(exception));
 		}
 	}
 
@@ -313,16 +330,47 @@ final class OpenAiAssistantProvider implements AiProviderClient {
 		return tokens == null || tokens < 0 ? 0 : tokens;
 	}
 
-	private BigDecimal costEstimate(int inputTokens, int outputTokens) {
-		return settings.reservationCostUsd();
+	private BigDecimal costEstimate(
+		int inputTokens, Integer cachedInputTokens, Integer cacheWriteInputTokens, int outputTokens) {
+		return AiTokenCostCalculator.estimate(inputTokens, cachedInputTokens, cacheWriteInputTokens, outputTokens,
+			settings.inputTokenPriceUsdPerMillion(), settings.outputTokenPriceUsdPerMillion(),
+			settings.cachedInputTokenPriceUsdPerMillion(), settings.cacheWriteInputTokenPriceUsdPerMillion());
+	}
+
+	private boolean hasUsableUsage(Usage usage) {
+		if (usage == null || usage.getPromptTokens() == null || usage.getPromptTokens() < 0
+			|| usage.getCompletionTokens() == null || usage.getCompletionTokens() < 0
+			|| !isValidOptionalTokenCount(usage.getCacheReadInputTokens())
+			|| !isValidOptionalTokenCount(usage.getCacheWriteInputTokens())) {
+			return false;
+		}
+		long cachedInputTokens = valueOrZero(usage.getCacheReadInputTokens());
+		long cacheWriteInputTokens = valueOrZero(usage.getCacheWriteInputTokens());
+		return cachedInputTokens + cacheWriteInputTokens <= usage.getPromptTokens()
+			&& usage.getCompletionTokens() != null && usage.getCompletionTokens() >= 0
+			&& (usage.getPromptTokens() > 0 || usage.getCompletionTokens() > 0);
+	}
+
+	private Integer optionalTokenCount(Long tokens) {
+		return tokens == null ? null : tokens.intValue();
+	}
+
+	private boolean isValidOptionalTokenCount(Long tokens) {
+		return tokens == null || (tokens >= 0 && tokens <= Integer.MAX_VALUE);
+	}
+
+	private long valueOrZero(Long tokens) {
+		return tokens == null ? 0L : tokens;
 	}
 
 	private AiProviderFailure failureFor(Throwable exception) {
 		for (Throwable current = exception; current != null; current = current.getCause()) {
 			if (current instanceof OpenAIServiceException serviceException) {
-				return serviceException.statusCode() == 429
-					? AiProviderFailure.RATE_LIMITED
-					: AiProviderFailure.SERVICE_UNAVAILABLE;
+				return switch (serviceException.statusCode()) {
+					case 413 -> AiProviderFailure.INPUT_TOO_LARGE;
+					case 429 -> AiProviderFailure.RATE_LIMITED;
+					default -> AiProviderFailure.SERVICE_UNAVAILABLE;
+				};
 			}
 			String type = current.getClass().getName().toLowerCase(Locale.ROOT);
 			String message = String.valueOf(current.getMessage()).toLowerCase(Locale.ROOT);
@@ -334,5 +382,17 @@ final class OpenAiAssistantProvider implements AiProviderClient {
 			}
 		}
 		return AiProviderFailure.SERVICE_UNAVAILABLE;
+	}
+
+	private boolean confirmedUnprocessed(Throwable exception) {
+		for (Throwable current = exception; current != null; current = current.getCause()) {
+			if (current instanceof OpenAIServiceException serviceException) {
+				return switch (serviceException.statusCode()) {
+					case 400, 401, 403, 404, 413, 422, 429 -> true;
+					default -> false;
+				};
+			}
+		}
+		return false;
 	}
 }

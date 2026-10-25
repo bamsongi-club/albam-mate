@@ -47,10 +47,10 @@ class AiQuotaPolicyTest {
 	}
 
 	@Test
-	void T1_InMemory는_KST_일_10_월_150_동시_1회와_경계를_동일하게_적용한다() {
+	void T1_InMemory는_KST_일_5_월_150_동시_1회와_경계를_동일하게_적용한다() {
 		InMemoryAiQuotaLedger ledger = new InMemoryAiQuotaLedger(event -> {});
 		Instant beforeMidnight = Instant.parse("2026-01-31T14:59:00Z");
-		for (int index = 0; index < 10; index++) {
+		for (int index = 0; index < 5; index++) {
 			AiQuotaReservation reservation = ledger.reserve("user-a", beforeMidnight, BigDecimal.ZERO);
 			assertEquals(AiQuotaReservationStatus.ACQUIRED, reservation.status());
 			assertEquals(AiQuotaCompletionStatus.COMPLETED, ledger.complete(reservation, BigDecimal.ZERO));
@@ -68,23 +68,22 @@ class AiQuotaPolicyTest {
 
 		InMemoryAiQuotaLedger monthlyLedger = new InMemoryAiQuotaLedger(event -> {});
 		for (int index = 0; index < 150; index++) {
-			Instant day = Instant.parse("2026-01-01T00:00:00Z").plusSeconds((index / 10) * 86_400L);
+			Instant day = Instant.parse("2026-01-01T00:00:00Z").plusSeconds((index / 5) * 86_400L);
 			AiQuotaReservation reservation = monthlyLedger.reserve("monthly-user", day, BigDecimal.ZERO);
 			assertEquals(AiQuotaReservationStatus.ACQUIRED, reservation.status());
 			assertEquals(AiQuotaCompletionStatus.COMPLETED, monthlyLedger.complete(reservation, BigDecimal.ZERO));
 		}
 		assertEquals(AiQuotaReservationStatus.USER_LIMIT_REACHED,
-			monthlyLedger.reserve("monthly-user", Instant.parse("2026-01-30T00:00:00Z"), BigDecimal.ZERO).status());
+			monthlyLedger.reserve("monthly-user", Instant.parse("2026-01-31T00:00:00Z"), BigDecimal.ZERO).status());
 	}
 
 	@Test
-	void T3_월_40번째_고정_예약에서_한번만_경고하고_50까지_허용한_뒤_51번째를_차단한다() {
+	void T2_월_최대_비용_예약은_40번째에_한번_경고하고_5달러에서_초과_예약을_차단한다() {
 		AtomicInteger warnings = new AtomicInteger();
 		InMemoryAiQuotaLedger ledger = new InMemoryAiQuotaLedger(event -> warnings.incrementAndGet());
 		for (int index = 1; index <= 50; index++) {
 			AiQuotaReservation reservation = ledger.reserve("user-" + index, JANUARY_31_KST, new BigDecimal("0.10"));
 			assertEquals(AiQuotaReservationStatus.ACQUIRED, reservation.status());
-			assertEquals(AiQuotaCompletionStatus.COMPLETED, ledger.complete(reservation, new BigDecimal("0.20")));
 			assertEquals(index >= 40 ? 1 : 0, warnings.get());
 		}
 		assertEquals(1, warnings.get());
@@ -93,7 +92,7 @@ class AiQuotaPolicyTest {
 	}
 
 	@Test
-	void T3_경고_sink_실패에도_예약과_completion을_성공으로_반환한다() {
+	void T2_경고_sink_실패에도_예약과_completion을_성공으로_반환한다() {
 		InMemoryAiQuotaLedger reserveWarningLedger = new InMemoryAiQuotaLedger(event -> {
 			throw new IllegalStateException("warning delivery unavailable");
 		});
@@ -117,31 +116,33 @@ class AiQuotaPolicyTest {
 	}
 
 	@Test
-	void T2_provider_실패도_고정_예약을_소비하고_completion은_응답비용으로_재정산하지_않는다() {
+	void T4_usage가_불명확한_provider_실패는_slot을_보류하고_completion_정산은_멱등으로_유지한다() {
 		InMemoryAiQuotaLedger ledger = new InMemoryAiQuotaLedger(event -> {});
 		AiProviderIntentExtractor extractor = new AiProviderIntentExtractor(
 			request -> AiProviderResponse.failure(AiProviderFailure.TIMEOUT), ledger, event -> {},
 			AiProviderSettings.fakeDefaults(), java.time.Clock.fixed(JANUARY_31_KST, ZoneOffset.UTC));
-		for (int index = 0; index < 10; index++) {
-			assertEquals(AssistantIntentStatus.PROVIDER_TIMEOUT,
-				extractor.extract(AssistantIntentRequest.forUser("user-a", "전략 게임 추천", List.of())).status());
-		}
+		assertEquals(AssistantIntentStatus.PROVIDER_TIMEOUT,
+			extractor.extract(AssistantIntentRequest.forUser("user-a", "전략 게임 추천", List.of())).status());
 		assertEquals(AssistantIntentStatus.QUOTA_EXCEEDED,
 			extractor.extract(AssistantIntentRequest.forUser("user-a", "전략 게임 추천", List.of())).status());
 
-		InMemoryAiQuotaLedger fixedCostLedger = new InMemoryAiQuotaLedger(event -> {});
-		AiQuotaReservation reservation = fixedCostLedger.reserve("user-b", JANUARY_31_KST, new BigDecimal("0.10"));
-		assertEquals(AiQuotaCompletionStatus.COMPLETED, fixedCostLedger.complete(reservation, new BigDecimal("0.20")));
-		assertEquals(AiQuotaCompletionStatus.COMPLETED, fixedCostLedger.complete(reservation, new BigDecimal("0.20")));
-		for (int index = 0; index < 49; index++) {
-			AiQuotaReservation fixedReservation = fixedCostLedger.reserve(
-				"fixed-cost-" + index, JANUARY_31_KST, new BigDecimal("0.10"));
-			assertEquals(AiQuotaReservationStatus.ACQUIRED, fixedReservation.status());
-			assertEquals(AiQuotaCompletionStatus.COMPLETED,
-				fixedCostLedger.complete(fixedReservation, new BigDecimal("0.01")));
-		}
+		InMemoryAiQuotaLedger settlementLedger = new InMemoryAiQuotaLedger(event -> {});
+		AiQuotaReservation reservation = settlementLedger.reserve("user-b", JANUARY_31_KST, new BigDecimal("4.90"));
+		assertEquals(AiQuotaCompletionStatus.COMPLETED, settlementLedger.complete(reservation, new BigDecimal("0.01")));
+		assertEquals(AiQuotaCompletionStatus.COMPLETED, settlementLedger.complete(reservation, new BigDecimal("0.01")));
+		AiQuotaReservation afterRelease = settlementLedger.reserve(
+			"user-c", JANUARY_31_KST, new BigDecimal("4.99"));
+		assertEquals(AiQuotaReservationStatus.ACQUIRED, afterRelease.status());
+		assertEquals(AiQuotaCompletionStatus.COMPLETED,
+			settlementLedger.complete(afterRelease, new BigDecimal("0.01")));
+
+		InMemoryAiQuotaLedger overrunLedger = new InMemoryAiQuotaLedger(event -> {});
+		AiQuotaReservation overrunReservation = overrunLedger.reserve(
+			"user-d", JANUARY_31_KST, new BigDecimal("4.99"));
+		assertEquals(AiQuotaCompletionStatus.COMPLETED,
+			overrunLedger.complete(overrunReservation, new BigDecimal("5.01")));
 		assertEquals(AiQuotaReservationStatus.COST_CAP_REACHED,
-			fixedCostLedger.reserve("fixed-cost-51", JANUARY_31_KST, new BigDecimal("0.10")).status());
+			overrunLedger.reserve("user-e", JANUARY_31_KST, BigDecimal.ZERO).status());
 		assertTrue(reservation.reservationToken().length() > 10);
 		assertFalse(reservation.quotaSubject().isBlank());
 	}

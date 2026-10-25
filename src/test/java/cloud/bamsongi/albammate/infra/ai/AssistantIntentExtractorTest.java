@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.Test;
 
@@ -183,7 +184,7 @@ class AssistantIntentExtractorTest {
 	}
 
 	@Test
-	void T3_provider_예외도_active_reservation을_남기지_않는다() {
+	void T4_usage가_불명확한_provider_예외는_reservation과_호출_slot을_보류한다() {
 		PermittingAiQuotaLedger quotaLedger = new PermittingAiQuotaLedger();
 		AiProviderClient throwingProvider = request -> {
 			throw new IllegalStateException("provider timeout");
@@ -193,7 +194,7 @@ class AssistantIntentExtractorTest {
 			.extract(request());
 
 		assertEquals(AssistantIntentStatus.SERVICE_UNAVAILABLE, failed.status());
-		assertEquals(0, quotaLedger.activeSubjectCount());
+		assertEquals(1, quotaLedger.activeSubjectCount());
 
 		AssistantIntentExtraction retryAfterException = new AiProviderIntentExtractor(
 			new DeterministicFakeAssistantProvider(),
@@ -201,34 +202,69 @@ class AssistantIntentExtractorTest {
 			new RecordingUsageEventSink(),
 			AiProviderSettings.fakeDefaults(),
 			CLOCK).extract(request());
-		assertEquals(AssistantIntentStatus.SUCCESS, retryAfterException.status());
+		assertEquals(AssistantIntentStatus.QUOTA_EXCEEDED, retryAfterException.status());
 	}
 
 	@Test
-	void T4_구조화_provider_결과도_기존_고정_USD_0_10_quota_completion을_유지한다() {
+	void T4_확인된_미처리_실패는_최대비용과_일일호출을_반환한다() {
+		InMemoryAiQuotaLedger quotaLedger = new InMemoryAiQuotaLedger(event -> {});
+		AtomicInteger providerCalls = new AtomicInteger();
+		AiProviderClient provider = payload -> {
+			if (providerCalls.incrementAndGet() <= 5) {
+				return AiProviderResponse.failureBeforeProcessing(AiProviderFailure.SERVICE_UNAVAILABLE);
+			}
+			return AiProviderResponse.success("RECOMMEND", List.of("STRATEGY"), 1, 1,
+				new BigDecimal("0.000003"));
+		};
+		AiProviderSettings expensiveReservation = new AiProviderSettings(
+			"local-openai", true, true, true, true, "AI-02-POLICY-V1", "https://example.test/ai-policy",
+			"gpt-5.6-luna", Duration.ofSeconds(10), 0, false, "TEST-PRICING-V1",
+			new BigDecimal("2.00"), BigDecimal.ONE, new BigDecimal("0.50"), new BigDecimal("2.00"),
+			1_000_000, 1, "zero-data-retention");
+		RecordingUsageEventSink usageEvents = new RecordingUsageEventSink();
+		AiProviderIntentExtractor extractor = new AiProviderIntentExtractor(
+			provider, quotaLedger, usageEvents, expensiveReservation, CLOCK);
+
+		for (int index = 0; index < 5; index++) {
+			assertEquals(AssistantIntentStatus.SERVICE_UNAVAILABLE, extractor.extract(request()).status());
+		}
+		assertEquals(AssistantIntentStatus.SUCCESS, extractor.extract(request()).status());
+		assertEquals(6, providerCalls.get());
+		assertEquals(1, usageEvents.events().size());
+	}
+
+	@Test
+	void T4_usage가_있는_실패만_정산하고_usage불명확한_실패는_reservation과_slot을_보류한다() {
 		RecordingQuotaLedger quotaLedger = new RecordingQuotaLedger();
+		int fixtureIndex = 0;
 		for (ProviderResponseFixture fixture : List.of(
 			new ProviderResponseFixture(
 				AiProviderResponse.success("RECOMMEND", List.of("STRATEGY"), List.of("WORKER_PLACEMENT"),
 					List.of("HORROR"), new BigDecimal("3.00"), "OVER_20_TO_30", 4, 10, 5,
-					new BigDecimal("0.01")),
+					new BigDecimal("0.000015")),
 				AssistantIntentStatus.SUCCESS),
+			new ProviderResponseFixture(
+				AiProviderResponse.failure(AiProviderFailure.TIMEOUT, 20, 5, new BigDecimal("0.000025")),
+				AssistantIntentStatus.PROVIDER_TIMEOUT),
 			new ProviderResponseFixture(AiProviderResponse.failure(AiProviderFailure.TIMEOUT),
 				AssistantIntentStatus.PROVIDER_TIMEOUT),
 			new ProviderResponseFixture(AiProviderResponse.failure(AiProviderFailure.RATE_LIMITED),
 				AssistantIntentStatus.PROVIDER_RATE_LIMITED),
 			new ProviderResponseFixture(AiProviderResponse.failure(AiProviderFailure.INVALID_SCHEMA),
 				AssistantIntentStatus.INVALID_PROVIDER_SCHEMA))) {
+			AssistantIntentRequest fixtureRequest = AssistantIntentRequest.forUser(
+				"quota-subject-fixture-" + fixtureIndex++, "주말 보드게임 추천", List.of());
 			AssistantIntentExtraction result = new AiProviderIntentExtractor(request -> fixture.response(), quotaLedger,
-				new RecordingUsageEventSink(), externalProviderSettings(), CLOCK).extract(request());
+				new RecordingUsageEventSink(), externalProviderSettings(), CLOCK).extract(fixtureRequest);
 			assertEquals(fixture.expectedStatus(), result.status());
 			if (fixture.expectedStatus() == AssistantIntentStatus.SUCCESS) {
 				assertEquals(List.of("HORROR"), result.proposal().themes());
 				assertEquals(4, result.proposal().playerCount());
 			}
 		}
-		assertEquals(List.of(new BigDecimal("0.10"), new BigDecimal("0.10"), new BigDecimal("0.10"),
-			new BigDecimal("0.10")), quotaLedger.completedCosts());
+		assertEquals(List.of(new BigDecimal("0.000015"), new BigDecimal("0.000025")), quotaLedger.completedCosts());
+		assertEquals(3, quotaLedger.activeSubjectCount());
+		assertEquals(5, quotaLedger.reserveCalls());
 	}
 
 	@Test
@@ -258,22 +294,31 @@ class AssistantIntentExtractorTest {
 	}
 
 	@Test
-	void T3_51번째_비용초과는_provider를_호출하지_않고_cost_cap_status로_반환한다() {
+	void T2_51번째_비용초과는_provider를_호출하지_않고_cost_cap_status로_반환한다() {
 		CompletionRecordingAiQuotaLedger quotaLedger = new CompletionRecordingAiQuotaLedger();
-		CapturingAssistantProvider provider = new CapturingAssistantProvider();
+		java.util.concurrent.atomic.AtomicInteger providerCalls = new java.util.concurrent.atomic.AtomicInteger();
+		AiProviderClient provider = request -> {
+			providerCalls.incrementAndGet();
+			return AiProviderResponse.success("RECOMMEND", List.of("STRATEGY"), 100_000, 100_000,
+				new BigDecimal("0.10"));
+		};
 		RecordingUsageEventSink usageEvents = new RecordingUsageEventSink();
+		AiProviderSettings costCapSettings = new AiProviderSettings(
+			"local-openai", true, true, true, true, "AI-02-POLICY-V1", "https://example.test/ai-policy",
+			"gpt-5.6-luna", Duration.ofSeconds(10), 0, false, "TEST-PRICING-V1", new BigDecimal("0.50"),
+			new BigDecimal("0.50"), 100_000, 100_000, "zero-data-retention");
 		AssistantIntentExtractor extractor = new AiProviderIntentExtractor(provider, quotaLedger,
-			usageEvents, externalProviderSettings(), CLOCK);
+			usageEvents, costCapSettings, CLOCK);
 		for (int index = 1; index <= 50; index++) {
 			assertEquals(AssistantIntentStatus.SUCCESS, extractor.extract(AssistantIntentRequest.forUser(
 				"cost-user-" + index, "추천", List.of())).status());
 		}
-		assertEquals(50, provider.calls());
+		assertEquals(50, providerCalls.get());
 		assertEquals(50, usageEvents.events().size());
 		assertEquals(50, quotaLedger.completionCalls());
 		assertEquals(AssistantIntentStatus.COST_CAP_REACHED,
 			extractor.extract(AssistantIntentRequest.forUser("cost-user-51", "추천", List.of())).status());
-		assertEquals(50, provider.calls());
+		assertEquals(50, providerCalls.get());
 		assertEquals(50, usageEvents.events().size());
 		assertEquals(50, quotaLedger.completionCalls());
 	}
@@ -300,7 +345,7 @@ class AssistantIntentExtractorTest {
 		return new AiProviderSettings(
 			"local-openai", true, true, true, true, "AI-02-POLICY-V1", "https://example.test/ai-policy",
 			"gpt-5.6-luna", Duration.ofSeconds(10), 0, false, "TEST-PRICING-V1", new BigDecimal("1.00"),
-			new BigDecimal("1.00"), 4096, 256, new BigDecimal("0.10"), "zero-data-retention");
+			new BigDecimal("1.00"), 4096, 256, "zero-data-retention");
 	}
 
 	private static final class CapturingAssistantProvider implements AiProviderClient {
